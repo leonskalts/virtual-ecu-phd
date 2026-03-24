@@ -1,22 +1,126 @@
 #include "safety_monitor.h"
 
+#include "config.h"
+#include "diagnostics.h"
+
+/* Safety monitor: applies an explicit state-transition policy so experiments can
+ * analyze when the ECU escalates from nominal control to protective action. */
+static safe_state_t max_state(safe_state_t left, safe_state_t right)
+{
+    return (left > right) ? left : right;
+}
+
+static safe_state_t requested_state_from_diagnostics(const ecu_state_t *state)
+{
+    safe_state_t requested = SAFE_STATE_NORMAL;
+
+    if (state->diagnostics.overtemp_warning ||
+        state->diagnostics.pump_tracking_dtc.pending ||
+        state->diagnostics.fan_tracking_dtc.pending) {
+        requested = SAFE_STATE_PRECAUTIONARY_COOLING;
+    }
+
+    if (state->diagnostics.overtemp_critical ||
+        state->diagnostics.cooling_performance_dtc.confirmed ||
+        state->diagnostics.pump_tracking_dtc.confirmed ||
+        state->diagnostics.fan_tracking_dtc.confirmed) {
+        requested = max_state(requested, SAFE_STATE_LIMP_HOME);
+    }
+
+    if (state->diagnostics.overtemp_critical_dtc.confirmed &&
+        state->plant.coolant_temp_true_c >= ECU_SHUTDOWN_COOLANT_TEMP_C &&
+        diagnostics_dtc_class(&state->diagnostics.overtemp_critical_dtc) >= DIAG_CLASS_PERSISTENT) {
+        requested = SAFE_STATE_CONTROLLED_SHUTDOWN;
+    }
+
+    if (state->diagnostics.coolant_sensor_dtc.pending &&
+        !state->diagnostics.overtemp_warning &&
+        !state->diagnostics.overtemp_critical &&
+        !state->diagnostics.cooling_performance_dtc.pending &&
+        !state->diagnostics.pump_tracking_dtc.pending &&
+        !state->diagnostics.fan_tracking_dtc.pending) {
+        requested = SAFE_STATE_NORMAL;
+    }
+
+    return requested;
+}
+
+const char *safety_monitor_state_label(safe_state_t state)
+{
+    switch (state) {
+    case SAFE_STATE_PRECAUTIONARY_COOLING:
+        return "precautionary_cooling";
+    case SAFE_STATE_LIMP_HOME:
+        return "limp_home";
+    case SAFE_STATE_CONTROLLED_SHUTDOWN:
+        return "controlled_shutdown";
+    case SAFE_STATE_NORMAL:
+    default:
+        return "normal";
+    }
+}
+
 void safety_monitor_init(ecu_state_t *state)
 {
-    state->safety.limp_home_active = false;
-    state->safety.emergency_cooling_active = false;
+    state->safety.current_state = SAFE_STATE_NORMAL;
+    state->safety.requested_state = SAFE_STATE_NORMAL;
+    state->safety.recovery_counter = 0U;
+    state->safety.transition_count = 0U;
+    state->safety.max_cooling_active = false;
+    state->safety.torque_derate_active = false;
+    state->safety.shutdown_requested = false;
+    state->safety.load_limit_scale = 1.0f;
 }
 
 void safety_monitor_step(ecu_state_t *state)
 {
-    state->safety.limp_home_active =
-        state->diagnostics.overtemp_critical ||
-        state->diagnostics.cooling_performance_low;
+    safe_state_t requested = requested_state_from_diagnostics(state);
 
-    state->safety.emergency_cooling_active =
-        state->diagnostics.overtemp_warning ||
-        state->diagnostics.actuator_fault;
+    state->safety.requested_state = requested;
 
-    if (state->safety.emergency_cooling_active) {
+    if (requested > state->safety.current_state) {
+        state->safety.current_state = requested;
+        state->safety.recovery_counter = 0U;
+        state->safety.transition_count++;
+    } else if (requested < state->safety.current_state) {
+        state->safety.recovery_counter++;
+
+        if (state->safety.recovery_counter >= ECU_SAFE_STATE_RECOVERY_COUNT) {
+            state->safety.current_state = requested;
+            state->safety.recovery_counter = 0U;
+            state->safety.transition_count++;
+        }
+    } else {
+        state->safety.recovery_counter = 0U;
+    }
+
+    state->safety.max_cooling_active = false;
+    state->safety.torque_derate_active = false;
+    state->safety.shutdown_requested = false;
+    state->safety.load_limit_scale = 1.0f;
+
+    switch (state->safety.current_state) {
+    case SAFE_STATE_PRECAUTIONARY_COOLING:
+        state->safety.max_cooling_active = true;
+        state->safety.load_limit_scale = ECU_PRECAUTIONARY_LOAD_SCALE;
+        break;
+    case SAFE_STATE_LIMP_HOME:
+        state->safety.max_cooling_active = true;
+        state->safety.torque_derate_active = true;
+        state->safety.load_limit_scale = ECU_LIMP_HOME_LOAD_SCALE;
+        break;
+    case SAFE_STATE_CONTROLLED_SHUTDOWN:
+        state->safety.max_cooling_active = true;
+        state->safety.torque_derate_active = true;
+        state->safety.shutdown_requested = true;
+        state->safety.load_limit_scale = ECU_CONTROLLED_SHUTDOWN_LOAD_SCALE;
+        break;
+    case SAFE_STATE_NORMAL:
+    default:
+        break;
+    }
+
+    if (state->safety.max_cooling_active) {
         state->control.pump_command = 1.0f;
         state->control.fan_command = 1.0f;
     }
