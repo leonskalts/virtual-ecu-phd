@@ -129,3 +129,31 @@ Each run produces:
 - a one-row summary CSV such as `logs/permanent_summary.csv`
 
 The executable writes `logs/thermal_run.csv` by default when no log path is provided.
+
+## Paper Tables and Figures
+
+Generate the main paper tables and figures from the current campaign logs:
+
+```sh
+python3 scripts/generate_paper_results.py
+```
+
+This writes the following outputs to `results/`:
+
+- `table_1_campaign_definition.csv`
+- `table_2_cross_campaign_results.csv`
+- `figure_1_coolant_temperature_vs_time.png`
+- `figure_2_safe_state_timeline.png`
+- `figure_3_fan_command_vs_actual.png`
+
+If needed, generate or refresh the required campaign logs first:
+
+```sh
+./virtual_ecu logs/baseline.csv baseline
+./virtual_ecu logs/transient.csv sensor_bias_only
+./virtual_ecu logs/permanent.csv fan_stuck_only
+./virtual_ecu logs/permanent_stress.csv fan_stuck_hot_stress
+./virtual_ecu logs/paper_default.csv paper_default
+```
+
+The script uses Python 3 and Matplotlib, which are available on a typical WSL Python setup.

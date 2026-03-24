@@ -31,6 +31,21 @@ static const char *safe_state_label(safe_state_t state)
     return safety_monitor_state_label(state);
 }
 
+static void csv_write_text(FILE *stream, const char *text)
+{
+    const char *cursor = (text != NULL) ? text : "";
+
+    fputc('"', stream);
+    while (*cursor != '\0') {
+        if (*cursor == '"') {
+            fputc('"', stream);
+        }
+        fputc(*cursor, stream);
+        cursor++;
+    }
+    fputc('"', stream);
+}
+
 typedef struct {
     bool available;
     float max_coolant_temp_c;
@@ -44,8 +59,36 @@ typedef struct {
 
 static char *next_csv_field(char **cursor)
 {
-    char *field_start = *cursor;
     char *scan = *cursor;
+    char *field_start = *cursor;
+    char *write = *cursor;
+
+    if (*scan == '"') {
+        scan++;
+        field_start = write;
+
+        while (*scan != '\0') {
+            if (*scan == '"' && scan[1] == '"') {
+                *write++ = '"';
+                scan += 2;
+            } else if (*scan == '"') {
+                scan++;
+                break;
+            } else {
+                *write++ = *scan++;
+            }
+        }
+
+        *write = '\0';
+        while (*scan == '\r' || *scan == '\n') {
+            scan++;
+        }
+        if (*scan == ',') {
+            scan++;
+        }
+        *cursor = scan;
+        return field_start;
+    }
 
     while (*scan != '\0' && *scan != ',' && *scan != '\n' && *scan != '\r') {
         scan++;
@@ -294,10 +337,13 @@ int metrics_write_summary(const ecu_state_t *state, const char *log_path, char *
         "final_primary_dtc_id,final_primary_dtc_label\n"
     );
 
-    fprintf(summary_file, "%s", state->experiment.experiment_id);
-    fprintf(summary_file, ",%s", state->experiment.campaign_id);
-    fprintf(summary_file, ",%s", state->experiment.campaign_label);
-    fprintf(summary_file, ",%s", state->experiment.campaign_category);
+    csv_write_text(summary_file, state->experiment.experiment_id);
+    fputc(',', summary_file);
+    csv_write_text(summary_file, state->experiment.campaign_id);
+    fputc(',', summary_file);
+    csv_write_text(summary_file, state->experiment.campaign_label);
+    fputc(',', summary_file);
+    csv_write_text(summary_file, state->experiment.campaign_category);
     fprintf(summary_file, ",%u", state->experiment.event_count);
     fprintf(summary_file, ",%.2f", state->experiment.ambient_offset_c);
     fprintf(summary_file, ",%.3f", state->experiment.engine_load_scale);
@@ -307,10 +353,12 @@ int metrics_write_summary(const ecu_state_t *state, const char *log_path, char *
     fprintf(summary_file, ",%u", state->metrics.first_fault_start_ms);
     fprintf(summary_file, ",%d", state->metrics.detection_latency_ms);
     fprintf(summary_file, ",%d", (int)state->metrics.detection_dtc_id);
-    fprintf(summary_file, ",%s", diagnostics_dtc_label(state->metrics.detection_dtc_id));
+    fputc(',', summary_file);
+    csv_write_text(summary_file, diagnostics_dtc_label(state->metrics.detection_dtc_id));
     fprintf(summary_file, ",%d", state->metrics.safe_state_latency_ms);
     fprintf(summary_file, ",%d", (int)state->metrics.first_safe_state);
-    fprintf(summary_file, ",%s", safe_state_label(state->metrics.first_safe_state));
+    fputc(',', summary_file);
+    csv_write_text(summary_file, safe_state_label(state->metrics.first_safe_state));
     fprintf(summary_file, ",%.2f", max_coolant_temp_c);
     fprintf(summary_file, ",%u", safe_mode_duration_ms);
     fprintf(summary_file, ",%.6f", pump_mean_abs);
@@ -329,9 +377,12 @@ int metrics_write_summary(const ecu_state_t *state, const char *log_path, char *
     );
     fprintf(summary_file, ",%.2f", state->plant.coolant_temp_true_c);
     fprintf(summary_file, ",%d", (int)state->safety.current_state);
-    fprintf(summary_file, ",%s", safe_state_label(state->safety.current_state));
+    fputc(',', summary_file);
+    csv_write_text(summary_file, safe_state_label(state->safety.current_state));
     fprintf(summary_file, ",%d", (int)state->diagnostics.primary_dtc);
-    fprintf(summary_file, ",%s\n", diagnostics_dtc_label(state->diagnostics.primary_dtc));
+    fputc(',', summary_file);
+    csv_write_text(summary_file, diagnostics_dtc_label(state->diagnostics.primary_dtc));
+    fputc('\n', summary_file);
 
     fclose(summary_file);
     return 0;

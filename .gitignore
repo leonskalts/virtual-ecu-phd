@@ -1,3 +1,6 @@
 *.o
 virtual_ecu
 logs/*.csv
+results/*.csv
+results/*.png
+__pycache__/

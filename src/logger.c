@@ -10,6 +10,21 @@
 
 /* Logger module: emits analysis-oriented CSV rows with explicit experiment
  * metadata so campaign outputs can be compared directly across runs. */
+static void csv_write_text(FILE *stream, const char *text)
+{
+    const char *cursor = (text != NULL) ? text : "";
+
+    fputc('"', stream);
+    while (*cursor != '\0') {
+        if (*cursor == '"') {
+            fputc('"', stream);
+        }
+        fputc(*cursor, stream);
+        cursor++;
+    }
+    fputc('"', stream);
+}
+
 static const fault_event_t *event_or_null(const ecu_state_t *state, unsigned int index)
 {
     if (index >= state->experiment.event_count || index >= ECU_MAX_FAULT_EVENTS) {
@@ -42,13 +57,16 @@ static const dtc_status_t *primary_dtc_status(const ecu_state_t *state)
 
 static void write_campaign_event(FILE *stream, const fault_event_t *event)
 {
+    fprintf(stream, ",%d,", event != NULL ? (int)event->mode : (int)FAULT_NONE);
+    csv_write_text(stream, fault_injection_mode_label(event != NULL ? event->mode : FAULT_NONE));
+    fprintf(stream, ",%d,", event != NULL ? (int)event->behavior : (int)FAULT_BEHAVIOR_NONE);
+    csv_write_text(
+        stream,
+        fault_injection_behavior_label(event != NULL ? event->behavior : FAULT_BEHAVIOR_NONE)
+    );
     fprintf(
         stream,
-        ",%d,%s,%d,%s,%u,%u,%.3f",
-        event != NULL ? (int)event->mode : (int)FAULT_NONE,
-        fault_injection_mode_label(event != NULL ? event->mode : FAULT_NONE),
-        event != NULL ? (int)event->behavior : (int)FAULT_BEHAVIOR_NONE,
-        fault_injection_behavior_label(event != NULL ? event->behavior : FAULT_BEHAVIOR_NONE),
+        ",%u,%u,%.3f",
         event != NULL ? event->start_ms : 0U,
         event != NULL ? event->duration_ms : 0U,
         event != NULL ? event->parameter : 0.0f
@@ -108,27 +126,18 @@ void logger_write(ecu_state_t *state)
         return;
     }
 
+    csv_write_text(state->log_file, state->experiment.experiment_id);
+    fputc(',', state->log_file);
+    csv_write_text(state->log_file, state->experiment.campaign_id);
+    fputc(',', state->log_file);
+    csv_write_text(state->log_file, state->experiment.campaign_label);
+    fputc(',', state->log_file);
+    csv_write_text(state->log_file, state->experiment.campaign_category);
     fprintf(
         state->log_file,
-        "%s,%s,%s,%s,%u,%.2f,%.3f,%.3f,%.3f,"
-        "%u,%u,%.3f,"
-        "%d,%s,"
-        "%d,%u,%u,%.3f,"
-        "%d,%s,%d,%s,"
-        "%d,%s,%d,%s,"
-        "%d,%s,%s,"
-        "%.2f,%.2f,%.3f,%.2f,"
-        "%.2f,%.2f,%.2f,"
-        "%.2f,%.2f,"
-        "%.3f,%.3f,%.3f,"
-        "%.3f,%.3f,%.3f,"
-        "%d,%d,%d,%d,%d,%d,"
-        "%u,%u,%u,%u,"
-        "%u,%d,%d,%d",
-        state->experiment.experiment_id,
-        state->experiment.campaign_id,
-        state->experiment.campaign_label,
-        state->experiment.campaign_category,
+        ",%u,%.2f,%.3f,%.3f,%.3f"
+        ",%u,%u,%.3f"
+        ",%d,",
         state->experiment.event_count,
         state->experiment.ambient_offset_c,
         state->experiment.engine_load_scale,
@@ -137,23 +146,39 @@ void logger_write(ecu_state_t *state)
         state->time.tick,
         state->time.time_ms,
         (float)state->time.time_ms / 1000.0f,
-        (int)state->plant.scenario_phase,
-        thermal_plant_phase_label(state->plant.scenario_phase),
+        (int)state->plant.scenario_phase
+    );
+    csv_write_text(state->log_file, thermal_plant_phase_label(state->plant.scenario_phase));
+    fprintf(
+        state->log_file,
+        ",%d,%u,%u,%.3f,%d,",
         state->faults.active_event_index,
         state->faults.active_start_ms,
         state->faults.active_duration_ms,
         state->faults.active_parameter,
-        (int)state->faults.active_mode,
-        fault_injection_mode_label(state->faults.active_mode),
-        (int)state->faults.active_behavior,
-        fault_injection_behavior_label(state->faults.active_behavior),
-        (int)state->safety.current_state,
-        safety_monitor_state_label(state->safety.current_state),
-        (int)state->safety.requested_state,
-        safety_monitor_state_label(state->safety.requested_state),
-        (int)state->diagnostics.primary_dtc,
-        diagnostics_dtc_label(state->diagnostics.primary_dtc),
-        diagnostics_class_label(diagnostics_dtc_class(primary_status)),
+        (int)state->faults.active_mode
+    );
+    csv_write_text(state->log_file, fault_injection_mode_label(state->faults.active_mode));
+    fprintf(state->log_file, ",%d,", (int)state->faults.active_behavior);
+    csv_write_text(state->log_file, fault_injection_behavior_label(state->faults.active_behavior));
+    fprintf(state->log_file, ",%d,", (int)state->safety.current_state);
+    csv_write_text(state->log_file, safety_monitor_state_label(state->safety.current_state));
+    fprintf(state->log_file, ",%d,", (int)state->safety.requested_state);
+    csv_write_text(state->log_file, safety_monitor_state_label(state->safety.requested_state));
+    fprintf(state->log_file, ",%d,", (int)state->diagnostics.primary_dtc);
+    csv_write_text(state->log_file, diagnostics_dtc_label(state->diagnostics.primary_dtc));
+    fputc(',', state->log_file);
+    csv_write_text(state->log_file, diagnostics_class_label(diagnostics_dtc_class(primary_status)));
+    fprintf(
+        state->log_file,
+        ",%.2f,%.2f,%.3f,%.2f"
+        ",%.2f,%.2f,%.2f"
+        ",%.2f,%.2f"
+        ",%.3f,%.3f,%.3f"
+        ",%.3f,%.3f,%.3f"
+        ",%d,%d,%d,%d,%d,%d"
+        ",%u,%u,%u,%u"
+        ",%u,%d,%d,%d",
         state->plant.ambient_temp_c,
         state->plant.engine_speed_rpm,
         state->plant.engine_load,
