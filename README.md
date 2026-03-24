@@ -1,6 +1,7 @@
 # Virtual ECU PhD Project
 
-Modular C prototype of a virtual ECU for automotive thermal-management research.
+Modular C prototype of a virtual ECU for automotive thermal-management and
+cross-layer automotive electronics dependability research.
 
 ## Overview
 
@@ -10,6 +11,12 @@ The prototype models a simple engine cooling controller with:
 - sensors, control, actuators, diagnostics, fault injection, and safety-monitor modules
 - a lightweight thermal plant
 - CSV logging for repeatable experiments
+
+The platform is intended as a hardware-origin fault abstraction framework:
+
+- it represents plausible VLSI and automotive-electronics faults at ECU interfaces
+- it studies fault propagation from electronics-level origin to ECU and vehicle-level behavior
+- it does not claim transistor-level, SPICE-level, or circuit-accurate fidelity
 
 The simulated drive cycle includes:
 
@@ -33,13 +40,48 @@ The experiment layer now includes:
 - campaign event definitions embedded in the log for run-to-run comparison
 - one-row summary CSV files for direct metric extraction
 
+## Hardware-Origin Fault Taxonomy
+
+This framework distinguishes four hardware-origin fault classes:
+
+- `sensing-path faults`: ADC offset, reference drift, analog front-end bias, sensor-interface intermittency
+- `actuation-path faults`: weak driver behavior, PWM-output fault, gate-driver stuck-off behavior, power-stage degradation
+- `computation/memory faults`: calibration corruption, register upset, state-memory disturbance
+- `timing/communication faults`: scheduler jitter, stale transfer, corrupted sampled-data communication
+
+These are modeled as ECU-visible abstractions, not as circuit-accurate device faults.
+
 Built-in campaigns include:
 
 - `baseline`: no injected faults
-- `sensor_bias_only`: transient sensor fault campaign
-- `fan_stuck_only`: permanent actuator fault campaign
-- `fan_stuck_hot_stress`: permanent fan fault under hotter, lower-airflow stress conditions
-- `paper_default`: combined multi-fault paper scenario
+- `sensor_bias_only`: ADC/reference/front-end offset fault campaign
+- `sensor_interface_intermittent`: intermittent sensor-interface corruption campaign
+- `pump_degraded_only`: weak-driver / aging / supply-droop pump campaign
+- `fan_stuck_only`: gate-driver / PWM-output / power-stage stuck-off fan campaign
+- `fan_stuck_hot_stress`: thermally stressed stuck-off fan power-stage campaign
+- `paper_default`: mixed hardware-origin fault scenario
+
+## Hardware-to-System Mapping
+
+| Hardware-origin fault | ECU-level manifestation | Diagnostic effect | System-level thermal / safety effect |
+|---|---|---|---|
+| ADC / reference / front-end offset | biased coolant measurement | coolant sensor rationality DTC | incorrect cooling demand, possible false mitigation |
+| intermittent sensor-interface corruption | bursty coolant reading glitches | coolant sensor rationality DTC with transient or persistent behavior | control disturbance and possible temporary safe-state entry |
+| weak driver / aging / supply droop | reduced pump authority | pump tracking or cooling-performance diagnostics | reduced heat rejection and elevated coolant temperature |
+| gate-driver / PWM-output / power-stage stuck-off | commanded fan remains off | fan tracking DTC | safe-state escalation and thermal stress under low-airflow conditions |
+| mixed hardware-origin scenario | combined sensing and actuation degradation | multiple DTCs over time | sequential safety escalation and extended degraded operation |
+
+## Cross-Layer Fault Propagation View
+
+The intended interpretation is:
+
+1. a hardware-origin fault occurs in sensing, actuation, memory, or timing electronics
+2. the fault appears at ECU interfaces as bias, intermittency, stuck-off behavior, or reduced actuation
+3. diagnostics, control, and safety logic react to those manifestations
+4. thermal-management behavior and safe-state transitions emerge at system level
+
+This makes the project suitable for VLSI + automotive dependability papers as a
+cross-layer fault-propagation framework while staying honest about the level of abstraction.
 
 ## Example DTCs
 
@@ -62,6 +104,7 @@ Built-in campaigns include:
 This platform is suitable for experiments on:
 
 - fault detection and isolation for thermal-management subsystems
+- hardware-origin fault propagation from automotive electronics to ECU behavior
 - cross-campaign comparison with identical logging fields
 - transient versus permanent fault behavior
 - persistence-threshold tuning for diagnostic confirmation
@@ -107,6 +150,7 @@ Example baseline, transient, and permanent campaigns:
 ```sh
 ./virtual_ecu logs/baseline.csv baseline
 ./virtual_ecu logs/transient.csv sensor_bias_only
+./virtual_ecu logs/sensor_interface.csv sensor_interface_intermittent
 ./virtual_ecu logs/permanent.csv fan_stuck_only
 ./virtual_ecu logs/permanent_stress.csv fan_stuck_hot_stress
 ```

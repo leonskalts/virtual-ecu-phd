@@ -6,7 +6,8 @@
 #include "fault_injection.h"
 
 /* Experiment module: centralizes campaign definitions and CLI-friendly custom
- * fault configuration so multiple runs can be compared with consistent metadata. */
+ * hardware-origin fault abstractions so multiple runs can be compared with
+ * consistent metadata across sensing-path and actuation-path studies. */
 typedef struct {
     const char *campaign_id;
     const char *campaign_label;
@@ -33,8 +34,8 @@ static const builtin_campaign_t BUILTIN_CAMPAIGNS[] = {
     },
     {
         "paper_default",
-        "Three-phase paper campaign with sensor, pump, and fan faults",
-        "mixed_faults",
+        "Mixed hardware-origin campaign with sensing and actuation faults",
+        "mixed_hardware_faults",
         3U,
         0.0f,
         1.00f,
@@ -49,8 +50,8 @@ static const builtin_campaign_t BUILTIN_CAMPAIGNS[] = {
     },
     {
         "sensor_bias_only",
-        "Single transient coolant-sensor bias campaign",
-        "transient_fault",
+        "ADC or analog front-end offset fault campaign",
+        "sensing_path_fault",
         1U,
         0.0f,
         1.00f,
@@ -63,8 +64,8 @@ static const builtin_campaign_t BUILTIN_CAMPAIGNS[] = {
     },
     {
         "pump_degraded_only",
-        "Single transient pump-degradation campaign",
-        "transient_fault",
+        "Weak-driver or supply-droop related pump-actuation campaign",
+        "actuation_path_fault",
         1U,
         0.0f,
         1.00f,
@@ -77,8 +78,8 @@ static const builtin_campaign_t BUILTIN_CAMPAIGNS[] = {
     },
     {
         "fan_stuck_only",
-        "Single permanent fan-stuck-off campaign",
-        "permanent_fault",
+        "Gate-driver, PWM-output, or power-stage stuck-off fan campaign",
+        "actuation_path_fault",
         1U,
         0.0f,
         1.00f,
@@ -91,8 +92,8 @@ static const builtin_campaign_t BUILTIN_CAMPAIGNS[] = {
     },
     {
         "fan_stuck_hot_stress",
-        "Permanent fan-stuck-off fault with hot-day low-airflow stress before mitigation",
-        "permanent_fault_stress",
+        "Stuck-off fan power-stage fault under thermally stressful conditions",
+        "actuation_path_fault_stress",
         1U,
         7.0f,
         1.10f,
@@ -100,6 +101,20 @@ static const builtin_campaign_t BUILTIN_CAMPAIGNS[] = {
         0.70f,
         {
             { FAULT_FAN_STUCK_OFF, FAULT_BEHAVIOR_PERMANENT, 78100U, 41900U, 0.0f },
+            { FAULT_NONE, FAULT_BEHAVIOR_NONE, 0U, 0U, 0.0f }
+        }
+    },
+    {
+        "sensor_interface_intermittent",
+        "Intermittent sensor-interface corruption campaign",
+        "sensing_path_fault",
+        1U,
+        0.0f,
+        1.00f,
+        0.0f,
+        1.00f,
+        {
+            { FAULT_SENSOR_INTERFACE_INTERMITTENT, FAULT_BEHAVIOR_TRANSIENT, 45000U, 20000U, 8.0f },
             { FAULT_NONE, FAULT_BEHAVIOR_NONE, 0U, 0U, 0.0f }
         }
     }
@@ -222,6 +237,9 @@ fault_mode_t experiment_fault_mode_from_string(const char *text)
 {
     if (strcmp(text, "sensor_bias") == 0) {
         return FAULT_SENSOR_BIAS;
+    }
+    if (strcmp(text, "sensor_interface_intermittent") == 0) {
+        return FAULT_SENSOR_INTERFACE_INTERMITTENT;
     }
     if (strcmp(text, "pump_degraded") == 0) {
         return FAULT_PUMP_DEGRADED;

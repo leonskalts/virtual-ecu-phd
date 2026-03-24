@@ -8,8 +8,13 @@
 
 typedef enum {
     FAULT_NONE = 0,
+    /* Sensing-path abstraction: ADC/reference/front-end offset. */
     FAULT_SENSOR_BIAS,
+    /* Sensing-path abstraction: intermittent interface corruption or sampling glitch. */
+    FAULT_SENSOR_INTERFACE_INTERMITTENT,
+    /* Actuation-path abstraction: weak driver, aging, or supply-droop degradation. */
     FAULT_PUMP_DEGRADED,
+    /* Actuation-path abstraction: PWM, gate-driver, or power-stage stuck-off fault. */
     FAULT_FAN_STUCK_OFF
 } fault_mode_t;
 
@@ -144,6 +149,7 @@ typedef struct {
     unsigned int active_duration_ms;
     float active_parameter;
     float sensor_bias_c;
+    float sensor_intermittent_amplitude_c;
     float pump_scale;
 } fault_state_t;
 

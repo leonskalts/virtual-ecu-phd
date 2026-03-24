@@ -1,8 +1,8 @@
 #include "fault_injection.h"
 
-/* Fault-injection module: schedules deterministic fault scenarios with an
- * explicit distinction between transient disturbances and permanent failures.
- * The active fault is selected from the experiment campaign configuration. */
+/* Fault-injection module: schedules deterministic hardware-origin fault
+ * abstractions across sensing and actuation paths. These are cross-layer ECU
+ * manifestations of electronics faults, not transistor-accurate simulations. */
 void fault_injection_init(ecu_state_t *state)
 {
     state->faults.active_mode = FAULT_NONE;
@@ -13,6 +13,7 @@ void fault_injection_init(ecu_state_t *state)
     state->faults.active_duration_ms = 0U;
     state->faults.active_parameter = 0.0f;
     state->faults.sensor_bias_c = 0.0f;
+    state->faults.sensor_intermittent_amplitude_c = 0.0f;
     state->faults.pump_scale = 1.0f;
 }
 
@@ -21,6 +22,8 @@ const char *fault_injection_mode_label(fault_mode_t mode)
     switch (mode) {
     case FAULT_SENSOR_BIAS:
         return "sensor_bias";
+    case FAULT_SENSOR_INTERFACE_INTERMITTENT:
+        return "sensor_interface_intermittent";
     case FAULT_PUMP_DEGRADED:
         return "pump_degraded";
     case FAULT_FAN_STUCK_OFF:
@@ -49,6 +52,8 @@ float fault_injection_default_parameter(fault_mode_t mode)
     switch (mode) {
     case FAULT_SENSOR_BIAS:
         return 6.0f;
+    case FAULT_SENSOR_INTERFACE_INTERMITTENT:
+        return 8.0f;
     case FAULT_PUMP_DEGRADED:
         return 0.45f;
     case FAULT_FAN_STUCK_OFF:
@@ -93,6 +98,9 @@ static void apply_fault_event(ecu_state_t *state, const fault_event_t *event, in
     case FAULT_SENSOR_BIAS:
         state->faults.sensor_bias_c = event->parameter;
         break;
+    case FAULT_SENSOR_INTERFACE_INTERMITTENT:
+        state->faults.sensor_intermittent_amplitude_c = event->parameter;
+        break;
     case FAULT_PUMP_DEGRADED:
         state->faults.pump_scale = event->parameter;
         break;
@@ -115,6 +123,7 @@ void fault_injection_step(ecu_state_t *state)
     state->faults.active_duration_ms = 0U;
     state->faults.active_parameter = 0.0f;
     state->faults.sensor_bias_c = 0.0f;
+    state->faults.sensor_intermittent_amplitude_c = 0.0f;
     state->faults.pump_scale = 1.0f;
 
     for (i = 0U; i < state->experiment.event_count; i++) {

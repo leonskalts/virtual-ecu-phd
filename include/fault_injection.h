@@ -3,6 +3,8 @@
 
 #include "ecu_types.h"
 
+/* Hardware-origin fault abstraction layer: represents plausible automotive
+ * electronics faults at ECU interfaces without claiming circuit-level fidelity. */
 void fault_injection_init(ecu_state_t *state);
 void fault_injection_step(ecu_state_t *state);
 const char *fault_injection_mode_label(fault_mode_t mode);
