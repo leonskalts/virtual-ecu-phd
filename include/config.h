@@ -12,6 +12,7 @@
 #define ECU_LOG_PERIOD_MS 100U
 
 #define ECU_MAX_FAULT_EVENTS 4U
+#define ECU_PATH_BUFFER_SIZE 512U
 
 #define ECU_DEFAULT_LOG_PATH "logs/thermal_run.csv"
 

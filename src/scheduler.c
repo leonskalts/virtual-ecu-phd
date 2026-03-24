@@ -6,6 +6,7 @@
 #include "diagnostics.h"
 #include "fault_injection.h"
 #include "logger.h"
+#include "metrics.h"
 #include "safety_monitor.h"
 #include "sensors.h"
 #include "thermal_plant.h"
@@ -31,6 +32,7 @@ void scheduler_init(ecu_state_t *state)
     diagnostics_init(state);
     fault_injection_init(state);
     safety_monitor_init(state);
+    metrics_init(state);
 }
 
 void scheduler_run(ecu_state_t *state)
@@ -68,6 +70,8 @@ void scheduler_run(ecu_state_t *state)
                 diagnostics_step(state);
             }
         }
+
+        metrics_step(state);
 
         if (scheduler_task_due(state->time.time_ms, ECU_LOG_PERIOD_MS)) {
             logger_write(state);

@@ -31,6 +31,14 @@ The experiment layer now includes:
 - parameterized custom single-fault runs
 - explicit experiment metadata in every CSV row
 - campaign event definitions embedded in the log for run-to-run comparison
+- one-row summary CSV files for direct metric extraction
+
+Built-in campaigns include:
+
+- `baseline`: no injected faults
+- `sensor_bias_only`: transient sensor fault campaign
+- `fan_stuck_only`: permanent actuator fault campaign
+- `paper_default`: combined multi-fault paper scenario
 
 ## Example DTCs
 
@@ -93,6 +101,14 @@ Run a built-in campaign:
 ./virtual_ecu logs/paper_default.csv paper_default
 ```
 
+Example baseline, transient, and permanent campaigns:
+
+```sh
+./virtual_ecu logs/baseline.csv baseline
+./virtual_ecu logs/transient.csv sensor_bias_only
+./virtual_ecu logs/permanent.csv fan_stuck_only
+```
+
 Run a custom parameterized fault:
 
 ```sh
@@ -105,4 +121,9 @@ List available campaigns:
 ./virtual_ecu --list-campaigns
 ```
 
-The executable writes CSV output to `logs/thermal_run.csv` by default.
+Each run produces:
+
+- a time-series CSV such as `logs/permanent.csv`
+- a one-row summary CSV such as `logs/permanent_summary.csv`
+
+The executable writes `logs/thermal_run.csv` by default when no log path is provided.

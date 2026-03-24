@@ -5,6 +5,7 @@
 #include "config.h"
 #include "experiment.h"
 #include "logger.h"
+#include "metrics.h"
 #include "scheduler.h"
 
 /* Main entry point: initializes the ECU state, runs one deterministic
@@ -94,6 +95,7 @@ int main(int argc, char **argv)
     ecu_state_t state;
     const char *log_path = ECU_DEFAULT_LOG_PATH;
     int config_status;
+    char summary_path[ECU_PATH_BUFFER_SIZE];
 
     memset(&state, 0, sizeof(state));
     config_status = configure_experiment_from_args(&state, argc, argv, &log_path);
@@ -109,8 +111,12 @@ int main(int argc, char **argv)
 
     scheduler_run(&state);
     logger_close(&state);
+    if (metrics_write_summary(&state, log_path, summary_path, sizeof(summary_path)) != 0) {
+        return 1;
+    }
 
     printf("Simulation complete. CSV log written to %s\n", log_path);
+    printf("Summary metrics written to %s\n", summary_path);
     printf("Experiment ID: %s\n", state.experiment.experiment_id);
     printf("Campaign: %s\n", state.experiment.campaign_id);
     printf("Final coolant temperature: %.2f C\n", state.plant.coolant_temp_true_c);

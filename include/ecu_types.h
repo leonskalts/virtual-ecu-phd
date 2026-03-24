@@ -143,6 +143,22 @@ typedef struct {
 } fault_state_t;
 
 typedef struct {
+    bool fault_present_in_campaign;
+    unsigned int first_fault_start_ms;
+    diagnostic_id_t detection_dtc_id;
+    safe_state_t first_safe_state;
+    int detection_latency_ms;
+    int safe_state_latency_ms;
+    unsigned int safe_mode_duration_ms;
+    float max_coolant_temp_c;
+    double pump_tracking_error_abs_sum;
+    double fan_tracking_error_abs_sum;
+    float pump_tracking_error_max_abs;
+    float fan_tracking_error_max_abs;
+    unsigned int tracking_sample_count;
+} experiment_metrics_t;
+
+typedef struct {
     unsigned int tick;
     unsigned int time_ms;
 } scheduler_time_t;
@@ -157,6 +173,7 @@ typedef struct {
     safety_status_t safety;
     experiment_config_t experiment;
     fault_state_t faults;
+    experiment_metrics_t metrics;
     FILE *log_file;
 } ecu_state_t;
 
