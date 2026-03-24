@@ -13,6 +13,14 @@ static float clamp_nonnegative(float value)
     return value;
 }
 
+static float clamp_min(float value, float minimum)
+{
+    if (value < minimum) {
+        return minimum;
+    }
+    return value;
+}
+
 const char *thermal_plant_phase_label(scenario_phase_t phase)
 {
     switch (phase) {
@@ -76,6 +84,10 @@ void thermal_plant_step(ecu_state_t *state)
         state->plant.ambient_temp_c = 35.0f;
     }
 
+    state->plant.ambient_temp_c += state->experiment.ambient_offset_c;
+    state->plant.engine_load *= state->experiment.engine_load_scale;
+    state->plant.engine_load = clamp_min(state->plant.engine_load, 0.0f);
+
     /* The safety monitor limits the effective engine load rather than altering
      * the scenario definition itself, which keeps the experiment design clear. */
     state->plant.engine_load *= state->safety.load_limit_scale;
@@ -91,9 +103,11 @@ void thermal_plant_step(ecu_state_t *state)
         heat_generation += 2.0f;
     }
 
+    heat_generation += state->experiment.heat_generation_bias;
+
     pump_cooling = 7.5f * state->actuators.pump_actual;
     fan_cooling = 6.0f * state->actuators.fan_actual;
-    ram_air_cooling = state->plant.vehicle_speed_kph / 40.0f;
+    ram_air_cooling = (state->plant.vehicle_speed_kph / 40.0f) * state->experiment.ram_air_scale;
     ambient_coupling = 0.08f * (state->plant.coolant_temp_true_c - state->plant.ambient_temp_c);
 
     temp_delta = heat_generation - pump_cooling - fan_cooling - ram_air_cooling - ambient_coupling;

@@ -38,6 +38,7 @@ Built-in campaigns include:
 - `baseline`: no injected faults
 - `sensor_bias_only`: transient sensor fault campaign
 - `fan_stuck_only`: permanent actuator fault campaign
+- `fan_stuck_hot_stress`: permanent fan fault under hotter, lower-airflow stress conditions
 - `paper_default`: combined multi-fault paper scenario
 
 ## Example DTCs
@@ -107,6 +108,7 @@ Example baseline, transient, and permanent campaigns:
 ./virtual_ecu logs/baseline.csv baseline
 ./virtual_ecu logs/transient.csv sensor_bias_only
 ./virtual_ecu logs/permanent.csv fan_stuck_only
+./virtual_ecu logs/permanent_stress.csv fan_stuck_hot_stress
 ```
 
 Run a custom parameterized fault:

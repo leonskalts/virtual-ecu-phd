@@ -10,7 +10,12 @@
 typedef struct {
     const char *campaign_id;
     const char *campaign_label;
+    const char *campaign_category;
     unsigned int event_count;
+    float ambient_offset_c;
+    float engine_load_scale;
+    float heat_generation_bias;
+    float ram_air_scale;
     fault_event_t events[ECU_MAX_FAULT_EVENTS];
 } builtin_campaign_t;
 
@@ -18,13 +23,23 @@ static const builtin_campaign_t BUILTIN_CAMPAIGNS[] = {
     {
         "baseline",
         "Nominal thermal drive cycle without injected faults",
+        "baseline",
         0U,
+        0.0f,
+        1.00f,
+        0.0f,
+        1.00f,
         {{ FAULT_NONE, FAULT_BEHAVIOR_NONE, 0U, 0U, 0.0f }}
     },
     {
         "paper_default",
         "Three-phase paper campaign with sensor, pump, and fan faults",
+        "mixed_faults",
         3U,
+        0.0f,
+        1.00f,
+        0.0f,
+        1.00f,
         {
             { FAULT_SENSOR_BIAS, FAULT_BEHAVIOR_TRANSIENT, 30000U, 15000U, 6.0f },
             { FAULT_PUMP_DEGRADED, FAULT_BEHAVIOR_TRANSIENT, 60000U, 25000U, 0.45f },
@@ -35,7 +50,12 @@ static const builtin_campaign_t BUILTIN_CAMPAIGNS[] = {
     {
         "sensor_bias_only",
         "Single transient coolant-sensor bias campaign",
+        "transient_fault",
         1U,
+        0.0f,
+        1.00f,
+        0.0f,
+        1.00f,
         {
             { FAULT_SENSOR_BIAS, FAULT_BEHAVIOR_TRANSIENT, 30000U, 15000U, 6.0f },
             { FAULT_NONE, FAULT_BEHAVIOR_NONE, 0U, 0U, 0.0f }
@@ -44,7 +64,12 @@ static const builtin_campaign_t BUILTIN_CAMPAIGNS[] = {
     {
         "pump_degraded_only",
         "Single transient pump-degradation campaign",
+        "transient_fault",
         1U,
+        0.0f,
+        1.00f,
+        0.0f,
+        1.00f,
         {
             { FAULT_PUMP_DEGRADED, FAULT_BEHAVIOR_TRANSIENT, 60000U, 25000U, 0.45f },
             { FAULT_NONE, FAULT_BEHAVIOR_NONE, 0U, 0U, 0.0f }
@@ -53,9 +78,28 @@ static const builtin_campaign_t BUILTIN_CAMPAIGNS[] = {
     {
         "fan_stuck_only",
         "Single permanent fan-stuck-off campaign",
+        "permanent_fault",
         1U,
+        0.0f,
+        1.00f,
+        0.0f,
+        1.00f,
         {
             { FAULT_FAN_STUCK_OFF, FAULT_BEHAVIOR_PERMANENT, 90000U, 30000U, 0.0f },
+            { FAULT_NONE, FAULT_BEHAVIOR_NONE, 0U, 0U, 0.0f }
+        }
+    },
+    {
+        "fan_stuck_hot_stress",
+        "Permanent fan-stuck-off fault with hot-day low-airflow stress before mitigation",
+        "permanent_fault_stress",
+        1U,
+        7.0f,
+        1.10f,
+        2.2f,
+        0.70f,
+        {
+            { FAULT_FAN_STUCK_OFF, FAULT_BEHAVIOR_PERMANENT, 78100U, 41900U, 0.0f },
             { FAULT_NONE, FAULT_BEHAVIOR_NONE, 0U, 0U, 0.0f }
         }
     }
@@ -89,8 +133,13 @@ static void assign_campaign(ecu_state_t *state, const builtin_campaign_t *campai
     zero_campaign(state);
     copy_text(state->experiment.campaign_id, sizeof(state->experiment.campaign_id), campaign->campaign_id);
     copy_text(state->experiment.campaign_label, sizeof(state->experiment.campaign_label), campaign->campaign_label);
+    copy_text(state->experiment.campaign_category, sizeof(state->experiment.campaign_category), campaign->campaign_category);
     copy_text(state->experiment.experiment_id, sizeof(state->experiment.experiment_id), campaign->campaign_id);
     state->experiment.event_count = campaign->event_count;
+    state->experiment.ambient_offset_c = campaign->ambient_offset_c;
+    state->experiment.engine_load_scale = campaign->engine_load_scale;
+    state->experiment.heat_generation_bias = campaign->heat_generation_bias;
+    state->experiment.ram_air_scale = campaign->ram_air_scale;
 
     for (i = 0U; i < campaign->event_count && i < ECU_MAX_FAULT_EVENTS; i++) {
         state->experiment.events[i] = campaign->events[i];
@@ -144,6 +193,7 @@ int experiment_configure_custom_single_fault(
     zero_campaign(state);
     copy_text(state->experiment.campaign_id, sizeof(state->experiment.campaign_id), campaign_id);
     copy_text(state->experiment.campaign_label, sizeof(state->experiment.campaign_label), "Custom single-fault campaign");
+    copy_text(state->experiment.campaign_category, sizeof(state->experiment.campaign_category), "custom_fault");
     snprintf(
         state->experiment.experiment_id,
         sizeof(state->experiment.experiment_id),
@@ -155,6 +205,10 @@ int experiment_configure_custom_single_fault(
     );
 
     state->experiment.event_count = 1U;
+    state->experiment.ambient_offset_c = 0.0f;
+    state->experiment.engine_load_scale = 1.00f;
+    state->experiment.heat_generation_bias = 0.0f;
+    state->experiment.ram_air_scale = 1.00f;
     state->experiment.events[0].mode = mode;
     state->experiment.events[0].behavior = behavior;
     state->experiment.events[0].start_ms = start_ms;

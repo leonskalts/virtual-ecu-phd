@@ -61,8 +61,13 @@ typedef struct {
 typedef struct {
     char experiment_id[64];
     char campaign_id[32];
-    char campaign_label[64];
+    char campaign_label[96];
+    char campaign_category[32];
     unsigned int event_count;
+    float ambient_offset_c;
+    float engine_load_scale;
+    float heat_generation_bias;
+    float ram_air_scale;
     fault_event_t events[ECU_MAX_FAULT_EVENTS];
 } experiment_config_t;
 

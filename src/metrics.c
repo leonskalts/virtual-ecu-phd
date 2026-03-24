@@ -1,6 +1,7 @@
 #include "metrics.h"
 
 #include <errno.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "diagnostics.h"
@@ -28,6 +29,151 @@ static void derive_summary_path(const char *log_path, char *summary_path, size_t
 static const char *safe_state_label(safe_state_t state)
 {
     return safety_monitor_state_label(state);
+}
+
+typedef struct {
+    bool available;
+    float max_coolant_temp_c;
+    unsigned int safe_mode_duration_ms;
+    double pump_tracking_error_abs_sum;
+    double fan_tracking_error_abs_sum;
+    float pump_tracking_error_max_abs;
+    float fan_tracking_error_max_abs;
+    unsigned int tracking_sample_count;
+} trace_metrics_t;
+
+static char *next_csv_field(char **cursor)
+{
+    char *field_start = *cursor;
+    char *scan = *cursor;
+
+    while (*scan != '\0' && *scan != ',' && *scan != '\n' && *scan != '\r') {
+        scan++;
+    }
+
+    if (*scan == ',') {
+        *scan = '\0';
+        *cursor = scan + 1;
+    } else {
+        *scan = '\0';
+        *cursor = scan;
+    }
+
+    return field_start;
+}
+
+static int find_csv_column(const char *header_line, const char *column_name)
+{
+    char header_copy[4096];
+    char *cursor = header_copy;
+    int index = 0;
+
+    snprintf(header_copy, sizeof(header_copy), "%s", header_line);
+
+    while (*cursor != '\0') {
+        char *field = next_csv_field(&cursor);
+
+        if (strcmp(field, column_name) == 0) {
+            return index;
+        }
+
+        if (*cursor == '\0') {
+            break;
+        }
+
+        index++;
+    }
+
+    return -1;
+}
+
+static int extract_trace_metrics(const char *log_path, trace_metrics_t *trace)
+{
+    FILE *log_file;
+    char line[4096];
+    int coolant_index;
+    int safe_state_index;
+    int pump_error_index;
+    int fan_error_index;
+
+    memset(trace, 0, sizeof(*trace));
+
+    log_file = fopen(log_path, "r");
+    if (log_file == NULL) {
+        return -1;
+    }
+
+    if (fgets(line, sizeof(line), log_file) == NULL) {
+        fclose(log_file);
+        return -1;
+    }
+
+    coolant_index = find_csv_column(line, "coolant_temp_true_c");
+    safe_state_index = find_csv_column(line, "safe_state_id");
+    pump_error_index = find_csv_column(line, "pump_tracking_error");
+    fan_error_index = find_csv_column(line, "fan_tracking_error");
+
+    if (coolant_index < 0 || safe_state_index < 0 || pump_error_index < 0 || fan_error_index < 0) {
+        fclose(log_file);
+        return -1;
+    }
+
+    while (fgets(line, sizeof(line), log_file) != NULL) {
+        char row_copy[4096];
+        char *cursor = row_copy;
+        float coolant_temp_c = 0.0f;
+        float pump_tracking_error = 0.0f;
+        float fan_tracking_error = 0.0f;
+        int safe_state_id = 0;
+        int column = 0;
+
+        snprintf(row_copy, sizeof(row_copy), "%s", line);
+
+        while (*cursor != '\0') {
+            char *field = next_csv_field(&cursor);
+
+            if (column == coolant_index) {
+                coolant_temp_c = strtof(field, NULL);
+            } else if (column == safe_state_index) {
+                safe_state_id = (int)strtol(field, NULL, 10);
+            } else if (column == pump_error_index) {
+                pump_tracking_error = abs_float(strtof(field, NULL));
+            } else if (column == fan_error_index) {
+                fan_tracking_error = abs_float(strtof(field, NULL));
+            }
+
+            if (*cursor == '\0') {
+                break;
+            }
+
+            column++;
+        }
+
+        if (!trace->available || coolant_temp_c > trace->max_coolant_temp_c) {
+            trace->max_coolant_temp_c = coolant_temp_c;
+        }
+
+        if (safe_state_id != (int)SAFE_STATE_NORMAL) {
+            trace->safe_mode_duration_ms += ECU_LOG_PERIOD_MS;
+        }
+
+        trace->pump_tracking_error_abs_sum += pump_tracking_error;
+        trace->fan_tracking_error_abs_sum += fan_tracking_error;
+        trace->tracking_sample_count++;
+
+        if (pump_tracking_error > trace->pump_tracking_error_max_abs) {
+            trace->pump_tracking_error_max_abs = pump_tracking_error;
+        }
+
+        if (fan_tracking_error > trace->fan_tracking_error_max_abs) {
+            trace->fan_tracking_error_max_abs = fan_tracking_error;
+        }
+
+        trace->available = true;
+    }
+
+    fclose(log_file);
+    return trace->available ? 0 : -1;
 }
 
 static void init_first_fault_metadata(ecu_state_t *state)
@@ -110,12 +256,20 @@ void metrics_step(ecu_state_t *state)
 int metrics_write_summary(const ecu_state_t *state, const char *log_path, char *summary_path, size_t summary_path_size)
 {
     FILE *summary_file;
+    trace_metrics_t trace_metrics;
+    float max_coolant_temp_c = state->metrics.max_coolant_temp_c;
+    unsigned int safe_mode_duration_ms = state->metrics.safe_mode_duration_ms;
     double pump_mean_abs = 0.0;
     double fan_mean_abs = 0.0;
 
     derive_summary_path(log_path, summary_path, summary_path_size);
 
-    if (state->metrics.tracking_sample_count > 0U) {
+    if (extract_trace_metrics(log_path, &trace_metrics) == 0 && trace_metrics.tracking_sample_count > 0U) {
+        max_coolant_temp_c = trace_metrics.max_coolant_temp_c;
+        safe_mode_duration_ms = trace_metrics.safe_mode_duration_ms;
+        pump_mean_abs = trace_metrics.pump_tracking_error_abs_sum / (double)trace_metrics.tracking_sample_count;
+        fan_mean_abs = trace_metrics.fan_tracking_error_abs_sum / (double)trace_metrics.tracking_sample_count;
+    } else if (state->metrics.tracking_sample_count > 0U) {
         pump_mean_abs = state->metrics.pump_tracking_error_abs_sum / (double)state->metrics.tracking_sample_count;
         fan_mean_abs = state->metrics.fan_tracking_error_abs_sum / (double)state->metrics.tracking_sample_count;
     }
@@ -128,7 +282,8 @@ int metrics_write_summary(const ecu_state_t *state, const char *log_path, char *
 
     fprintf(
         summary_file,
-        "experiment_id,campaign_id,campaign_label,campaign_event_count,"
+        "experiment_id,campaign_id,campaign_label,campaign_category,campaign_event_count,"
+        "campaign_ambient_offset_c,campaign_engine_load_scale,campaign_heat_generation_bias,campaign_ram_air_scale,"
         "fault_present_in_campaign,first_fault_start_ms,"
         "detection_latency_ms,detection_dtc_id,detection_dtc_label,"
         "safe_state_latency_ms,first_safe_state_id,first_safe_state_label,"
@@ -139,33 +294,44 @@ int metrics_write_summary(const ecu_state_t *state, const char *log_path, char *
         "final_primary_dtc_id,final_primary_dtc_label\n"
     );
 
+    fprintf(summary_file, "%s", state->experiment.experiment_id);
+    fprintf(summary_file, ",%s", state->experiment.campaign_id);
+    fprintf(summary_file, ",%s", state->experiment.campaign_label);
+    fprintf(summary_file, ",%s", state->experiment.campaign_category);
+    fprintf(summary_file, ",%u", state->experiment.event_count);
+    fprintf(summary_file, ",%.2f", state->experiment.ambient_offset_c);
+    fprintf(summary_file, ",%.3f", state->experiment.engine_load_scale);
+    fprintf(summary_file, ",%.3f", state->experiment.heat_generation_bias);
+    fprintf(summary_file, ",%.3f", state->experiment.ram_air_scale);
+    fprintf(summary_file, ",%d", state->metrics.fault_present_in_campaign ? 1 : 0);
+    fprintf(summary_file, ",%u", state->metrics.first_fault_start_ms);
+    fprintf(summary_file, ",%d", state->metrics.detection_latency_ms);
+    fprintf(summary_file, ",%d", (int)state->metrics.detection_dtc_id);
+    fprintf(summary_file, ",%s", diagnostics_dtc_label(state->metrics.detection_dtc_id));
+    fprintf(summary_file, ",%d", state->metrics.safe_state_latency_ms);
+    fprintf(summary_file, ",%d", (int)state->metrics.first_safe_state);
+    fprintf(summary_file, ",%s", safe_state_label(state->metrics.first_safe_state));
+    fprintf(summary_file, ",%.2f", max_coolant_temp_c);
+    fprintf(summary_file, ",%u", safe_mode_duration_ms);
+    fprintf(summary_file, ",%.6f", pump_mean_abs);
     fprintf(
         summary_file,
-        "%s,%s,%s,%u,%d,%u,%d,%d,%s,%d,%d,%s,%.2f,%u,%.6f,%.6f,%.6f,%.6f,%.2f,%d,%s,%d,%s\n",
-        state->experiment.experiment_id,
-        state->experiment.campaign_id,
-        state->experiment.campaign_label,
-        state->experiment.event_count,
-        state->metrics.fault_present_in_campaign ? 1 : 0,
-        state->metrics.first_fault_start_ms,
-        state->metrics.detection_latency_ms,
-        (int)state->metrics.detection_dtc_id,
-        diagnostics_dtc_label(state->metrics.detection_dtc_id),
-        state->metrics.safe_state_latency_ms,
-        (int)state->metrics.first_safe_state,
-        safe_state_label(state->metrics.first_safe_state),
-        state->metrics.max_coolant_temp_c,
-        state->metrics.safe_mode_duration_ms,
-        pump_mean_abs,
-        state->metrics.pump_tracking_error_max_abs,
-        fan_mean_abs,
-        state->metrics.fan_tracking_error_max_abs,
-        state->plant.coolant_temp_true_c,
-        (int)state->safety.current_state,
-        safe_state_label(state->safety.current_state),
-        (int)state->diagnostics.primary_dtc,
-        diagnostics_dtc_label(state->diagnostics.primary_dtc)
+        ",%.6f",
+        (double)(trace_metrics.available ? trace_metrics.pump_tracking_error_max_abs :
+                  state->metrics.pump_tracking_error_max_abs)
     );
+    fprintf(summary_file, ",%.6f", fan_mean_abs);
+    fprintf(
+        summary_file,
+        ",%.6f",
+        (double)(trace_metrics.available ? trace_metrics.fan_tracking_error_max_abs :
+                  state->metrics.fan_tracking_error_max_abs)
+    );
+    fprintf(summary_file, ",%.2f", state->plant.coolant_temp_true_c);
+    fprintf(summary_file, ",%d", (int)state->safety.current_state);
+    fprintf(summary_file, ",%s", safe_state_label(state->safety.current_state));
+    fprintf(summary_file, ",%d", (int)state->diagnostics.primary_dtc);
+    fprintf(summary_file, ",%s\n", diagnostics_dtc_label(state->diagnostics.primary_dtc));
 
     fclose(summary_file);
     return 0;

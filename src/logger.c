@@ -67,7 +67,8 @@ int logger_open(ecu_state_t *state, const char *path)
 
     fprintf(
         state->log_file,
-        "experiment_id,campaign_id,campaign_label,campaign_event_count,"
+        "experiment_id,campaign_id,campaign_label,campaign_category,campaign_event_count,"
+        "campaign_ambient_offset_c,campaign_engine_load_scale,campaign_heat_generation_bias,campaign_ram_air_scale,"
         "tick,time_ms,time_s,"
         "phase_id,phase_label,"
         "active_event_index,active_fault_start_ms,active_fault_duration_ms,active_fault_parameter,"
@@ -109,7 +110,7 @@ void logger_write(ecu_state_t *state)
 
     fprintf(
         state->log_file,
-        "%s,%s,%s,%u,"
+        "%s,%s,%s,%s,%u,%.2f,%.3f,%.3f,%.3f,"
         "%u,%u,%.3f,"
         "%d,%s,"
         "%d,%u,%u,%.3f,"
@@ -127,7 +128,12 @@ void logger_write(ecu_state_t *state)
         state->experiment.experiment_id,
         state->experiment.campaign_id,
         state->experiment.campaign_label,
+        state->experiment.campaign_category,
         state->experiment.event_count,
+        state->experiment.ambient_offset_c,
+        state->experiment.engine_load_scale,
+        state->experiment.heat_generation_bias,
+        state->experiment.ram_air_scale,
         state->time.tick,
         state->time.time_ms,
         (float)state->time.time_ms / 1000.0f,
