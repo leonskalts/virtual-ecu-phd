@@ -1,12 +1,17 @@
 #include "fault_injection.h"
 
 /* Fault-injection module: schedules deterministic fault scenarios with an
- * explicit distinction between transient disturbances and permanent failures. */
+ * explicit distinction between transient disturbances and permanent failures.
+ * The active fault is selected from the experiment campaign configuration. */
 void fault_injection_init(ecu_state_t *state)
 {
     state->faults.active_mode = FAULT_NONE;
     state->faults.active_behavior = FAULT_BEHAVIOR_NONE;
+    state->faults.active_event_index = -1;
     state->faults.enabled = false;
+    state->faults.active_start_ms = 0U;
+    state->faults.active_duration_ms = 0U;
+    state->faults.active_parameter = 0.0f;
     state->faults.sensor_bias_c = 0.0f;
     state->faults.pump_scale = 1.0f;
 }
@@ -39,36 +44,83 @@ const char *fault_injection_behavior_label(fault_behavior_t behavior)
     }
 }
 
+float fault_injection_default_parameter(fault_mode_t mode)
+{
+    switch (mode) {
+    case FAULT_SENSOR_BIAS:
+        return 6.0f;
+    case FAULT_PUMP_DEGRADED:
+        return 0.45f;
+    case FAULT_FAN_STUCK_OFF:
+        return 0.0f;
+    case FAULT_NONE:
+    default:
+        return 0.0f;
+    }
+}
+
+static bool fault_event_active(const fault_event_t *event, unsigned int time_ms)
+{
+    unsigned int end_ms;
+
+    if (event->mode == FAULT_NONE) {
+        return false;
+    }
+
+    if (time_ms < event->start_ms) {
+        return false;
+    }
+
+    if (event->duration_ms == 0U) {
+        return true;
+    }
+
+    end_ms = event->start_ms + event->duration_ms;
+    return time_ms < end_ms;
+}
+
+static void apply_fault_event(ecu_state_t *state, const fault_event_t *event, int event_index)
+{
+    state->faults.enabled = true;
+    state->faults.active_mode = event->mode;
+    state->faults.active_behavior = event->behavior;
+    state->faults.active_event_index = event_index;
+    state->faults.active_start_ms = event->start_ms;
+    state->faults.active_duration_ms = event->duration_ms;
+    state->faults.active_parameter = event->parameter;
+
+    switch (event->mode) {
+    case FAULT_SENSOR_BIAS:
+        state->faults.sensor_bias_c = event->parameter;
+        break;
+    case FAULT_PUMP_DEGRADED:
+        state->faults.pump_scale = event->parameter;
+        break;
+    case FAULT_FAN_STUCK_OFF:
+    case FAULT_NONE:
+    default:
+        break;
+    }
+}
+
 void fault_injection_step(ecu_state_t *state)
 {
+    unsigned int i;
+
     state->faults.enabled = false;
     state->faults.active_mode = FAULT_NONE;
     state->faults.active_behavior = FAULT_BEHAVIOR_NONE;
+    state->faults.active_event_index = -1;
+    state->faults.active_start_ms = 0U;
+    state->faults.active_duration_ms = 0U;
+    state->faults.active_parameter = 0.0f;
     state->faults.sensor_bias_c = 0.0f;
     state->faults.pump_scale = 1.0f;
 
-    /* 30-45 s: transient sensor bias used to test residual-based diagnosis. */
-    if (state->time.time_ms >= 30000U && state->time.time_ms < 45000U) {
-        state->faults.enabled = true;
-        state->faults.active_mode = FAULT_SENSOR_BIAS;
-        state->faults.active_behavior = FAULT_BEHAVIOR_TRANSIENT;
-        state->faults.sensor_bias_c = 6.0f;
-        return;
-    }
-
-    /* 60-85 s: transient pump degradation creates an actuator tracking fault. */
-    if (state->time.time_ms >= 60000U && state->time.time_ms < 85000U) {
-        state->faults.enabled = true;
-        state->faults.active_mode = FAULT_PUMP_DEGRADED;
-        state->faults.active_behavior = FAULT_BEHAVIOR_TRANSIENT;
-        state->faults.pump_scale = 0.45f;
-        return;
-    }
-
-    /* 90 s onward: permanent fan failure is left active for the rest of the run. */
-    if (state->time.time_ms >= 90000U) {
-        state->faults.enabled = true;
-        state->faults.active_mode = FAULT_FAN_STUCK_OFF;
-        state->faults.active_behavior = FAULT_BEHAVIOR_PERMANENT;
+    for (i = 0U; i < state->experiment.event_count; i++) {
+        if (fault_event_active(&state->experiment.events[i], state->time.time_ms)) {
+            apply_fault_event(state, &state->experiment.events[i], (int)i);
+            return;
+        }
     }
 }

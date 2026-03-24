@@ -1,6 +1,8 @@
 #ifndef ECU_TYPES_H
 #define ECU_TYPES_H
 
+#include "config.h"
+
 #include <stdbool.h>
 #include <stdio.h>
 
@@ -47,6 +49,22 @@ typedef enum {
     SAFE_STATE_LIMP_HOME,
     SAFE_STATE_CONTROLLED_SHUTDOWN
 } safe_state_t;
+
+typedef struct {
+    fault_mode_t mode;
+    fault_behavior_t behavior;
+    unsigned int start_ms;
+    unsigned int duration_ms;
+    float parameter;
+} fault_event_t;
+
+typedef struct {
+    char experiment_id[64];
+    char campaign_id[32];
+    char campaign_label[64];
+    unsigned int event_count;
+    fault_event_t events[ECU_MAX_FAULT_EVENTS];
+} experiment_config_t;
 
 typedef struct {
     scenario_phase_t scenario_phase;
@@ -115,7 +133,11 @@ typedef struct {
 typedef struct {
     fault_mode_t active_mode;
     fault_behavior_t active_behavior;
+    int active_event_index;
     bool enabled;
+    unsigned int active_start_ms;
+    unsigned int active_duration_ms;
+    float active_parameter;
     float sensor_bias_c;
     float pump_scale;
 } fault_state_t;
@@ -133,6 +155,7 @@ typedef struct {
     actuator_feedback_t actuators;
     diagnostic_flags_t diagnostics;
     safety_status_t safety;
+    experiment_config_t experiment;
     fault_state_t faults;
     FILE *log_file;
 } ecu_state_t;

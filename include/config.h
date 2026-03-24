@@ -11,6 +11,8 @@
 #define ECU_SAFETY_PERIOD_MS 100U
 #define ECU_LOG_PERIOD_MS 100U
 
+#define ECU_MAX_FAULT_EVENTS 4U
+
 #define ECU_DEFAULT_LOG_PATH "logs/thermal_run.csv"
 
 #define ECU_TARGET_COOLANT_TEMP_C 92.0f

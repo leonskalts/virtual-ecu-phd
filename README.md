@@ -25,6 +25,13 @@ The diagnostics layer now includes:
 - transient, persistent, and permanent fault classification
 - a named safe-state policy with logged state transitions
 
+The experiment layer now includes:
+
+- reusable built-in fault campaigns
+- parameterized custom single-fault runs
+- explicit experiment metadata in every CSV row
+- campaign event definitions embedded in the log for run-to-run comparison
+
 ## Example DTCs
 
 - `1001`: coolant sensor rationality fault
@@ -46,6 +53,7 @@ The diagnostics layer now includes:
 This platform is suitable for experiments on:
 
 - fault detection and isolation for thermal-management subsystems
+- cross-campaign comparison with identical logging fields
 - transient versus permanent fault behavior
 - persistence-threshold tuning for diagnostic confirmation
 - safe-state transition timing and hysteresis
@@ -79,10 +87,22 @@ make
 make run
 ```
 
-Or provide a custom CSV path:
+Run a built-in campaign:
 
 ```sh
-./virtual_ecu logs/my_run.csv
+./virtual_ecu logs/paper_default.csv paper_default
+```
+
+Run a custom parameterized fault:
+
+```sh
+./virtual_ecu logs/custom_sensor.csv custom sensor_bias 20000 10000 transient 8.0
+```
+
+List available campaigns:
+
+```sh
+./virtual_ecu --list-campaigns
 ```
 
 The executable writes CSV output to `logs/thermal_run.csv` by default.
