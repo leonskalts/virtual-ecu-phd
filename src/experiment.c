@@ -77,6 +77,20 @@ static const builtin_campaign_t BUILTIN_CAMPAIGNS[] = {
         }
     },
     {
+        "calibration_memory_corruption",
+        "Corrupted coolant-control target calibration campaign",
+        "computation_memory_fault",
+        1U,
+        0.0f,
+        1.00f,
+        0.0f,
+        1.00f,
+        {
+            { FAULT_CALIBRATION_MEMORY_CORRUPTION, FAULT_BEHAVIOR_PERMANENT, 52000U, 0U, 16.0f },
+            { FAULT_NONE, FAULT_BEHAVIOR_NONE, 0U, 0U, 0.0f }
+        }
+    },
+    {
         "fan_stuck_only",
         "Gate-driver, PWM-output, or power-stage stuck-off fan campaign",
         "actuation_path_fault",
@@ -243,6 +257,9 @@ fault_mode_t experiment_fault_mode_from_string(const char *text)
     }
     if (strcmp(text, "pump_degraded") == 0) {
         return FAULT_PUMP_DEGRADED;
+    }
+    if (strcmp(text, "calibration_memory_corruption") == 0) {
+        return FAULT_CALIBRATION_MEMORY_CORRUPTION;
     }
     if (strcmp(text, "fan_stuck_off") == 0) {
         return FAULT_FAN_STUCK_OFF;

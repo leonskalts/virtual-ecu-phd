@@ -15,7 +15,10 @@ typedef enum {
     /* Actuation-path abstraction: weak driver, aging, or supply-droop degradation. */
     FAULT_PUMP_DEGRADED,
     /* Actuation-path abstraction: PWM, gate-driver, or power-stage stuck-off fault. */
-    FAULT_FAN_STUCK_OFF
+    FAULT_FAN_STUCK_OFF,
+    /* Computation/memory-path abstraction: corrupted calibration register or
+     * nonvolatile control parameter affecting the ECU cooling target. */
+    FAULT_CALIBRATION_MEMORY_CORRUPTION
 } fault_mode_t;
 
 typedef enum {
@@ -151,6 +154,7 @@ typedef struct {
     float sensor_bias_c;
     float sensor_intermittent_amplitude_c;
     float pump_scale;
+    float control_target_offset_c;
 } fault_state_t;
 
 typedef struct {

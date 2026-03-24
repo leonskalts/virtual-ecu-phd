@@ -1,8 +1,9 @@
 #include "fault_injection.h"
 
 /* Fault-injection module: schedules deterministic hardware-origin fault
- * abstractions across sensing and actuation paths. These are cross-layer ECU
- * manifestations of electronics faults, not transistor-accurate simulations. */
+ * abstractions across sensing, actuation, and computation/memory paths. These
+ * are cross-layer ECU manifestations of electronics faults, not transistor-
+ * accurate simulations. */
 void fault_injection_init(ecu_state_t *state)
 {
     state->faults.active_mode = FAULT_NONE;
@@ -15,6 +16,7 @@ void fault_injection_init(ecu_state_t *state)
     state->faults.sensor_bias_c = 0.0f;
     state->faults.sensor_intermittent_amplitude_c = 0.0f;
     state->faults.pump_scale = 1.0f;
+    state->faults.control_target_offset_c = 0.0f;
 }
 
 const char *fault_injection_mode_label(fault_mode_t mode)
@@ -28,6 +30,8 @@ const char *fault_injection_mode_label(fault_mode_t mode)
         return "pump_degraded";
     case FAULT_FAN_STUCK_OFF:
         return "fan_stuck_off";
+    case FAULT_CALIBRATION_MEMORY_CORRUPTION:
+        return "calibration_memory_corruption";
     case FAULT_NONE:
     default:
         return "none";
@@ -58,6 +62,8 @@ float fault_injection_default_parameter(fault_mode_t mode)
         return 0.45f;
     case FAULT_FAN_STUCK_OFF:
         return 0.0f;
+    case FAULT_CALIBRATION_MEMORY_CORRUPTION:
+        return 16.0f;
     case FAULT_NONE:
     default:
         return 0.0f;
@@ -104,6 +110,9 @@ static void apply_fault_event(ecu_state_t *state, const fault_event_t *event, in
     case FAULT_PUMP_DEGRADED:
         state->faults.pump_scale = event->parameter;
         break;
+    case FAULT_CALIBRATION_MEMORY_CORRUPTION:
+        state->faults.control_target_offset_c = event->parameter;
+        break;
     case FAULT_FAN_STUCK_OFF:
     case FAULT_NONE:
     default:
@@ -125,6 +134,7 @@ void fault_injection_step(ecu_state_t *state)
     state->faults.sensor_bias_c = 0.0f;
     state->faults.sensor_intermittent_amplitude_c = 0.0f;
     state->faults.pump_scale = 1.0f;
+    state->faults.control_target_offset_c = 0.0f;
 
     for (i = 0U; i < state->experiment.event_count; i++) {
         if (fault_event_active(&state->experiment.events[i], state->time.time_ms)) {

@@ -57,6 +57,7 @@ Built-in campaigns include:
 - `sensor_bias_only`: ADC/reference/front-end offset fault campaign
 - `sensor_interface_intermittent`: intermittent sensor-interface corruption campaign
 - `pump_degraded_only`: weak-driver / aging / supply-droop pump campaign
+- `calibration_memory_corruption`: corrupted coolant-control target calibration campaign
 - `fan_stuck_only`: gate-driver / PWM-output / power-stage stuck-off fan campaign
 - `fan_stuck_hot_stress`: thermally stressed stuck-off fan power-stage campaign
 - `paper_default`: mixed hardware-origin fault scenario
@@ -68,6 +69,7 @@ Built-in campaigns include:
 | ADC / reference / front-end offset | biased coolant measurement | coolant sensor rationality DTC | incorrect cooling demand, possible false mitigation |
 | intermittent sensor-interface corruption | bursty coolant reading glitches | coolant sensor rationality DTC with transient or persistent behavior | control disturbance and possible temporary safe-state entry |
 | weak driver / aging / supply droop | reduced pump authority | pump tracking or cooling-performance diagnostics | reduced heat rejection and elevated coolant temperature |
+| calibration memory corruption | delayed cooling response due to corrupted control target | overtemperature-related DTCs and possible secondary cooling diagnostics | higher peak coolant temperature and earlier safety intervention |
 | gate-driver / PWM-output / power-stage stuck-off | commanded fan remains off | fan tracking DTC | safe-state escalation and thermal stress under low-airflow conditions |
 | mixed hardware-origin scenario | combined sensing and actuation degradation | multiple DTCs over time | sequential safety escalation and extended degraded operation |
 
@@ -77,7 +79,7 @@ The intended interpretation is:
 
 1. a hardware-origin fault occurs in sensing, actuation, memory, or timing electronics
 2. the fault appears at ECU interfaces as bias, intermittency, stuck-off behavior, or reduced actuation
-3. diagnostics, control, and safety logic react to those manifestations
+3. diagnostics, control, and safety logic react to those manifestations, including corrupted calibrations in computation/memory paths
 4. thermal-management behavior and safe-state transitions emerge at system level
 
 This makes the project suitable for VLSI + automotive dependability papers as a
@@ -151,6 +153,7 @@ Example baseline, transient, and permanent campaigns:
 ./virtual_ecu logs/baseline.csv baseline
 ./virtual_ecu logs/transient.csv sensor_bias_only
 ./virtual_ecu logs/sensor_interface.csv sensor_interface_intermittent
+./virtual_ecu logs/calibration_memory.csv calibration_memory_corruption
 ./virtual_ecu logs/permanent.csv fan_stuck_only
 ./virtual_ecu logs/permanent_stress.csv fan_stuck_hot_stress
 ```
