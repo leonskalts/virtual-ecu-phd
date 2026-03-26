@@ -12,6 +12,9 @@ typedef enum {
     FAULT_SENSOR_BIAS,
     /* Sensing-path abstraction: intermittent interface corruption or sampling glitch. */
     FAULT_SENSOR_INTERFACE_INTERMITTENT,
+    /* Timing/communication-path abstraction: delayed sampled-data refresh so
+     * the ECU consumes stale coolant measurements for multiple control steps. */
+    FAULT_STALE_SENSOR_DATA,
     /* Actuation-path abstraction: weak driver, aging, or supply-droop degradation. */
     FAULT_PUMP_DEGRADED,
     /* Actuation-path abstraction: PWM, gate-driver, or power-stage stuck-off fault. */
@@ -153,6 +156,10 @@ typedef struct {
     float active_parameter;
     float sensor_bias_c;
     float sensor_intermittent_amplitude_c;
+    unsigned int sensor_update_hold_ms;
+    unsigned int stale_sample_timestamp_ms;
+    float stale_coolant_temp_c;
+    bool stale_sample_valid;
     float pump_scale;
     float control_target_offset_c;
 } fault_state_t;

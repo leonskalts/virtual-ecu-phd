@@ -27,6 +27,9 @@ void sensors_init(ecu_state_t *state)
     state->sensors.radiator_temp_meas_c = state->plant.radiator_temp_true_c;
     state->sensors.ambient_temp_meas_c = state->plant.ambient_temp_c;
     state->sensors.vehicle_speed_meas_kph = state->plant.vehicle_speed_kph;
+    state->faults.stale_coolant_temp_c = state->plant.coolant_temp_true_c;
+    state->faults.stale_sample_timestamp_ms = 0U;
+    state->faults.stale_sample_valid = false;
 }
 
 void sensors_step(ecu_state_t *state)
@@ -44,6 +47,21 @@ void sensors_step(ecu_state_t *state)
             state->time.time_ms,
             state->faults.sensor_intermittent_amplitude_c
         );
+    }
+
+    /* Timing/communication abstraction: a sampled-data transfer path refreshes
+     * too slowly, so the ECU reuses an older coolant sample for multiple
+     * control periods. The fault parameter is the hold time in milliseconds
+     * before a fresh coolant sample reaches the ECU again. */
+    if (state->faults.enabled && state->faults.active_mode == FAULT_STALE_SENSOR_DATA) {
+        if (!state->faults.stale_sample_valid ||
+            (state->time.time_ms - state->faults.stale_sample_timestamp_ms) >= state->faults.sensor_update_hold_ms) {
+            state->faults.stale_coolant_temp_c = coolant_meas;
+            state->faults.stale_sample_timestamp_ms = state->time.time_ms;
+            state->faults.stale_sample_valid = true;
+        }
+
+        coolant_meas = state->faults.stale_coolant_temp_c;
     }
 
     state->sensors.coolant_temp_meas_c = coolant_meas;

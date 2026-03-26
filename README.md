@@ -47,7 +47,7 @@ This framework distinguishes four hardware-origin fault classes:
 - `sensing-path faults`: ADC offset, reference drift, analog front-end bias, sensor-interface intermittency
 - `actuation-path faults`: weak driver behavior, PWM-output fault, gate-driver stuck-off behavior, power-stage degradation
 - `computation/memory faults`: calibration corruption, register upset, state-memory disturbance
-- `timing/communication faults`: scheduler jitter, stale transfer, corrupted sampled-data communication
+- `timing/communication faults`: stale sampled-data transfer, delayed sensor update, scheduler-induced refresh delay
 
 These are modeled as ECU-visible abstractions, not as circuit-accurate device faults.
 
@@ -56,6 +56,8 @@ Built-in campaigns include:
 - `baseline`: no injected faults
 - `sensor_bias_only`: ADC/reference/front-end offset fault campaign
 - `sensor_interface_intermittent`: intermittent sensor-interface corruption campaign
+- `stale_sensor_data_only`: delayed sampled-data coolant-sensor update campaign
+- `stale_sensor_data_hot_stress`: thermally stressed stale sampled-data timing/communication campaign
 - `pump_degraded_only`: weak-driver / aging / supply-droop pump campaign
 - `calibration_memory_corruption`: corrupted coolant-control target calibration campaign
 - `fan_stuck_only`: gate-driver / PWM-output / power-stage stuck-off fan campaign
@@ -68,6 +70,8 @@ Built-in campaigns include:
 |---|---|---|---|
 | ADC / reference / front-end offset | biased coolant measurement | coolant sensor rationality DTC | incorrect cooling demand, possible false mitigation |
 | intermittent sensor-interface corruption | bursty coolant reading glitches | coolant sensor rationality DTC with transient or persistent behavior | control disturbance and possible temporary safe-state entry |
+| stale sampled-data coolant transfer / delayed refresh | ECU reuses an older coolant sample for multiple control steps | possible sensor rationality evidence during fast transients, plus delayed cooling-performance or overtemperature evidence | delayed cooling request, higher peak coolant temperature, and earlier protective action under stress |
+| stressed stale sampled-data timing fault | persistent reuse of aged coolant data during hot traffic / idle phases | sensor rationality evidence with clearer thermal escalation and earlier protection | delayed control action becomes a strong thermal/safety case rather than a mild timing artifact |
 | weak driver / aging / supply droop | reduced pump authority | pump tracking or cooling-performance diagnostics | reduced heat rejection and elevated coolant temperature |
 | calibration memory corruption | delayed cooling response due to corrupted control target | overtemperature-related DTCs and possible secondary cooling diagnostics | higher peak coolant temperature and earlier safety intervention |
 | gate-driver / PWM-output / power-stage stuck-off | commanded fan remains off | fan tracking DTC | safe-state escalation and thermal stress under low-airflow conditions |
@@ -78,7 +82,7 @@ Built-in campaigns include:
 The intended interpretation is:
 
 1. a hardware-origin fault occurs in sensing, actuation, memory, or timing electronics
-2. the fault appears at ECU interfaces as bias, intermittency, stuck-off behavior, or reduced actuation
+2. the fault appears at ECU interfaces as bias, intermittency, stale sampled data, stuck-off behavior, or reduced actuation
 3. diagnostics, control, and safety logic react to those manifestations, including corrupted calibrations in computation/memory paths
 4. thermal-management behavior and safe-state transitions emerge at system level
 
@@ -153,6 +157,8 @@ Example baseline, transient, and permanent campaigns:
 ./virtual_ecu logs/baseline.csv baseline
 ./virtual_ecu logs/transient.csv sensor_bias_only
 ./virtual_ecu logs/sensor_interface.csv sensor_interface_intermittent
+./virtual_ecu logs/stale_sensor.csv stale_sensor_data_only
+./virtual_ecu logs/stale_sensor_stress.csv stale_sensor_data_hot_stress
 ./virtual_ecu logs/calibration_memory.csv calibration_memory_corruption
 ./virtual_ecu logs/permanent.csv fan_stuck_only
 ./virtual_ecu logs/permanent_stress.csv fan_stuck_hot_stress
@@ -176,6 +182,8 @@ Included campaign options cover:
 - `baseline`
 - `sensor_bias_only`
 - `sensor_interface_intermittent`
+- `stale_sensor_data_only`
+- `stale_sensor_data_hot_stress`
 - `pump_degraded_only`
 - `fan_stuck_only`
 - `fan_stuck_hot_stress`
@@ -192,9 +200,10 @@ Comparison mode is the main research/demo workflow and provides:
 
 The GUI also plots:
 
-- coolant temperature comparison
-- safe-state comparison
-- fan command / actual comparison when one or both campaigns include a permanent fault
+- a selector-driven large comparison plot area for:
+  coolant temperature comparison,
+  safe-state comparison,
+  and fan command / actual comparison when one or both campaigns include a permanent fault
 
 The GUI also includes a lightweight `Batch Results` tab for loading an existing
 aggregate summary CSV such as `results/batch/paper_quick/aggregate_summary.csv`.
@@ -240,6 +249,7 @@ Run a custom parameterized fault:
 
 ```sh
 ./virtual_ecu logs/custom_sensor.csv custom sensor_bias 20000 10000 transient 8.0
+./virtual_ecu logs/custom_stale.csv custom stale_sensor_data 45000 30000 transient 5000
 ```
 
 List available campaigns:
@@ -282,6 +292,8 @@ Supported sweep families include:
 
 - sensing-path fault sweeps:
   `sensor_bias`, `sensor_interface_intermittent`
+- timing/communication-path fault sweeps:
+  `stale_sensor_data` with both stronger transient stale-data windows and severe persistent stale-data cases
 - actuation-path fault sweeps:
   `pump_degraded`, `fan_stuck_off`
 - computation/memory-path fault sweeps:
@@ -329,6 +341,13 @@ This strengthens the research contribution because the platform is no longer
 limited to a few illustrative traces. It now supports systematic sensitivity
 studies, repeatable latency comparisons, and cross-fault trend analysis using a
 simple workflow that remains easy to explain in a conference paper.
+
+The timing/communication-path study is now a stronger explicit part of the
+evaluation story:
+
+- `stale_sensor_data_only` shows the core sampled-data timing fault in a clean, explainable form
+- `stale_sensor_data_hot_stress` turns the same abstraction into a clearer thermal/safety demonstration case
+- the batch runner now sweeps stale-data hold time, start time, duration, and persistence strongly enough to expose meaningful detection and protection trends
 
 ## Paper Tables and Figures
 

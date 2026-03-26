@@ -173,7 +173,8 @@ void diagnostics_step(ecu_state_t *state)
         state->diagnostics.coolant_sensor_rationality_fault,
         permanent_injected_fault &&
             (state->faults.active_mode == FAULT_SENSOR_BIAS ||
-             state->faults.active_mode == FAULT_SENSOR_INTERFACE_INTERMITTENT)
+             state->faults.active_mode == FAULT_SENSOR_INTERFACE_INTERMITTENT ||
+             state->faults.active_mode == FAULT_STALE_SENSOR_DATA)
     );
     dtc_update(&state->diagnostics.overtemp_warning_dtc, state->diagnostics.overtemp_warning, permanent_injected_fault);
     dtc_update(&state->diagnostics.overtemp_critical_dtc, state->diagnostics.overtemp_critical, permanent_injected_fault);

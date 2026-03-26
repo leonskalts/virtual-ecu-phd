@@ -22,6 +22,7 @@ DEFAULT_OUTPUT_DIR = Path("results/batch/paper_quick/analysis_claims")
 FAULT_TYPE_ORDER = [
     "sensor_bias",
     "sensor_interface_intermittent",
+    "stale_sensor_data",
     "pump_degraded",
     "fan_stuck_off",
     "calibration_memory_corruption",
@@ -30,6 +31,7 @@ FAULT_TYPE_ORDER = [
 FAULT_TYPE_LABELS = {
     "sensor_bias": "Sensor Bias",
     "sensor_interface_intermittent": "Sensor Interface\nIntermittent",
+    "stale_sensor_data": "Stale Sensor\nData",
     "pump_degraded": "Pump Degraded",
     "fan_stuck_off": "Fan Stuck Off",
     "calibration_memory_corruption": "Calibration Memory\nCorruption",
@@ -38,6 +40,7 @@ FAULT_TYPE_LABELS = {
 FAULT_TYPE_COLORS = {
     "sensor_bias": "#4c9f70",
     "sensor_interface_intermittent": "#87b37a",
+    "stale_sensor_data": "#7a6fd0",
     "pump_degraded": "#e6a141",
     "fan_stuck_off": "#c94f4f",
     "calibration_memory_corruption": "#4c78a8",
@@ -144,30 +147,22 @@ def mode_or_none(values: Iterable[str]) -> str:
     return winners[0]
 
 
-def verify_fault_types_present(aggregate_rows: Sequence[Dict[str, str]], draft_rows: Sequence[Dict[str, str]]) -> None:
+def present_fault_types(aggregate_rows: Sequence[Dict[str, str]]) -> List[str]:
     aggregate_types = {row["fault_type"] for row in aggregate_rows}
-    draft_types = {row["fault_type"] for row in draft_rows}
-
-    missing = [fault_type for fault_type in FAULT_TYPE_ORDER if fault_type not in aggregate_types]
-    if missing:
-        raise ValueError(f"Aggregate CSV is missing required fault types: {', '.join(missing)}")
-
-    missing_in_draft = [fault_type for fault_type in FAULT_TYPE_ORDER if fault_type not in draft_types]
-    if missing_in_draft:
-        raise ValueError(
-            "Draft fault-type summary is missing required fault types: "
-            + ", ".join(missing_in_draft)
-        )
+    ordered = [fault_type for fault_type in FAULT_TYPE_ORDER if fault_type in aggregate_types]
+    if not ordered:
+        raise ValueError("No claim-focused fault types were found in the aggregate CSV.")
+    return ordered
 
 
 def rows_for_fault_type(rows: Sequence[Dict[str, str]], fault_type: str) -> List[Dict[str, str]]:
     return [row for row in rows if row["fault_type"] == fault_type]
 
 
-def build_main_comparison_table(rows: Sequence[Dict[str, str]]) -> List[Dict[str, str]]:
+def build_main_comparison_table(rows: Sequence[Dict[str, str]], fault_types: Sequence[str]) -> List[Dict[str, str]]:
     table_rows: List[Dict[str, str]] = []
 
-    for fault_type in FAULT_TYPE_ORDER:
+    for fault_type in fault_types:
         subset = rows_for_fault_type(rows, fault_type)
         detection = [value for value in (int_or_none(row["detection_latency_ms"]) for row in subset) if value is not None]
         safe_state = [value for value in (int_or_none(row["safe_state_latency_ms"]) for row in subset) if value is not None]
@@ -189,13 +184,13 @@ def build_main_comparison_table(rows: Sequence[Dict[str, str]]) -> List[Dict[str
     return table_rows
 
 
-def plot_detection_figure(rows: Sequence[Dict[str, str]], output_path: Path) -> None:
-    labels = [FAULT_TYPE_LABELS[fault_type] for fault_type in FAULT_TYPE_ORDER]
-    y_positions = list(range(len(FAULT_TYPE_ORDER)))
+def plot_detection_figure(rows: Sequence[Dict[str, str]], fault_types: Sequence[str], output_path: Path) -> None:
+    labels = [FAULT_TYPE_LABELS[fault_type] for fault_type in fault_types]
+    y_positions = list(range(len(fault_types)))
     detection_means: List[float] = []
     safe_state_means: List[float | None] = []
 
-    for fault_type in FAULT_TYPE_ORDER:
+    for fault_type in fault_types:
         subset = rows_for_fault_type(rows, fault_type)
         detection_values = [
             value for value in (int_or_none(row["detection_latency_ms"]) for row in subset) if value is not None
@@ -208,7 +203,7 @@ def plot_detection_figure(rows: Sequence[Dict[str, str]], output_path: Path) -> 
 
     fig, ax = plt.subplots(figsize=(8.8, 4.8), constrained_layout=True)
 
-    bar_colors = [FAULT_TYPE_COLORS[fault_type] for fault_type in FAULT_TYPE_ORDER]
+    bar_colors = [FAULT_TYPE_COLORS[fault_type] for fault_type in fault_types]
     bars = ax.barh(y_positions, detection_means, color=bar_colors, edgecolor="#2f2f2f", linewidth=0.6)
 
     for y_pos, safe_mean in zip(y_positions, safe_state_means):
@@ -238,10 +233,10 @@ def plot_detection_figure(rows: Sequence[Dict[str, str]], output_path: Path) -> 
     plt.close(fig)
 
 
-def plot_thermal_severity_figure(rows: Sequence[Dict[str, str]], output_path: Path) -> None:
+def plot_thermal_severity_figure(rows: Sequence[Dict[str, str]], fault_types: Sequence[str], output_path: Path) -> None:
     fig, ax = plt.subplots(figsize=(7.0, 5.0), constrained_layout=True)
 
-    for fault_type in FAULT_TYPE_ORDER:
+    for fault_type in fault_types:
         subset = rows_for_fault_type(rows, fault_type)
         max_temp_values = [
             value for value in (float_or_none(row["max_coolant_temperature_c"]) for row in subset) if value is not None
@@ -276,12 +271,12 @@ def plot_thermal_severity_figure(rows: Sequence[Dict[str, str]], output_path: Pa
     plt.close(fig)
 
 
-def plot_safe_state_distribution(rows: Sequence[Dict[str, str]], output_path: Path) -> None:
-    labels = [FAULT_TYPE_LABELS[fault_type] for fault_type in FAULT_TYPE_ORDER]
-    x_positions = list(range(len(FAULT_TYPE_ORDER)))
+def plot_safe_state_distribution(rows: Sequence[Dict[str, str]], fault_types: Sequence[str], output_path: Path) -> None:
+    labels = [FAULT_TYPE_LABELS[fault_type] for fault_type in fault_types]
+    x_positions = list(range(len(fault_types)))
     percentages_by_state = {state: [] for state in SAFE_STATE_ORDER}
 
-    for fault_type in FAULT_TYPE_ORDER:
+    for fault_type in fault_types:
         subset = rows_for_fault_type(rows, fault_type)
         counts = Counter(row["final_safe_state"] for row in subset)
         total = len(subset)
@@ -289,7 +284,7 @@ def plot_safe_state_distribution(rows: Sequence[Dict[str, str]], output_path: Pa
             percentages_by_state[state].append(100.0 * counts.get(state, 0) / total if total > 0 else 0.0)
 
     fig, ax = plt.subplots(figsize=(8.8, 4.8), constrained_layout=True)
-    bottom = [0.0 for _ in FAULT_TYPE_ORDER]
+    bottom = [0.0 for _ in fault_types]
 
     for state in SAFE_STATE_ORDER:
         values = percentages_by_state[state]
@@ -325,21 +320,26 @@ def main() -> None:
 
     aggregate_rows = read_csv_rows(aggregate_csv)
     draft_rows = read_csv_rows(draft_fault_table)
-    verify_fault_types_present(aggregate_rows, draft_rows)
+    if not draft_rows:
+        raise ValueError(f"No rows found in {draft_fault_table}")
+    fault_types = present_fault_types(aggregate_rows)
 
-    table_rows = build_main_comparison_table(aggregate_rows)
+    table_rows = build_main_comparison_table(aggregate_rows, fault_types)
     write_csv(output_dir / "table_claim_1_main_comparison.csv", TABLE_COLUMNS, table_rows)
 
     plot_detection_figure(
         aggregate_rows,
+        fault_types,
         output_dir / "figure_claim_1_detection_vs_fault_type.png",
     )
     plot_thermal_severity_figure(
         aggregate_rows,
+        fault_types,
         output_dir / "figure_claim_2_thermal_severity_vs_fault_type.png",
     )
     plot_safe_state_distribution(
         aggregate_rows,
+        fault_types,
         output_dir / "figure_claim_3_safe_state_outcome_vs_fault_type.png",
     )
 

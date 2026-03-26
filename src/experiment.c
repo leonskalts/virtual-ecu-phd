@@ -7,7 +7,8 @@
 
 /* Experiment module: centralizes campaign definitions and CLI-friendly custom
  * hardware-origin fault abstractions so multiple runs can be compared with
- * consistent metadata across sensing-path and actuation-path studies. */
+ * consistent metadata across sensing-path, timing/communication-path,
+ * actuation-path, and computation/memory-path studies. */
 typedef struct {
     const char *campaign_id;
     const char *campaign_label;
@@ -59,6 +60,34 @@ static const builtin_campaign_t BUILTIN_CAMPAIGNS[] = {
         1.00f,
         {
             { FAULT_SENSOR_BIAS, FAULT_BEHAVIOR_TRANSIENT, 30000U, 15000U, 6.0f },
+            { FAULT_NONE, FAULT_BEHAVIOR_NONE, 0U, 0U, 0.0f }
+        }
+    },
+    {
+        "stale_sensor_data_only",
+        "Delayed sampled-data coolant-sensor update campaign",
+        "timing_communication_fault",
+        1U,
+        0.0f,
+        1.00f,
+        0.0f,
+        1.00f,
+        {
+            { FAULT_STALE_SENSOR_DATA, FAULT_BEHAVIOR_TRANSIENT, 55000U, 50000U, 12000.0f },
+            { FAULT_NONE, FAULT_BEHAVIOR_NONE, 0U, 0U, 0.0f }
+        }
+    },
+    {
+        "stale_sensor_data_hot_stress",
+        "Thermally stressed stale coolant-sensor update campaign",
+        "timing_communication_fault_stress",
+        1U,
+        6.0f,
+        1.10f,
+        2.0f,
+        0.70f,
+        {
+            { FAULT_STALE_SENSOR_DATA, FAULT_BEHAVIOR_PERMANENT, 65000U, 0U, 15000.0f },
             { FAULT_NONE, FAULT_BEHAVIOR_NONE, 0U, 0U, 0.0f }
         }
     },
@@ -254,6 +283,9 @@ fault_mode_t experiment_fault_mode_from_string(const char *text)
     }
     if (strcmp(text, "sensor_interface_intermittent") == 0) {
         return FAULT_SENSOR_INTERFACE_INTERMITTENT;
+    }
+    if (strcmp(text, "stale_sensor_data") == 0) {
+        return FAULT_STALE_SENSOR_DATA;
     }
     if (strcmp(text, "pump_degraded") == 0) {
         return FAULT_PUMP_DEGRADED;

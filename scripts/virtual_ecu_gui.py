@@ -33,6 +33,8 @@ CAMPAIGNS: Sequence[Tuple[str, str]] = (
     ("baseline", "Baseline"),
     ("sensor_bias_only", "Sensor Bias Only"),
     ("sensor_interface_intermittent", "Sensor Interface Intermittent"),
+    ("stale_sensor_data_only", "Stale Sensor Data Only"),
+    ("stale_sensor_data_hot_stress", "Stale Sensor Data Hot Stress"),
     ("pump_degraded_only", "Pump Degraded Only"),
     ("fan_stuck_only", "Fan Stuck Only"),
     ("fan_stuck_hot_stress", "Fan Stuck Hot Stress"),
@@ -43,6 +45,7 @@ CAMPAIGNS: Sequence[Tuple[str, str]] = (
 MODE_TO_CLASS = {
     "sensor_bias": "sensing-path fault",
     "sensor_interface_intermittent": "sensing-path fault",
+    "stale_sensor_data": "timing/communication-path fault",
     "pump_degraded": "actuation-path fault",
     "fan_stuck_off": "actuation-path fault",
     "calibration_memory_corruption": "computation/memory-path fault",
@@ -52,6 +55,7 @@ FAULT_TYPE_DISPLAY = {
     "none": "Baseline",
     "sensor_bias": "Sensor Bias",
     "sensor_interface_intermittent": "Sensor Interface Intermittent",
+    "stale_sensor_data": "Stale Sensor Data",
     "pump_degraded": "Pump Degraded",
     "fan_stuck_off": "Fan Stuck Off",
     "calibration_memory_corruption": "Calibration Memory Corruption",
@@ -61,6 +65,7 @@ FAULT_TYPE_ORDER = (
     "none",
     "sensor_bias",
     "sensor_interface_intermittent",
+    "stale_sensor_data",
     "pump_degraded",
     "fan_stuck_off",
     "calibration_memory_corruption",
@@ -105,6 +110,24 @@ CAMPAIGN_STORIES = {
         "ecu_manifestation": "Bursty coolant reading disturbances appear at the ECU interface while the true thermal state remains smooth.",
         "diagnostic_effect": "Transient or intermittent coolant sensor rationality behavior is expected, with DTC activity tied to burst timing.",
         "system_effect": "Temporary control disturbance may occur, but safe-state entry is usually limited unless the disturbance couples into thermal stress.",
+    },
+    "stale_sensor_data_only": {
+        "campaign_name": "Stale Sensor Data Only",
+        "description": "Moderate timing/communication-path case where the ECU reuses an older coolant sample and cooling demand arrives late.",
+        "fault_class": "timing/communication-path fault",
+        "hardware_source": "Clock-domain crossing delay, stale register handoff, DMA refresh lag, or sampled-data transport timing fault in the sensor-to-ECU path.",
+        "ecu_manifestation": "The coolant measurement visible to the controller updates too slowly, so the ECU acts on aged thermal information.",
+        "diagnostic_effect": "Sensor rationality evidence appears after the stale-data lag becomes large enough during the rising-temperature phase.",
+        "system_effect": "Cooling demand arrives late, increasing peak coolant temperature and making delayed control action visible even without an extreme stress case.",
+    },
+    "stale_sensor_data_hot_stress": {
+        "campaign_name": "Stale Sensor Data Hot Stress",
+        "description": "Stressed timing/communication-path campaign that combines stale ECU coolant data with hotter and lower-airflow operating conditions.",
+        "fault_class": "timing/communication-path fault under thermal stress",
+        "hardware_source": "Persistent sampled-data refresh delay caused by stale register transfer, timing margin loss, or a delayed sensor-to-ECU communication update path.",
+        "ecu_manifestation": "The controller repeatedly operates on aged coolant measurements during the urban-traffic and hot-idle phases.",
+        "diagnostic_effect": "Coolant sensor rationality evidence is expected to persist longer, with overtemperature and safe-state transitions appearing sooner than in the milder timing case.",
+        "system_effect": "This is the strongest timing/communication demonstration case: stale data delays cooling action enough to create a visible thermal and safety consequence.",
     },
     "pump_degraded_only": {
         "campaign_name": "Pump Degraded Only",
@@ -392,20 +415,30 @@ def save_fan_comparison_plot(
 class PlotCanvas(ttk.Frame):
     """Small reusable plotting widget backed by a Tkinter Canvas."""
 
-    def __init__(self, master: tk.Misc, title: str) -> None:
+    def __init__(self, master: tk.Misc, title: str, *, canvas_height: int = 220) -> None:
         super().__init__(master)
         self.columnconfigure(0, weight=1)
         self.rowconfigure(1, weight=1)
+        self.title_var = tk.StringVar(value=title)
 
-        ttk.Label(self, text=title, style="Section.TLabel").grid(
+        ttk.Label(self, textvariable=self.title_var, style="Section.TLabel").grid(
             row=0, column=0, sticky="w", padx=6, pady=(0, 4)
         )
 
-        self.canvas = tk.Canvas(self, background="#ffffff", highlightthickness=1, highlightbackground="#c7d0d9")
+        self.canvas = tk.Canvas(
+            self,
+            background="#ffffff",
+            height=canvas_height,
+            highlightthickness=1,
+            highlightbackground="#c7d0d9",
+        )
         self.canvas.grid(row=1, column=0, sticky="nsew")
         self.canvas.bind("<Configure>", lambda _event: self.redraw())
         self._drawer = self._draw_message
         self._payload: object = "No data loaded yet."
+
+    def set_title(self, title: str) -> None:
+        self.title_var.set(title)
 
     def show_message(self, text: str) -> None:
         self._drawer = self._draw_message
@@ -414,8 +447,7 @@ class PlotCanvas(ttk.Frame):
 
     def plot_lines(
         self,
-        x_values: Sequence[float],
-        series: Sequence[Tuple[str, str, Sequence[float]]],
+        series: Sequence[Tuple[str, str, Sequence[float], Sequence[float], Tuple[int, ...] | None]],
         *,
         y_label: str,
         y_min: float | None = None,
@@ -424,8 +456,10 @@ class PlotCanvas(ttk.Frame):
     ) -> None:
         self._drawer = self._draw_line_plot
         self._payload = {
-            "x_values": list(x_values),
-            "series": [(label, color, list(values)) for label, color, values in series],
+            "series": [
+                (label, color, list(x_values), list(y_values), dash)
+                for label, color, x_values, y_values, dash in series
+            ],
             "y_label": y_label,
             "y_min": y_min,
             "y_max": y_max,
@@ -490,21 +524,110 @@ class PlotCanvas(ttk.Frame):
         self._drawer(self._payload)
 
     def _canvas_size(self) -> Tuple[int, int]:
-        width = max(self.canvas.winfo_width(), 240)
-        height = max(self.canvas.winfo_height(), 180)
+        width = max(self.canvas.winfo_width(), 280)
+        height = max(self.canvas.winfo_height(), 200)
         return width, height
 
-    def _plot_bounds(self) -> Tuple[int, int, int, int]:
+    def _plot_bounds(
+        self,
+        *,
+        left_margin: int = 76,
+        top_margin: int = 18,
+        right_margin: int = 24,
+        bottom_margin: int = 54,
+    ) -> Tuple[int, int, int, int]:
         width, height = self._canvas_size()
-        return 58, 18, width - 20, height - 34
+        left = left_margin
+        top = top_margin
+        right = max(width - right_margin, left + 40)
+        bottom = max(height - bottom_margin, top + 40)
+        return left, top, right, bottom
 
-    def _draw_axes(self, y_label: str, x_label: str = "Time [s]") -> Tuple[int, int, int, int]:
-        left, top, right, bottom = self._plot_bounds()
+    def _draw_axes(
+        self,
+        y_label: str,
+        x_label: str = "Time [s]",
+        *,
+        left_margin: int = 76,
+        top_margin: int = 18,
+        right_margin: int = 24,
+        bottom_margin: int = 54,
+    ) -> Tuple[int, int, int, int]:
+        left, top, right, bottom = self._plot_bounds(
+            left_margin=left_margin,
+            top_margin=top_margin,
+            right_margin=right_margin,
+            bottom_margin=bottom_margin,
+        )
         self.canvas.create_line(left, bottom, right, bottom, fill="#4a5560", width=1)
         self.canvas.create_line(left, bottom, left, top, fill="#4a5560", width=1)
-        self.canvas.create_text((left + right) / 2, bottom + 20, text=x_label, fill="#33404d")
-        self.canvas.create_text(18, (top + bottom) / 2, text=y_label, fill="#33404d", angle=90)
+        self.canvas.create_text((left + right) / 2, bottom + 26, text=x_label, fill="#33404d")
+        self.canvas.create_text(24, (top + bottom) / 2, text=y_label, fill="#33404d", angle=90)
         return left, top, right, bottom
+
+    def _legend_rows(
+        self,
+        entries: Sequence[Tuple[str, str, Tuple[int, ...] | None]],
+        available_width: float,
+    ) -> List[List[Tuple[str, str, Tuple[int, ...] | None]]]:
+        rows: List[List[Tuple[str, str, Tuple[int, ...] | None]]] = []
+        current_row: List[Tuple[str, str, Tuple[int, ...] | None]] = []
+        current_width = 0.0
+
+        for label, color, dash in entries:
+            entry_width = 42 + len(label) * 6.8
+            if current_row and current_width + entry_width > available_width:
+                rows.append(current_row)
+                current_row = []
+                current_width = 0.0
+            current_row.append((label, color, dash))
+            current_width += entry_width
+
+        if current_row:
+            rows.append(current_row)
+
+        return rows
+
+    def _draw_legend(
+        self,
+        entries: Sequence[Tuple[str, str, Tuple[int, ...] | None]],
+        *,
+        left: int,
+        top: int,
+        right: int,
+    ) -> int:
+        if not entries:
+            return 0
+
+        rows = self._legend_rows(entries, max(right - left - 8, 120))
+        y_pos = top
+        for row in rows:
+            x_pos = left
+            for label, color, dash in row:
+                self.canvas.create_line(
+                    x_pos,
+                    y_pos + 6,
+                    x_pos + 18,
+                    y_pos + 6,
+                    fill=color,
+                    width=2,
+                    dash=dash or (),
+                )
+                self.canvas.create_text(x_pos + 24, y_pos + 6, text=label, anchor="w", fill="#33404d")
+                x_pos += 42 + len(label) * 6.8
+            y_pos += 18
+
+        return max(18 * len(rows) + 8, 0)
+
+    def _bottom_margin_for_categories(self, categories: Sequence[str]) -> int:
+        if not categories:
+            return 56
+        longest = max(len(category) for category in categories)
+        if longest > 22:
+            return 92
+        if longest > 14:
+            return 76
+        return 60
 
     def _draw_message(self, payload: object) -> None:
         width, height = self._canvas_size()
@@ -519,23 +642,33 @@ class PlotCanvas(ttk.Frame):
 
     def _draw_line_plot(self, payload: object) -> None:
         data = payload  # type: ignore[assignment]
-        x_values = data["x_values"]
         series = data["series"]
         y_label = data["y_label"]
         y_min = data["y_min"]
         y_max = data["y_max"]
         threshold_lines = data["threshold_lines"]
 
-        if not x_values or not series:
+        if not series:
             self._draw_message("No plot data available.")
             return
 
-        left, top, right, bottom = self._draw_axes(y_label)
-        all_y = [y for _, _, values in series for y in values]
+        all_x = [x_value for _, _, x_values, _, _ in series for x_value in x_values]
+        all_y = [y_value for _, _, _, y_values, _ in series for y_value in y_values]
+        if not all_x or not all_y:
+            self._draw_message("No plot data available.")
+            return
+
+        legend_entries = [(label, color, dash) for label, color, _, _, dash in series]
+        legend_height = self._draw_legend(legend_entries, left=86, top=10, right=self._canvas_size()[0] - 16)
+        left, top, right, bottom = self._draw_axes(
+            y_label,
+            top_margin=18 + legend_height,
+            bottom_margin=60,
+        )
         all_y.extend(value for value, _, _ in threshold_lines)
 
-        min_x = min(x_values)
-        max_x = max(x_values)
+        min_x = min(all_x)
+        max_x = max(all_x)
         min_y = min(all_y) if y_min is None else y_min
         max_y = max(all_y) if y_max is None else y_max
 
@@ -544,8 +677,9 @@ class PlotCanvas(ttk.Frame):
         if max_y <= min_y:
             max_y = min_y + 1.0
 
-        min_y -= 0.05 * (max_y - min_y)
-        max_y += 0.05 * (max_y - min_y)
+        y_padding = 0.08 * (max_y - min_y)
+        min_y -= y_padding
+        max_y += y_padding
 
         def map_x(value: float) -> float:
             return left + (value - min_x) * (right - left) / (max_x - min_x)
@@ -563,26 +697,21 @@ class PlotCanvas(ttk.Frame):
             x_value = min_x + tick * (max_x - min_x) / 4.0
             x_pos = map_x(x_value)
             self.canvas.create_line(x_pos, top, x_pos, bottom + 4, fill="#e7edf2", dash=(2, 4))
-            self.canvas.create_text(x_pos, bottom + 16, text=f"{x_value:.0f}", anchor="n", fill="#506070")
+            self.canvas.create_text(x_pos, bottom + 14, text=f"{x_value:.0f}", anchor="n", fill="#506070")
 
         for value, color, label in threshold_lines:
             y_pos = map_y(value)
             self.canvas.create_line(left, y_pos, right, y_pos, fill=color, dash=(6, 4))
-            self.canvas.create_text(right - 2, y_pos - 8, text=label, anchor="e", fill=color)
+            label_y = max(y_pos - 8, top + 8)
+            self.canvas.create_text(right - 6, label_y, text=label, anchor="e", fill=color)
 
-        legend_x = left + 6
-        legend_y = top + 8
-        for label, color, values in series:
+        for label, color, x_values, y_values, dash in series:
             points = []
-            for x_value, y_value in zip(x_values, values):
+            for x_value, y_value in zip(x_values, y_values):
                 points.extend((map_x(x_value), map_y(y_value)))
 
             if len(points) >= 4:
-                self.canvas.create_line(*points, fill=color, width=2, smooth=False)
-
-            self.canvas.create_line(legend_x, legend_y + 5, legend_x + 18, legend_y + 5, fill=color, width=2)
-            self.canvas.create_text(legend_x + 24, legend_y + 5, text=label, anchor="w", fill="#33404d")
-            legend_y += 18
+                self.canvas.create_line(*points, fill=color, width=2, smooth=False, dash=dash or ())
 
     def _draw_step_plot(self, payload: object) -> None:
         data = payload  # type: ignore[assignment]
@@ -595,7 +724,7 @@ class PlotCanvas(ttk.Frame):
             self._draw_message("No plot data available.")
             return
 
-        left, top, right, bottom = self._draw_axes(y_label)
+        left, top, right, bottom = self._draw_axes(y_label, bottom_margin=60)
         min_x = min(x_values)
         max_x = max(x_values)
 
@@ -617,7 +746,7 @@ class PlotCanvas(ttk.Frame):
             x_value = min_x + tick * (max_x - min_x) / 4.0
             x_pos = map_x(x_value)
             self.canvas.create_line(x_pos, top, x_pos, bottom + 4, fill="#e7edf2", dash=(2, 4))
-            self.canvas.create_text(x_pos, bottom + 16, text=f"{x_value:.0f}", anchor="n", fill="#506070")
+            self.canvas.create_text(x_pos, bottom + 14, text=f"{x_value:.0f}", anchor="n", fill="#506070")
 
         points = []
         for index, (x_value, y_value) in enumerate(zip(x_values, y_values)):
@@ -647,7 +776,13 @@ class PlotCanvas(ttk.Frame):
             self._draw_message("No plot data available.")
             return
 
-        left, top, right, bottom = self._draw_axes(y_label)
+        legend_entries = [(label, color, dash) for label, color, _, _, dash in series]
+        legend_height = self._draw_legend(legend_entries, left=86, top=10, right=self._canvas_size()[0] - 16)
+        left, top, right, bottom = self._draw_axes(
+            y_label,
+            top_margin=18 + legend_height,
+            bottom_margin=60,
+        )
         min_x = min(all_x)
         max_x = max(all_x)
 
@@ -675,10 +810,7 @@ class PlotCanvas(ttk.Frame):
             x_value = min_x + tick * (max_x - min_x) / 4.0
             x_pos = map_x(x_value)
             self.canvas.create_line(x_pos, top, x_pos, bottom + 4, fill="#e7edf2", dash=(2, 4))
-            self.canvas.create_text(x_pos, bottom + 16, text=f"{x_value:.0f}", anchor="n", fill="#506070")
-
-        legend_x = left + 8
-        legend_y = top + 8
+            self.canvas.create_text(x_pos, bottom + 14, text=f"{x_value:.0f}", anchor="n", fill="#506070")
 
         for label, color, x_values, y_values, dash in series:
             points = []
@@ -693,18 +825,6 @@ class PlotCanvas(ttk.Frame):
 
             if len(points) >= 4:
                 self.canvas.create_line(*points, fill=color, width=2, dash=dash or ())
-
-            self.canvas.create_line(
-                legend_x,
-                legend_y + 5,
-                legend_x + 20,
-                legend_y + 5,
-                fill=color,
-                width=2,
-                dash=dash or (),
-            )
-            self.canvas.create_text(legend_x + 26, legend_y + 5, text=label, anchor="w", fill="#33404d")
-            legend_y += 18
 
     def _draw_bar_plot(self, payload: object) -> None:
         data = payload  # type: ignore[assignment]
@@ -722,10 +842,16 @@ class PlotCanvas(ttk.Frame):
             self._draw_message("No valid values available for this batch plot.")
             return
 
-        left, top, right, bottom = self._draw_axes(y_label, x_label="Fault Type")
+        bottom_margin = self._bottom_margin_for_categories(categories)
+        left, top, right, bottom = self._draw_axes(
+            y_label,
+            x_label="Fault Type",
+            bottom_margin=bottom_margin,
+        )
         max_value = max(valid_values)
         if max_value <= 0.0:
             max_value = 1.0
+        max_value *= 1.12
 
         def map_y(value: float) -> float:
             return bottom - value * (bottom - top) / max_value
@@ -753,7 +879,7 @@ class PlotCanvas(ttk.Frame):
 
             self.canvas.create_text(
                 center_x,
-                bottom + 16,
+                bottom + 14,
                 text=category,
                 anchor="n",
                 fill="#506070",
@@ -769,16 +895,22 @@ class VirtualECUGui(tk.Tk):
         "Detection Latency",
         "Safe-State Latency",
     )
+    COMPARISON_PLOT_OPTIONS = (
+        "Coolant Temperature Comparison",
+        "Safe-State Comparison",
+        "Fan Command / Actual Comparison",
+    )
 
     def __init__(self) -> None:
         super().__init__()
         self.title("Virtual ECU Research GUI")
-        self.geometry("1320x980")
-        self.minsize(1120, 860)
+        self.geometry("1360x1020")
+        self.minsize(1180, 920)
 
         self.executable = detect_executable()
         self.left_campaign = tk.StringVar(value="baseline")
         self.right_campaign = tk.StringVar(value="fan_stuck_hot_stress")
+        self.comparison_plot_choice = tk.StringVar(value=self.COMPARISON_PLOT_OPTIONS[0])
         self.status_text = tk.StringVar(value="Select two campaigns and run a comparison.")
         self.batch_status_text = tk.StringVar(value="Load a batch aggregate summary CSV to inspect sweep-level trends.")
         self.left_description_var = tk.StringVar(value="-")
@@ -806,9 +938,11 @@ class VirtualECUGui(tk.Tk):
         }
         self.metric_cells: Dict[str, Dict[str, Dict[str, tk.Widget]]] = {"left": {}, "right": {}}
         self.current_comparison: Dict[str, object] | None = None
+        self.current_plot_results: Dict[str, object] | None = None
         self.batch_rows: List[Dict[str, str]] = []
         self.batch_table: ttk.Treeview | None = None
         self.batch_plot: PlotCanvas | None = None
+        self.comparison_plot: PlotCanvas | None = None
 
         self._configure_style()
         self._build_layout()
@@ -959,19 +1093,38 @@ class VirtualECUGui(tk.Tk):
         plots = ttk.Frame(parent, padding=(12, 0, 12, 12), style="Root.TFrame")
         plots.grid(row=2, column=0, sticky="nsew")
         plots.columnconfigure(0, weight=1)
-        plots.rowconfigure(0, weight=2)
-        plots.rowconfigure(1, weight=1)
-        plots.rowconfigure(2, weight=1)
+        plots.rowconfigure(1, weight=1, minsize=540)
 
-        self.coolant_plot = PlotCanvas(plots, "Coolant Temperature Comparison")
-        self.coolant_plot.grid(row=0, column=0, sticky="nsew", pady=(0, 12))
+        plot_header = ttk.Frame(plots, style="Root.TFrame")
+        plot_header.grid(row=0, column=0, sticky="ew", pady=(0, 10))
+        plot_header.columnconfigure(0, weight=0)
+        plot_header.columnconfigure(1, weight=0)
+        plot_header.columnconfigure(2, weight=1)
 
-        self.safe_state_plot = PlotCanvas(plots, "Safe-State Comparison")
-        self.safe_state_plot.grid(row=1, column=0, sticky="nsew", pady=(0, 12))
+        ttk.Label(plot_header, text="Comparison Plot", style="FieldName.TLabel").grid(row=0, column=0, sticky="w")
+        selector = ttk.Combobox(
+            plot_header,
+            textvariable=self.comparison_plot_choice,
+            values=list(self.COMPARISON_PLOT_OPTIONS),
+            state="readonly",
+            width=34,
+        )
+        selector.grid(row=0, column=1, sticky="w", padx=(10, 0))
+        selector.bind("<<ComboboxSelected>>", self._on_plot_selection_changed)
+        ttk.Label(
+            plot_header,
+            text="Use one larger plot area for clearer campaign overlays during live demos and presentations.",
+            style="Hint.TLabel",
+            justify="left",
+        ).grid(row=0, column=2, sticky="w", padx=(14, 0))
 
-        self.fan_plot = PlotCanvas(plots, "Fan Command / Actual Comparison")
-        self.fan_plot.grid(row=2, column=0, sticky="nsew")
-        self.fan_plot.show_message("Run a comparison to overlay fan command and actual response.")
+        self.comparison_plot = PlotCanvas(
+            plots,
+            self.comparison_plot_choice.get(),
+            canvas_height=540,
+        )
+        self.comparison_plot.grid(row=1, column=0, sticky="nsew")
+        self.comparison_plot.show_message("Run a comparison to display the selected plot in the main viewing area.")
 
     def _build_batch_tab(self, parent: ttk.Frame) -> None:
         controls = ttk.LabelFrame(parent, text="Batch Aggregate Summary", padding=14)
@@ -1065,7 +1218,7 @@ class VirtualECUGui(tk.Tk):
         plot_frame = ttk.LabelFrame(content, text="Batch Comparison View", padding=10)
         plot_frame.grid(row=0, column=1, sticky="nsew")
         plot_frame.columnconfigure(0, weight=1)
-        plot_frame.rowconfigure(1, weight=1)
+        plot_frame.rowconfigure(1, weight=1, minsize=320)
 
         ttk.Label(
             plot_frame,
@@ -1074,7 +1227,7 @@ class VirtualECUGui(tk.Tk):
             wraplength=360,
             justify="left",
         ).grid(row=0, column=0, sticky="w", pady=(0, 8))
-        self.batch_plot = PlotCanvas(plot_frame, "Mean Detection Latency by Fault Type")
+        self.batch_plot = PlotCanvas(plot_frame, "Mean Detection Latency by Fault Type", canvas_height=300)
         self.batch_plot.grid(row=1, column=0, sticky="nsew")
         self.batch_plot.show_message("Load a batch aggregate summary CSV to view the sweep-level comparison.")
 
@@ -1191,6 +1344,9 @@ class VirtualECUGui(tk.Tk):
     def _on_campaign_changed(self, _event: tk.Event[tk.Misc] | None = None) -> None:
         self._refresh_campaign_context()
         self._reset_summary_values()
+
+    def _on_plot_selection_changed(self, _event: tk.Event[tk.Misc] | None = None) -> None:
+        self._refresh_selected_plot()
 
     def browse_batch_results(self) -> None:
         selected = filedialog.askopenfilename(
@@ -1341,11 +1497,15 @@ class VirtualECUGui(tk.Tk):
 
     def _reset_summary_values(self) -> None:
         self.current_comparison = None
+        self.current_plot_results = None
         self.export_button.state(["disabled"])
         for slot in ("left", "right"):
             for metric_name in self.METRIC_NAMES:
                 self.summary_vars[slot][metric_name].set("-")
         self._refresh_metric_cells()
+        if self.comparison_plot is not None:
+            self.comparison_plot.set_title(self.comparison_plot_choice.get())
+            self.comparison_plot.show_message("Run a comparison to display the selected plot in the main viewing area.")
 
     def run_left_only(self) -> None:
         self._run_campaigns(include_right=False)
@@ -1453,8 +1613,12 @@ class VirtualECUGui(tk.Tk):
             self.current_comparison = None
             self.export_button.state(["disabled"])
 
+        self.current_plot_results = {
+            "left": left_result,
+            "right": right_result,
+        }
         self._refresh_metric_cells()
-        self._update_plots(left_result, right_result)
+        self._refresh_selected_plot()
 
     def _apply_summary_slot(
         self,
@@ -1498,99 +1662,143 @@ class VirtualECUGui(tk.Tk):
                 frame.configure(bg=background)
                 value.configure(bg=background, fg=foreground)
 
+    def _refresh_selected_plot(self) -> None:
+        if self.comparison_plot is None:
+            return
+
+        selected_plot = self.comparison_plot_choice.get()
+        self.comparison_plot.set_title(selected_plot)
+
+        if self.current_plot_results is None:
+            self.comparison_plot.show_message("Run a comparison to display the selected plot in the main viewing area.")
+            return
+
+        left_result = self.current_plot_results["left"]  # type: ignore[index]
+        right_result = self.current_plot_results["right"]  # type: ignore[index]
+        self._update_plots(left_result, right_result, selected_plot)
+
     def _update_plots(
         self,
         left_result: Dict[str, object],
         right_result: Dict[str, object] | None,
+        selected_plot: str,
     ) -> None:
+        if self.comparison_plot is None:
+            return
+
         left_rows = left_result["raw_rows"]  # type: ignore[assignment]
         left_label = self.summary_vars["left"]["Campaign Name"].get()
+        right_rows = right_result["raw_rows"] if right_result is not None else None  # type: ignore[assignment]
 
-        coolant_series = [
-            (
-                left_label,
-                LEFT_COLOR,
-                float_series(left_rows, "coolant_temp_true_c"),
-            )
-        ]
-        time_axis = float_series(left_rows, "time_s")
-
-        if right_result is not None:
-            right_rows = right_result["raw_rows"]  # type: ignore[assignment]
-            right_label = self.summary_vars["right"]["Campaign Name"].get()
-            coolant_series.append(
+        if selected_plot == "Coolant Temperature Comparison":
+            coolant_series = [
                 (
-                    right_label,
-                    RIGHT_COLOR,
-                    float_series(right_rows, "coolant_temp_true_c"),
+                    left_label,
+                    LEFT_COLOR,
+                    float_series(left_rows, "time_s"),
+                    float_series(left_rows, "coolant_temp_true_c"),
+                    LEFT_DASH,
                 )
+            ]
+
+            if right_rows is not None:
+                coolant_series.append(
+                    (
+                        self.summary_vars["right"]["Campaign Name"].get(),
+                        RIGHT_COLOR,
+                        float_series(right_rows, "time_s"),
+                        float_series(right_rows, "coolant_temp_true_c"),
+                        RIGHT_DASH,
+                    )
+                )
+
+            self.comparison_plot.plot_lines(
+                coolant_series,
+                y_label="Temp [C]",
+                threshold_lines=((108.0, "#8c6b2d", "Warning"), (115.0, "#7b4d57", "Critical")),
             )
+            return
 
-        self.coolant_plot.plot_lines(
-            time_axis,
-            coolant_series,
-            y_label="Temp [C]",
-            threshold_lines=((108.0, "#8c6b2d", "Warning"), (115.0, "#7b4d57", "Critical")),
-        )
-
-        safe_series = [
-            (
-                left_label,
-                LEFT_COLOR,
-                float_series(left_rows, "time_s"),
-                int_series(left_rows, "safe_state_id"),
-                LEFT_DASH,
-            )
-        ]
-
-        if right_result is not None:
-            right_rows = right_result["raw_rows"]  # type: ignore[assignment]
-            safe_series.append(
+        if selected_plot == "Safe-State Comparison":
+            safe_series = [
                 (
-                    self.summary_vars["right"]["Campaign Name"].get(),
-                    RIGHT_COLOR,
-                    float_series(right_rows, "time_s"),
-                    int_series(right_rows, "safe_state_id"),
-                    RIGHT_DASH,
+                    left_label,
+                    LEFT_COLOR,
+                    float_series(left_rows, "time_s"),
+                    int_series(left_rows, "safe_state_id"),
+                    LEFT_DASH,
                 )
-            )
+            ]
 
-        self.safe_state_plot.plot_step_comparison(
-            safe_series,
-            y_label="State",
-            tick_labels=SAFE_STATE_LABELS,
-        )
+            if right_rows is not None:
+                safe_series.append(
+                    (
+                        self.summary_vars["right"]["Campaign Name"].get(),
+                        RIGHT_COLOR,
+                        float_series(right_rows, "time_s"),
+                        int_series(right_rows, "safe_state_id"),
+                        RIGHT_DASH,
+                    )
+                )
+
+            self.comparison_plot.plot_step_comparison(
+                safe_series,
+                y_label="State",
+                tick_labels=SAFE_STATE_LABELS,
+            )
+            return
 
         fan_series = [
-            (f"{left_label} command", LEFT_COLOR, float_series(left_rows, "fan_command")),
-            (f"{left_label} actual", "#7d1f17", float_series(left_rows, "fan_actual")),
+            (
+                f"{left_label} command",
+                LEFT_COLOR,
+                float_series(left_rows, "time_s"),
+                float_series(left_rows, "fan_command"),
+                LEFT_DASH,
+            ),
+            (
+                f"{left_label} actual",
+                "#7d1f17",
+                float_series(left_rows, "time_s"),
+                float_series(left_rows, "fan_actual"),
+                (2, 3),
+            ),
         ]
-        fan_time_axis = float_series(left_rows, "time_s")
         left_permanent = "permanent" in event_behaviors(left_rows[0])
         right_permanent = False
 
-        if right_result is not None:
-            right_rows = right_result["raw_rows"]  # type: ignore[assignment]
+        if right_rows is not None:
             right_label = self.summary_vars["right"]["Campaign Name"].get()
             right_permanent = "permanent" in event_behaviors(right_rows[0])
             fan_series.extend(
                 (
-                    (f"{right_label} command", RIGHT_COLOR, float_series(right_rows, "fan_command")),
-                    (f"{right_label} actual", "#5e7fb0", float_series(right_rows, "fan_actual")),
+                    (
+                        f"{right_label} command",
+                        RIGHT_COLOR,
+                        float_series(right_rows, "time_s"),
+                        float_series(right_rows, "fan_command"),
+                        RIGHT_DASH,
+                    ),
+                    (
+                        f"{right_label} actual",
+                        "#5e7fb0",
+                        float_series(right_rows, "time_s"),
+                        float_series(right_rows, "fan_actual"),
+                        (8, 3, 2, 3),
+                    ),
                 )
             )
 
         if left_permanent or right_permanent:
-            self.fan_plot.plot_lines(
-                fan_time_axis,
+            self.comparison_plot.plot_lines(
                 fan_series,
                 y_label="Fan [-]",
                 y_min=0.0,
                 y_max=1.0,
             )
         else:
-            self.fan_plot.show_message(
-                "Neither selected campaign contains a permanent-fault phase, so the fan comparison is hidden."
+            self.comparison_plot.show_message(
+                "Fan Command / Actual Comparison is only meaningful for campaigns with a permanent-fault phase. Neither selected run contains one."
             )
 
     def export_current_comparison(self) -> None:

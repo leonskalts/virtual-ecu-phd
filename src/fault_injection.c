@@ -1,9 +1,11 @@
 #include "fault_injection.h"
 
+#include "config.h"
+
 /* Fault-injection module: schedules deterministic hardware-origin fault
- * abstractions across sensing, actuation, and computation/memory paths. These
- * are cross-layer ECU manifestations of electronics faults, not transistor-
- * accurate simulations. */
+ * abstractions across sensing, timing/communication, actuation, and
+ * computation/memory paths. These are cross-layer ECU manifestations of
+ * electronics faults, not transistor-accurate simulations. */
 void fault_injection_init(ecu_state_t *state)
 {
     state->faults.active_mode = FAULT_NONE;
@@ -15,6 +17,10 @@ void fault_injection_init(ecu_state_t *state)
     state->faults.active_parameter = 0.0f;
     state->faults.sensor_bias_c = 0.0f;
     state->faults.sensor_intermittent_amplitude_c = 0.0f;
+    state->faults.sensor_update_hold_ms = ECU_SENSOR_PERIOD_MS;
+    state->faults.stale_sample_timestamp_ms = 0U;
+    state->faults.stale_coolant_temp_c = 0.0f;
+    state->faults.stale_sample_valid = false;
     state->faults.pump_scale = 1.0f;
     state->faults.control_target_offset_c = 0.0f;
 }
@@ -26,6 +32,8 @@ const char *fault_injection_mode_label(fault_mode_t mode)
         return "sensor_bias";
     case FAULT_SENSOR_INTERFACE_INTERMITTENT:
         return "sensor_interface_intermittent";
+    case FAULT_STALE_SENSOR_DATA:
+        return "stale_sensor_data";
     case FAULT_PUMP_DEGRADED:
         return "pump_degraded";
     case FAULT_FAN_STUCK_OFF:
@@ -58,6 +66,8 @@ float fault_injection_default_parameter(fault_mode_t mode)
         return 6.0f;
     case FAULT_SENSOR_INTERFACE_INTERMITTENT:
         return 8.0f;
+    case FAULT_STALE_SENSOR_DATA:
+        return 2500.0f;
     case FAULT_PUMP_DEGRADED:
         return 0.45f;
     case FAULT_FAN_STUCK_OFF:
@@ -107,6 +117,11 @@ static void apply_fault_event(ecu_state_t *state, const fault_event_t *event, in
     case FAULT_SENSOR_INTERFACE_INTERMITTENT:
         state->faults.sensor_intermittent_amplitude_c = event->parameter;
         break;
+    case FAULT_STALE_SENSOR_DATA:
+        state->faults.sensor_update_hold_ms = (event->parameter > (float)ECU_SENSOR_PERIOD_MS)
+            ? (unsigned int)event->parameter
+            : ECU_SENSOR_PERIOD_MS;
+        break;
     case FAULT_PUMP_DEGRADED:
         state->faults.pump_scale = event->parameter;
         break;
@@ -123,6 +138,7 @@ static void apply_fault_event(ecu_state_t *state, const fault_event_t *event, in
 void fault_injection_step(ecu_state_t *state)
 {
     unsigned int i;
+    bool stale_fault_active = false;
 
     state->faults.enabled = false;
     state->faults.active_mode = FAULT_NONE;
@@ -133,13 +149,20 @@ void fault_injection_step(ecu_state_t *state)
     state->faults.active_parameter = 0.0f;
     state->faults.sensor_bias_c = 0.0f;
     state->faults.sensor_intermittent_amplitude_c = 0.0f;
+    state->faults.sensor_update_hold_ms = ECU_SENSOR_PERIOD_MS;
     state->faults.pump_scale = 1.0f;
     state->faults.control_target_offset_c = 0.0f;
 
     for (i = 0U; i < state->experiment.event_count; i++) {
         if (fault_event_active(&state->experiment.events[i], state->time.time_ms)) {
+            stale_fault_active = state->experiment.events[i].mode == FAULT_STALE_SENSOR_DATA;
             apply_fault_event(state, &state->experiment.events[i], (int)i);
-            return;
+            break;
         }
+    }
+
+    if (!stale_fault_active) {
+        state->faults.stale_sample_valid = false;
+        state->faults.stale_sample_timestamp_ms = 0U;
     }
 }
