@@ -1,0 +1,44 @@
+Continue from the current repository state.
+
+This project is a virtual ECU framework for automotive thermal management, developed as a cross-layer hardware-origin fault-propagation platform connected to VLSI and automotive electronics.
+
+Implemented fault classes:
+- sensing-path faults
+- timing/communication-path faults
+- actuation-path faults
+- computation/memory-path faults
+
+Important built-in campaigns:
+- baseline
+- sensor_bias_only
+- sensor_interface_intermittent
+- stale_sensor_data_only
+- stale_sensor_data_hot_stress
+- pump_degraded_only
+- fan_stuck_only
+- fan_stuck_hot_stress
+- calibration_memory_corruption
+- paper_default
+
+Implemented capabilities:
+- valid CSV logging and summary output
+- paper-results scripts
+- batch experiment runner
+- batch analysis script
+- claim-focused analysis script
+- Tkinter GUI with:
+  - comparison mode
+  - exportable comparison reports
+  - batch results tab
+  - improved plot layout and selectable plot view
+
+The latest pushed commit is:
+9f1a8a4
+
+First inspect the repository and summarize:
+1. current campaigns
+2. current GUI capabilities
+3. current batch-analysis capabilities
+4. what the best next improvement should be
+
+Then continue from there without redoing previous work.
