@@ -12,7 +12,7 @@ from typing import Dict, List, Sequence, Tuple
 
 try:
     import tkinter as tk
-    from tkinter import messagebox, ttk
+    from tkinter import filedialog, messagebox, ttk
 except ImportError as exc:  # pragma: no cover - import failure is environment-specific.
     raise SystemExit(
         "Tkinter is not available in this Python installation. "
@@ -27,6 +27,7 @@ import matplotlib.pyplot as plt
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 LOGS_DIR = PROJECT_ROOT / "logs"
 EXPORT_ROOT = PROJECT_ROOT / "results" / "gui_comparison_reports"
+DEFAULT_BATCH_AGGREGATE_CSV = PROJECT_ROOT / "results" / "batch" / "paper_quick" / "aggregate_summary.csv"
 
 CAMPAIGNS: Sequence[Tuple[str, str]] = (
     ("baseline", "Baseline"),
@@ -46,6 +47,24 @@ MODE_TO_CLASS = {
     "fan_stuck_off": "actuation-path fault",
     "calibration_memory_corruption": "computation/memory-path fault",
 }
+
+FAULT_TYPE_DISPLAY = {
+    "none": "Baseline",
+    "sensor_bias": "Sensor Bias",
+    "sensor_interface_intermittent": "Sensor Interface Intermittent",
+    "pump_degraded": "Pump Degraded",
+    "fan_stuck_off": "Fan Stuck Off",
+    "calibration_memory_corruption": "Calibration Memory Corruption",
+}
+
+FAULT_TYPE_ORDER = (
+    "none",
+    "sensor_bias",
+    "sensor_interface_intermittent",
+    "pump_degraded",
+    "fan_stuck_off",
+    "calibration_memory_corruption",
+)
 
 SAFE_STATE_LABELS = {
     0: "normal",
@@ -285,6 +304,27 @@ def write_report_csv(path: Path, rows: Sequence[Dict[str, str]]) -> None:
         writer.writerows(rows)
 
 
+def int_or_none(value: str) -> int | None:
+    try:
+        parsed = int(float(value))
+    except (TypeError, ValueError):
+        return None
+    return None if parsed < 0 else parsed
+
+
+def float_or_none(value: str) -> float | None:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def mean_or_none(values: Sequence[float | int]) -> float | None:
+    if not values:
+        return None
+    return float(sum(values) / len(values))
+
+
 def save_coolant_comparison_plot(
     left_label: str,
     left_rows: Sequence[Dict[str, str]],
@@ -425,6 +465,23 @@ class PlotCanvas(ttk.Frame):
             ],
             "y_label": y_label,
             "tick_labels": dict(tick_labels),
+        }
+        self.redraw()
+
+    def plot_bars(
+        self,
+        categories: Sequence[str],
+        values: Sequence[float | None],
+        *,
+        y_label: str,
+        bar_color: str = "#4c78a8",
+    ) -> None:
+        self._drawer = self._draw_bar_plot
+        self._payload = {
+            "categories": list(categories),
+            "values": list(values),
+            "y_label": y_label,
+            "bar_color": bar_color,
         }
         self.redraw()
 
@@ -649,6 +706,60 @@ class PlotCanvas(ttk.Frame):
             self.canvas.create_text(legend_x + 26, legend_y + 5, text=label, anchor="w", fill="#33404d")
             legend_y += 18
 
+    def _draw_bar_plot(self, payload: object) -> None:
+        data = payload  # type: ignore[assignment]
+        categories = data["categories"]
+        values = data["values"]
+        y_label = data["y_label"]
+        bar_color = data["bar_color"]
+
+        if not categories or not values:
+            self._draw_message("No plot data available.")
+            return
+
+        valid_values = [value for value in values if value is not None]
+        if not valid_values:
+            self._draw_message("No valid values available for this batch plot.")
+            return
+
+        left, top, right, bottom = self._draw_axes(y_label, x_label="Fault Type")
+        max_value = max(valid_values)
+        if max_value <= 0.0:
+            max_value = 1.0
+
+        def map_y(value: float) -> float:
+            return bottom - value * (bottom - top) / max_value
+
+        bar_count = len(categories)
+        slot_width = (right - left) / max(bar_count, 1)
+        bar_width = slot_width * 0.58
+
+        for tick in range(5):
+            y_value = tick * max_value / 4.0
+            y_pos = map_y(y_value)
+            self.canvas.create_line(left - 4, y_pos, right, y_pos, fill="#e7edf2", dash=(2, 4))
+            self.canvas.create_text(left - 8, y_pos, text=f"{y_value:.0f}", anchor="e", fill="#506070")
+
+        for index, (category, value) in enumerate(zip(categories, values)):
+            center_x = left + (index + 0.5) * slot_width
+            x0 = center_x - bar_width / 2.0
+            x1 = center_x + bar_width / 2.0
+            if value is None:
+                self.canvas.create_text(center_x, bottom - 8, text="n/a", fill="#6a6a6a")
+            else:
+                y_top = map_y(value)
+                self.canvas.create_rectangle(x0, y_top, x1, bottom, fill=bar_color, outline="#2f2f2f")
+                self.canvas.create_text(center_x, y_top - 8, text=f"{value:.0f}", fill="#33404d")
+
+            self.canvas.create_text(
+                center_x,
+                bottom + 16,
+                text=category,
+                anchor="n",
+                fill="#506070",
+                width=slot_width * 0.9,
+            )
+
 
 class VirtualECUGui(tk.Tk):
     METRIC_NAMES = (
@@ -669,8 +780,13 @@ class VirtualECUGui(tk.Tk):
         self.left_campaign = tk.StringVar(value="baseline")
         self.right_campaign = tk.StringVar(value="fan_stuck_hot_stress")
         self.status_text = tk.StringVar(value="Select two campaigns and run a comparison.")
+        self.batch_status_text = tk.StringVar(value="Load a batch aggregate summary CSV to inspect sweep-level trends.")
         self.left_description_var = tk.StringVar(value="-")
         self.right_description_var = tk.StringVar(value="-")
+        self.batch_csv_path = tk.StringVar(value=str(DEFAULT_BATCH_AGGREGATE_CSV))
+        self.batch_run_count_var = tk.StringVar(value="-")
+        self.batch_fault_classes_var = tk.StringVar(value="-")
+        self.batch_fault_types_var = tk.StringVar(value="-")
 
         self.summary_vars = {
             "left": {name: tk.StringVar(value="-") for name in ("Campaign Name", "Fault Class", *self.METRIC_NAMES)},
@@ -690,11 +806,15 @@ class VirtualECUGui(tk.Tk):
         }
         self.metric_cells: Dict[str, Dict[str, Dict[str, tk.Widget]]] = {"left": {}, "right": {}}
         self.current_comparison: Dict[str, object] | None = None
+        self.batch_rows: List[Dict[str, str]] = []
+        self.batch_table: ttk.Treeview | None = None
+        self.batch_plot: PlotCanvas | None = None
 
         self._configure_style()
         self._build_layout()
         self._refresh_campaign_context()
         self._reset_summary_values()
+        self._clear_batch_results()
 
         if self.executable is None:
             self.status_text.set(
@@ -703,6 +823,9 @@ class VirtualECUGui(tk.Tk):
             self.run_compare_button.state(["disabled"])
             self.run_left_button.state(["disabled"])
             self.export_button.state(["disabled"])
+
+        if DEFAULT_BATCH_AGGREGATE_CSV.exists():
+            self.load_batch_results()
 
     def _configure_style(self) -> None:
         style = ttk.Style(self)
@@ -716,39 +839,58 @@ class VirtualECUGui(tk.Tk):
         style.configure("Hint.TLabel", font=("TkDefaultFont", 9), foreground="#4d5c69")
         style.configure("ColumnHeader.TLabel", font=("TkDefaultFont", 10, "bold"), foreground="#1d3448")
         style.configure("MetricLabel.TLabel", font=("TkDefaultFont", 10, "bold"), foreground="#2a3947")
+        style.configure("Batch.Treeview", rowheight=26, font=("TkDefaultFont", 9))
+        style.configure("Batch.Treeview.Heading", font=("TkDefaultFont", 9, "bold"))
 
     def _build_layout(self) -> None:
         self.configure(background="#f4f6f8")
         self.columnconfigure(0, weight=1)
-        self.rowconfigure(2, weight=1)
+        self.rowconfigure(1, weight=1)
 
         header = ttk.Frame(self, padding=(16, 14, 16, 10), style="Root.TFrame")
         header.grid(row=0, column=0, sticky="ew")
         header.columnconfigure(0, weight=1)
-        header.columnconfigure(1, weight=1)
-        header.columnconfigure(2, weight=1)
+        header.columnconfigure(1, weight=0)
 
-        ttk.Label(header, text="Virtual ECU Comparison Explorer", style="Header.TLabel").grid(
-            row=0, column=0, columnspan=2, sticky="w"
+        ttk.Label(header, text="Virtual ECU Research Explorer", style="Header.TLabel").grid(
+            row=0, column=0, sticky="w"
         )
         ttk.Label(
             header,
-            text="Comparison mode highlights how different hardware-origin fault campaigns change diagnostics, safety response, and thermal behavior.",
+            text="Use campaign comparison for live fault-propagation demos and batch results for quick sweep-level inspection. The scripted analysis remains the paper-grade workflow.",
             style="Subheader.TLabel",
-            wraplength=860,
+            wraplength=920,
             justify="left",
-        ).grid(row=1, column=0, columnspan=2, sticky="w", pady=(2, 12))
+        ).grid(row=1, column=0, sticky="w", pady=(2, 8))
         ttk.Label(header, textvariable=self.status_text, foreground="#3d4b59").grid(
-            row=0, column=2, rowspan=2, sticky="e"
+            row=0, column=1, rowspan=2, sticky="e"
         )
 
-        selectors = ttk.Frame(header, style="Root.TFrame")
-        selectors.grid(row=2, column=0, columnspan=2, sticky="ew")
-        selectors.columnconfigure(0, weight=1)
-        selectors.columnconfigure(1, weight=1)
+        notebook = ttk.Notebook(self)
+        notebook.grid(row=1, column=0, sticky="nsew", padx=12, pady=(0, 12))
+
+        comparison_tab = ttk.Frame(notebook, padding=(4, 8, 4, 6), style="Root.TFrame")
+        comparison_tab.columnconfigure(0, weight=1)
+        comparison_tab.rowconfigure(2, weight=1)
+        notebook.add(comparison_tab, text="Campaign Comparison")
+
+        batch_tab = ttk.Frame(notebook, padding=(4, 8, 4, 6), style="Root.TFrame")
+        batch_tab.columnconfigure(0, weight=1)
+        batch_tab.rowconfigure(2, weight=1)
+        notebook.add(batch_tab, text="Batch Results")
+
+        self._build_comparison_tab(comparison_tab)
+        self._build_batch_tab(batch_tab)
+
+    def _build_comparison_tab(self, parent: ttk.Frame) -> None:
+        selectors_area = ttk.Frame(parent, padding=(12, 0, 12, 12), style="Root.TFrame")
+        selectors_area.grid(row=0, column=0, sticky="ew")
+        selectors_area.columnconfigure(0, weight=1)
+        selectors_area.columnconfigure(1, weight=1)
+        selectors_area.columnconfigure(2, weight=0)
 
         self._build_selector_card(
-            selectors,
+            selectors_area,
             0,
             "Left Campaign",
             self.left_campaign,
@@ -756,7 +898,7 @@ class VirtualECUGui(tk.Tk):
             self._on_campaign_changed,
         )
         self._build_selector_card(
-            selectors,
+            selectors_area,
             1,
             "Right Campaign",
             self.right_campaign,
@@ -764,8 +906,8 @@ class VirtualECUGui(tk.Tk):
             self._on_campaign_changed,
         )
 
-        actions = ttk.Frame(header, style="Root.TFrame")
-        actions.grid(row=2, column=2, sticky="e")
+        actions = ttk.Frame(selectors_area, style="Root.TFrame")
+        actions.grid(row=0, column=2, rowspan=2, sticky="ne", padx=(12, 0))
 
         self.run_compare_button = ttk.Button(actions, text="Run Comparison", command=self.run_comparison)
         self.run_compare_button.grid(row=0, column=0, sticky="e")
@@ -775,7 +917,7 @@ class VirtualECUGui(tk.Tk):
         self.export_button.grid(row=2, column=0, sticky="e", pady=(8, 0))
         self.export_button.state(["disabled"])
 
-        info_area = ttk.Frame(self, padding=(16, 0, 16, 12), style="Root.TFrame")
+        info_area = ttk.Frame(parent, padding=(12, 0, 12, 12), style="Root.TFrame")
         info_area.grid(row=1, column=0, sticky="ew")
         info_area.columnconfigure(0, weight=3)
         info_area.columnconfigure(1, weight=2)
@@ -814,7 +956,7 @@ class VirtualECUGui(tk.Tk):
         self._build_context_column(context_frame, 0, "Left Context", "left", LEFT_COLOR)
         self._build_context_column(context_frame, 1, "Right Context", "right", RIGHT_COLOR)
 
-        plots = ttk.Frame(self, padding=(16, 0, 16, 16), style="Root.TFrame")
+        plots = ttk.Frame(parent, padding=(12, 0, 12, 12), style="Root.TFrame")
         plots.grid(row=2, column=0, sticky="nsew")
         plots.columnconfigure(0, weight=1)
         plots.rowconfigure(0, weight=2)
@@ -830,6 +972,111 @@ class VirtualECUGui(tk.Tk):
         self.fan_plot = PlotCanvas(plots, "Fan Command / Actual Comparison")
         self.fan_plot.grid(row=2, column=0, sticky="nsew")
         self.fan_plot.show_message("Run a comparison to overlay fan command and actual response.")
+
+    def _build_batch_tab(self, parent: ttk.Frame) -> None:
+        controls = ttk.LabelFrame(parent, text="Batch Aggregate Summary", padding=14)
+        controls.grid(row=0, column=0, sticky="ew", padx=12, pady=(0, 12))
+        controls.columnconfigure(1, weight=1)
+
+        ttk.Label(controls, text="Aggregate CSV", style="FieldName.TLabel").grid(row=0, column=0, sticky="w")
+        path_entry = ttk.Entry(controls, textvariable=self.batch_csv_path)
+        path_entry.grid(row=0, column=1, sticky="ew", padx=(10, 10))
+        ttk.Button(controls, text="Browse", command=self.browse_batch_results).grid(row=0, column=2, sticky="e")
+        ttk.Button(controls, text="Load Batch Results", command=self.load_batch_results).grid(
+            row=0, column=3, sticky="e", padx=(8, 0)
+        )
+
+        ttk.Label(
+            controls,
+            text="This tab is a lightweight viewing layer for aggregate sweep results. Use the analysis scripts for publication tables and figures.",
+            style="Hint.TLabel",
+            wraplength=940,
+            justify="left",
+        ).grid(row=1, column=0, columnspan=4, sticky="w", pady=(8, 4))
+        ttk.Label(controls, textvariable=self.batch_status_text, style="Hint.TLabel", wraplength=940, justify="left").grid(
+            row=2, column=0, columnspan=4, sticky="w"
+        )
+
+        overview = ttk.Frame(parent, padding=(12, 0, 12, 12), style="Root.TFrame")
+        overview.grid(row=1, column=0, sticky="ew")
+        overview.columnconfigure(0, weight=1)
+        overview.columnconfigure(1, weight=1)
+        overview.columnconfigure(2, weight=1)
+
+        self._build_batch_stat_card(overview, 0, "Number of Runs", self.batch_run_count_var)
+        self._build_batch_stat_card(overview, 1, "Fault Classes Present", self.batch_fault_classes_var)
+        self._build_batch_stat_card(overview, 2, "Fault Types Present", self.batch_fault_types_var)
+
+        content = ttk.Frame(parent, padding=(12, 0, 12, 12), style="Root.TFrame")
+        content.grid(row=2, column=0, sticky="nsew")
+        content.columnconfigure(0, weight=5)
+        content.columnconfigure(1, weight=4)
+        content.rowconfigure(0, weight=1)
+
+        table_frame = ttk.LabelFrame(content, text="Per-Fault-Type Averages", padding=10)
+        table_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+        table_frame.columnconfigure(0, weight=1)
+        table_frame.rowconfigure(0, weight=1)
+
+        columns = (
+            "fault_type",
+            "runs",
+            "mean_detection_latency",
+            "mean_max_temp",
+            "mean_safe_mode_duration",
+        )
+        self.batch_table = ttk.Treeview(
+            table_frame,
+            columns=columns,
+            show="headings",
+            height=10,
+            style="Batch.Treeview",
+        )
+        headings = {
+            "fault_type": "Fault Type",
+            "runs": "Runs",
+            "mean_detection_latency": "Mean Detection [ms]",
+            "mean_max_temp": "Mean Max Temp [C]",
+            "mean_safe_mode_duration": "Mean Safe-Mode [ms]",
+        }
+        widths = {
+            "fault_type": 220,
+            "runs": 60,
+            "mean_detection_latency": 130,
+            "mean_max_temp": 130,
+            "mean_safe_mode_duration": 140,
+        }
+        anchors = {
+            "fault_type": tk.W,
+            "runs": tk.CENTER,
+            "mean_detection_latency": tk.CENTER,
+            "mean_max_temp": tk.CENTER,
+            "mean_safe_mode_duration": tk.CENTER,
+        }
+        for column_id in columns:
+            self.batch_table.heading(column_id, text=headings[column_id])
+            self.batch_table.column(column_id, width=widths[column_id], anchor=anchors[column_id], stretch=column_id == "fault_type")
+
+        scroll = ttk.Scrollbar(table_frame, orient="vertical", command=self.batch_table.yview)
+        self.batch_table.configure(yscrollcommand=scroll.set)
+        self.batch_table.grid(row=0, column=0, sticky="nsew")
+        scroll.grid(row=0, column=1, sticky="ns")
+
+        plot_frame = ttk.LabelFrame(content, text="Batch Comparison View", padding=10)
+        plot_frame.grid(row=0, column=1, sticky="nsew")
+        plot_frame.columnconfigure(0, weight=1)
+        plot_frame.rowconfigure(1, weight=1)
+
+        ttk.Label(
+            plot_frame,
+            text="Mean detection latency by fault type gives a quick scan of which fault manifestations are visible early versus late in the ECU stack.",
+            style="Hint.TLabel",
+            wraplength=360,
+            justify="left",
+        ).grid(row=0, column=0, sticky="w", pady=(0, 8))
+        self.batch_plot = PlotCanvas(plot_frame, "Mean Detection Latency by Fault Type")
+        self.batch_plot.grid(row=1, column=0, sticky="nsew")
+        self.batch_plot.show_message("Load a batch aggregate summary CSV to view the sweep-level comparison.")
 
     def _build_selector_card(
         self,
@@ -862,6 +1109,32 @@ class VirtualECUGui(tk.Tk):
             wraplength=420,
             justify="left",
         ).grid(row=1, column=1, sticky="w", pady=(6, 0))
+
+    def _build_batch_stat_card(self, parent: ttk.Frame, column: int, title: str, variable: tk.StringVar) -> None:
+        card = tk.Frame(parent, bg="#ffffff", bd=1, relief="solid", highlightthickness=0)
+        card.grid(row=0, column=column, sticky="nsew", padx=(0, 10 if column < 2 else 0))
+        tk.Label(
+            card,
+            text=title,
+            bg="#ffffff",
+            fg="#22313f",
+            font=("TkDefaultFont", 10, "bold"),
+            anchor="w",
+            padx=12,
+            pady=0,
+        ).pack(fill="x", pady=(10, 2))
+        tk.Label(
+            card,
+            textvariable=variable,
+            bg="#ffffff",
+            fg="#1f2e3b",
+            font=("TkDefaultFont", 10, "bold"),
+            justify="left",
+            wraplength=300,
+            anchor="w",
+            padx=12,
+            pady=10,
+        ).pack(fill="x")
 
     def _build_context_column(
         self,
@@ -918,6 +1191,140 @@ class VirtualECUGui(tk.Tk):
     def _on_campaign_changed(self, _event: tk.Event[tk.Misc] | None = None) -> None:
         self._refresh_campaign_context()
         self._reset_summary_values()
+
+    def browse_batch_results(self) -> None:
+        selected = filedialog.askopenfilename(
+            title="Select Batch Aggregate Summary CSV",
+            initialdir=str(DEFAULT_BATCH_AGGREGATE_CSV.parent if DEFAULT_BATCH_AGGREGATE_CSV.parent.exists() else PROJECT_ROOT),
+            filetypes=(("CSV files", "*.csv"), ("All files", "*.*")),
+        )
+        if selected:
+            self.batch_csv_path.set(selected)
+
+    def load_batch_results(self) -> None:
+        csv_path = Path(self.batch_csv_path.get()).expanduser()
+        try:
+            rows = read_csv_rows(csv_path)
+        except FileNotFoundError:
+            self._clear_batch_results()
+            self.batch_status_text.set(f"Batch aggregate CSV not found: {csv_path}")
+            return
+        except (OSError, csv.Error) as exc:
+            self._clear_batch_results()
+            self.batch_status_text.set(f"Failed to load batch aggregate CSV: {exc}")
+            return
+
+        if not rows:
+            self._clear_batch_results()
+            self.batch_status_text.set(f"Batch aggregate CSV is empty: {csv_path}")
+            return
+
+        self._apply_batch_results(csv_path, rows)
+
+    def _clear_batch_results(self) -> None:
+        self.batch_rows = []
+        self.batch_run_count_var.set("-")
+        self.batch_fault_classes_var.set("-")
+        self.batch_fault_types_var.set("-")
+
+        if self.batch_table is not None:
+            for item_id in self.batch_table.get_children():
+                self.batch_table.delete(item_id)
+
+        if self.batch_plot is not None:
+            self.batch_plot.show_message("Load a batch aggregate summary CSV to view the sweep-level comparison.")
+
+    def _apply_batch_results(self, csv_path: Path, rows: Sequence[Dict[str, str]]) -> None:
+        self.batch_rows = list(rows)
+
+        fault_classes = sorted({row["fault_class"] for row in rows if row.get("fault_class")})
+        fault_types = self._ordered_fault_types(rows)
+        self.batch_run_count_var.set(str(len(rows)))
+        self.batch_fault_classes_var.set(", ".join(fault_classes) if fault_classes else "n/a")
+        self.batch_fault_types_var.set(
+            ", ".join(FAULT_TYPE_DISPLAY.get(fault_type, fault_type) for fault_type in fault_types) if fault_types else "n/a"
+        )
+
+        self._populate_batch_table(rows, fault_types)
+        self._update_batch_plot(rows, fault_types)
+        self.batch_status_text.set(f"Loaded {len(rows)} batch runs from {csv_path}")
+
+    def _ordered_fault_types(self, rows: Sequence[Dict[str, str]]) -> List[str]:
+        present = {row["fault_type"] for row in rows if row.get("fault_type")}
+        ordered = [fault_type for fault_type in FAULT_TYPE_ORDER if fault_type in present]
+        extras = sorted(present - set(ordered))
+        return ordered + extras
+
+    def _populate_batch_table(self, rows: Sequence[Dict[str, str]], fault_types: Sequence[str]) -> None:
+        if self.batch_table is None:
+            return
+
+        for item_id in self.batch_table.get_children():
+            self.batch_table.delete(item_id)
+
+        for fault_type in fault_types:
+            type_rows = [row for row in rows if row["fault_type"] == fault_type]
+            detection_values = [
+                value
+                for value in (int_or_none(row.get("detection_latency_ms", "")) for row in type_rows)
+                if value is not None
+            ]
+            max_temp_values = [
+                value
+                for value in (float_or_none(row.get("max_coolant_temperature_c", "")) for row in type_rows)
+                if value is not None
+            ]
+            safe_mode_values = [
+                value
+                for value in (int_or_none(row.get("safe_mode_duration_ms", "")) for row in type_rows)
+                if value is not None
+            ]
+
+            self.batch_table.insert(
+                "",
+                "end",
+                values=(
+                    FAULT_TYPE_DISPLAY.get(fault_type, fault_type),
+                    str(len(type_rows)),
+                    self._format_batch_number(mean_or_none(detection_values), decimals=1),
+                    self._format_batch_number(mean_or_none(max_temp_values), decimals=2),
+                    self._format_batch_number(mean_or_none(safe_mode_values), decimals=1),
+                ),
+            )
+
+    def _update_batch_plot(self, rows: Sequence[Dict[str, str]], fault_types: Sequence[str]) -> None:
+        if self.batch_plot is None:
+            return
+
+        categories: List[str] = []
+        values: List[float | None] = []
+        for fault_type in fault_types:
+            detection_values = [
+                value
+                for value in (int_or_none(row.get("detection_latency_ms", "")) for row in rows if row["fault_type"] == fault_type)
+                if value is not None
+            ]
+            mean_value = mean_or_none(detection_values)
+            if fault_type == "none" and mean_value is None:
+                continue
+            categories.append(FAULT_TYPE_DISPLAY.get(fault_type, fault_type))
+            values.append(mean_value)
+
+        if not categories:
+            self.batch_plot.show_message("No valid detection-latency values were found in this aggregate summary.")
+            return
+
+        self.batch_plot.plot_bars(
+            categories,
+            values,
+            y_label="Mean Detection [ms]",
+            bar_color="#5077b8",
+        )
+
+    def _format_batch_number(self, value: float | None, decimals: int = 1) -> str:
+        if value is None:
+            return "n/a"
+        return f"{value:.{decimals}f}"
 
     def _refresh_campaign_context(self) -> None:
         for slot, campaign_var, description_var in (

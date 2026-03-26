@@ -196,6 +196,21 @@ The GUI also plots:
 - safe-state comparison
 - fan command / actual comparison when one or both campaigns include a permanent fault
 
+The GUI also includes a lightweight `Batch Results` tab for loading an existing
+aggregate summary CSV such as `results/batch/paper_quick/aggregate_summary.csv`.
+That tab provides:
+
+- number of runs in the loaded batch
+- fault classes present
+- fault types present
+- per-fault-type averages for detection latency, maximum coolant temperature, and safe-mode duration
+- a quick mean detection-latency comparison plot by fault type
+
+The batch tab is intentionally a viewing layer for live inspection and demos.
+It does not replace the scripted batch-analysis workflow in `scripts/`, which
+should still be used for reproducible paper tables and publication-quality
+figures.
+
 The campaign-context view supports the cross-layer interpretation by mapping:
 
 - plausible hardware-origin fault source
