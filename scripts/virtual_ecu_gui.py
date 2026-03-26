@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import csv
+import os
 import subprocess
 import threading
 from pathlib import Path
@@ -18,9 +19,14 @@ except ImportError as exc:  # pragma: no cover - import failure is environment-s
         "Install the Tk package for Python and try again."
     ) from exc
 
+os.environ.setdefault("MPLCONFIGDIR", "/tmp/virtual_ecu_mpl")
+
+import matplotlib.pyplot as plt
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 LOGS_DIR = PROJECT_ROOT / "logs"
+EXPORT_ROOT = PROJECT_ROOT / "results" / "gui_comparison_reports"
 
 CAMPAIGNS: Sequence[Tuple[str, str]] = (
     ("baseline", "Baseline"),
@@ -266,6 +272,81 @@ def metric_card_colors(metric_name: str, value: str) -> Tuple[str, str]:
         return info
 
     return neutral
+
+
+def comparison_export_dir(left_campaign_id: str, right_campaign_id: str) -> Path:
+    return EXPORT_ROOT / f"{left_campaign_id}_vs_{right_campaign_id}"
+
+
+def write_report_csv(path: Path, rows: Sequence[Dict[str, str]]) -> None:
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=["field", "left", "right"])
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def save_coolant_comparison_plot(
+    left_label: str,
+    left_rows: Sequence[Dict[str, str]],
+    right_label: str,
+    right_rows: Sequence[Dict[str, str]],
+    output_path: Path,
+) -> None:
+    fig, ax = plt.subplots(figsize=(8.8, 4.8), constrained_layout=True)
+    ax.plot(float_series(left_rows, "time_s"), float_series(left_rows, "coolant_temp_true_c"), color=LEFT_COLOR, linewidth=2.2, label=left_label)
+    ax.plot(float_series(right_rows, "time_s"), float_series(right_rows, "coolant_temp_true_c"), color=RIGHT_COLOR, linewidth=2.2, linestyle="--", label=right_label)
+    ax.axhline(108.0, color="#8c6b2d", linestyle="--", linewidth=1.1)
+    ax.axhline(115.0, color="#7b4d57", linestyle=":", linewidth=1.1)
+    ax.set_xlabel("Time [s]")
+    ax.set_ylabel("Coolant Temperature [C]")
+    ax.set_title("Coolant Temperature Comparison")
+    ax.grid(True, linestyle=":", linewidth=0.6, alpha=0.8)
+    ax.legend(loc="upper left", frameon=False)
+    fig.savefig(output_path, dpi=220)
+    plt.close(fig)
+
+
+def save_safe_state_comparison_plot(
+    left_label: str,
+    left_rows: Sequence[Dict[str, str]],
+    right_label: str,
+    right_rows: Sequence[Dict[str, str]],
+    output_path: Path,
+) -> None:
+    fig, ax = plt.subplots(figsize=(8.8, 4.8), constrained_layout=True)
+    ax.step(float_series(left_rows, "time_s"), int_series(left_rows, "safe_state_id"), where="post", color=LEFT_COLOR, linewidth=2.2, label=left_label)
+    ax.step(float_series(right_rows, "time_s"), int_series(right_rows, "safe_state_id"), where="post", color=RIGHT_COLOR, linewidth=2.2, linestyle="--", label=right_label)
+    ax.set_yticks([0, 1, 2, 3])
+    ax.set_yticklabels(["Normal", "Precautionary", "Limp Home", "Shutdown"])
+    ax.set_xlabel("Time [s]")
+    ax.set_ylabel("Safe State")
+    ax.set_title("Safe-State Comparison")
+    ax.grid(True, linestyle=":", linewidth=0.6, alpha=0.8)
+    ax.legend(loc="upper left", frameon=False)
+    fig.savefig(output_path, dpi=220)
+    plt.close(fig)
+
+
+def save_fan_comparison_plot(
+    left_label: str,
+    left_rows: Sequence[Dict[str, str]],
+    right_label: str,
+    right_rows: Sequence[Dict[str, str]],
+    output_path: Path,
+) -> None:
+    fig, ax = plt.subplots(figsize=(8.8, 4.8), constrained_layout=True)
+    ax.plot(float_series(left_rows, "time_s"), float_series(left_rows, "fan_command"), color=LEFT_COLOR, linewidth=2.2, label=f"{left_label} command")
+    ax.plot(float_series(left_rows, "time_s"), float_series(left_rows, "fan_actual"), color="#7d1f17", linewidth=1.8, linestyle=":", label=f"{left_label} actual")
+    ax.plot(float_series(right_rows, "time_s"), float_series(right_rows, "fan_command"), color=RIGHT_COLOR, linewidth=2.2, linestyle="--", label=f"{right_label} command")
+    ax.plot(float_series(right_rows, "time_s"), float_series(right_rows, "fan_actual"), color="#5e7fb0", linewidth=1.8, linestyle="-.", label=f"{right_label} actual")
+    ax.set_xlabel("Time [s]")
+    ax.set_ylabel("Fan [-]")
+    ax.set_ylim(0.0, 1.05)
+    ax.set_title("Fan Command / Actual Comparison")
+    ax.grid(True, linestyle=":", linewidth=0.6, alpha=0.8)
+    ax.legend(loc="upper left", ncol=2, frameon=False)
+    fig.savefig(output_path, dpi=220)
+    plt.close(fig)
 
 
 class PlotCanvas(ttk.Frame):
@@ -608,6 +689,7 @@ class VirtualECUGui(tk.Tk):
             },
         }
         self.metric_cells: Dict[str, Dict[str, Dict[str, tk.Widget]]] = {"left": {}, "right": {}}
+        self.current_comparison: Dict[str, object] | None = None
 
         self._configure_style()
         self._build_layout()
@@ -620,6 +702,7 @@ class VirtualECUGui(tk.Tk):
             )
             self.run_compare_button.state(["disabled"])
             self.run_left_button.state(["disabled"])
+            self.export_button.state(["disabled"])
 
     def _configure_style(self) -> None:
         style = ttk.Style(self)
@@ -688,6 +771,9 @@ class VirtualECUGui(tk.Tk):
         self.run_compare_button.grid(row=0, column=0, sticky="e")
         self.run_left_button = ttk.Button(actions, text="Run Left Only", command=self.run_left_only)
         self.run_left_button.grid(row=1, column=0, sticky="e", pady=(8, 0))
+        self.export_button = ttk.Button(actions, text="Export Comparison Report", command=self.export_current_comparison)
+        self.export_button.grid(row=2, column=0, sticky="e", pady=(8, 0))
+        self.export_button.state(["disabled"])
 
         info_area = ttk.Frame(self, padding=(16, 0, 16, 12), style="Root.TFrame")
         info_area.grid(row=1, column=0, sticky="ew")
@@ -847,6 +933,8 @@ class VirtualECUGui(tk.Tk):
             self.context_vars[slot]["ECU Manifestation"].set(story["ecu_manifestation"])
 
     def _reset_summary_values(self) -> None:
+        self.current_comparison = None
+        self.export_button.state(["disabled"])
         for slot in ("left", "right"):
             for metric_name in self.METRIC_NAMES:
                 self.summary_vars[slot][metric_name].set("-")
@@ -875,6 +963,7 @@ class VirtualECUGui(tk.Tk):
         )
         self.run_compare_button.state(["disabled"])
         self.run_left_button.state(["disabled"])
+        self.export_button.state(["disabled"])
 
         worker = threading.Thread(
             target=self._run_campaigns_worker,
@@ -928,6 +1017,7 @@ class VirtualECUGui(tk.Tk):
         self.status_text.set("Run failed.")
         self.run_compare_button.state(["!disabled"])
         self.run_left_button.state(["!disabled"])
+        self.export_button.state(["disabled"])
         messagebox.showerror("Virtual ECU Run Failed", message)
 
     def _apply_results(
@@ -945,9 +1035,16 @@ class VirtualECUGui(tk.Tk):
             right_campaign = str(right_result["campaign_id"])
             self._apply_summary_slot("right", right_campaign, right_result["raw_rows"], right_result["summary_row"])
             self.status_text.set(f"Loaded comparison: {left_campaign} vs {right_campaign}.")
+            self.current_comparison = {
+                "left": left_result,
+                "right": right_result,
+            }
+            self.export_button.state(["!disabled"])
         else:
             self._clear_slot("right")
             self.status_text.set(f"Loaded left campaign: {left_campaign}.")
+            self.current_comparison = None
+            self.export_button.state(["disabled"])
 
         self._refresh_metric_cells()
         self._update_plots(left_result, right_result)
@@ -1088,6 +1185,90 @@ class VirtualECUGui(tk.Tk):
             self.fan_plot.show_message(
                 "Neither selected campaign contains a permanent-fault phase, so the fan comparison is hidden."
             )
+
+    def export_current_comparison(self) -> None:
+        if self.current_comparison is None:
+            messagebox.showinfo(
+                "No Comparison Loaded",
+                "Run a left-versus-right comparison first, then export the current report.",
+            )
+            return
+
+        left_result = self.current_comparison["left"]  # type: ignore[index]
+        right_result = self.current_comparison["right"]  # type: ignore[index]
+        left_campaign_id = str(left_result["campaign_id"])
+        right_campaign_id = str(right_result["campaign_id"])
+
+        export_dir = comparison_export_dir(left_campaign_id, right_campaign_id)
+        export_dir.mkdir(parents=True, exist_ok=True)
+        os.makedirs(os.environ["MPLCONFIGDIR"], exist_ok=True)
+
+        report_rows = [
+            {"field": "left_campaign_id", "left": left_campaign_id, "right": ""},
+            {"field": "right_campaign_id", "left": right_campaign_id, "right": ""},
+            {"field": "left_fault_class", "left": self.summary_vars["left"]["Fault Class"].get(), "right": ""},
+            {"field": "right_fault_class", "left": self.summary_vars["right"]["Fault Class"].get(), "right": ""},
+        ]
+
+        for metric_name in self.METRIC_NAMES:
+            report_rows.append(
+                {
+                    "field": metric_name.lower().replace(" ", "_"),
+                    "left": self.summary_vars["left"][metric_name].get(),
+                    "right": self.summary_vars["right"][metric_name].get(),
+                }
+            )
+
+        write_report_csv(export_dir / "comparison_summary.csv", report_rows)
+
+        with (export_dir / "comparison_summary.txt").open("w", encoding="utf-8") as handle:
+            handle.write("Virtual ECU Comparison Report\n")
+            handle.write(f"Left campaign: {left_campaign_id}\n")
+            handle.write(f"Right campaign: {right_campaign_id}\n")
+            handle.write(f"Left fault class: {self.summary_vars['left']['Fault Class'].get()}\n")
+            handle.write(f"Right fault class: {self.summary_vars['right']['Fault Class'].get()}\n\n")
+            for metric_name in self.METRIC_NAMES:
+                handle.write(
+                    f"{metric_name}: left={self.summary_vars['left'][metric_name].get()}, "
+                    f"right={self.summary_vars['right'][metric_name].get()}\n"
+                )
+
+        left_rows = left_result["raw_rows"]  # type: ignore[index]
+        right_rows = right_result["raw_rows"]  # type: ignore[index]
+        left_label = self.summary_vars["left"]["Campaign Name"].get()
+        right_label = self.summary_vars["right"]["Campaign Name"].get()
+
+        save_coolant_comparison_plot(
+            left_label,
+            left_rows,
+            right_label,
+            right_rows,
+            export_dir / "coolant_temperature_comparison.png",
+        )
+        save_safe_state_comparison_plot(
+            left_label,
+            left_rows,
+            right_label,
+            right_rows,
+            export_dir / "safe_state_comparison.png",
+        )
+
+        left_permanent = "permanent" in event_behaviors(left_rows[0])
+        right_permanent = "permanent" in event_behaviors(right_rows[0])
+        if left_permanent or right_permanent:
+            save_fan_comparison_plot(
+                left_label,
+                left_rows,
+                right_label,
+                right_rows,
+                export_dir / "fan_comparison.png",
+            )
+
+        self.status_text.set(f"Exported comparison report to {export_dir}")
+        messagebox.showinfo(
+            "Comparison Exported",
+            f"Saved the comparison report and plot images to:\n{export_dir}",
+        )
 
 
 def main() -> None:

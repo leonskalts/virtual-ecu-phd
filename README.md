@@ -161,15 +161,15 @@ Example baseline, transient, and permanent campaigns:
 ## GUI Frontend
 
 A lightweight Python GUI frontend is available for campaign selection,
-simulation runs, CSV loading, and quick visualization:
+comparison runs, CSV loading, and quick visualization:
 
 ```sh
 python3 scripts/virtual_ecu_gui.py
 ```
 
-The GUI keeps the ECU simulator itself unchanged. It simply launches the
-compiled `virtual_ecu` executable with the selected campaign, then reads the
-generated raw CSV and summary CSV from `logs/`.
+The GUI keeps the ECU simulator itself unchanged. It launches the compiled
+`virtual_ecu` executable for the selected left/right campaigns, then reads the
+generated raw CSV and summary CSV files from `logs/`.
 
 Included campaign options cover:
 
@@ -182,28 +182,25 @@ Included campaign options cover:
 - `calibration_memory_corruption`
 - `paper_default`
 
-The interface displays:
+Comparison mode is the main research/demo workflow and provides:
 
-- campaign name
-- inferred fault class
-- final DTC
-- final safe state
-- maximum coolant temperature
-- detection latency
-- safe-state latency
+- left and right campaign selection
+- side-by-side summary metrics for:
+  `final DTC`, `final safe state`, `maximum coolant temperature`,
+  `detection latency`, and `safe-state latency`
+- compact left/right campaign context for the fault class, hardware source, and ECU manifestation
 
-It also plots:
+The GUI also plots:
 
-- coolant temperature versus time
-- safe state versus time
-- fan command versus fan actual for campaigns that include a permanent fault
+- coolant temperature comparison
+- safe-state comparison
+- fan command / actual comparison when one or both campaigns include a permanent fault
 
-It also includes a campaign-specific cross-layer interpretation panel that maps:
+The campaign-context view supports the cross-layer interpretation by mapping:
 
 - plausible hardware-origin fault source
 - ECU-level manifestation
-- expected diagnostic effect
-- expected safe-state and system-level effect
+- expected diagnostic and safe-state behavior
 
 This GUI is intended as a research and demonstration aid:
 
@@ -211,6 +208,14 @@ This GUI is intended as a research and demonstration aid:
 - it makes campaign-to-campaign behavior easier to inspect without manually opening CSV files
 - it helps connect low-level injected fault scenarios to ECU diagnostics, safety response, and thermal outcomes
 - it provides a simple reproducible interface for paper preparation and result sanity checks
+
+The GUI can also export the current comparison into:
+
+- `results/gui_comparison_reports/<left>_vs_<right>/comparison_summary.csv`
+- `results/gui_comparison_reports/<left>_vs_<right>/comparison_summary.txt`
+- `results/gui_comparison_reports/<left>_vs_<right>/coolant_temperature_comparison.png`
+- `results/gui_comparison_reports/<left>_vs_<right>/safe_state_comparison.png`
+- `results/gui_comparison_reports/<left>_vs_<right>/fan_comparison.png` when applicable
 
 For minimal setup, the GUI uses Python's built-in Tkinter library. On Windows,
 Tkinter is typically included with Python. On WSL, it runs with WSLg or another

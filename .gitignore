@@ -4,5 +4,6 @@ logs/*.csv
 results/*.csv
 results/*.png
 results/batch/
+results/gui_comparison_reports/
 logs/batch/
 __pycache__/
