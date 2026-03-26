@@ -48,6 +48,11 @@ SAFE_STATE_LABELS = {
     3: "controlled_shutdown",
 }
 
+LEFT_COLOR = "#c4473a"
+RIGHT_COLOR = "#1f5aa6"
+LEFT_DASH = None
+RIGHT_DASH = (6, 4)
+
 CAMPAIGN_STORIES = {
     "baseline": {
         "campaign_name": "Baseline",
@@ -142,8 +147,8 @@ def detect_executable() -> Path | None:
     return None
 
 
-def campaign_log_path(campaign_id: str) -> Path:
-    return LOGS_DIR / f"gui_{campaign_id}.csv"
+def campaign_log_path(campaign_id: str, slot: str = "single") -> Path:
+    return LOGS_DIR / f"gui_{slot}_{campaign_id}.csv"
 
 
 def float_series(rows: Sequence[Dict[str, str]], key: str) -> List[float]:
@@ -324,6 +329,24 @@ class PlotCanvas(ttk.Frame):
         }
         self.redraw()
 
+    def plot_step_comparison(
+        self,
+        series: Sequence[Tuple[str, str, Sequence[float], Sequence[int], Tuple[int, ...] | None]],
+        *,
+        y_label: str,
+        tick_labels: Dict[int, str],
+    ) -> None:
+        self._drawer = self._draw_step_comparison_plot
+        self._payload = {
+            "series": [
+                (label, color, list(x_values), list(y_values), dash)
+                for label, color, x_values, y_values, dash in series
+            ],
+            "y_label": y_label,
+            "tick_labels": dict(tick_labels),
+        }
+        self.redraw()
+
     def redraw(self) -> None:
         self.canvas.delete("all")
         self._drawer(self._payload)
@@ -471,58 +494,145 @@ class PlotCanvas(ttk.Frame):
         if len(points) >= 4:
             self.canvas.create_line(*points, fill="#1f5aa6", width=2, smooth=False)
 
+    def _draw_step_comparison_plot(self, payload: object) -> None:
+        data = payload  # type: ignore[assignment]
+        series = data["series"]
+        y_label = data["y_label"]
+        tick_labels = data["tick_labels"]
+
+        if not series:
+            self._draw_message("No plot data available.")
+            return
+
+        all_x = [x for _, _, x_values, _, _ in series for x in x_values]
+        if not all_x:
+            self._draw_message("No plot data available.")
+            return
+
+        left, top, right, bottom = self._draw_axes(y_label)
+        min_x = min(all_x)
+        max_x = max(all_x)
+
+        if max_x <= min_x:
+            max_x = min_x + 1.0
+
+        def map_x(value: float) -> float:
+            return left + (value - min_x) * (right - left) / (max_x - min_x)
+
+        def map_y(state_id: int) -> float:
+            return bottom - state_id * (bottom - top) / 3.0
+
+        for state_id in range(4):
+            y_pos = map_y(state_id)
+            self.canvas.create_line(left - 4, y_pos, right, y_pos, fill="#e7edf2", dash=(2, 4))
+            self.canvas.create_text(
+                left - 8,
+                y_pos,
+                text=tick_labels.get(state_id, str(state_id)),
+                anchor="e",
+                fill="#506070",
+            )
+
+        for tick in range(5):
+            x_value = min_x + tick * (max_x - min_x) / 4.0
+            x_pos = map_x(x_value)
+            self.canvas.create_line(x_pos, top, x_pos, bottom + 4, fill="#e7edf2", dash=(2, 4))
+            self.canvas.create_text(x_pos, bottom + 16, text=f"{x_value:.0f}", anchor="n", fill="#506070")
+
+        legend_x = left + 8
+        legend_y = top + 8
+
+        for label, color, x_values, y_values, dash in series:
+            points = []
+            for index, (x_value, y_value) in enumerate(zip(x_values, y_values)):
+                x_pos = map_x(x_value)
+                y_pos = map_y(y_value)
+                points.extend((x_pos, y_pos))
+
+                if index + 1 < len(x_values):
+                    next_x = map_x(x_values[index + 1])
+                    points.extend((next_x, y_pos))
+
+            if len(points) >= 4:
+                self.canvas.create_line(*points, fill=color, width=2, dash=dash or ())
+
+            self.canvas.create_line(
+                legend_x,
+                legend_y + 5,
+                legend_x + 20,
+                legend_y + 5,
+                fill=color,
+                width=2,
+                dash=dash or (),
+            )
+            self.canvas.create_text(legend_x + 26, legend_y + 5, text=label, anchor="w", fill="#33404d")
+            legend_y += 18
+
 
 class VirtualECUGui(tk.Tk):
+    METRIC_NAMES = (
+        "Final DTC",
+        "Final Safe State",
+        "Maximum Coolant Temperature",
+        "Detection Latency",
+        "Safe-State Latency",
+    )
+
     def __init__(self) -> None:
         super().__init__()
         self.title("Virtual ECU Research GUI")
-        self.geometry("1240x920")
-        self.minsize(1040, 800)
+        self.geometry("1320x980")
+        self.minsize(1120, 860)
 
         self.executable = detect_executable()
-        self.selected_campaign = tk.StringVar(value="baseline")
-        self.status_text = tk.StringVar(value="Select a campaign and run the simulator.")
-        self.campaign_description_var = tk.StringVar(value="-")
+        self.left_campaign = tk.StringVar(value="baseline")
+        self.right_campaign = tk.StringVar(value="fan_stuck_hot_stress")
+        self.status_text = tk.StringVar(value="Select two campaigns and run a comparison.")
+        self.left_description_var = tk.StringVar(value="-")
+        self.right_description_var = tk.StringVar(value="-")
+
         self.summary_vars = {
-            "Campaign Name": tk.StringVar(value="-"),
-            "Fault Class": tk.StringVar(value="-"),
-            "Final DTC": tk.StringVar(value="-"),
-            "Final Safe State": tk.StringVar(value="-"),
-            "Maximum Coolant Temperature": tk.StringVar(value="-"),
-            "Detection Latency": tk.StringVar(value="-"),
-            "Safe-State Latency": tk.StringVar(value="-"),
+            "left": {name: tk.StringVar(value="-") for name in ("Campaign Name", "Fault Class", *self.METRIC_NAMES)},
+            "right": {name: tk.StringVar(value="-") for name in ("Campaign Name", "Fault Class", *self.METRIC_NAMES)},
         }
-        self.story_vars = {
-            "Fault Class": tk.StringVar(value="-"),
-            "Hardware-Origin Fault Source": tk.StringVar(value="-"),
-            "ECU-Level Manifestation": tk.StringVar(value="-"),
-            "Expected Diagnostic Effect": tk.StringVar(value="-"),
-            "Expected Safe-State / System Effect": tk.StringVar(value="-"),
+        self.context_vars = {
+            "left": {
+                "Fault Class": tk.StringVar(value="-"),
+                "Hardware Source": tk.StringVar(value="-"),
+                "ECU Manifestation": tk.StringVar(value="-"),
+            },
+            "right": {
+                "Fault Class": tk.StringVar(value="-"),
+                "Hardware Source": tk.StringVar(value="-"),
+                "ECU Manifestation": tk.StringVar(value="-"),
+            },
         }
-        self.metric_card_widgets: Dict[str, Dict[str, tk.Widget]] = {}
+        self.metric_cells: Dict[str, Dict[str, Dict[str, tk.Widget]]] = {"left": {}, "right": {}}
 
         self._configure_style()
         self._build_layout()
-        self._refresh_campaign_story()
-        self._refresh_metric_cards()
+        self._refresh_campaign_context()
+        self._reset_summary_values()
 
         if self.executable is None:
             self.status_text.set(
                 "Compiled virtual ECU executable not found. Build it first with 'make' or your local GCC toolchain."
             )
-            self.run_button.state(["disabled"])
+            self.run_compare_button.state(["disabled"])
+            self.run_left_button.state(["disabled"])
 
     def _configure_style(self) -> None:
         style = ttk.Style(self)
         style.configure("Root.TFrame", background="#f4f6f8")
+        style.configure("Panel.TFrame", background="#eef3f7")
         style.configure("Header.TLabel", font=("TkDefaultFont", 16, "bold"), background="#f4f6f8")
         style.configure("Subheader.TLabel", font=("TkDefaultFont", 10), foreground="#465564", background="#f4f6f8")
         style.configure("Section.TLabel", font=("TkDefaultFont", 11, "bold"))
         style.configure("FieldName.TLabel", font=("TkDefaultFont", 10, "bold"), foreground="#22313f")
         style.configure("FieldValue.TLabel", font=("TkDefaultFont", 10), foreground="#374553")
         style.configure("Hint.TLabel", font=("TkDefaultFont", 9), foreground="#4d5c69")
-        style.configure("CrossTitle.TLabel", font=("TkDefaultFont", 10, "bold"), foreground="#1d3448")
-        style.configure("CrossValue.TLabel", font=("TkDefaultFont", 10), foreground="#374553")
+        style.configure("ColumnHeader.TLabel", font=("TkDefaultFont", 10, "bold"), foreground="#1d3448")
+        style.configure("MetricLabel.TLabel", font=("TkDefaultFont", 10, "bold"), foreground="#2a3947")
 
     def _build_layout(self) -> None:
         self.configure(background="#f4f6f8")
@@ -531,145 +641,92 @@ class VirtualECUGui(tk.Tk):
 
         header = ttk.Frame(self, padding=(16, 14, 16, 10), style="Root.TFrame")
         header.grid(row=0, column=0, sticky="ew")
-        header.columnconfigure(3, weight=1)
+        header.columnconfigure(0, weight=1)
+        header.columnconfigure(1, weight=1)
+        header.columnconfigure(2, weight=1)
 
-        ttk.Label(header, text="Virtual ECU Cross-Layer Campaign Explorer", style="Header.TLabel").grid(
-            row=0, column=0, columnspan=3, sticky="w"
+        ttk.Label(header, text="Virtual ECU Comparison Explorer", style="Header.TLabel").grid(
+            row=0, column=0, columnspan=2, sticky="w"
         )
         ttk.Label(
             header,
-            text="Hardware-origin fault abstraction to ECU diagnostics, safety response, and thermal outcome.",
+            text="Comparison mode highlights how different hardware-origin fault campaigns change diagnostics, safety response, and thermal behavior.",
             style="Subheader.TLabel",
-        ).grid(row=1, column=0, columnspan=3, sticky="w", pady=(2, 12))
-        ttk.Label(header, text="Campaign", style="FieldName.TLabel").grid(row=2, column=0, sticky="w")
-
-        campaign_box = ttk.Combobox(
-            header,
-            textvariable=self.selected_campaign,
-            values=[campaign_id for campaign_id, _label in CAMPAIGNS],
-            state="readonly",
-            width=32,
-        )
-        campaign_box.grid(row=2, column=1, sticky="w", padx=(10, 12))
-        campaign_box.bind("<<ComboboxSelected>>", self._on_campaign_changed)
-
-        self.run_button = ttk.Button(header, text="Run Selected Campaign", command=self.run_selected_campaign)
-        self.run_button.grid(row=2, column=2, sticky="w")
-
-        ttk.Label(
-            header,
-            textvariable=self.campaign_description_var,
-            style="Hint.TLabel",
-            wraplength=640,
+            wraplength=860,
             justify="left",
-        ).grid(row=3, column=1, columnspan=2, sticky="w", pady=(8, 0))
-
+        ).grid(row=1, column=0, columnspan=2, sticky="w", pady=(2, 12))
         ttk.Label(header, textvariable=self.status_text, foreground="#3d4b59").grid(
-            row=0, column=3, rowspan=4, sticky="e", padx=(24, 0)
+            row=0, column=2, rowspan=2, sticky="e"
         )
+
+        selectors = ttk.Frame(header, style="Root.TFrame")
+        selectors.grid(row=2, column=0, columnspan=2, sticky="ew")
+        selectors.columnconfigure(0, weight=1)
+        selectors.columnconfigure(1, weight=1)
+
+        self._build_selector_card(
+            selectors,
+            0,
+            "Left Campaign",
+            self.left_campaign,
+            self.left_description_var,
+            self._on_campaign_changed,
+        )
+        self._build_selector_card(
+            selectors,
+            1,
+            "Right Campaign",
+            self.right_campaign,
+            self.right_description_var,
+            self._on_campaign_changed,
+        )
+
+        actions = ttk.Frame(header, style="Root.TFrame")
+        actions.grid(row=2, column=2, sticky="e")
+
+        self.run_compare_button = ttk.Button(actions, text="Run Comparison", command=self.run_comparison)
+        self.run_compare_button.grid(row=0, column=0, sticky="e")
+        self.run_left_button = ttk.Button(actions, text="Run Left Only", command=self.run_left_only)
+        self.run_left_button.grid(row=1, column=0, sticky="e", pady=(8, 0))
 
         info_area = ttk.Frame(self, padding=(16, 0, 16, 12), style="Root.TFrame")
         info_area.grid(row=1, column=0, sticky="ew")
-        info_area.columnconfigure(0, weight=1)
+        info_area.columnconfigure(0, weight=3)
         info_area.columnconfigure(1, weight=2)
 
-        summary_frame = ttk.LabelFrame(info_area, text="Run Summary", padding=14)
+        summary_frame = ttk.LabelFrame(info_area, text="Comparison Summary", padding=14)
         summary_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
-        summary_frame.columnconfigure(0, weight=1)
+        summary_frame.columnconfigure(0, minsize=190)
         summary_frame.columnconfigure(1, weight=1)
+        summary_frame.columnconfigure(2, weight=1)
 
-        summary_header = ttk.Frame(summary_frame, style="Root.TFrame")
-        summary_header.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 10))
-        summary_header.columnconfigure(1, weight=1)
+        ttk.Label(summary_frame, text="", style="ColumnHeader.TLabel").grid(row=0, column=0, sticky="w", pady=(0, 8))
+        ttk.Label(summary_frame, text="Left Run", style="ColumnHeader.TLabel").grid(row=0, column=1, sticky="w", pady=(0, 8))
+        ttk.Label(summary_frame, text="Right Run", style="ColumnHeader.TLabel").grid(row=0, column=2, sticky="w", pady=(0, 8))
 
-        ttk.Label(summary_header, text="Campaign Name", style="FieldName.TLabel").grid(
-            row=0, column=0, sticky="w", padx=(0, 10)
-        )
-        ttk.Label(
-            summary_header,
-            textvariable=self.summary_vars["Campaign Name"],
-            style="FieldValue.TLabel",
-            wraplength=280,
-            justify="left",
-        ).grid(row=0, column=1, sticky="w")
-        ttk.Label(summary_header, text="Fault Class", style="FieldName.TLabel").grid(
-            row=1, column=0, sticky="w", padx=(0, 10), pady=(6, 0)
-        )
-        ttk.Label(
-            summary_header,
-            textvariable=self.summary_vars["Fault Class"],
-            style="FieldValue.TLabel",
-            wraplength=280,
-            justify="left",
-        ).grid(row=1, column=1, sticky="w", pady=(6, 0))
-
-        metric_cards = ttk.Frame(summary_frame, style="Root.TFrame")
-        metric_cards.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(0, 10))
-        metric_cards.columnconfigure(0, weight=1)
-        metric_cards.columnconfigure(1, weight=1)
-
-        card_names = [
-            "Final DTC",
-            "Final Safe State",
-            "Maximum Coolant Temperature",
-            "Detection Latency",
-            "Safe-State Latency",
-        ]
-
-        for index, name in enumerate(card_names):
-            row = index // 2
-            column = index % 2
-            self._add_metric_card(metric_cards, row, column, name, self.summary_vars[name])
+        summary_rows = ["Campaign Name", "Fault Class", *self.METRIC_NAMES]
+        for row_index, metric_name in enumerate(summary_rows, start=1):
+            ttk.Label(summary_frame, text=metric_name, style="MetricLabel.TLabel").grid(
+                row=row_index, column=0, sticky="nw", padx=(0, 12), pady=4
+            )
+            self._add_metric_cell(summary_frame, row_index, 1, "left", metric_name)
+            self._add_metric_cell(summary_frame, row_index, 2, "right", metric_name)
 
         ttk.Label(
             summary_frame,
-            text="Key run outcomes are emphasized here for fast demo narration and comparison.",
+            text="Comparison mode is the main research/demo view. Single-run mode remains available for a focused left-campaign inspection.",
             style="Hint.TLabel",
-            wraplength=360,
+            wraplength=620,
             justify="left",
-        ).grid(row=2, column=0, columnspan=2, sticky="w")
+        ).grid(row=len(summary_rows) + 1, column=0, columnspan=3, sticky="w", pady=(10, 0))
 
-        story_frame = ttk.LabelFrame(info_area, text="Cross-Layer Interpretation", padding=14)
-        story_frame.grid(row=0, column=1, sticky="nsew")
-        story_frame.columnconfigure(0, weight=1)
+        context_frame = ttk.LabelFrame(info_area, text="Campaign Context", padding=14)
+        context_frame.grid(row=0, column=1, sticky="nsew")
+        context_frame.columnconfigure(0, weight=1)
+        context_frame.columnconfigure(1, weight=1)
 
-        ttk.Label(
-            story_frame,
-            text="Hardware-origin fault -> ECU-level manifestation -> diagnostic and safe-state effect",
-            style="Hint.TLabel",
-            wraplength=600,
-            justify="left",
-        ).grid(row=0, column=0, sticky="w", pady=(0, 10))
-
-        self._add_emphasis_readout(story_frame, 1, "Fault Class", self.story_vars["Fault Class"])
-        self._add_cross_layer_block(
-            story_frame,
-            2,
-            "1. Plausible Hardware-Origin Fault Source",
-            self.story_vars["Hardware-Origin Fault Source"],
-            accent="#8a6120",
-        )
-        self._add_cross_layer_block(
-            story_frame,
-            3,
-            "2. ECU-Level Manifestation",
-            self.story_vars["ECU-Level Manifestation"],
-            accent="#1c4d8c",
-        )
-        self._add_cross_layer_block(
-            story_frame,
-            4,
-            "3. Expected Diagnostic Effect",
-            self.story_vars["Expected Diagnostic Effect"],
-            accent="#8a2f27",
-        )
-        self._add_cross_layer_block(
-            story_frame,
-            5,
-            "4. Expected Safe-State / System Effect",
-            self.story_vars["Expected Safe-State / System Effect"],
-            accent="#245f3d",
-        )
+        self._build_context_column(context_frame, 0, "Left Context", "left", LEFT_COLOR)
+        self._build_context_column(context_frame, 1, "Right Context", "right", RIGHT_COLOR)
 
         plots = ttk.Frame(self, padding=(16, 0, 16, 16), style="Root.TFrame")
         plots.grid(row=2, column=0, sticky="nsew")
@@ -678,134 +735,130 @@ class VirtualECUGui(tk.Tk):
         plots.rowconfigure(1, weight=1)
         plots.rowconfigure(2, weight=1)
 
-        self.coolant_plot = PlotCanvas(plots, "Coolant Temperature vs Time")
+        self.coolant_plot = PlotCanvas(plots, "Coolant Temperature Comparison")
         self.coolant_plot.grid(row=0, column=0, sticky="nsew", pady=(0, 12))
 
-        self.safe_state_plot = PlotCanvas(plots, "Safe State vs Time")
+        self.safe_state_plot = PlotCanvas(plots, "Safe-State Comparison")
         self.safe_state_plot.grid(row=1, column=0, sticky="nsew", pady=(0, 12))
 
-        self.fan_plot = PlotCanvas(plots, "Fan Command vs Fan Actual")
+        self.fan_plot = PlotCanvas(plots, "Fan Command / Actual Comparison")
         self.fan_plot.grid(row=2, column=0, sticky="nsew")
-        self.fan_plot.show_message("Fan tracking plot appears after a permanent-fault run.")
+        self.fan_plot.show_message("Run a comparison to overlay fan command and actual response.")
 
-    def _add_metric_card(
+    def _build_selector_card(
         self,
         parent: ttk.Frame,
-        row: int,
         column: int,
-        label: str,
-        variable: tk.StringVar,
-    ) -> None:
-        card = tk.Frame(parent, bg="#eef3f7", bd=1, relief="solid", highlightthickness=0)
-        card.grid(row=row, column=column, sticky="nsew", padx=(0 if column == 0 else 6, 0), pady=(0, 8))
-        parent.rowconfigure(row, weight=1)
-
-        title_label = tk.Label(
-            card,
-            text=label,
-            bg="#eef3f7",
-            fg="#4e5d6b",
-            font=("TkDefaultFont", 9, "bold"),
-            anchor="w",
-            justify="left",
-        )
-        title_label.pack(fill="x", padx=10, pady=(8, 2))
-
-        value_label = tk.Label(
-            card,
-            textvariable=variable,
-            bg="#eef3f7",
-            fg="#1f2e3b",
-            font=("TkDefaultFont", 12, "bold"),
-            anchor="w",
-            justify="left",
-            wraplength=170,
-        )
-        value_label.pack(fill="x", padx=10, pady=(0, 10))
-
-        self.metric_card_widgets[label] = {
-            "frame": card,
-            "title": title_label,
-            "value": value_label,
-        }
-
-    def _add_emphasis_readout(
-        self,
-        parent: ttk.Frame,
-        row: int,
-        label: str,
-        variable: tk.StringVar,
-    ) -> None:
-        container = ttk.Frame(parent, padding=(0, 0, 0, 10), style="Root.TFrame")
-        container.grid(row=row, column=0, sticky="ew")
-        container.columnconfigure(0, minsize=120)
-        container.columnconfigure(1, weight=1)
-
-        ttk.Label(container, text=label, style="FieldName.TLabel").grid(row=0, column=0, sticky="nw", padx=(0, 10))
-        ttk.Label(
-            container,
-            textvariable=variable,
-            style="FieldValue.TLabel",
-            wraplength=620,
-            justify="left",
-        ).grid(row=0, column=1, sticky="nw")
-
-    def _add_cross_layer_block(
-        self,
-        parent: ttk.Frame,
-        row: int,
         title: str,
         variable: tk.StringVar,
-        *,
+        description_var: tk.StringVar,
+        callback,
+    ) -> None:
+        card = ttk.Frame(parent, padding=(0, 0, 16 if column == 0 else 0, 0), style="Root.TFrame")
+        card.grid(row=0, column=column, sticky="ew")
+        card.columnconfigure(1, weight=1)
+
+        ttk.Label(card, text=title, style="FieldName.TLabel").grid(row=0, column=0, sticky="w")
+        box = ttk.Combobox(
+            card,
+            textvariable=variable,
+            values=[campaign_id for campaign_id, _label in CAMPAIGNS],
+            state="readonly",
+            width=32,
+        )
+        box.grid(row=0, column=1, sticky="w", padx=(10, 0))
+        box.bind("<<ComboboxSelected>>", callback)
+
+        ttk.Label(
+            card,
+            textvariable=description_var,
+            style="Hint.TLabel",
+            wraplength=420,
+            justify="left",
+        ).grid(row=1, column=1, sticky="w", pady=(6, 0))
+
+    def _build_context_column(
+        self,
+        parent: ttk.Frame,
+        column: int,
+        title: str,
+        slot: str,
         accent: str,
     ) -> None:
         block = tk.Frame(parent, bg="#ffffff", bd=1, relief="solid", highlightthickness=0)
-        block.grid(row=row, column=0, sticky="ew", pady=(0, 8))
+        block.grid(row=0, column=column, sticky="nsew", padx=(0, 8 if column == 0 else 0))
 
-        accent_bar = tk.Frame(block, bg=accent, width=8)
+        accent_bar = tk.Frame(block, bg=accent, width=10)
         accent_bar.pack(side="left", fill="y")
 
         body = ttk.Frame(block, padding=(12, 10, 12, 10), style="Root.TFrame")
         body.pack(side="left", fill="both", expand=True)
 
-        ttk.Label(body, text=title, style="CrossTitle.TLabel").pack(anchor="w")
+        ttk.Label(body, text=title, style="ColumnHeader.TLabel").grid(row=0, column=0, sticky="w", pady=(0, 8))
+        self._add_context_row(body, 1, "Fault Class", self.context_vars[slot]["Fault Class"])
+        self._add_context_row(body, 2, "Hardware Source", self.context_vars[slot]["Hardware Source"])
+        self._add_context_row(body, 3, "ECU Manifestation", self.context_vars[slot]["ECU Manifestation"])
+
+    def _add_context_row(self, parent: ttk.Frame, row: int, label: str, variable: tk.StringVar) -> None:
+        ttk.Label(parent, text=label, style="FieldName.TLabel").grid(row=row, column=0, sticky="nw", pady=(0, 2))
         ttk.Label(
-            body,
+            parent,
             textvariable=variable,
-            style="CrossValue.TLabel",
-            wraplength=610,
+            style="FieldValue.TLabel",
+            wraplength=320,
             justify="left",
-        ).pack(anchor="w", pady=(4, 0))
+        ).grid(row=row + 1, column=0, sticky="nw", pady=(0, 8))
+
+    def _add_metric_cell(self, parent: ttk.Frame, row: int, column: int, slot: str, metric_name: str) -> None:
+        frame = tk.Frame(parent, bg="#eef3f7", bd=1, relief="solid", highlightthickness=0)
+        frame.grid(row=row, column=column, sticky="ew", padx=(0, 8 if column == 1 else 0), pady=4)
+
+        value = tk.Label(
+            frame,
+            textvariable=self.summary_vars[slot][metric_name],
+            bg="#eef3f7",
+            fg="#1f2e3b",
+            font=("TkDefaultFont", 10, "bold"),
+            anchor="w",
+            justify="left",
+            wraplength=235,
+            padx=10,
+            pady=8,
+        )
+        value.pack(fill="x")
+
+        self.metric_cells[slot][metric_name] = {"frame": frame, "value": value}
 
     def _on_campaign_changed(self, _event: tk.Event[tk.Misc] | None = None) -> None:
-        self._refresh_campaign_story()
-        self._reset_run_specific_summary()
+        self._refresh_campaign_context()
+        self._reset_summary_values()
 
-    def _refresh_campaign_story(self) -> None:
-        campaign_id = self.selected_campaign.get()
-        story = campaign_story(campaign_id)
-        self.campaign_description_var.set(story["description"])
-
-        self.story_vars["Fault Class"].set(story["fault_class"])
-        self.story_vars["Hardware-Origin Fault Source"].set(story["hardware_source"])
-        self.story_vars["ECU-Level Manifestation"].set(story["ecu_manifestation"])
-        self.story_vars["Expected Diagnostic Effect"].set(story["diagnostic_effect"])
-        self.story_vars["Expected Safe-State / System Effect"].set(story["system_effect"])
-        self.summary_vars["Campaign Name"].set(story["campaign_name"])
-        self.summary_vars["Fault Class"].set(story["fault_class"])
-
-    def _reset_run_specific_summary(self) -> None:
-        for key in (
-            "Final DTC",
-            "Final Safe State",
-            "Maximum Coolant Temperature",
-            "Detection Latency",
-            "Safe-State Latency",
+    def _refresh_campaign_context(self) -> None:
+        for slot, campaign_var, description_var in (
+            ("left", self.left_campaign, self.left_description_var),
+            ("right", self.right_campaign, self.right_description_var),
         ):
-            self.summary_vars[key].set("-")
-        self._refresh_metric_cards()
+            story = campaign_story(campaign_var.get())
+            description_var.set(story["description"])
+            self.summary_vars[slot]["Campaign Name"].set(story["campaign_name"])
+            self.summary_vars[slot]["Fault Class"].set(story["fault_class"])
+            self.context_vars[slot]["Fault Class"].set(story["fault_class"])
+            self.context_vars[slot]["Hardware Source"].set(story["hardware_source"])
+            self.context_vars[slot]["ECU Manifestation"].set(story["ecu_manifestation"])
 
-    def run_selected_campaign(self) -> None:
+    def _reset_summary_values(self) -> None:
+        for slot in ("left", "right"):
+            for metric_name in self.METRIC_NAMES:
+                self.summary_vars[slot][metric_name].set("-")
+        self._refresh_metric_cells()
+
+    def run_left_only(self) -> None:
+        self._run_campaigns(include_right=False)
+
+    def run_comparison(self) -> None:
+        self._run_campaigns(include_right=True)
+
+    def _run_campaigns(self, include_right: bool) -> None:
         if self.executable is None:
             messagebox.showerror(
                 "Executable Not Found",
@@ -813,134 +866,228 @@ class VirtualECUGui(tk.Tk):
             )
             return
 
-        campaign_id = self.selected_campaign.get()
-        log_path = campaign_log_path(campaign_id)
-
         LOGS_DIR.mkdir(parents=True, exist_ok=True)
-        self.status_text.set(f"Running {campaign_id}...")
-        self.run_button.state(["disabled"])
+        left_campaign = self.left_campaign.get()
+        right_campaign = self.right_campaign.get()
+        self.status_text.set(
+            f"Running comparison: {left_campaign} vs {right_campaign}..."
+            if include_right else f"Running left campaign: {left_campaign}..."
+        )
+        self.run_compare_button.state(["disabled"])
+        self.run_left_button.state(["disabled"])
 
         worker = threading.Thread(
-            target=self._run_campaign_worker,
-            args=(campaign_id, log_path),
+            target=self._run_campaigns_worker,
+            args=(include_right,),
             daemon=True,
         )
         worker.start()
 
-    def _run_campaign_worker(self, campaign_id: str, log_path: Path) -> None:
+    def _run_single_campaign(self, campaign_id: str, slot: str) -> Dict[str, object]:
+        log_path = campaign_log_path(campaign_id, slot)
         summary_path = summary_path_for(log_path)
         command = [str(self.executable), str(log_path), campaign_id]
 
+        completed = subprocess.run(
+            command,
+            cwd=PROJECT_ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if completed.returncode != 0:
+            raise RuntimeError(completed.stderr or completed.stdout or "Unknown simulator failure.")
+
+        raw_rows = read_csv_rows(log_path)
+        summary_rows = read_csv_rows(summary_path)
+        if not raw_rows or not summary_rows:
+            raise RuntimeError("The simulator completed but did not generate readable CSV data.")
+
+        return {
+            "campaign_id": campaign_id,
+            "raw_rows": raw_rows,
+            "summary_row": summary_rows[0],
+        }
+
+    def _run_campaigns_worker(self, include_right: bool) -> None:
         try:
-            completed = subprocess.run(
-                command,
-                cwd=PROJECT_ROOT,
-                check=False,
-                capture_output=True,
-                text=True,
-            )
+            left_result = self._run_single_campaign(self.left_campaign.get(), "left")
+            right_result = self._run_single_campaign(self.right_campaign.get(), "right") if include_right else None
         except OSError as exc:
             message = f"Failed to run simulator: {exc}"
             self.after(0, lambda msg=message: self._show_error(msg))
             return
-
-        if completed.returncode != 0:
-            output = (completed.stderr or completed.stdout or "Unknown simulator failure.").strip()
-            self.after(0, lambda msg=output: self._show_error(msg))
-            return
-
-        try:
-            raw_rows = read_csv_rows(log_path)
-            summary_rows = read_csv_rows(summary_path)
-        except (OSError, csv.Error) as exc:
-            message = f"Failed to load generated CSV files: {exc}"
+        except (RuntimeError, csv.Error) as exc:
+            message = str(exc)
             self.after(0, lambda msg=message: self._show_error(msg))
             return
 
-        if not raw_rows or not summary_rows:
-            self.after(
-                0,
-                lambda msg="The simulator completed but did not generate readable CSV data.": self._show_error(msg),
-            )
-            return
-
-        self.after(0, lambda: self._apply_run_results(campaign_id, raw_rows, summary_rows[0]))
+        self.after(0, lambda: self._apply_results(left_result, right_result))
 
     def _show_error(self, message: str) -> None:
         self.status_text.set("Run failed.")
-        self.run_button.state(["!disabled"])
+        self.run_compare_button.state(["!disabled"])
+        self.run_left_button.state(["!disabled"])
         messagebox.showerror("Virtual ECU Run Failed", message)
 
-    def _apply_run_results(
+    def _apply_results(
         self,
-        campaign_id: str,
-        raw_rows: Sequence[Dict[str, str]],
-        summary_row: Dict[str, str],
+        left_result: Dict[str, object],
+        right_result: Dict[str, object] | None,
     ) -> None:
-        first_row = raw_rows[0]
-        self.status_text.set(f"Loaded {campaign_id} from generated CSV output.")
-        self.run_button.state(["!disabled"])
-        self._refresh_campaign_story()
+        self.run_compare_button.state(["!disabled"])
+        self.run_left_button.state(["!disabled"])
 
-        self.summary_vars["Campaign Name"].set(summary_row.get("campaign_label", campaign_id))
-        self.summary_vars["Fault Class"].set(summarize_fault_class(campaign_id, first_row))
-        self.summary_vars["Final DTC"].set(summary_row.get("final_primary_dtc_label", "none"))
-        self.summary_vars["Final Safe State"].set(summary_row.get("final_safe_state_label", "normal"))
-        self.summary_vars["Maximum Coolant Temperature"].set(
-            format_temperature(summary_row.get("max_coolant_temp_c", ""))
-        )
-        self.summary_vars["Detection Latency"].set(
-            format_latency(summary_row.get("detection_latency_ms", ""))
-        )
-        self.summary_vars["Safe-State Latency"].set(
-            format_latency(summary_row.get("safe_state_latency_ms", ""))
-        )
-        self._refresh_metric_cards()
+        left_campaign = str(left_result["campaign_id"])
+        self._apply_summary_slot("left", left_campaign, left_result["raw_rows"], left_result["summary_row"])
 
-        time_s = float_series(raw_rows, "time_s")
-        coolant_temp = float_series(raw_rows, "coolant_temp_true_c")
-        safe_state = int_series(raw_rows, "safe_state_id")
-        fan_command = float_series(raw_rows, "fan_command")
-        fan_actual = float_series(raw_rows, "fan_actual")
+        if right_result is not None:
+            right_campaign = str(right_result["campaign_id"])
+            self._apply_summary_slot("right", right_campaign, right_result["raw_rows"], right_result["summary_row"])
+            self.status_text.set(f"Loaded comparison: {left_campaign} vs {right_campaign}.")
+        else:
+            self._clear_slot("right")
+            self.status_text.set(f"Loaded left campaign: {left_campaign}.")
+
+        self._refresh_metric_cells()
+        self._update_plots(left_result, right_result)
+
+    def _apply_summary_slot(
+        self,
+        slot: str,
+        campaign_id: str,
+        raw_rows: object,
+        summary_row: object,
+    ) -> None:
+        rows = raw_rows  # type: ignore[assignment]
+        summary = summary_row  # type: ignore[assignment]
+        first_row = rows[0]
+
+        self.summary_vars[slot]["Campaign Name"].set(summary.get("campaign_label", campaign_id))
+        self.summary_vars[slot]["Fault Class"].set(summarize_fault_class(campaign_id, first_row))
+        self.summary_vars[slot]["Final DTC"].set(summary.get("final_primary_dtc_label", "none"))
+        self.summary_vars[slot]["Final Safe State"].set(summary.get("final_safe_state_label", "normal"))
+        self.summary_vars[slot]["Maximum Coolant Temperature"].set(
+            format_temperature(summary.get("max_coolant_temp_c", ""))
+        )
+        self.summary_vars[slot]["Detection Latency"].set(
+            format_latency(summary.get("detection_latency_ms", ""))
+        )
+        self.summary_vars[slot]["Safe-State Latency"].set(
+            format_latency(summary.get("safe_state_latency_ms", ""))
+        )
+
+    def _clear_slot(self, slot: str) -> None:
+        story = campaign_story(self.right_campaign.get() if slot == "right" else self.left_campaign.get())
+        self.summary_vars[slot]["Campaign Name"].set(story["campaign_name"])
+        self.summary_vars[slot]["Fault Class"].set(story["fault_class"])
+        for metric_name in self.METRIC_NAMES:
+            self.summary_vars[slot][metric_name].set("-")
+
+    def _refresh_metric_cells(self) -> None:
+        for slot in ("left", "right"):
+            for metric_name in self.METRIC_NAMES:
+                background, foreground = metric_card_colors(metric_name, self.summary_vars[slot][metric_name].get())
+                cell = self.metric_cells[slot][metric_name]
+                frame = cell["frame"]
+                value = cell["value"]
+                frame.configure(bg=background)
+                value.configure(bg=background, fg=foreground)
+
+    def _update_plots(
+        self,
+        left_result: Dict[str, object],
+        right_result: Dict[str, object] | None,
+    ) -> None:
+        left_rows = left_result["raw_rows"]  # type: ignore[assignment]
+        left_label = self.summary_vars["left"]["Campaign Name"].get()
+
+        coolant_series = [
+            (
+                left_label,
+                LEFT_COLOR,
+                float_series(left_rows, "coolant_temp_true_c"),
+            )
+        ]
+        time_axis = float_series(left_rows, "time_s")
+
+        if right_result is not None:
+            right_rows = right_result["raw_rows"]  # type: ignore[assignment]
+            right_label = self.summary_vars["right"]["Campaign Name"].get()
+            coolant_series.append(
+                (
+                    right_label,
+                    RIGHT_COLOR,
+                    float_series(right_rows, "coolant_temp_true_c"),
+                )
+            )
 
         self.coolant_plot.plot_lines(
-            time_s,
-            (("Coolant temperature", "#c4473a", coolant_temp),),
+            time_axis,
+            coolant_series,
             y_label="Temp [C]",
             threshold_lines=((108.0, "#8c6b2d", "Warning"), (115.0, "#7b4d57", "Critical")),
         )
-        self.safe_state_plot.plot_step_series(
-            time_s,
-            safe_state,
+
+        safe_series = [
+            (
+                left_label,
+                LEFT_COLOR,
+                float_series(left_rows, "time_s"),
+                int_series(left_rows, "safe_state_id"),
+                LEFT_DASH,
+            )
+        ]
+
+        if right_result is not None:
+            right_rows = right_result["raw_rows"]  # type: ignore[assignment]
+            safe_series.append(
+                (
+                    self.summary_vars["right"]["Campaign Name"].get(),
+                    RIGHT_COLOR,
+                    float_series(right_rows, "time_s"),
+                    int_series(right_rows, "safe_state_id"),
+                    RIGHT_DASH,
+                )
+            )
+
+        self.safe_state_plot.plot_step_comparison(
+            safe_series,
             y_label="State",
             tick_labels=SAFE_STATE_LABELS,
         )
 
-        if "permanent" in event_behaviors(first_row):
-            self.fan_plot.plot_lines(
-                time_s,
+        fan_series = [
+            (f"{left_label} command", LEFT_COLOR, float_series(left_rows, "fan_command")),
+            (f"{left_label} actual", "#7d1f17", float_series(left_rows, "fan_actual")),
+        ]
+        fan_time_axis = float_series(left_rows, "time_s")
+        left_permanent = "permanent" in event_behaviors(left_rows[0])
+        right_permanent = False
+
+        if right_result is not None:
+            right_rows = right_result["raw_rows"]  # type: ignore[assignment]
+            right_label = self.summary_vars["right"]["Campaign Name"].get()
+            right_permanent = "permanent" in event_behaviors(right_rows[0])
+            fan_series.extend(
                 (
-                    ("Fan command", "#1f5aa6", fan_command),
-                    ("Fan actual", "#111111", fan_actual),
-                ),
+                    (f"{right_label} command", RIGHT_COLOR, float_series(right_rows, "fan_command")),
+                    (f"{right_label} actual", "#5e7fb0", float_series(right_rows, "fan_actual")),
+                )
+            )
+
+        if left_permanent or right_permanent:
+            self.fan_plot.plot_lines(
+                fan_time_axis,
+                fan_series,
                 y_label="Fan [-]",
                 y_min=0.0,
                 y_max=1.0,
             )
         else:
             self.fan_plot.show_message(
-                "This campaign does not contain a permanent injected fault, so the fan tracking plot is hidden."
+                "Neither selected campaign contains a permanent-fault phase, so the fan comparison is hidden."
             )
-
-    def _refresh_metric_cards(self) -> None:
-        for metric_name, widgets in self.metric_card_widgets.items():
-            background, foreground = metric_card_colors(metric_name, self.summary_vars[metric_name].get())
-            frame = widgets["frame"]
-            title = widgets["title"]
-            value = widgets["value"]
-            frame.configure(bg=background)
-            title.configure(bg=background)
-            value.configure(bg=background, fg=foreground)
 
 
 def main() -> None:
