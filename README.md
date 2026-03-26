@@ -198,6 +198,13 @@ It also plots:
 - safe state versus time
 - fan command versus fan actual for campaigns that include a permanent fault
 
+It also includes a campaign-specific cross-layer interpretation panel that maps:
+
+- plausible hardware-origin fault source
+- ECU-level manifestation
+- expected diagnostic effect
+- expected safe-state and system-level effect
+
 This GUI is intended as a research and demonstration aid:
 
 - it gives a quick visual front-end for live campaign walkthroughs in meetings, demos, and teaching

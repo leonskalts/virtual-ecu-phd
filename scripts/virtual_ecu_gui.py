@@ -48,6 +48,73 @@ SAFE_STATE_LABELS = {
     3: "controlled_shutdown",
 }
 
+CAMPAIGN_STORIES = {
+    "baseline": {
+        "campaign_name": "Baseline",
+        "fault_class": "baseline / no injected fault",
+        "hardware_source": "No injected hardware-origin fault. Sensor, actuation, and memory paths are nominal.",
+        "ecu_manifestation": "Nominal coolant sensing, nominal controller target, and nominal pump/fan realization.",
+        "diagnostic_effect": "No expected DTC confirmation. Diagnostics remain quiet unless a model or threshold issue is introduced.",
+        "system_effect": "Normal thermal regulation with no safety escalation. Serves as the nominal comparison case.",
+    },
+    "sensor_bias_only": {
+        "campaign_name": "Sensor Bias Only",
+        "fault_class": "sensing-path fault",
+        "hardware_source": "ADC offset, reference drift, or analog front-end bias in the coolant sensing chain.",
+        "ecu_manifestation": "Biased coolant measurement at the ECU input even though the plant temperature is unchanged.",
+        "diagnostic_effect": "Coolant sensor rationality DTC is expected to appear quickly from the measurement residual.",
+        "system_effect": "Control demand may be distorted, but the main system-level effect is diagnostic visibility rather than safe-state escalation.",
+    },
+    "sensor_interface_intermittent": {
+        "campaign_name": "Sensor Interface Intermittent",
+        "fault_class": "sensing-path fault",
+        "hardware_source": "Intermittent sensor-interface corruption such as sampling glitches, connector intermittency, or burst noise.",
+        "ecu_manifestation": "Bursty coolant reading disturbances appear at the ECU interface while the true thermal state remains smooth.",
+        "diagnostic_effect": "Transient or intermittent coolant sensor rationality behavior is expected, with DTC activity tied to burst timing.",
+        "system_effect": "Temporary control disturbance may occur, but safe-state entry is usually limited unless the disturbance couples into thermal stress.",
+    },
+    "pump_degraded_only": {
+        "campaign_name": "Pump Degraded Only",
+        "fault_class": "actuation-path fault",
+        "hardware_source": "Weak driver behavior, supply droop, aging, or partial loss of pump actuation authority.",
+        "ecu_manifestation": "Pump actual response is reduced relative to the ECU command.",
+        "diagnostic_effect": "Pump tracking fault and possibly cooling-performance degradation behavior are expected as the mismatch persists.",
+        "system_effect": "Reduced heat rejection can raise coolant temperature and may eventually push the safety monitor toward precautionary action.",
+    },
+    "fan_stuck_only": {
+        "campaign_name": "Fan Stuck Only",
+        "fault_class": "actuation-path fault",
+        "hardware_source": "PWM output, gate-driver, or power-stage fault that leaves the fan effectively stuck off.",
+        "ecu_manifestation": "The ECU commands fan actuation, but the realized fan response stays near zero.",
+        "diagnostic_effect": "Fan tracking DTC is expected quickly because commanded and realized fan signals diverge.",
+        "system_effect": "Protective cooling and limp-home escalation are expected as the ECU responds to persistent actuation loss.",
+    },
+    "fan_stuck_hot_stress": {
+        "campaign_name": "Fan Stuck Hot Stress",
+        "fault_class": "actuation-path fault under thermal stress",
+        "hardware_source": "Permanent fan power-stage or gate-driver stuck-off fault combined with hotter ambient and lower ram-air cooling.",
+        "ecu_manifestation": "Fan command remains high while fan actual remains unavailable during a thermally aggressive operating condition.",
+        "diagnostic_effect": "Fan tracking DTC is expected, followed by stronger thermal-warning and performance-related evidence if temperature rises.",
+        "system_effect": "This is the strongest cross-layer safe-state case: thermal stress rises faster and precautionary or limp-home behavior appears earlier.",
+    },
+    "calibration_memory_corruption": {
+        "campaign_name": "Calibration Memory Corruption",
+        "fault_class": "computation/memory-path fault",
+        "hardware_source": "Corrupted calibration register, NVM bit upset, or memory-path fault affecting the coolant control target.",
+        "ecu_manifestation": "The ECU uses a shifted cooling target, delaying requested cooling despite correct sensed temperatures.",
+        "diagnostic_effect": "Cooling-performance and thermal-related diagnostics are expected later in the run as the consequences propagate outward.",
+        "system_effect": "Higher peak coolant temperature and earlier safety intervention are expected because the controller itself is miscalibrated.",
+    },
+    "paper_default": {
+        "campaign_name": "Paper Default",
+        "fault_class": "mixed hardware-origin faults",
+        "hardware_source": "Sequential sensing-path, actuation-path, and power-stage faults representing a cross-layer multi-stage failure story.",
+        "ecu_manifestation": "The ECU first sees biased sensing, then degraded pump authority, then fan actuation loss.",
+        "diagnostic_effect": "Diagnostics evolve over time from sensor rationality behavior to actuator-tracking and thermal-response evidence.",
+        "system_effect": "This campaign demonstrates staged propagation from hardware-origin faults into system degradation and safety escalation.",
+    },
+}
+
 
 def read_csv_rows(path: Path) -> List[Dict[str, str]]:
     with path.open("r", newline="", encoding="utf-8") as handle:
@@ -110,6 +177,20 @@ def infer_fault_class(first_row: Dict[str, str]) -> str:
     if len(classes) == 1:
         return next(iter(classes))
     return "mixed hardware-origin faults"
+
+
+def campaign_story(campaign_id: str) -> Dict[str, str]:
+    return CAMPAIGN_STORIES.get(
+        campaign_id,
+        {
+            "campaign_name": campaign_id,
+            "fault_class": "unknown",
+            "hardware_source": "No campaign-specific cross-layer description is available.",
+            "ecu_manifestation": "No campaign-specific ECU manifestation description is available.",
+            "diagnostic_effect": "No campaign-specific diagnostic description is available.",
+            "system_effect": "No campaign-specific system-level description is available.",
+        },
+    )
 
 
 def format_latency(value: str) -> str:
@@ -344,8 +425,8 @@ class VirtualECUGui(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
         self.title("Virtual ECU Research GUI")
-        self.geometry("1180x860")
-        self.minsize(980, 760)
+        self.geometry("1240x920")
+        self.minsize(1040, 800)
 
         self.executable = detect_executable()
         self.selected_campaign = tk.StringVar(value="baseline")
@@ -359,9 +440,17 @@ class VirtualECUGui(tk.Tk):
             "Detection Latency": tk.StringVar(value="-"),
             "Safe-State Latency": tk.StringVar(value="-"),
         }
+        self.story_vars = {
+            "Fault Class": tk.StringVar(value="-"),
+            "Hardware-Origin Fault Source": tk.StringVar(value="-"),
+            "ECU-Level Manifestation": tk.StringVar(value="-"),
+            "Expected Diagnostic Effect": tk.StringVar(value="-"),
+            "Expected Safe-State / System Effect": tk.StringVar(value="-"),
+        }
 
         self._configure_style()
         self._build_layout()
+        self._refresh_campaign_story()
 
         if self.executable is None:
             self.status_text.set(
@@ -371,21 +460,32 @@ class VirtualECUGui(tk.Tk):
 
     def _configure_style(self) -> None:
         style = ttk.Style(self)
-        style.configure("Header.TLabel", font=("TkDefaultFont", 14, "bold"))
+        style.configure("Root.TFrame", background="#f4f6f8")
+        style.configure("Header.TLabel", font=("TkDefaultFont", 16, "bold"), background="#f4f6f8")
+        style.configure("Subheader.TLabel", font=("TkDefaultFont", 10), foreground="#465564", background="#f4f6f8")
         style.configure("Section.TLabel", font=("TkDefaultFont", 11, "bold"))
+        style.configure("FieldName.TLabel", font=("TkDefaultFont", 10, "bold"), foreground="#22313f")
+        style.configure("FieldValue.TLabel", font=("TkDefaultFont", 10), foreground="#374553")
+        style.configure("Hint.TLabel", font=("TkDefaultFont", 9), foreground="#4d5c69")
 
     def _build_layout(self) -> None:
+        self.configure(background="#f4f6f8")
         self.columnconfigure(0, weight=1)
         self.rowconfigure(2, weight=1)
 
-        header = ttk.Frame(self, padding=12)
+        header = ttk.Frame(self, padding=(16, 14, 16, 10), style="Root.TFrame")
         header.grid(row=0, column=0, sticky="ew")
         header.columnconfigure(3, weight=1)
 
-        ttk.Label(header, text="Virtual ECU Campaign Runner", style="Header.TLabel").grid(
-            row=0, column=0, sticky="w"
+        ttk.Label(header, text="Virtual ECU Cross-Layer Campaign Explorer", style="Header.TLabel").grid(
+            row=0, column=0, columnspan=3, sticky="w"
         )
-        ttk.Label(header, text="Campaign:").grid(row=1, column=0, sticky="w", pady=(12, 0))
+        ttk.Label(
+            header,
+            text="Hardware-origin fault abstraction to ECU diagnostics, safety response, and thermal outcome.",
+            style="Subheader.TLabel",
+        ).grid(row=1, column=0, columnspan=3, sticky="w", pady=(2, 12))
+        ttk.Label(header, text="Campaign", style="FieldName.TLabel").grid(row=2, column=0, sticky="w")
 
         campaign_box = ttk.Combobox(
             header,
@@ -394,35 +494,44 @@ class VirtualECUGui(tk.Tk):
             state="readonly",
             width=32,
         )
-        campaign_box.grid(row=1, column=1, sticky="w", padx=(8, 10), pady=(12, 0))
+        campaign_box.grid(row=2, column=1, sticky="w", padx=(10, 12))
+        campaign_box.bind("<<ComboboxSelected>>", self._on_campaign_changed)
 
-        self.run_button = ttk.Button(header, text="Run Campaign", command=self.run_selected_campaign)
-        self.run_button.grid(row=1, column=2, sticky="w", pady=(12, 0))
+        self.run_button = ttk.Button(header, text="Run Selected Campaign", command=self.run_selected_campaign)
+        self.run_button.grid(row=2, column=2, sticky="w")
 
         ttk.Label(header, textvariable=self.status_text, foreground="#3d4b59").grid(
-            row=0, column=3, rowspan=2, sticky="e", padx=(20, 0)
+            row=0, column=3, rowspan=3, sticky="e", padx=(24, 0)
         )
 
-        summary_frame = ttk.LabelFrame(self, text="Run Summary", padding=12)
-        summary_frame.grid(row=1, column=0, sticky="ew", padx=12, pady=(0, 10))
-        summary_frame.columnconfigure(1, weight=1)
-        summary_frame.columnconfigure(3, weight=1)
+        info_area = ttk.Frame(self, padding=(16, 0, 16, 12), style="Root.TFrame")
+        info_area.grid(row=1, column=0, sticky="ew")
+        info_area.columnconfigure(0, weight=1)
+        info_area.columnconfigure(1, weight=2)
 
-        row = 0
-        column = 0
-        for label, variable in self.summary_vars.items():
-            ttk.Label(summary_frame, text=f"{label}:").grid(
-                row=row, column=column, sticky="w", padx=(0, 8), pady=4
-            )
-            ttk.Label(summary_frame, textvariable=variable).grid(
-                row=row, column=column + 1, sticky="w", padx=(0, 18), pady=4
-            )
-            row += 1
-            if row == 4:
-                row = 0
-                column = 2
+        summary_frame = ttk.LabelFrame(info_area, text="Run Summary", padding=14)
+        summary_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+        summary_frame.columnconfigure(0, weight=1)
 
-        plots = ttk.Frame(self, padding=(12, 0, 12, 12))
+        for row, (label, variable) in enumerate(self.summary_vars.items()):
+            self._add_readout_row(summary_frame, row, label, variable)
+
+        story_frame = ttk.LabelFrame(info_area, text="Cross-Layer Interpretation", padding=14)
+        story_frame.grid(row=0, column=1, sticky="nsew")
+        story_frame.columnconfigure(0, weight=1)
+
+        ttk.Label(
+            story_frame,
+            text="Hardware-origin fault -> ECU-level manifestation -> diagnostic and safe-state effect",
+            style="Hint.TLabel",
+            wraplength=600,
+            justify="left",
+        ).grid(row=0, column=0, sticky="w", pady=(0, 10))
+
+        for row, (label, variable) in enumerate(self.story_vars.items(), start=1):
+            self._add_wrapped_row(story_frame, row, label, variable, wraplength=620)
+
+        plots = ttk.Frame(self, padding=(16, 0, 16, 16), style="Root.TFrame")
         plots.grid(row=2, column=0, sticky="nsew")
         plots.columnconfigure(0, weight=1)
         plots.rowconfigure(0, weight=2)
@@ -430,14 +539,67 @@ class VirtualECUGui(tk.Tk):
         plots.rowconfigure(2, weight=1)
 
         self.coolant_plot = PlotCanvas(plots, "Coolant Temperature vs Time")
-        self.coolant_plot.grid(row=0, column=0, sticky="nsew", pady=(0, 10))
+        self.coolant_plot.grid(row=0, column=0, sticky="nsew", pady=(0, 12))
 
         self.safe_state_plot = PlotCanvas(plots, "Safe State vs Time")
-        self.safe_state_plot.grid(row=1, column=0, sticky="nsew", pady=(0, 10))
+        self.safe_state_plot.grid(row=1, column=0, sticky="nsew", pady=(0, 12))
 
         self.fan_plot = PlotCanvas(plots, "Fan Command vs Fan Actual")
         self.fan_plot.grid(row=2, column=0, sticky="nsew")
         self.fan_plot.show_message("Fan tracking plot appears after a permanent-fault run.")
+
+    def _add_readout_row(
+        self,
+        parent: ttk.Frame,
+        row: int,
+        label: str,
+        variable: tk.StringVar,
+    ) -> None:
+        container = ttk.Frame(parent, padding=(0, 6), style="Root.TFrame")
+        container.grid(row=row, column=0, sticky="ew")
+        container.columnconfigure(0, minsize=190)
+        container.columnconfigure(1, weight=1)
+
+        ttk.Label(container, text=label, style="FieldName.TLabel").grid(row=0, column=0, sticky="nw")
+        ttk.Label(container, textvariable=variable, style="FieldValue.TLabel", wraplength=280, justify="left").grid(
+            row=0, column=1, sticky="nw"
+        )
+
+    def _add_wrapped_row(
+        self,
+        parent: ttk.Frame,
+        row: int,
+        label: str,
+        variable: tk.StringVar,
+        *,
+        wraplength: int,
+    ) -> None:
+        container = ttk.Frame(parent, padding=(0, 5), style="Root.TFrame")
+        container.grid(row=row, column=0, sticky="ew")
+        container.columnconfigure(0, minsize=240)
+        container.columnconfigure(1, weight=1)
+
+        ttk.Label(container, text=label, style="FieldName.TLabel").grid(row=0, column=0, sticky="nw", padx=(0, 10))
+        ttk.Label(
+            container,
+            textvariable=variable,
+            style="FieldValue.TLabel",
+            wraplength=wraplength,
+            justify="left",
+        ).grid(row=0, column=1, sticky="nw")
+
+    def _on_campaign_changed(self, _event: tk.Event[tk.Misc] | None = None) -> None:
+        self._refresh_campaign_story()
+
+    def _refresh_campaign_story(self) -> None:
+        campaign_id = self.selected_campaign.get()
+        story = campaign_story(campaign_id)
+
+        self.story_vars["Fault Class"].set(story["fault_class"])
+        self.story_vars["Hardware-Origin Fault Source"].set(story["hardware_source"])
+        self.story_vars["ECU-Level Manifestation"].set(story["ecu_manifestation"])
+        self.story_vars["Expected Diagnostic Effect"].set(story["diagnostic_effect"])
+        self.story_vars["Expected Safe-State / System Effect"].set(story["system_effect"])
 
     def run_selected_campaign(self) -> None:
         if self.executable is None:
@@ -514,9 +676,10 @@ class VirtualECUGui(tk.Tk):
         first_row = raw_rows[0]
         self.status_text.set(f"Loaded {campaign_id} from generated CSV output.")
         self.run_button.state(["!disabled"])
+        self._refresh_campaign_story()
 
         self.summary_vars["Campaign Name"].set(summary_row.get("campaign_label", campaign_id))
-        self.summary_vars["Fault Class"].set(infer_fault_class(first_row))
+        self.summary_vars["Fault Class"].set(campaign_story(campaign_id)["fault_class"])
         self.summary_vars["Final DTC"].set(summary_row.get("final_primary_dtc_label", "none"))
         self.summary_vars["Final Safe State"].set(summary_row.get("final_safe_state_label", "normal"))
         self.summary_vars["Maximum Coolant Temperature"].set(
