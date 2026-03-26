@@ -158,6 +158,57 @@ Example baseline, transient, and permanent campaigns:
 ./virtual_ecu logs/permanent_stress.csv fan_stuck_hot_stress
 ```
 
+## GUI Frontend
+
+A lightweight Python GUI frontend is available for campaign selection,
+simulation runs, CSV loading, and quick visualization:
+
+```sh
+python3 scripts/virtual_ecu_gui.py
+```
+
+The GUI keeps the ECU simulator itself unchanged. It simply launches the
+compiled `virtual_ecu` executable with the selected campaign, then reads the
+generated raw CSV and summary CSV from `logs/`.
+
+Included campaign options cover:
+
+- `baseline`
+- `sensor_bias_only`
+- `sensor_interface_intermittent`
+- `pump_degraded_only`
+- `fan_stuck_only`
+- `fan_stuck_hot_stress`
+- `calibration_memory_corruption`
+- `paper_default`
+
+The interface displays:
+
+- campaign name
+- inferred fault class
+- final DTC
+- final safe state
+- maximum coolant temperature
+- detection latency
+- safe-state latency
+
+It also plots:
+
+- coolant temperature versus time
+- safe state versus time
+- fan command versus fan actual for campaigns that include a permanent fault
+
+This GUI is intended as a research and demonstration aid:
+
+- it gives a quick visual front-end for live campaign walkthroughs in meetings, demos, and teaching
+- it makes campaign-to-campaign behavior easier to inspect without manually opening CSV files
+- it helps connect low-level injected fault scenarios to ECU diagnostics, safety response, and thermal outcomes
+- it provides a simple reproducible interface for paper preparation and result sanity checks
+
+For minimal setup, the GUI uses Python's built-in Tkinter library. On Windows,
+Tkinter is typically included with Python. On WSL, it runs with WSLg or another
+X-capable display setup.
+
 Run a custom parameterized fault:
 
 ```sh
