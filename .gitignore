@@ -3,4 +3,6 @@ virtual_ecu
 logs/*.csv
 results/*.csv
 results/*.png
+results/batch/
+logs/batch/
 __pycache__/

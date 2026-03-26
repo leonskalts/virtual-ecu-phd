@@ -235,6 +235,81 @@ Each run produces:
 
 The executable writes `logs/thermal_run.csv` by default when no log path is provided.
 
+## Batch Evaluation
+
+To move beyond a few hand-crafted runs, the project now includes a lightweight
+batch sweep runner for repeatable large-scale evaluation:
+
+```sh
+python3 scripts/run_batch_experiments.py --profile conference
+```
+
+For a smaller smoke test:
+
+```sh
+python3 scripts/run_batch_experiments.py --profile quick
+```
+
+The batch runner keeps the C simulator unchanged and orchestrates the compiled
+executable from Python. It systematically varies:
+
+- fault start time
+- fault duration
+- fault parameter / severity
+- campaign type at the sweep-definition level through different fault families
+
+Supported sweep families include:
+
+- sensing-path fault sweeps:
+  `sensor_bias`, `sensor_interface_intermittent`
+- actuation-path fault sweeps:
+  `pump_degraded`, `fan_stuck_off`
+- computation/memory-path fault sweeps:
+  `calibration_memory_corruption`
+
+Outputs are written to:
+
+```text
+results/batch/<profile>/
+  aggregate_summary.csv
+  runs/
+    run_*.csv
+    run_*_summary.csv
+```
+
+Each run keeps:
+
+- one raw time-series CSV
+- one one-row summary CSV
+
+The aggregate summary CSV collects one row per run and includes at least:
+
+- `campaign_id`
+- `fault_type`
+- `fault_parameter`
+- `fault_start_time_ms`
+- `fault_duration_ms`
+- `detection_latency_ms`
+- `safe_state_latency_ms`
+- `max_coolant_temperature_c`
+- `safe_mode_duration_ms`
+- `final_safe_state`
+- `final_dtc`
+
+Interpretation notes for `aggregate_summary.csv`:
+
+- each row is one experiment configuration from the sweep
+- `campaign_id` identifies the sweep family, not just the simulator's built-in campaign label
+- `simulator_campaign_id` shows whether the run came from a built-in reference or the custom single-fault path
+- `detection_latency_ms = -1` means no DTC became primary after the injected fault
+- `safe_state_latency_ms = -1` means no non-normal safe state was reached
+- `safe_mode_duration_ms` captures how long the controller remained in a protective mode
+
+This strengthens the research contribution because the platform is no longer
+limited to a few illustrative traces. It now supports systematic sensitivity
+studies, repeatable latency comparisons, and cross-fault trend analysis using a
+simple workflow that remains easy to explain in a conference paper.
+
 ## Paper Tables and Figures
 
 Generate the main paper tables and figures from the current campaign logs:
