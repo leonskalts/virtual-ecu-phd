@@ -8,7 +8,7 @@ import os
 import subprocess
 import threading
 from pathlib import Path
-from typing import Dict, List, Sequence, Tuple
+from typing import Dict, Iterable, List, Sequence, Tuple
 
 try:
     import tkinter as tk
@@ -348,6 +348,20 @@ def mean_or_none(values: Sequence[float | int]) -> float | None:
     return float(sum(values) / len(values))
 
 
+def mode_or_none(values: Iterable[str]) -> str:
+    filtered = [value for value in values if isinstance(value, str) and value]
+    if not filtered:
+        return "n/a"
+
+    counts: Dict[str, int] = {}
+    for value in filtered:
+        counts[value] = counts.get(value, 0) + 1
+
+    top_count = max(counts.values())
+    winners = sorted(value for value, count in counts.items() if count == top_count)
+    return winners[0]
+
+
 def save_coolant_comparison_plot(
     left_label: str,
     left_rows: Sequence[Dict[str, str]],
@@ -516,6 +530,28 @@ class PlotCanvas(ttk.Frame):
             "values": list(values),
             "y_label": y_label,
             "bar_color": bar_color,
+        }
+        self.redraw()
+
+    def plot_stacked_bars(
+        self,
+        categories: Sequence[str],
+        stacks: Sequence[Tuple[str, str, Sequence[float]]],
+        *,
+        y_label: str,
+        max_value: float = 100.0,
+        x_label: str = "Fault Type",
+    ) -> None:
+        self._drawer = self._draw_stacked_bar_plot
+        self._payload = {
+            "categories": list(categories),
+            "stacks": [
+                (label, color, list(values))
+                for label, color, values in stacks
+            ],
+            "y_label": y_label,
+            "max_value": max_value,
+            "x_label": x_label,
         }
         self.redraw()
 
@@ -886,6 +922,74 @@ class PlotCanvas(ttk.Frame):
                 width=slot_width * 0.9,
             )
 
+    def _draw_stacked_bar_plot(self, payload: object) -> None:
+        data = payload  # type: ignore[assignment]
+        categories = data["categories"]
+        stacks = data["stacks"]
+        y_label = data["y_label"]
+        max_value = data["max_value"]
+        x_label = data["x_label"]
+
+        if not categories or not stacks:
+            self._draw_message("No plot data available.")
+            return
+
+        legend_entries = [(label, color, None) for label, color, _ in stacks]
+        legend_height = self._draw_legend(legend_entries, left=86, top=10, right=self._canvas_size()[0] - 16)
+        bottom_margin = self._bottom_margin_for_categories(categories)
+        left, top, right, bottom = self._draw_axes(
+            y_label,
+            x_label=x_label,
+            top_margin=18 + legend_height,
+            bottom_margin=bottom_margin,
+        )
+
+        if max_value <= 0.0:
+            max_value = 1.0
+
+        def map_y(value: float) -> float:
+            return bottom - value * (bottom - top) / max_value
+
+        slot_width = (right - left) / max(len(categories), 1)
+        bar_width = slot_width * 0.58
+        cumulative = [0.0 for _ in categories]
+
+        for tick in range(5):
+            tick_value = tick * max_value / 4.0
+            y_pos = map_y(tick_value)
+            label = f"{tick_value:.0f}" if max_value <= 100.0 else f"{tick_value:.1f}"
+            self.canvas.create_line(left - 4, y_pos, right, y_pos, fill="#e7edf2", dash=(2, 4))
+            self.canvas.create_text(left - 8, y_pos, text=label, anchor="e", fill="#506070")
+
+        for _label, color, values in stacks:
+            for index, value in enumerate(values):
+                safe_value = max(float(value), 0.0)
+                center_x = left + (index + 0.5) * slot_width
+                x0 = center_x - bar_width / 2.0
+                x1 = center_x + bar_width / 2.0
+                y0 = map_y(cumulative[index] + safe_value)
+                y1 = map_y(cumulative[index])
+                self.canvas.create_rectangle(x0, y0, x1, y1, fill=color, outline="#2f2f2f")
+                cumulative[index] += safe_value
+
+        for index, category in enumerate(categories):
+            center_x = left + (index + 0.5) * slot_width
+            total_value = cumulative[index]
+            self.canvas.create_text(
+                center_x,
+                map_y(total_value) - 10,
+                text=f"{total_value:.0f}",
+                fill="#33404d",
+            )
+            self.canvas.create_text(
+                center_x,
+                bottom + 14,
+                text=category,
+                anchor="n",
+                fill="#506070",
+                width=slot_width * 0.9,
+            )
+
 
 class VirtualECUGui(tk.Tk):
     METRIC_NAMES = (
@@ -900,6 +1004,26 @@ class VirtualECUGui(tk.Tk):
         "Safe-State Comparison",
         "Fan Command / Actual Comparison",
     )
+    RECOMMENDED_DEMO_COMPARISONS = (
+        ("Baseline vs Fan Hot Stress", "baseline", "fan_stuck_hot_stress"),
+        ("Baseline vs Calibration", "baseline", "calibration_memory_corruption"),
+        ("Baseline vs Stale Sensor", "baseline", "stale_sensor_data_only"),
+        ("Stale Mild vs Hot Stress", "stale_sensor_data_only", "stale_sensor_data_hot_stress"),
+        ("Timing Stress vs Fan Hot Stress", "stale_sensor_data_hot_stress", "fan_stuck_hot_stress"),
+    )
+    BATCH_PLOT_OPTIONS = (
+        "Mean Detection Latency",
+        "Mean Safe-State Latency",
+        "Mean Maximum Coolant Temperature",
+        "Mean Safe-Mode Duration",
+        "Final Safe-State Distribution",
+    )
+    BATCH_SAFE_STATE_COLORS = {
+        "normal": "#7fbf7b",
+        "precautionary_cooling": "#f2c14e",
+        "limp_home": "#e07a5f",
+        "controlled_shutdown": "#7b2d26",
+    }
 
     def __init__(self) -> None:
         super().__init__()
@@ -911,6 +1035,7 @@ class VirtualECUGui(tk.Tk):
         self.left_campaign = tk.StringVar(value="baseline")
         self.right_campaign = tk.StringVar(value="fan_stuck_hot_stress")
         self.comparison_plot_choice = tk.StringVar(value=self.COMPARISON_PLOT_OPTIONS[0])
+        self.batch_plot_choice = tk.StringVar(value=self.BATCH_PLOT_OPTIONS[0])
         self.status_text = tk.StringVar(value="Select two campaigns and run a comparison.")
         self.batch_status_text = tk.StringVar(value="Load a batch aggregate summary CSV to inspect sweep-level trends.")
         self.left_description_var = tk.StringVar(value="-")
@@ -1003,20 +1128,26 @@ class VirtualECUGui(tk.Tk):
         notebook = ttk.Notebook(self)
         notebook.grid(row=1, column=0, sticky="nsew", padx=12, pady=(0, 12))
 
-        comparison_tab = ttk.Frame(notebook, padding=(4, 8, 4, 6), style="Root.TFrame")
-        comparison_tab.columnconfigure(0, weight=1)
-        comparison_tab.rowconfigure(2, weight=1)
-        notebook.add(comparison_tab, text="Campaign Comparison")
+        summary_tab = ttk.Frame(notebook, padding=(4, 8, 4, 6), style="Root.TFrame")
+        summary_tab.columnconfigure(0, weight=1)
+        summary_tab.rowconfigure(1, weight=1)
+        notebook.add(summary_tab, text="Comparison Summary")
+
+        figures_tab = ttk.Frame(notebook, padding=(4, 8, 4, 6), style="Root.TFrame")
+        figures_tab.columnconfigure(0, weight=1)
+        figures_tab.rowconfigure(0, weight=1)
+        notebook.add(figures_tab, text="Comparison Figures")
 
         batch_tab = ttk.Frame(notebook, padding=(4, 8, 4, 6), style="Root.TFrame")
         batch_tab.columnconfigure(0, weight=1)
         batch_tab.rowconfigure(2, weight=1)
         notebook.add(batch_tab, text="Batch Results")
 
-        self._build_comparison_tab(comparison_tab)
+        self._build_comparison_summary_tab(summary_tab)
+        self._build_comparison_figures_tab(figures_tab)
         self._build_batch_tab(batch_tab)
 
-    def _build_comparison_tab(self, parent: ttk.Frame) -> None:
+    def _build_comparison_summary_tab(self, parent: ttk.Frame) -> None:
         selectors_area = ttk.Frame(parent, padding=(12, 0, 12, 12), style="Root.TFrame")
         selectors_area.grid(row=0, column=0, sticky="ew")
         selectors_area.columnconfigure(0, weight=1)
@@ -1050,6 +1181,8 @@ class VirtualECUGui(tk.Tk):
         self.export_button = ttk.Button(actions, text="Export Comparison Report", command=self.export_current_comparison)
         self.export_button.grid(row=2, column=0, sticky="e", pady=(8, 0))
         self.export_button.state(["disabled"])
+
+        self._build_recommended_demo_shortcuts(selectors_area)
 
         info_area = ttk.Frame(parent, padding=(12, 0, 12, 12), style="Root.TFrame")
         info_area.grid(row=1, column=0, sticky="ew")
@@ -1090,10 +1223,11 @@ class VirtualECUGui(tk.Tk):
         self._build_context_column(context_frame, 0, "Left Context", "left", LEFT_COLOR)
         self._build_context_column(context_frame, 1, "Right Context", "right", RIGHT_COLOR)
 
-        plots = ttk.Frame(parent, padding=(12, 0, 12, 12), style="Root.TFrame")
-        plots.grid(row=2, column=0, sticky="nsew")
+    def _build_comparison_figures_tab(self, parent: ttk.Frame) -> None:
+        plots = ttk.Frame(parent, padding=(12, 8, 12, 12), style="Root.TFrame")
+        plots.grid(row=0, column=0, sticky="nsew")
         plots.columnconfigure(0, weight=1)
-        plots.rowconfigure(1, weight=1, minsize=540)
+        plots.rowconfigure(1, weight=1, minsize=700)
 
         plot_header = ttk.Frame(plots, style="Root.TFrame")
         plot_header.grid(row=0, column=0, sticky="ew", pady=(0, 10))
@@ -1113,18 +1247,19 @@ class VirtualECUGui(tk.Tk):
         selector.bind("<<ComboboxSelected>>", self._on_plot_selection_changed)
         ttk.Label(
             plot_header,
-            text="Use one larger plot area for clearer campaign overlays during live demos and presentations.",
+            text="Use this dedicated figures page for cleaner, presentation-friendly plots during live demos, thesis walkthroughs, and screenshots.",
             style="Hint.TLabel",
+            wraplength=720,
             justify="left",
         ).grid(row=0, column=2, sticky="w", padx=(14, 0))
 
         self.comparison_plot = PlotCanvas(
             plots,
             self.comparison_plot_choice.get(),
-            canvas_height=540,
+            canvas_height=700,
         )
         self.comparison_plot.grid(row=1, column=0, sticky="nsew")
-        self.comparison_plot.show_message("Run a comparison to display the selected plot in the main viewing area.")
+        self.comparison_plot.show_message("Run a comparison from the Comparison Summary page to display the selected plot here.")
 
     def _build_batch_tab(self, parent: ttk.Frame) -> None:
         controls = ttk.LabelFrame(parent, text="Batch Aggregate Summary", padding=14)
@@ -1175,8 +1310,10 @@ class VirtualECUGui(tk.Tk):
             "fault_type",
             "runs",
             "mean_detection_latency",
+            "mean_safe_state_latency",
             "mean_max_temp",
             "mean_safe_mode_duration",
+            "dominant_safe_state",
         )
         self.batch_table = ttk.Treeview(
             table_frame,
@@ -1189,22 +1326,28 @@ class VirtualECUGui(tk.Tk):
             "fault_type": "Fault Type",
             "runs": "Runs",
             "mean_detection_latency": "Mean Detection [ms]",
+            "mean_safe_state_latency": "Mean Safe State [ms]",
             "mean_max_temp": "Mean Max Temp [C]",
             "mean_safe_mode_duration": "Mean Safe-Mode [ms]",
+            "dominant_safe_state": "Dominant Final State",
         }
         widths = {
-            "fault_type": 220,
+            "fault_type": 190,
             "runs": 60,
-            "mean_detection_latency": 130,
-            "mean_max_temp": 130,
-            "mean_safe_mode_duration": 140,
+            "mean_detection_latency": 120,
+            "mean_safe_state_latency": 125,
+            "mean_max_temp": 120,
+            "mean_safe_mode_duration": 125,
+            "dominant_safe_state": 150,
         }
         anchors = {
             "fault_type": tk.W,
             "runs": tk.CENTER,
             "mean_detection_latency": tk.CENTER,
+            "mean_safe_state_latency": tk.CENTER,
             "mean_max_temp": tk.CENTER,
             "mean_safe_mode_duration": tk.CENTER,
+            "dominant_safe_state": tk.CENTER,
         }
         for column_id in columns:
             self.batch_table.heading(column_id, text=headings[column_id])
@@ -1218,17 +1361,32 @@ class VirtualECUGui(tk.Tk):
         plot_frame = ttk.LabelFrame(content, text="Batch Comparison View", padding=10)
         plot_frame.grid(row=0, column=1, sticky="nsew")
         plot_frame.columnconfigure(0, weight=1)
-        plot_frame.rowconfigure(1, weight=1, minsize=320)
+        plot_frame.rowconfigure(2, weight=1, minsize=320)
+
+        plot_header = ttk.Frame(plot_frame, style="Root.TFrame")
+        plot_header.grid(row=0, column=0, sticky="ew", pady=(0, 8))
+        plot_header.columnconfigure(2, weight=1)
+
+        ttk.Label(plot_header, text="Batch Plot", style="FieldName.TLabel").grid(row=0, column=0, sticky="w")
+        selector = ttk.Combobox(
+            plot_header,
+            textvariable=self.batch_plot_choice,
+            values=list(self.BATCH_PLOT_OPTIONS),
+            state="readonly",
+            width=31,
+        )
+        selector.grid(row=0, column=1, sticky="w", padx=(10, 0))
+        selector.bind("<<ComboboxSelected>>", self._on_batch_plot_selection_changed)
 
         ttk.Label(
             plot_frame,
-            text="Mean detection latency by fault type gives a quick scan of which fault manifestations are visible early versus late in the ECU stack.",
+            text="Use the selector to switch between observability, thermal severity, and safe-state outcome views from the currently loaded aggregate summary.",
             style="Hint.TLabel",
             wraplength=360,
             justify="left",
-        ).grid(row=0, column=0, sticky="w", pady=(0, 8))
-        self.batch_plot = PlotCanvas(plot_frame, "Mean Detection Latency by Fault Type", canvas_height=300)
-        self.batch_plot.grid(row=1, column=0, sticky="nsew")
+        ).grid(row=1, column=0, sticky="w", pady=(0, 8))
+        self.batch_plot = PlotCanvas(plot_frame, self.batch_plot_choice.get(), canvas_height=300)
+        self.batch_plot.grid(row=2, column=0, sticky="nsew")
         self.batch_plot.show_message("Load a batch aggregate summary CSV to view the sweep-level comparison.")
 
     def _build_selector_card(
@@ -1289,6 +1447,28 @@ class VirtualECUGui(tk.Tk):
             pady=10,
         ).pack(fill="x")
 
+    def _build_recommended_demo_shortcuts(self, parent: ttk.Frame) -> None:
+        shortcuts = ttk.LabelFrame(parent, text="Recommended Demo Comparisons", padding=12)
+        shortcuts.grid(row=2, column=0, columnspan=3, sticky="ew", pady=(12, 0))
+        shortcuts.columnconfigure(0, weight=1)
+        shortcuts.columnconfigure(1, weight=1)
+        shortcuts.columnconfigure(2, weight=1)
+
+        ttk.Label(
+            shortcuts,
+            text="Use these one-click pairings for live walkthroughs of nominal, timing-fault, computation/memory, and severe actuation-fault behavior.",
+            style="Hint.TLabel",
+            wraplength=980,
+            justify="left",
+        ).grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, 8))
+
+        for index, (label, left_campaign, right_campaign) in enumerate(self.RECOMMENDED_DEMO_COMPARISONS):
+            ttk.Button(
+                shortcuts,
+                text=label,
+                command=lambda left=left_campaign, right=right_campaign: self._apply_demo_comparison(left, right),
+            ).grid(row=1 + index // 3, column=index % 3, sticky="ew", padx=(0, 8 if index % 3 < 2 else 0), pady=4)
+
     def _build_context_column(
         self,
         parent: ttk.Frame,
@@ -1345,8 +1525,18 @@ class VirtualECUGui(tk.Tk):
         self._refresh_campaign_context()
         self._reset_summary_values()
 
+    def _apply_demo_comparison(self, left_campaign: str, right_campaign: str) -> None:
+        self.left_campaign.set(left_campaign)
+        self.right_campaign.set(right_campaign)
+        self._refresh_campaign_context()
+        self._reset_summary_values()
+        self.status_text.set(f"Demo shortlist loaded: {left_campaign} vs {right_campaign}. Run comparison to inspect it.")
+
     def _on_plot_selection_changed(self, _event: tk.Event[tk.Misc] | None = None) -> None:
         self._refresh_selected_plot()
+
+    def _on_batch_plot_selection_changed(self, _event: tk.Event[tk.Misc] | None = None) -> None:
+        self._refresh_batch_plot()
 
     def browse_batch_results(self) -> None:
         selected = filedialog.askopenfilename(
@@ -1388,6 +1578,7 @@ class VirtualECUGui(tk.Tk):
                 self.batch_table.delete(item_id)
 
         if self.batch_plot is not None:
+            self.batch_plot.set_title(self.batch_plot_choice.get())
             self.batch_plot.show_message("Load a batch aggregate summary CSV to view the sweep-level comparison.")
 
     def _apply_batch_results(self, csv_path: Path, rows: Sequence[Dict[str, str]]) -> None:
@@ -1402,8 +1593,8 @@ class VirtualECUGui(tk.Tk):
         )
 
         self._populate_batch_table(rows, fault_types)
-        self._update_batch_plot(rows, fault_types)
         self.batch_status_text.set(f"Loaded {len(rows)} batch runs from {csv_path}")
+        self._refresh_batch_plot()
 
     def _ordered_fault_types(self, rows: Sequence[Dict[str, str]]) -> List[str]:
         present = {row["fault_type"] for row in rows if row.get("fault_type")}
@@ -1425,6 +1616,11 @@ class VirtualECUGui(tk.Tk):
                 for value in (int_or_none(row.get("detection_latency_ms", "")) for row in type_rows)
                 if value is not None
             ]
+            safe_state_latency_values = [
+                value
+                for value in (int_or_none(row.get("safe_state_latency_ms", "")) for row in type_rows)
+                if value is not None
+            ]
             max_temp_values = [
                 value
                 for value in (float_or_none(row.get("max_coolant_temperature_c", "")) for row in type_rows)
@@ -1435,6 +1631,7 @@ class VirtualECUGui(tk.Tk):
                 for value in (int_or_none(row.get("safe_mode_duration_ms", "")) for row in type_rows)
                 if value is not None
             ]
+            dominant_state = mode_or_none(row.get("final_safe_state", "") for row in type_rows)
 
             self.batch_table.insert(
                 "",
@@ -1443,38 +1640,151 @@ class VirtualECUGui(tk.Tk):
                     FAULT_TYPE_DISPLAY.get(fault_type, fault_type),
                     str(len(type_rows)),
                     self._format_batch_number(mean_or_none(detection_values), decimals=1),
+                    self._format_batch_number(mean_or_none(safe_state_latency_values), decimals=1),
                     self._format_batch_number(mean_or_none(max_temp_values), decimals=2),
                     self._format_batch_number(mean_or_none(safe_mode_values), decimals=1),
+                    SAFE_STATE_LABELS.get(dominant_state, dominant_state),
                 ),
             )
+
+    def _refresh_batch_plot(self) -> None:
+        if self.batch_plot is None:
+            return
+
+        self.batch_plot.set_title(self.batch_plot_choice.get())
+
+        if not self.batch_rows:
+            self.batch_plot.show_message("Load a batch aggregate summary CSV to view the sweep-level comparison.")
+            return
+
+        fault_types = self._ordered_fault_types(self.batch_rows)
+        self._update_batch_plot(self.batch_rows, fault_types)
+
+    def _batch_metric_values(
+        self,
+        rows: Sequence[Dict[str, str]],
+        fault_type: str,
+        column: str,
+    ) -> List[float]:
+        values: List[float] = []
+
+        for row in rows:
+            if row["fault_type"] != fault_type:
+                continue
+
+            if column == "max_coolant_temperature_c":
+                parsed = float_or_none(row.get(column, ""))
+            else:
+                parsed = int_or_none(row.get(column, ""))
+
+            if parsed is not None:
+                values.append(float(parsed))
+
+        return values
 
     def _update_batch_plot(self, rows: Sequence[Dict[str, str]], fault_types: Sequence[str]) -> None:
         if self.batch_plot is None:
             return
 
+        selected_plot = self.batch_plot_choice.get()
         categories: List[str] = []
         values: List[float | None] = []
+
+        plot_definitions = {
+            "Mean Detection Latency": (
+                "detection_latency_ms",
+                "Mean Detection [ms]",
+                "#5077b8",
+                False,
+            ),
+            "Mean Safe-State Latency": (
+                "safe_state_latency_ms",
+                "Mean Safe-State [ms]",
+                "#7a6fd0",
+                True,
+            ),
+            "Mean Maximum Coolant Temperature": (
+                "max_coolant_temperature_c",
+                "Mean Max Temp [C]",
+                "#cf6c54",
+                False,
+            ),
+            "Mean Safe-Mode Duration": (
+                "safe_mode_duration_ms",
+                "Mean Safe-Mode [ms]",
+                "#4c9f92",
+                True,
+            ),
+        }
+
+        if selected_plot == "Final Safe-State Distribution":
+            self._update_batch_safe_state_distribution(rows, fault_types)
+            return
+
+        if selected_plot not in plot_definitions:
+            self.batch_plot.show_message("Unknown batch plot selection.")
+            return
+
+        column, y_label, bar_color, skip_baseline_without_values = plot_definitions[selected_plot]
+
         for fault_type in fault_types:
-            detection_values = [
-                value
-                for value in (int_or_none(row.get("detection_latency_ms", "")) for row in rows if row["fault_type"] == fault_type)
-                if value is not None
-            ]
-            mean_value = mean_or_none(detection_values)
-            if fault_type == "none" and mean_value is None:
+            metric_values = self._batch_metric_values(rows, fault_type, column)
+            mean_value = mean_or_none(metric_values)
+            if fault_type == "none" and mean_value is None and skip_baseline_without_values:
                 continue
             categories.append(FAULT_TYPE_DISPLAY.get(fault_type, fault_type))
             values.append(mean_value)
 
         if not categories:
-            self.batch_plot.show_message("No valid detection-latency values were found in this aggregate summary.")
+            self.batch_plot.show_message(f"No valid values were found for {selected_plot.lower()} in this aggregate summary.")
             return
 
         self.batch_plot.plot_bars(
             categories,
             values,
-            y_label="Mean Detection [ms]",
-            bar_color="#5077b8",
+            y_label=y_label,
+            bar_color=bar_color,
+        )
+
+    def _update_batch_safe_state_distribution(
+        self,
+        rows: Sequence[Dict[str, str]],
+        fault_types: Sequence[str],
+    ) -> None:
+        if self.batch_plot is None:
+            return
+
+        categories: List[str] = []
+        stacks = {
+            "normal": [],
+            "precautionary_cooling": [],
+            "limp_home": [],
+            "controlled_shutdown": [],
+        }
+
+        for fault_type in fault_types:
+            type_rows = [row for row in rows if row["fault_type"] == fault_type]
+            if not type_rows:
+                continue
+
+            categories.append(FAULT_TYPE_DISPLAY.get(fault_type, fault_type))
+            total_runs = float(len(type_rows))
+            for state in stacks:
+                count = sum(1 for row in type_rows if row.get("final_safe_state") == state)
+                stacks[state].append((100.0 * count) / total_runs)
+
+        if not categories:
+            self.batch_plot.show_message("No final safe-state data was found in this aggregate summary.")
+            return
+
+        self.batch_plot.plot_stacked_bars(
+            categories,
+            [
+                (SAFE_STATE_LABELS[state], self.BATCH_SAFE_STATE_COLORS[state], stacks[state])
+                for state in ("normal", "precautionary_cooling", "limp_home", "controlled_shutdown")
+            ],
+            y_label="Outcome Share [%]",
+            max_value=100.0,
         )
 
     def _format_batch_number(self, value: float | None, decimals: int = 1) -> str:
@@ -1505,7 +1815,7 @@ class VirtualECUGui(tk.Tk):
         self._refresh_metric_cells()
         if self.comparison_plot is not None:
             self.comparison_plot.set_title(self.comparison_plot_choice.get())
-            self.comparison_plot.show_message("Run a comparison to display the selected plot in the main viewing area.")
+            self.comparison_plot.show_message("Run a comparison from the Comparison Summary page to display the selected plot here.")
 
     def run_left_only(self) -> None:
         self._run_campaigns(include_right=False)
@@ -1670,7 +1980,7 @@ class VirtualECUGui(tk.Tk):
         self.comparison_plot.set_title(selected_plot)
 
         if self.current_plot_results is None:
-            self.comparison_plot.show_message("Run a comparison to display the selected plot in the main viewing area.")
+            self.comparison_plot.show_message("Run a comparison from the Comparison Summary page to display the selected plot here.")
             return
 
         left_result = self.current_plot_results["left"]  # type: ignore[index]

@@ -1,0 +1,28 @@
+Virtual ECU Recommended Study Manifest
+====================================
+
+Recommended single-run campaign set:
+- baseline: Baseline
+- fan_stuck_hot_stress: Fan Stuck Hot Stress
+- calibration_memory_corruption: Calibration Memory Corruption
+- stale_sensor_data_only: Stale Sensor Data Only
+- stale_sensor_data_hot_stress: Stale Sensor Data Hot Stress
+- paper_default: Paper Default
+
+Generated single-run logs:
+- logs/recommended_study/baseline.csv
+- logs/recommended_study/fan_stuck_hot_stress.csv
+- logs/recommended_study/calibration_memory_corruption.csv
+- logs/recommended_study/stale_sensor_data_only.csv
+- logs/recommended_study/stale_sensor_data_hot_stress.csv
+- logs/recommended_study/paper_default.csv
+
+Key output files:
+- results/paper/table_1_campaign_definition.csv
+- results/paper/table_2_cross_campaign_results.csv
+- results/paper/figure_1_coolant_temperature_vs_time.png
+- results/paper/figure_2_safe_state_timeline.png
+- results/paper/figure_3_fan_command_vs_actual.png
+- results/batch/paper_quick/aggregate_summary.csv
+- results/batch/paper_quick/analysis/table_batch_2_fault_type_summary.csv
+- results/batch/paper_quick/analysis_claims/table_claim_1_main_comparison.csv

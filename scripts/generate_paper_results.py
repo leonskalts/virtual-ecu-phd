@@ -14,6 +14,9 @@ os.environ.setdefault("MPLCONFIGDIR", "/tmp/virtual_ecu_mpl")
 import matplotlib.pyplot as plt
 
 
+DEFAULT_LOGS_DIR = Path("logs/recommended_study")
+DEFAULT_RESULTS_DIR = Path("results/paper")
+
 CAMPAIGNS = [
     {
         "campaign_id": "baseline",
@@ -23,30 +26,37 @@ CAMPAIGNS = [
         "summary_candidates": ["baseline_summary.csv"],
     },
     {
-        "campaign_id": "fan_stuck_only",
-        "label": "Fan Stuck Only",
-        "color": "#d62728",
-        "raw_candidates": ["permanent.csv", "fan_stuck_only.csv"],
-        "summary_candidates": ["permanent_summary.csv", "fan_stuck_only_summary.csv"],
-    },
-    {
         "campaign_id": "fan_stuck_hot_stress",
         "label": "Fan Stuck Hot Stress",
-        "color": "#ff7f0e",
-        "raw_candidates": ["permanent_stress.csv", "fan_stuck_hot_stress.csv"],
-        "summary_candidates": ["permanent_stress_summary.csv", "fan_stuck_hot_stress_summary.csv"],
+        "color": "#d62728",
+        "raw_candidates": ["fan_stuck_hot_stress.csv", "permanent_stress.csv"],
+        "summary_candidates": ["fan_stuck_hot_stress_summary.csv", "permanent_stress_summary.csv"],
     },
     {
-        "campaign_id": "sensor_bias_only",
-        "label": "Sensor Bias Only",
+        "campaign_id": "calibration_memory_corruption",
+        "label": "Calibration Memory Corruption",
+        "color": "#ff7f0e",
+        "raw_candidates": ["calibration_memory_corruption.csv", "calibration_memory.csv"],
+        "summary_candidates": ["calibration_memory_corruption_summary.csv", "calibration_memory_summary.csv"],
+    },
+    {
+        "campaign_id": "stale_sensor_data_only",
+        "label": "Stale Sensor Data Only",
         "color": "#2ca02c",
-        "raw_candidates": ["transient.csv", "sensor_bias_only.csv"],
-        "summary_candidates": ["transient_summary.csv", "sensor_bias_only_summary.csv"],
+        "raw_candidates": ["stale_sensor_data_only.csv", "stale_sensor_demo.csv"],
+        "summary_candidates": ["stale_sensor_data_only_summary.csv", "stale_sensor_demo_summary.csv"],
+    },
+    {
+        "campaign_id": "stale_sensor_data_hot_stress",
+        "label": "Stale Sensor Data Hot Stress",
+        "color": "#9467bd",
+        "raw_candidates": ["stale_sensor_data_hot_stress.csv", "stale_sensor_hot_stress_demo.csv"],
+        "summary_candidates": ["stale_sensor_data_hot_stress_summary.csv", "stale_sensor_hot_stress_demo_summary.csv"],
     },
     {
         "campaign_id": "paper_default",
         "label": "Paper Default",
-        "color": "#9467bd",
+        "color": "#8c564b",
         "raw_candidates": ["paper_default.csv", "thermal_run.csv"],
         "summary_candidates": ["paper_default_summary.csv", "thermal_run_summary.csv"],
     },
@@ -110,7 +120,25 @@ TABLE_2_COLUMNS = [
 
 SAFE_STATE_TICKS = [0, 1, 2, 3]
 SAFE_STATE_LABELS = ["Normal", "Precautionary", "Limp Home", "Shutdown"]
-MAIN_FIGURE_CAMPAIGN_IDS = {"baseline", "fan_stuck_only", "fan_stuck_hot_stress"}
+THERMAL_FIGURE_CAMPAIGN_IDS = {
+    "baseline",
+    "stale_sensor_data_only",
+    "stale_sensor_data_hot_stress",
+    "calibration_memory_corruption",
+    "fan_stuck_hot_stress",
+    "paper_default",
+}
+SAFE_STATE_FIGURE_CAMPAIGN_IDS = {
+    "baseline",
+    "stale_sensor_data_only",
+    "stale_sensor_data_hot_stress",
+    "fan_stuck_hot_stress",
+    "paper_default",
+}
+FAN_RESPONSE_FIGURE_CAMPAIGN_IDS = {
+    "fan_stuck_hot_stress",
+    "paper_default",
+}
 
 plt.rcParams.update(
     {
@@ -131,12 +159,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--logs-dir",
-        default="logs",
+        default=str(DEFAULT_LOGS_DIR),
         help="Directory containing campaign CSV and summary CSV files.",
     )
     parser.add_argument(
         "--results-dir",
-        default="results",
+        default=str(DEFAULT_RESULTS_DIR),
         help="Directory where generated tables and figures will be written.",
     )
     return parser.parse_args()
@@ -338,7 +366,7 @@ def raw_series(rows: List[Dict[str, str]], x_key: str, y_key: str) -> tuple[List
 
 def plot_figure_1(results_dir: Path, campaigns: List[Dict[str, object]]) -> None:
     main_campaigns = [
-        campaign for campaign in campaigns if campaign["campaign_id"] in MAIN_FIGURE_CAMPAIGN_IDS
+        campaign for campaign in campaigns if campaign["campaign_id"] in THERMAL_FIGURE_CAMPAIGN_IDS
     ]
     fig, ax = plt.subplots(figsize=(9.0, 5.2), constrained_layout=True)
 
@@ -353,20 +381,23 @@ def plot_figure_1(results_dir: Path, campaigns: List[Dict[str, object]]) -> None
     ax.set_xlim(0.0, 120.0)
     ax.set_xlabel("Time [s]")
     ax.set_ylabel("Coolant Temperature [C]")
-    ax.set_title("Figure 1. Coolant Temperature Trajectories")
+    ax.set_title("Figure 1. Recommended Study Coolant Temperature Trajectories")
     ax.grid(True, linestyle=":", linewidth=0.6, alpha=0.8)
-    ax.legend(loc="upper left", ncol=3, frameon=False)
+    ax.legend(loc="upper left", ncol=2, frameon=False)
     fig.savefig(results_dir / "figure_1_coolant_temperature_vs_time.png", dpi=200)
     plt.close(fig)
 
 
 def plot_figure_2(results_dir: Path, campaigns: List[Dict[str, object]]) -> None:
     main_campaigns = [
-        campaign for campaign in campaigns if campaign["campaign_id"] in MAIN_FIGURE_CAMPAIGN_IDS
+        campaign for campaign in campaigns if campaign["campaign_id"] in SAFE_STATE_FIGURE_CAMPAIGN_IDS
     ]
     fig, axes = plt.subplots(
         len(main_campaigns), 1, sharex=True, figsize=(9.0, 6.8), constrained_layout=True
     )
+
+    if len(main_campaigns) == 1:
+        axes = [axes]
 
     for axis, campaign in zip(axes, main_campaigns):
         time_s, safe_state = raw_series(campaign["rows"], "time_s", "safe_state_id")
@@ -378,7 +409,7 @@ def plot_figure_2(results_dir: Path, campaigns: List[Dict[str, object]]) -> None
         axis.grid(True, linestyle=":", linewidth=0.6, alpha=0.8)
 
     axes[0].set_title("Figure 2. Safe-State Timelines")
-    axes[0].text(1.0, 1.10, "Baseline and permanent-fault campaigns", transform=axes[0].transAxes)
+    axes[0].text(1.0, 1.10, "Recommended live-demo and paper-study safety cases", transform=axes[0].transAxes)
     axes[-1].set_xlim(0.0, 120.0)
     axes[-1].set_xlabel("Time [s]")
     fig.savefig(results_dir / "figure_2_safe_state_timeline.png", dpi=200)
@@ -389,10 +420,15 @@ def plot_figure_3(results_dir: Path, campaigns: List[Dict[str, object]]) -> None
     permanent_campaigns = [
         campaign
         for campaign in campaigns
-        if campaign["campaign_id"] in {"fan_stuck_only", "fan_stuck_hot_stress"}
+        if campaign["campaign_id"] in FAN_RESPONSE_FIGURE_CAMPAIGN_IDS
     ]
 
-    fig, axes = plt.subplots(2, 1, sharex=True, figsize=(9.0, 6.4), constrained_layout=True)
+    fig, axes = plt.subplots(
+        len(permanent_campaigns), 1, sharex=True, figsize=(9.0, 6.4), constrained_layout=True
+    )
+
+    if len(permanent_campaigns) == 1:
+        axes = [axes]
 
     for axis, campaign in zip(axes, permanent_campaigns):
         rows = campaign["rows"]

@@ -139,6 +139,12 @@ Typical paper tables can summarize:
 make
 ```
 
+Recommended integrated workflow:
+
+```sh
+make recommended-study
+```
+
 ## Run
 
 ```sh
@@ -163,6 +169,78 @@ Example baseline, transient, and permanent campaigns:
 ./virtual_ecu logs/permanent.csv fan_stuck_only
 ./virtual_ecu logs/permanent_stress.csv fan_stuck_hot_stress
 ```
+
+## Recommended Studies
+
+The strongest final single-run study bundle uses:
+
+- `baseline`
+- `fan_stuck_hot_stress`
+- `calibration_memory_corruption`
+- `stale_sensor_data_only`
+- `stale_sensor_data_hot_stress`
+- `paper_default`
+
+This set gives a compact final platform view across nominal behavior,
+timing/communication faults, computation/memory faults, strong actuation-path
+stress, and mixed cross-layer propagation.
+
+## Fast Start for Thesis/Paper Use
+
+Run the recommended end-to-end workflow:
+
+```sh
+make recommended-study
+```
+
+This workflow:
+
+- generates the recommended single-run campaign logs in `logs/recommended_study/`
+- writes the single-run paper/demo bundle to `results/paper/`
+- refreshes the compact batch study in `results/batch/paper_quick/`
+- regenerates the batch-analysis and claim-focused outputs
+
+The same integrated workflow can also be run directly:
+
+```sh
+python3 scripts/run_recommended_study.py
+```
+
+Most important outputs to inspect first:
+
+- `results/paper/table_2_cross_campaign_results.csv`
+- `results/paper/figure_1_coolant_temperature_vs_time.png`
+- `results/paper/figure_2_safe_state_timeline.png`
+- `results/batch/paper_quick/aggregate_summary.csv`
+- `results/batch/paper_quick/analysis/table_batch_2_fault_type_summary.csv`
+- `results/batch/paper_quick/analysis_claims/table_claim_1_main_comparison.csv`
+
+## Demo Workflow
+
+For live demos, the GUI includes a built-in recommended comparison shortlist:
+
+- `baseline` vs `fan_stuck_hot_stress`
+- `baseline` vs `calibration_memory_corruption`
+- `baseline` vs `stale_sensor_data_only`
+- `stale_sensor_data_only` vs `stale_sensor_data_hot_stress`
+- `stale_sensor_data_hot_stress` vs `fan_stuck_hot_stress`
+
+These pairings are intended to show nominal behavior against the strongest
+timing, computation/memory, and actuation-path cases, plus a mild-versus-hot
+timing comparison.
+
+## Output Structure
+
+The recommended final workflow keeps outputs in four main places:
+
+- `logs/`
+  single-run simulator CSV files, including `logs/recommended_study/`
+- `results/batch/`
+  compact and larger batch studies such as `results/batch/paper_quick/`
+- `results/paper/`
+  the recommended paper/demo-ready single-run bundle
+- `results/gui_comparison_reports/`
+  exported GUI comparison reports and figures
 
 ## GUI Frontend
 
@@ -193,6 +271,7 @@ Included campaign options cover:
 Comparison mode is the main research/demo workflow and provides:
 
 - left and right campaign selection
+- one-click recommended demo-comparison shortcuts for the strongest live walkthrough cases
 - side-by-side summary metrics for:
   `final DTC`, `final safe state`, `maximum coolant temperature`,
   `detection latency`, and `safe-state latency`
@@ -212,8 +291,14 @@ That tab provides:
 - number of runs in the loaded batch
 - fault classes present
 - fault types present
-- per-fault-type averages for detection latency, maximum coolant temperature, and safe-mode duration
-- a quick mean detection-latency comparison plot by fault type
+- per-fault-type averages for detection latency, safe-state latency, maximum coolant temperature, and safe-mode duration
+- dominant final safe-state visibility by fault type
+- a selector-driven batch plot area for:
+  mean detection latency,
+  mean safe-state latency,
+  mean maximum coolant temperature,
+  mean safe-mode duration,
+  and final safe-state distribution by fault type
 
 The batch tab is intentionally a viewing layer for live inspection and demos.
 It does not replace the scripted batch-analysis workflow in `scripts/`, which
