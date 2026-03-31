@@ -7,6 +7,7 @@ import csv
 import os
 import subprocess
 import threading
+import textwrap
 from pathlib import Path
 from typing import Dict, Iterable, List, Sequence, Tuple
 
@@ -27,6 +28,7 @@ import matplotlib.pyplot as plt
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 LOGS_DIR = PROJECT_ROOT / "logs"
 EXPORT_ROOT = PROJECT_ROOT / "results" / "gui_comparison_reports"
+SNAPSHOT_ROOT = PROJECT_ROOT / "results" / "gui_snapshots"
 DEFAULT_BATCH_AGGREGATE_CSV = PROJECT_ROOT / "results" / "batch" / "paper_quick" / "aggregate_summary.csv"
 
 CAMPAIGNS: Sequence[Tuple[str, str]] = (
@@ -76,6 +78,21 @@ SAFE_STATE_LABELS = {
     1: "precautionary_cooling",
     2: "limp_home",
     3: "controlled_shutdown",
+}
+SAFE_STATE_SEVERITY = {
+    "normal": 0,
+    "precautionary_cooling": 1,
+    "limp_home": 2,
+    "controlled_shutdown": 3,
+}
+DTC_SEVERITY = {
+    0: 0,
+    1001: 1,
+    2001: 3,
+    2002: 4,
+    3001: 2,
+    3002: 2,
+    3003: 3,
 }
 
 LEFT_COLOR = "#c4473a"
@@ -320,9 +337,20 @@ def comparison_export_dir(left_campaign_id: str, right_campaign_id: str) -> Path
     return EXPORT_ROOT / f"{left_campaign_id}_vs_{right_campaign_id}"
 
 
+def snapshot_export_dir(left_campaign_id: str, right_campaign_id: str) -> Path:
+    return SNAPSHOT_ROOT / f"{left_campaign_id}_vs_{right_campaign_id}"
+
+
 def write_report_csv(path: Path, rows: Sequence[Dict[str, str]]) -> None:
     with path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=["field", "left", "right"])
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def write_snapshot_csv(path: Path, rows: Sequence[Dict[str, str]]) -> None:
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=["section", "field", "left", "right", "value"])
         writer.writeheader()
         writer.writerows(rows)
 
@@ -360,6 +388,439 @@ def mode_or_none(values: Iterable[str]) -> str:
     top_count = max(counts.values())
     winners = sorted(value for value, count in counts.items() if count == top_count)
     return winners[0]
+
+
+def safe_state_score(label: str) -> int:
+    return SAFE_STATE_SEVERITY.get(label, 0)
+
+
+def dtc_score(summary_row: Dict[str, str]) -> int:
+    dtc_id = int_or_none(summary_row.get("final_primary_dtc_id", ""))
+    if dtc_id is not None:
+        return DTC_SEVERITY.get(dtc_id, 1 if dtc_id > 0 else 0)
+    return 0 if summary_row.get("final_primary_dtc_label", "none") == "none" else 1
+
+
+def summary_max_temp(summary_row: Dict[str, str]) -> float | None:
+    return float_or_none(summary_row.get("max_coolant_temp_c", ""))
+
+
+def summary_detection_latency(summary_row: Dict[str, str]) -> int | None:
+    return int_or_none(summary_row.get("detection_latency_ms", ""))
+
+
+def summary_safe_state_latency(summary_row: Dict[str, str]) -> int | None:
+    return int_or_none(summary_row.get("safe_state_latency_ms", ""))
+
+
+def summary_safe_mode_duration(summary_row: Dict[str, str]) -> int | None:
+    return int_or_none(summary_row.get("safe_mode_duration_ms", ""))
+
+
+def format_latency_value(value: int | None) -> str:
+    return "n/a" if value is None else f"{value} ms"
+
+
+def format_temp_value(value: float | None) -> str:
+    return "n/a" if value is None else f"{value:.2f} C"
+
+
+def humanize_label(value: str) -> str:
+    return value.replace("_", " ")
+
+
+def compare_detection_statement(
+    left_name: str,
+    left_summary: Dict[str, str],
+    right_name: str,
+    right_summary: Dict[str, str],
+) -> Tuple[str, str]:
+    left_latency = summary_detection_latency(left_summary)
+    right_latency = summary_detection_latency(right_summary)
+
+    if left_latency is None and right_latency is None:
+        return ("Detection", "Neither campaign confirms a fault during the run.")
+    if left_latency is None:
+        return ("Detection", f"{right_name} detects faster because it is the only case with confirmed fault detection ({right_latency} ms).")
+    if right_latency is None:
+        return ("Detection", f"{left_name} detects faster because it is the only case with confirmed fault detection ({left_latency} ms).")
+    if left_latency < right_latency:
+        return ("Detection", f"{left_name} detects faster ({left_latency} ms vs {right_latency} ms).")
+    if right_latency < left_latency:
+        return ("Detection", f"{right_name} detects faster ({right_latency} ms vs {left_latency} ms).")
+    return ("Detection", f"Both campaigns detect at the same latency ({left_latency} ms).")
+
+
+def comparison_findings(
+    left_name: str,
+    left_summary: Dict[str, str],
+    right_name: str,
+    right_summary: Dict[str, str],
+) -> Tuple[List[str], List[str]]:
+    lines: List[str] = []
+    interpretation: List[str] = []
+
+    left_temp = summary_max_temp(left_summary)
+    right_temp = summary_max_temp(right_summary)
+    if left_temp is not None and right_temp is not None:
+        if left_temp > right_temp:
+            thermal_line = f"Thermal severity: {left_name} is more severe ({left_temp:.2f} C vs {right_temp:.2f} C peak coolant)."
+            thermal_winner = left_name
+        elif right_temp > left_temp:
+            thermal_line = f"Thermal severity: {right_name} is more severe ({right_temp:.2f} C vs {left_temp:.2f} C peak coolant)."
+            thermal_winner = right_name
+        else:
+            thermal_line = f"Thermal severity: both campaigns reach the same peak coolant temperature ({left_temp:.2f} C)."
+            thermal_winner = "both campaigns"
+    else:
+        thermal_line = "Thermal severity: peak coolant temperature is not available for one or both campaigns."
+        thermal_winner = "neither campaign"
+    lines.append(thermal_line)
+
+    _label, detection_line = compare_detection_statement(left_name, left_summary, right_name, right_summary)
+    lines.append(f"Fault detection: {detection_line.split(': ', 1)[-1] if ': ' in detection_line else detection_line}")
+
+    left_state = left_summary.get("final_safe_state_label", "normal")
+    right_state = right_summary.get("final_safe_state_label", "normal")
+    left_state_score = safe_state_score(left_state)
+    right_state_score = safe_state_score(right_state)
+    left_safe_duration = summary_safe_mode_duration(left_summary) or 0
+    right_safe_duration = summary_safe_mode_duration(right_summary) or 0
+
+    if (left_state_score, left_safe_duration) > (right_state_score, right_safe_duration):
+        safe_winner = left_name
+        safe_line = (
+            f"Safe-state impact: {left_name} is stronger "
+            f"({humanize_label(left_state)} final state, {format_latency_value(summary_safe_state_latency(left_summary))} entry, {left_safe_duration} ms safe-mode duration)."
+        )
+    elif (right_state_score, right_safe_duration) > (left_state_score, left_safe_duration):
+        safe_winner = right_name
+        safe_line = (
+            f"Safe-state impact: {right_name} is stronger "
+            f"({humanize_label(right_state)} final state, {format_latency_value(summary_safe_state_latency(right_summary))} entry, {right_safe_duration} ms safe-mode duration)."
+        )
+    else:
+        safe_winner = "both campaigns"
+        safe_line = f"Safe-state impact: both campaigns finish with comparable safe-state severity ({humanize_label(left_state)} vs {humanize_label(right_state)})."
+    lines.append(safe_line)
+
+    left_dtc = left_summary.get("final_primary_dtc_label", "none")
+    right_dtc = right_summary.get("final_primary_dtc_label", "none")
+    left_dtc_score = dtc_score(left_summary)
+    right_dtc_score = dtc_score(right_summary)
+    if (left_dtc_score, left_state_score) > (right_dtc_score, right_state_score):
+        critical_winner = left_name
+        critical_line = f"Critical end state: {left_name} is more critical at the end of the run ({humanize_label(left_dtc)} / {humanize_label(left_state)})."
+    elif (right_dtc_score, right_state_score) > (left_dtc_score, left_state_score):
+        critical_winner = right_name
+        critical_line = f"Critical end state: {right_name} is more critical at the end of the run ({humanize_label(right_dtc)} / {humanize_label(right_state)})."
+    else:
+        critical_winner = "both campaigns"
+        critical_line = f"Critical end state: both campaigns finish with similar end-of-run criticality ({humanize_label(left_dtc)} / {humanize_label(left_state)} vs {humanize_label(right_dtc)} / {humanize_label(right_state)})."
+    lines.append(critical_line)
+
+    interpretation.append(f"{thermal_winner.capitalize() if thermal_winner != 'both campaigns' else 'The two cases'} drives the stronger thermal outcome in this comparison.")
+    interpretation.append(detection_line)
+    interpretation.append(f"{safe_winner.capitalize() if safe_winner != 'both campaigns' else 'Both campaigns'} shows the stronger protection response at ECU safe-state level.")
+    interpretation.append(f"{critical_winner.capitalize() if critical_winner != 'both campaigns' else 'The end states'} gives the more critical end-of-run diagnostic/safety outcome.")
+
+    return lines, interpretation
+
+
+def batch_findings(rows: Sequence[Dict[str, str]]) -> Tuple[List[str], List[str]]:
+    fault_types = [fault_type for fault_type in FAULT_TYPE_ORDER if fault_type != "none" and any(row["fault_type"] == fault_type for row in rows)]
+    type_rows = {fault_type: [row for row in rows if row["fault_type"] == fault_type] for fault_type in fault_types}
+
+    detection_means = {
+        fault_type: mean_or_none(
+            [value for value in (int_or_none(row.get("detection_latency_ms", "")) for row in type_rows[fault_type]) if value is not None]
+        )
+        for fault_type in fault_types
+    }
+    temp_means = {
+        fault_type: mean_or_none(
+            [value for value in (float_or_none(row.get("max_coolant_temperature_c", "")) for row in type_rows[fault_type]) if value is not None]
+        )
+        for fault_type in fault_types
+    }
+    safe_duration_means = {
+        fault_type: mean_or_none(
+            [value for value in (int_or_none(row.get("safe_mode_duration_ms", "")) for row in type_rows[fault_type]) if value is not None]
+        )
+        for fault_type in fault_types
+    }
+    safe_state_scores = {
+        fault_type: mean_or_none([safe_state_score(row.get("final_safe_state", "normal")) for row in type_rows[fault_type]])
+        for fault_type in fault_types
+    }
+
+    valid_detection = {fault_type: value for fault_type, value in detection_means.items() if value is not None}
+    fastest_detection = min(valid_detection, key=valid_detection.get) if valid_detection else None
+    hottest_fault = max(temp_means, key=lambda fault_type: temp_means[fault_type] or float("-inf")) if temp_means else None
+    strongest_safe = max(
+        fault_types,
+        key=lambda fault_type: (
+            safe_state_scores.get(fault_type) or 0.0,
+            safe_duration_means.get(fault_type) or 0.0,
+            -(detection_means.get(fault_type) or 1_000_000.0),
+        ),
+    ) if fault_types else None
+
+    lines: List[str] = []
+    interpretation: List[str] = []
+
+    if fastest_detection is not None:
+        lines.append(
+            f"Fastest mean detection: {FAULT_TYPE_DISPLAY.get(fastest_detection, fastest_detection)} ({detection_means[fastest_detection]:.1f} ms)."
+        )
+    else:
+        lines.append("Fastest mean detection: no fault type shows confirmed detection in the loaded batch.")
+
+    if hottest_fault is not None and temp_means[hottest_fault] is not None:
+        lines.append(
+            f"Highest mean max coolant temperature: {FAULT_TYPE_DISPLAY.get(hottest_fault, hottest_fault)} ({temp_means[hottest_fault]:.2f} C)."
+        )
+    else:
+        lines.append("Highest mean max coolant temperature: not available from the loaded batch.")
+
+    if strongest_safe is not None:
+        lines.append(
+            f"Strongest safe-state effect: {FAULT_TYPE_DISPLAY.get(strongest_safe, strongest_safe)} "
+            f"(mean final-state severity {safe_state_scores[strongest_safe]:.2f}, mean safe-mode duration {(safe_duration_means[strongest_safe] or 0.0):.1f} ms)."
+        )
+    else:
+        lines.append("Strongest safe-state effect: not available from the loaded batch.")
+
+    timing_mean_temp = temp_means.get("stale_sensor_data")
+    timing_safe_score = safe_state_scores.get("stale_sensor_data")
+    timing_is_meaningful = (
+        "stale_sensor_data" in type_rows
+        and (
+            (timing_mean_temp is not None and timing_mean_temp >= 108.0)
+            or (timing_safe_score is not None and timing_safe_score > 0.0)
+            or ((safe_duration_means.get("stale_sensor_data") or 0.0) > 0.0)
+        )
+    )
+    if "stale_sensor_data" in type_rows:
+        meaning = "does" if timing_is_meaningful else "does not yet"
+        lines.append(
+            f"Timing/communication case: Stale Sensor Data {meaning} appear as a meaningful study case "
+            f"({format_temp_value(timing_mean_temp)} mean peak coolant, {(safe_duration_means.get('stale_sensor_data') or 0.0):.1f} ms mean safe-mode duration)."
+        )
+    else:
+        lines.append("Timing/communication case: no stale-sensor-data runs are present in the loaded batch.")
+
+    if hottest_fault is not None:
+        interpretation.append(
+            f"{FAULT_TYPE_DISPLAY.get(hottest_fault, hottest_fault)} currently drives the strongest thermal excursion in the aggregate study."
+        )
+    if fastest_detection is not None:
+        interpretation.append(
+            f"{FAULT_TYPE_DISPLAY.get(fastest_detection, fastest_detection)} is the most observable fault family at mean detection-latency level."
+        )
+    if strongest_safe is not None:
+        interpretation.append(
+            f"{FAULT_TYPE_DISPLAY.get(strongest_safe, strongest_safe)} shows the strongest protection-state consequence across the loaded batch."
+        )
+    interpretation.append(
+        "The timing/communication path is now treated as a meaningful study case when stale-sensor-data runs produce clear thermal or protection impact."
+        if timing_is_meaningful
+        else "The timing/communication path is present, but its batch-level consequence remains milder than the strongest actuation or mixed-fault cases."
+    )
+
+    return lines, interpretation
+
+
+def render_snapshot_markdown(snapshot: Dict[str, object]) -> str:
+    left_campaign_id = str(snapshot["left_campaign_id"])
+    right_campaign_id = str(snapshot["right_campaign_id"])
+    left_campaign_name = str(snapshot["left_campaign_name"])
+    right_campaign_name = str(snapshot["right_campaign_name"])
+    left_fault_class = str(snapshot["left_fault_class"])
+    right_fault_class = str(snapshot["right_fault_class"])
+    metrics = snapshot["metrics"]  # type: ignore[assignment]
+    findings = snapshot["findings"]  # type: ignore[assignment]
+    interpretation = snapshot["interpretation"]  # type: ignore[assignment]
+
+    lines = [
+        "# Virtual ECU Results Snapshot",
+        "",
+        "## Comparison",
+        "",
+        f"- Left campaign: `{left_campaign_id}` ({left_campaign_name})",
+        f"- Right campaign: `{right_campaign_id}` ({right_campaign_name})",
+        f"- Left fault class: {left_fault_class}",
+        f"- Right fault class: {right_fault_class}",
+        "",
+        "## Key Metrics",
+        "",
+        "| Metric | Left | Right |",
+        "| --- | --- | --- |",
+    ]
+
+    for metric_name, values in metrics:
+        lines.append(f"| {metric_name} | {values['left']} | {values['right']} |")
+
+    lines.extend(["", "## Key Findings", ""])
+    lines.extend(f"- {line}" for line in findings)
+    lines.extend(["", "## Interpretation", ""])
+    lines.extend(f"- {line}" for line in interpretation)
+    lines.append("")
+    return "\n".join(lines)
+
+
+def snapshot_csv_rows(snapshot: Dict[str, object]) -> List[Dict[str, str]]:
+    rows = [
+        {
+            "section": "comparison",
+            "field": "left_campaign",
+            "left": str(snapshot["left_campaign_id"]),
+            "right": "",
+            "value": str(snapshot["left_campaign_name"]),
+        },
+        {
+            "section": "comparison",
+            "field": "right_campaign",
+            "left": "",
+            "right": str(snapshot["right_campaign_id"]),
+            "value": str(snapshot["right_campaign_name"]),
+        },
+        {
+            "section": "comparison",
+            "field": "fault_class",
+            "left": str(snapshot["left_fault_class"]),
+            "right": str(snapshot["right_fault_class"]),
+            "value": "",
+        },
+    ]
+
+    for metric_name, values in snapshot["metrics"]:  # type: ignore[index]
+        rows.append(
+            {
+                "section": "metrics",
+                "field": metric_name.lower().replace(" ", "_"),
+                "left": values["left"],
+                "right": values["right"],
+                "value": "",
+            }
+        )
+
+    for index, line in enumerate(snapshot["findings"], start=1):  # type: ignore[index]
+        rows.append(
+            {
+                "section": "findings",
+                "field": f"finding_{index}",
+                "left": "",
+                "right": "",
+                "value": str(line),
+            }
+        )
+
+    for index, line in enumerate(snapshot["interpretation"], start=1):  # type: ignore[index]
+        rows.append(
+            {
+                "section": "interpretation",
+                "field": f"line_{index}",
+                "left": "",
+                "right": "",
+                "value": str(line),
+            }
+        )
+
+    return rows
+
+
+def save_snapshot_overview_image(path: Path, snapshot: Dict[str, object]) -> None:
+    metrics = snapshot["metrics"]  # type: ignore[assignment]
+    findings = snapshot["findings"]  # type: ignore[assignment]
+    interpretation = snapshot["interpretation"]  # type: ignore[assignment]
+
+    summary_lines = [
+        f"Left: {snapshot['left_campaign_name']} ({snapshot['left_campaign_id']})",
+        f"Right: {snapshot['right_campaign_name']} ({snapshot['right_campaign_id']})",
+        f"Left fault class: {snapshot['left_fault_class']}",
+        f"Right fault class: {snapshot['right_fault_class']}",
+        "",
+        "Key Metrics",
+    ]
+    for metric_name, values in metrics:
+        summary_lines.append(f"{metric_name}: L={values['left']} | R={values['right']}")
+
+    finding_lines = ["Key Findings"]
+    finding_lines.extend(f"- {line}" for line in findings)
+
+    interpretation_lines = ["Interpretation"]
+    for line in interpretation:
+        interpretation_lines.extend(textwrap.wrap(line, width=52) or [line])
+
+    fig = plt.figure(figsize=(12, 8), constrained_layout=True)
+    fig.patch.set_facecolor("#f4f6f8")
+    grid = fig.add_gridspec(2, 2, height_ratios=[3, 2], width_ratios=[3, 2])
+
+    title_ax = fig.add_subplot(grid[0, 0])
+    findings_ax = fig.add_subplot(grid[0, 1])
+    interpretation_ax = fig.add_subplot(grid[1, :])
+
+    for axis in (title_ax, findings_ax, interpretation_ax):
+        axis.axis("off")
+
+    title_ax.text(
+        0.0,
+        1.0,
+        "Virtual ECU Results Snapshot",
+        fontsize=18,
+        fontweight="bold",
+        color="#1d3448",
+        va="top",
+    )
+    title_ax.text(
+        0.0,
+        0.92,
+        "\n".join(summary_lines),
+        fontsize=11,
+        color="#22313f",
+        va="top",
+        linespacing=1.5,
+        bbox={"boxstyle": "round,pad=0.6", "facecolor": "#ffffff", "edgecolor": "#d8e0e7"},
+    )
+    findings_ax.text(
+        0.0,
+        1.0,
+        "\n".join(finding_lines),
+        fontsize=11,
+        color="#22313f",
+        va="top",
+        linespacing=1.5,
+        bbox={"boxstyle": "round,pad=0.6", "facecolor": "#ffffff", "edgecolor": "#d8e0e7"},
+    )
+    interpretation_ax.text(
+        0.0,
+        1.0,
+        "\n".join(interpretation_lines),
+        fontsize=11,
+        color="#425160",
+        va="top",
+        linespacing=1.6,
+        bbox={"boxstyle": "round,pad=0.6", "facecolor": "#ffffff", "edgecolor": "#d8e0e7"},
+    )
+
+    fig.savefig(path, dpi=180, facecolor=fig.get_facecolor())
+    plt.close(fig)
+
+
+def write_snapshot_bundle(export_dir: Path, snapshot: Dict[str, object]) -> List[Path]:
+    export_dir.mkdir(parents=True, exist_ok=True)
+    os.makedirs(os.environ["MPLCONFIGDIR"], exist_ok=True)
+
+    markdown_path = export_dir / "snapshot_summary.md"
+    csv_path = export_dir / "snapshot_summary.csv"
+    image_path = export_dir / "snapshot_overview.png"
+
+    markdown_path.write_text(render_snapshot_markdown(snapshot), encoding="utf-8")
+    write_snapshot_csv(csv_path, snapshot_csv_rows(snapshot))
+    save_snapshot_overview_image(image_path, snapshot)
+
+    return [markdown_path, csv_path, image_path]
 
 
 def save_coolant_comparison_plot(
@@ -434,8 +895,11 @@ class PlotCanvas(ttk.Frame):
         self.columnconfigure(0, weight=1)
         self.rowconfigure(1, weight=1)
         self.title_var = tk.StringVar(value=title)
+        self.base_canvas_height = canvas_height
+        self.presentation_mode = False
 
-        ttk.Label(self, textvariable=self.title_var, style="Section.TLabel").grid(
+        self.title_label = ttk.Label(self, textvariable=self.title_var, style="Section.TLabel")
+        self.title_label.grid(
             row=0, column=0, sticky="w", padx=6, pady=(0, 4)
         )
 
@@ -453,6 +917,12 @@ class PlotCanvas(ttk.Frame):
 
     def set_title(self, title: str) -> None:
         self.title_var.set(title)
+
+    def set_presentation_mode(self, enabled: bool) -> None:
+        self.presentation_mode = enabled
+        extra_height = 80 if enabled and self.base_canvas_height >= 600 else 40 if enabled else 0
+        self.canvas.configure(height=self.base_canvas_height + extra_height)
+        self.redraw()
 
     def show_message(self, text: str) -> None:
         self._drawer = self._draw_message
@@ -564,6 +1034,27 @@ class PlotCanvas(ttk.Frame):
         height = max(self.canvas.winfo_height(), 200)
         return width, height
 
+    def _font(self, role: str) -> Tuple[str, int] | Tuple[str, int, str]:
+        presentation = self.presentation_mode
+        if role == "message":
+            return ("TkDefaultFont", 12 if presentation else 10, "bold" if presentation else "normal")
+        if role == "axis_label":
+            return ("TkDefaultFont", 11 if presentation else 10, "bold" if presentation else "normal")
+        if role == "tick":
+            return ("TkDefaultFont", 10 if presentation else 9)
+        if role == "legend":
+            return ("TkDefaultFont", 10 if presentation else 9)
+        if role == "threshold":
+            return ("TkDefaultFont", 10 if presentation else 9, "bold" if presentation else "normal")
+        if role == "bar_value":
+            return ("TkDefaultFont", 10 if presentation else 9, "bold")
+        return ("TkDefaultFont", 10)
+
+    def _line_width(self, emphasis: bool = False) -> int:
+        if self.presentation_mode:
+            return 3 if emphasis else 2
+        return 2 if emphasis else 1
+
     def _plot_bounds(
         self,
         *,
@@ -595,10 +1086,23 @@ class PlotCanvas(ttk.Frame):
             right_margin=right_margin,
             bottom_margin=bottom_margin,
         )
-        self.canvas.create_line(left, bottom, right, bottom, fill="#4a5560", width=1)
-        self.canvas.create_line(left, bottom, left, top, fill="#4a5560", width=1)
-        self.canvas.create_text((left + right) / 2, bottom + 26, text=x_label, fill="#33404d")
-        self.canvas.create_text(24, (top + bottom) / 2, text=y_label, fill="#33404d", angle=90)
+        self.canvas.create_line(left, bottom, right, bottom, fill="#4a5560", width=self._line_width())
+        self.canvas.create_line(left, bottom, left, top, fill="#4a5560", width=self._line_width())
+        self.canvas.create_text(
+            (left + right) / 2,
+            bottom + (30 if self.presentation_mode else 26),
+            text=x_label,
+            fill="#33404d",
+            font=self._font("axis_label"),
+        )
+        self.canvas.create_text(
+            28 if self.presentation_mode else 24,
+            (top + bottom) / 2,
+            text=y_label,
+            fill="#33404d",
+            angle=90,
+            font=self._font("axis_label"),
+        )
         return left, top, right, bottom
 
     def _legend_rows(
@@ -611,7 +1115,7 @@ class PlotCanvas(ttk.Frame):
         current_width = 0.0
 
         for label, color, dash in entries:
-            entry_width = 42 + len(label) * 6.8
+            entry_width = 48 + len(label) * (7.6 if self.presentation_mode else 6.8)
             if current_row and current_width + entry_width > available_width:
                 rows.append(current_row)
                 current_row = []
@@ -646,24 +1150,32 @@ class PlotCanvas(ttk.Frame):
                     x_pos + 18,
                     y_pos + 6,
                     fill=color,
-                    width=2,
+                    width=self._line_width(emphasis=True),
                     dash=dash or (),
                 )
-                self.canvas.create_text(x_pos + 24, y_pos + 6, text=label, anchor="w", fill="#33404d")
-                x_pos += 42 + len(label) * 6.8
-            y_pos += 18
+                self.canvas.create_text(
+                    x_pos + 24,
+                    y_pos + 6,
+                    text=label,
+                    anchor="w",
+                    fill="#33404d",
+                    font=self._font("legend"),
+                )
+                x_pos += 48 + len(label) * (7.6 if self.presentation_mode else 6.8)
+            y_pos += 22 if self.presentation_mode else 18
 
-        return max(18 * len(rows) + 8, 0)
+        row_height = 22 if self.presentation_mode else 18
+        return max(row_height * len(rows) + 8, 0)
 
     def _bottom_margin_for_categories(self, categories: Sequence[str]) -> int:
         if not categories:
-            return 56
+            return 64 if self.presentation_mode else 56
         longest = max(len(category) for category in categories)
         if longest > 22:
-            return 92
+            return 104 if self.presentation_mode else 92
         if longest > 14:
-            return 76
-        return 60
+            return 88 if self.presentation_mode else 76
+        return 70 if self.presentation_mode else 60
 
     def _draw_message(self, payload: object) -> None:
         width, height = self._canvas_size()
@@ -672,6 +1184,7 @@ class PlotCanvas(ttk.Frame):
             height / 2,
             text=str(payload),
             fill="#506070",
+            font=self._font("message"),
             width=max(width - 40, 120),
             justify="center",
         )
@@ -727,19 +1240,19 @@ class PlotCanvas(ttk.Frame):
             y_value = min_y + tick * (max_y - min_y) / 4.0
             y_pos = map_y(y_value)
             self.canvas.create_line(left - 4, y_pos, right, y_pos, fill="#e7edf2", dash=(2, 4))
-            self.canvas.create_text(left - 8, y_pos, text=f"{y_value:.1f}", anchor="e", fill="#506070")
+            self.canvas.create_text(left - 8, y_pos, text=f"{y_value:.1f}", anchor="e", fill="#506070", font=self._font("tick"))
 
         for tick in range(5):
             x_value = min_x + tick * (max_x - min_x) / 4.0
             x_pos = map_x(x_value)
             self.canvas.create_line(x_pos, top, x_pos, bottom + 4, fill="#e7edf2", dash=(2, 4))
-            self.canvas.create_text(x_pos, bottom + 14, text=f"{x_value:.0f}", anchor="n", fill="#506070")
+            self.canvas.create_text(x_pos, bottom + 14, text=f"{x_value:.0f}", anchor="n", fill="#506070", font=self._font("tick"))
 
         for value, color, label in threshold_lines:
             y_pos = map_y(value)
-            self.canvas.create_line(left, y_pos, right, y_pos, fill=color, dash=(6, 4))
+            self.canvas.create_line(left, y_pos, right, y_pos, fill=color, dash=(6, 4), width=self._line_width())
             label_y = max(y_pos - 8, top + 8)
-            self.canvas.create_text(right - 6, label_y, text=label, anchor="e", fill=color)
+            self.canvas.create_text(right - 6, label_y, text=label, anchor="e", fill=color, font=self._font("threshold"))
 
         for label, color, x_values, y_values, dash in series:
             points = []
@@ -747,7 +1260,7 @@ class PlotCanvas(ttk.Frame):
                 points.extend((map_x(x_value), map_y(y_value)))
 
             if len(points) >= 4:
-                self.canvas.create_line(*points, fill=color, width=2, smooth=False, dash=dash or ())
+                self.canvas.create_line(*points, fill=color, width=self._line_width(emphasis=True), smooth=False, dash=dash or ())
 
     def _draw_step_plot(self, payload: object) -> None:
         data = payload  # type: ignore[assignment]
@@ -776,13 +1289,20 @@ class PlotCanvas(ttk.Frame):
         for state_id in range(4):
             y_pos = map_y(state_id)
             self.canvas.create_line(left - 4, y_pos, right, y_pos, fill="#e7edf2", dash=(2, 4))
-            self.canvas.create_text(left - 8, y_pos, text=tick_labels.get(state_id, str(state_id)), anchor="e", fill="#506070")
+            self.canvas.create_text(
+                left - 8,
+                y_pos,
+                text=tick_labels.get(state_id, str(state_id)),
+                anchor="e",
+                fill="#506070",
+                font=self._font("tick"),
+            )
 
         for tick in range(5):
             x_value = min_x + tick * (max_x - min_x) / 4.0
             x_pos = map_x(x_value)
             self.canvas.create_line(x_pos, top, x_pos, bottom + 4, fill="#e7edf2", dash=(2, 4))
-            self.canvas.create_text(x_pos, bottom + 14, text=f"{x_value:.0f}", anchor="n", fill="#506070")
+            self.canvas.create_text(x_pos, bottom + 14, text=f"{x_value:.0f}", anchor="n", fill="#506070", font=self._font("tick"))
 
         points = []
         for index, (x_value, y_value) in enumerate(zip(x_values, y_values)):
@@ -795,7 +1315,7 @@ class PlotCanvas(ttk.Frame):
                 points.extend((next_x, y_pos))
 
         if len(points) >= 4:
-            self.canvas.create_line(*points, fill="#1f5aa6", width=2, smooth=False)
+            self.canvas.create_line(*points, fill="#1f5aa6", width=self._line_width(emphasis=True), smooth=False)
 
     def _draw_step_comparison_plot(self, payload: object) -> None:
         data = payload  # type: ignore[assignment]
@@ -840,13 +1360,14 @@ class PlotCanvas(ttk.Frame):
                 text=tick_labels.get(state_id, str(state_id)),
                 anchor="e",
                 fill="#506070",
+                font=self._font("tick"),
             )
 
         for tick in range(5):
             x_value = min_x + tick * (max_x - min_x) / 4.0
             x_pos = map_x(x_value)
             self.canvas.create_line(x_pos, top, x_pos, bottom + 4, fill="#e7edf2", dash=(2, 4))
-            self.canvas.create_text(x_pos, bottom + 14, text=f"{x_value:.0f}", anchor="n", fill="#506070")
+            self.canvas.create_text(x_pos, bottom + 14, text=f"{x_value:.0f}", anchor="n", fill="#506070", font=self._font("tick"))
 
         for label, color, x_values, y_values, dash in series:
             points = []
@@ -860,7 +1381,7 @@ class PlotCanvas(ttk.Frame):
                     points.extend((next_x, y_pos))
 
             if len(points) >= 4:
-                self.canvas.create_line(*points, fill=color, width=2, dash=dash or ())
+                self.canvas.create_line(*points, fill=color, width=self._line_width(emphasis=True), dash=dash or ())
 
     def _draw_bar_plot(self, payload: object) -> None:
         data = payload  # type: ignore[assignment]
@@ -900,18 +1421,18 @@ class PlotCanvas(ttk.Frame):
             y_value = tick * max_value / 4.0
             y_pos = map_y(y_value)
             self.canvas.create_line(left - 4, y_pos, right, y_pos, fill="#e7edf2", dash=(2, 4))
-            self.canvas.create_text(left - 8, y_pos, text=f"{y_value:.0f}", anchor="e", fill="#506070")
+            self.canvas.create_text(left - 8, y_pos, text=f"{y_value:.0f}", anchor="e", fill="#506070", font=self._font("tick"))
 
         for index, (category, value) in enumerate(zip(categories, values)):
             center_x = left + (index + 0.5) * slot_width
             x0 = center_x - bar_width / 2.0
             x1 = center_x + bar_width / 2.0
             if value is None:
-                self.canvas.create_text(center_x, bottom - 8, text="n/a", fill="#6a6a6a")
+                self.canvas.create_text(center_x, bottom - 8, text="n/a", fill="#6a6a6a", font=self._font("bar_value"))
             else:
                 y_top = map_y(value)
                 self.canvas.create_rectangle(x0, y_top, x1, bottom, fill=bar_color, outline="#2f2f2f")
-                self.canvas.create_text(center_x, y_top - 8, text=f"{value:.0f}", fill="#33404d")
+                self.canvas.create_text(center_x, y_top - 8, text=f"{value:.0f}", fill="#33404d", font=self._font("bar_value"))
 
             self.canvas.create_text(
                 center_x,
@@ -919,6 +1440,7 @@ class PlotCanvas(ttk.Frame):
                 text=category,
                 anchor="n",
                 fill="#506070",
+                font=self._font("tick"),
                 width=slot_width * 0.9,
             )
 
@@ -959,7 +1481,7 @@ class PlotCanvas(ttk.Frame):
             y_pos = map_y(tick_value)
             label = f"{tick_value:.0f}" if max_value <= 100.0 else f"{tick_value:.1f}"
             self.canvas.create_line(left - 4, y_pos, right, y_pos, fill="#e7edf2", dash=(2, 4))
-            self.canvas.create_text(left - 8, y_pos, text=label, anchor="e", fill="#506070")
+            self.canvas.create_text(left - 8, y_pos, text=label, anchor="e", fill="#506070", font=self._font("tick"))
 
         for _label, color, values in stacks:
             for index, value in enumerate(values):
@@ -980,6 +1502,7 @@ class PlotCanvas(ttk.Frame):
                 map_y(total_value) - 10,
                 text=f"{total_value:.0f}",
                 fill="#33404d",
+                font=self._font("bar_value"),
             )
             self.canvas.create_text(
                 center_x,
@@ -987,12 +1510,27 @@ class PlotCanvas(ttk.Frame):
                 text=category,
                 anchor="n",
                 fill="#506070",
+                font=self._font("tick"),
                 width=slot_width * 0.9,
             )
 
 
 class VirtualECUGui(tk.Tk):
     METRIC_NAMES = (
+        "Final DTC",
+        "Final Safe State",
+        "Maximum Coolant Temperature",
+        "Detection Latency",
+        "Safe-State Latency",
+    )
+    EMPHASIZED_METRICS = {
+        "Final DTC",
+        "Final Safe State",
+        "Maximum Coolant Temperature",
+        "Detection Latency",
+        "Safe-State Latency",
+    }
+    SNAPSHOT_METRIC_NAMES = (
         "Final DTC",
         "Final Safe State",
         "Maximum Coolant Temperature",
@@ -1034,10 +1572,15 @@ class VirtualECUGui(tk.Tk):
         self.executable = detect_executable()
         self.left_campaign = tk.StringVar(value="baseline")
         self.right_campaign = tk.StringVar(value="fan_stuck_hot_stress")
+        self.presentation_mode = tk.BooleanVar(value=False)
         self.comparison_plot_choice = tk.StringVar(value=self.COMPARISON_PLOT_OPTIONS[0])
         self.batch_plot_choice = tk.StringVar(value=self.BATCH_PLOT_OPTIONS[0])
         self.status_text = tk.StringVar(value="Select two campaigns and run a comparison.")
         self.batch_status_text = tk.StringVar(value="Load a batch aggregate summary CSV to inspect sweep-level trends.")
+        self.comparison_findings_var = tk.StringVar(value="Run a comparison to generate automatic findings.")
+        self.comparison_interpretation_var = tk.StringVar(value="-")
+        self.batch_findings_var = tk.StringVar(value="Load a batch aggregate summary CSV to generate automatic findings.")
+        self.batch_interpretation_var = tk.StringVar(value="-")
         self.left_description_var = tk.StringVar(value="-")
         self.right_description_var = tk.StringVar(value="-")
         self.batch_csv_path = tk.StringVar(value=str(DEFAULT_BATCH_AGGREGATE_CSV))
@@ -1071,6 +1614,7 @@ class VirtualECUGui(tk.Tk):
 
         self._configure_style()
         self._build_layout()
+        self._apply_presentation_mode()
         self._refresh_campaign_context()
         self._reset_summary_values()
         self._clear_batch_results()
@@ -1081,6 +1625,7 @@ class VirtualECUGui(tk.Tk):
             )
             self.run_compare_button.state(["disabled"])
             self.run_left_button.state(["disabled"])
+            self.snapshot_button.state(["disabled"])
             self.export_button.state(["disabled"])
 
         if DEFAULT_BATCH_AGGREGATE_CSV.exists():
@@ -1090,14 +1635,14 @@ class VirtualECUGui(tk.Tk):
         style = ttk.Style(self)
         style.configure("Root.TFrame", background="#f4f6f8")
         style.configure("Panel.TFrame", background="#eef3f7")
-        style.configure("Header.TLabel", font=("TkDefaultFont", 16, "bold"), background="#f4f6f8")
+        style.configure("Header.TLabel", font=("TkDefaultFont", 17, "bold"), background="#f4f6f8")
         style.configure("Subheader.TLabel", font=("TkDefaultFont", 10), foreground="#465564", background="#f4f6f8")
-        style.configure("Section.TLabel", font=("TkDefaultFont", 11, "bold"))
+        style.configure("Section.TLabel", font=("TkDefaultFont", 12, "bold"))
         style.configure("FieldName.TLabel", font=("TkDefaultFont", 10, "bold"), foreground="#22313f")
         style.configure("FieldValue.TLabel", font=("TkDefaultFont", 10), foreground="#374553")
         style.configure("Hint.TLabel", font=("TkDefaultFont", 9), foreground="#4d5c69")
         style.configure("ColumnHeader.TLabel", font=("TkDefaultFont", 10, "bold"), foreground="#1d3448")
-        style.configure("MetricLabel.TLabel", font=("TkDefaultFont", 10, "bold"), foreground="#2a3947")
+        style.configure("MetricLabel.TLabel", font=("TkDefaultFont", 10, "bold"), foreground="#1f3040")
         style.configure("Batch.Treeview", rowheight=26, font=("TkDefaultFont", 9))
         style.configure("Batch.Treeview.Heading", font=("TkDefaultFont", 9, "bold"))
 
@@ -1121,9 +1666,22 @@ class VirtualECUGui(tk.Tk):
             wraplength=920,
             justify="left",
         ).grid(row=1, column=0, sticky="w", pady=(2, 8))
-        ttk.Label(header, textvariable=self.status_text, foreground="#3d4b59").grid(
-            row=0, column=1, rowspan=2, sticky="e"
-        )
+
+        header_controls = ttk.Frame(header, style="Root.TFrame")
+        header_controls.grid(row=0, column=1, rowspan=2, sticky="ne")
+        ttk.Checkbutton(
+            header_controls,
+            text="Presentation Mode",
+            variable=self.presentation_mode,
+            command=self._on_presentation_mode_toggled,
+        ).grid(row=0, column=0, sticky="e")
+        ttk.Label(
+            header_controls,
+            textvariable=self.status_text,
+            foreground="#3d4b59",
+            wraplength=360,
+            justify="right",
+        ).grid(row=1, column=0, sticky="e", pady=(8, 0))
 
         notebook = ttk.Notebook(self)
         notebook.grid(row=1, column=0, sticky="nsew", padx=12, pady=(0, 12))
@@ -1140,7 +1698,7 @@ class VirtualECUGui(tk.Tk):
 
         batch_tab = ttk.Frame(notebook, padding=(4, 8, 4, 6), style="Root.TFrame")
         batch_tab.columnconfigure(0, weight=1)
-        batch_tab.rowconfigure(2, weight=1)
+        batch_tab.rowconfigure(3, weight=1)
         notebook.add(batch_tab, text="Batch Results")
 
         self._build_comparison_summary_tab(summary_tab)
@@ -1178,8 +1736,11 @@ class VirtualECUGui(tk.Tk):
         self.run_compare_button.grid(row=0, column=0, sticky="e")
         self.run_left_button = ttk.Button(actions, text="Run Left Only", command=self.run_left_only)
         self.run_left_button.grid(row=1, column=0, sticky="e", pady=(8, 0))
+        self.snapshot_button = ttk.Button(actions, text="Export Results Snapshot", command=self.export_results_snapshot)
+        self.snapshot_button.grid(row=2, column=0, sticky="e", pady=(8, 0))
+        self.snapshot_button.state(["disabled"])
         self.export_button = ttk.Button(actions, text="Export Comparison Report", command=self.export_current_comparison)
-        self.export_button.grid(row=2, column=0, sticky="e", pady=(8, 0))
+        self.export_button.grid(row=3, column=0, sticky="e", pady=(8, 0))
         self.export_button.state(["disabled"])
 
         self._build_recommended_demo_shortcuts(selectors_area)
@@ -1222,6 +1783,16 @@ class VirtualECUGui(tk.Tk):
 
         self._build_context_column(context_frame, 0, "Left Context", "left", LEFT_COLOR)
         self._build_context_column(context_frame, 1, "Right Context", "right", RIGHT_COLOR)
+
+        findings_frame = ttk.LabelFrame(parent, text="Findings / Interpretation", padding=14)
+        findings_frame.grid(row=2, column=0, sticky="ew", padx=12, pady=(0, 12))
+        findings_frame.columnconfigure(0, weight=1)
+        self._build_findings_cards(
+            findings_frame,
+            self.comparison_findings_var,
+            self.comparison_interpretation_var,
+            wraplength=540,
+        )
 
     def _build_comparison_figures_tab(self, parent: ttk.Frame) -> None:
         plots = ttk.Frame(parent, padding=(12, 8, 12, 12), style="Root.TFrame")
@@ -1295,8 +1866,18 @@ class VirtualECUGui(tk.Tk):
         self._build_batch_stat_card(overview, 1, "Fault Classes Present", self.batch_fault_classes_var)
         self._build_batch_stat_card(overview, 2, "Fault Types Present", self.batch_fault_types_var)
 
+        findings_frame = ttk.LabelFrame(parent, text="Batch Findings / Interpretation", padding=14)
+        findings_frame.grid(row=2, column=0, sticky="ew", padx=12, pady=(0, 12))
+        findings_frame.columnconfigure(0, weight=1)
+        self._build_findings_cards(
+            findings_frame,
+            self.batch_findings_var,
+            self.batch_interpretation_var,
+            wraplength=540,
+        )
+
         content = ttk.Frame(parent, padding=(12, 0, 12, 12), style="Root.TFrame")
-        content.grid(row=2, column=0, sticky="nsew")
+        content.grid(row=3, column=0, sticky="nsew")
         content.columnconfigure(0, weight=5)
         content.columnconfigure(1, weight=4)
         content.rowconfigure(0, weight=1)
@@ -1447,6 +2028,75 @@ class VirtualECUGui(tk.Tk):
             pady=10,
         ).pack(fill="x")
 
+    def _build_findings_cards(
+        self,
+        parent: ttk.Frame,
+        findings_var: tk.StringVar,
+        interpretation_var: tk.StringVar,
+        *,
+        wraplength: int,
+    ) -> None:
+        cards = ttk.Frame(parent, style="Root.TFrame")
+        cards.grid(row=0, column=0, sticky="ew")
+        cards.columnconfigure(0, weight=3)
+        cards.columnconfigure(1, weight=2)
+
+        self._build_text_card(
+            cards,
+            0,
+            "Key Findings",
+            findings_var,
+            wraplength=wraplength,
+            body_font=("TkDefaultFont", 10, "bold"),
+            body_fg="#22313f",
+        )
+        self._build_text_card(
+            cards,
+            1,
+            "Interpretation",
+            interpretation_var,
+            wraplength=wraplength,
+            body_font=("TkDefaultFont", 10),
+            body_fg="#425160",
+        )
+
+    def _build_text_card(
+        self,
+        parent: ttk.Frame,
+        column: int,
+        title: str,
+        variable: tk.StringVar,
+        *,
+        wraplength: int,
+        body_font: Tuple[str, int] | Tuple[str, int, str],
+        body_fg: str,
+    ) -> None:
+        card = tk.Frame(parent, bg="#ffffff", bd=1, relief="solid", highlightthickness=0)
+        card.grid(row=0, column=column, sticky="nsew", padx=(0, 10 if column == 0 else 0))
+
+        tk.Label(
+            card,
+            text=title,
+            bg="#ffffff",
+            fg="#1d3448",
+            font=("TkDefaultFont", 10, "bold"),
+            anchor="w",
+            padx=14,
+            pady=0,
+        ).pack(fill="x", pady=(12, 4))
+        tk.Label(
+            card,
+            textvariable=variable,
+            bg="#ffffff",
+            fg=body_fg,
+            font=body_font,
+            justify="left",
+            wraplength=wraplength,
+            anchor="w",
+            padx=14,
+            pady=12,
+        ).pack(fill="x")
+
     def _build_recommended_demo_shortcuts(self, parent: ttk.Frame) -> None:
         shortcuts = ttk.LabelFrame(parent, text="Recommended Demo Comparisons", padding=12)
         shortcuts.grid(row=2, column=0, columnspan=3, sticky="ew", pady=(12, 0))
@@ -1480,26 +2130,49 @@ class VirtualECUGui(tk.Tk):
         block = tk.Frame(parent, bg="#ffffff", bd=1, relief="solid", highlightthickness=0)
         block.grid(row=0, column=column, sticky="nsew", padx=(0, 8 if column == 0 else 0))
 
-        accent_bar = tk.Frame(block, bg=accent, width=10)
+        accent_bar = tk.Frame(block, bg=accent, width=12)
         accent_bar.pack(side="left", fill="y")
 
-        body = ttk.Frame(block, padding=(12, 10, 12, 10), style="Root.TFrame")
+        body = tk.Frame(block, bg="#ffffff")
         body.pack(side="left", fill="both", expand=True)
 
-        ttk.Label(body, text=title, style="ColumnHeader.TLabel").grid(row=0, column=0, sticky="w", pady=(0, 8))
+        tk.Label(
+            body,
+            text=title,
+            bg="#ffffff",
+            fg="#1d3448",
+            font=("TkDefaultFont", 10, "bold"),
+            anchor="w",
+            padx=14,
+            pady=0,
+        ).grid(row=0, column=0, sticky="w", pady=(14, 8))
         self._add_context_row(body, 1, "Fault Class", self.context_vars[slot]["Fault Class"])
         self._add_context_row(body, 2, "Hardware Source", self.context_vars[slot]["Hardware Source"])
         self._add_context_row(body, 3, "ECU Manifestation", self.context_vars[slot]["ECU Manifestation"])
 
-    def _add_context_row(self, parent: ttk.Frame, row: int, label: str, variable: tk.StringVar) -> None:
-        ttk.Label(parent, text=label, style="FieldName.TLabel").grid(row=row, column=0, sticky="nw", pady=(0, 2))
-        ttk.Label(
+    def _add_context_row(self, parent: tk.Frame, row: int, label: str, variable: tk.StringVar) -> None:
+        tk.Label(
+            parent,
+            text=label,
+            bg="#ffffff",
+            fg="#4d5c69",
+            font=("TkDefaultFont", 9, "bold"),
+            anchor="w",
+            padx=14,
+            pady=0,
+        ).grid(row=row, column=0, sticky="nw", pady=(0, 2))
+        tk.Label(
             parent,
             textvariable=variable,
-            style="FieldValue.TLabel",
-            wraplength=320,
+            bg="#ffffff",
+            fg="#374553",
+            font=("TkDefaultFont", 10),
+            wraplength=325,
             justify="left",
-        ).grid(row=row + 1, column=0, sticky="nw", pady=(0, 8))
+            anchor="w",
+            padx=14,
+            pady=0,
+        ).grid(row=row + 1, column=0, sticky="nw", pady=(0, 12))
 
     def _add_metric_cell(self, parent: ttk.Frame, row: int, column: int, slot: str, metric_name: str) -> None:
         frame = tk.Frame(parent, bg="#eef3f7", bd=1, relief="solid", highlightthickness=0)
@@ -1531,6 +2204,36 @@ class VirtualECUGui(tk.Tk):
         self._refresh_campaign_context()
         self._reset_summary_values()
         self.status_text.set(f"Demo shortlist loaded: {left_campaign} vs {right_campaign}. Run comparison to inspect it.")
+
+    def _on_presentation_mode_toggled(self) -> None:
+        self._apply_presentation_mode()
+
+    def _metric_font(self, metric_name: str) -> Tuple[str, int, str]:
+        if metric_name in {"Campaign Name", "Fault Class"}:
+            return ("TkDefaultFont", 10, "bold")
+        if metric_name in self.EMPHASIZED_METRICS:
+            return ("TkDefaultFont", 11, "bold")
+        return ("TkDefaultFont", 10, "bold")
+
+    def _metric_wraplength(self, metric_name: str) -> int:
+        if metric_name in self.EMPHASIZED_METRICS:
+            return 250
+        return 235
+
+    def _metric_padding(self, metric_name: str) -> Tuple[int, int]:
+        if metric_name in self.EMPHASIZED_METRICS:
+            return (12, 11)
+        return (10, 8)
+
+    def _metric_cell_colors(self, metric_name: str, value: str) -> Tuple[str, str]:
+        if metric_name in {"Campaign Name", "Fault Class"}:
+            return ("#eef3f7", "#1f2e3b")
+        return metric_card_colors(metric_name, value)
+
+    def _apply_presentation_mode(self) -> None:
+        if self.comparison_plot is not None:
+            self.comparison_plot.set_presentation_mode(self.presentation_mode.get())
+        self._refresh_selected_plot()
 
     def _on_plot_selection_changed(self, _event: tk.Event[tk.Misc] | None = None) -> None:
         self._refresh_selected_plot()
@@ -1572,6 +2275,8 @@ class VirtualECUGui(tk.Tk):
         self.batch_run_count_var.set("-")
         self.batch_fault_classes_var.set("-")
         self.batch_fault_types_var.set("-")
+        self.batch_findings_var.set("Load a batch aggregate summary CSV to generate automatic findings.")
+        self.batch_interpretation_var.set("-")
 
         if self.batch_table is not None:
             for item_id in self.batch_table.get_children():
@@ -1594,6 +2299,7 @@ class VirtualECUGui(tk.Tk):
 
         self._populate_batch_table(rows, fault_types)
         self.batch_status_text.set(f"Loaded {len(rows)} batch runs from {csv_path}")
+        self._update_batch_findings(rows)
         self._refresh_batch_plot()
 
     def _ordered_fault_types(self, rows: Sequence[Dict[str, str]]) -> List[str]:
@@ -1808,7 +2514,10 @@ class VirtualECUGui(tk.Tk):
     def _reset_summary_values(self) -> None:
         self.current_comparison = None
         self.current_plot_results = None
+        self.snapshot_button.state(["disabled"])
         self.export_button.state(["disabled"])
+        self.comparison_findings_var.set("Run a comparison to generate automatic findings.")
+        self.comparison_interpretation_var.set("-")
         for slot in ("left", "right"):
             for metric_name in self.METRIC_NAMES:
                 self.summary_vars[slot][metric_name].set("-")
@@ -1840,6 +2549,7 @@ class VirtualECUGui(tk.Tk):
         )
         self.run_compare_button.state(["disabled"])
         self.run_left_button.state(["disabled"])
+        self.snapshot_button.state(["disabled"])
         self.export_button.state(["disabled"])
 
         worker = threading.Thread(
@@ -1894,6 +2604,7 @@ class VirtualECUGui(tk.Tk):
         self.status_text.set("Run failed.")
         self.run_compare_button.state(["!disabled"])
         self.run_left_button.state(["!disabled"])
+        self.snapshot_button.state(["disabled"])
         self.export_button.state(["disabled"])
         messagebox.showerror("Virtual ECU Run Failed", message)
 
@@ -1916,11 +2627,13 @@ class VirtualECUGui(tk.Tk):
                 "left": left_result,
                 "right": right_result,
             }
+            self.snapshot_button.state(["!disabled"])
             self.export_button.state(["!disabled"])
         else:
             self._clear_slot("right")
             self.status_text.set(f"Loaded left campaign: {left_campaign}.")
             self.current_comparison = None
+            self.snapshot_button.state(["disabled"])
             self.export_button.state(["disabled"])
 
         self.current_plot_results = {
@@ -1928,7 +2641,32 @@ class VirtualECUGui(tk.Tk):
             "right": right_result,
         }
         self._refresh_metric_cells()
+        self._update_comparison_findings(left_result, right_result)
         self._refresh_selected_plot()
+
+    def _update_comparison_findings(
+        self,
+        left_result: Dict[str, object],
+        right_result: Dict[str, object] | None,
+    ) -> None:
+        if right_result is None:
+            self.comparison_findings_var.set("Findings become available after a left-versus-right comparison run.")
+            self.comparison_interpretation_var.set("-")
+            return
+
+        left_name = self.summary_vars["left"]["Campaign Name"].get()
+        right_name = self.summary_vars["right"]["Campaign Name"].get()
+        left_summary = left_result["summary_row"]  # type: ignore[assignment]
+        right_summary = right_result["summary_row"]  # type: ignore[assignment]
+
+        finding_lines, interpretation_lines = comparison_findings(left_name, left_summary, right_name, right_summary)
+        self.comparison_findings_var.set("\n".join(f"- {line}" for line in finding_lines))
+        self.comparison_interpretation_var.set("\n".join(interpretation_lines))
+
+    def _update_batch_findings(self, rows: Sequence[Dict[str, str]]) -> None:
+        finding_lines, interpretation_lines = batch_findings(rows)
+        self.batch_findings_var.set("\n".join(f"- {line}" for line in finding_lines))
+        self.batch_interpretation_var.set("\n".join(interpretation_lines))
 
     def _apply_summary_slot(
         self,
@@ -1964,13 +2702,21 @@ class VirtualECUGui(tk.Tk):
 
     def _refresh_metric_cells(self) -> None:
         for slot in ("left", "right"):
-            for metric_name in self.METRIC_NAMES:
-                background, foreground = metric_card_colors(metric_name, self.summary_vars[slot][metric_name].get())
+            for metric_name, cell in self.metric_cells[slot].items():
+                background, foreground = self._metric_cell_colors(metric_name, self.summary_vars[slot][metric_name].get())
                 cell = self.metric_cells[slot][metric_name]
                 frame = cell["frame"]
                 value = cell["value"]
+                x_padding, y_padding = self._metric_padding(metric_name)
                 frame.configure(bg=background)
-                value.configure(bg=background, fg=foreground)
+                value.configure(
+                    bg=background,
+                    fg=foreground,
+                    font=self._metric_font(metric_name),
+                    wraplength=self._metric_wraplength(metric_name),
+                    padx=x_padding,
+                    pady=y_padding,
+                )
 
     def _refresh_selected_plot(self) -> None:
         if self.comparison_plot is None:
@@ -2193,6 +2939,60 @@ class VirtualECUGui(tk.Tk):
         messagebox.showinfo(
             "Comparison Exported",
             f"Saved the comparison report and plot images to:\n{export_dir}",
+        )
+
+    def export_results_snapshot(self) -> None:
+        if self.current_comparison is None:
+            messagebox.showinfo(
+                "No Comparison Loaded",
+                "Run a left-versus-right comparison first, then export the current results snapshot.",
+            )
+            return
+
+        left_result = self.current_comparison["left"]  # type: ignore[index]
+        right_result = self.current_comparison["right"]  # type: ignore[index]
+        left_campaign_id = str(left_result["campaign_id"])
+        right_campaign_id = str(right_result["campaign_id"])
+        export_dir = snapshot_export_dir(left_campaign_id, right_campaign_id)
+
+        metrics = []
+        for metric_name in self.SNAPSHOT_METRIC_NAMES:
+            metrics.append(
+                (
+                    metric_name,
+                    {
+                        "left": self.summary_vars["left"][metric_name].get(),
+                        "right": self.summary_vars["right"][metric_name].get(),
+                    },
+                )
+            )
+
+        finding_lines = [
+            line[2:] if line.startswith("- ") else line
+            for line in self.comparison_findings_var.get().splitlines()
+            if line.strip()
+        ]
+        interpretation_lines = [line for line in self.comparison_interpretation_var.get().splitlines() if line.strip() and line.strip() != "-"]
+
+        snapshot = {
+            "left_campaign_id": left_campaign_id,
+            "right_campaign_id": right_campaign_id,
+            "left_campaign_name": self.summary_vars["left"]["Campaign Name"].get(),
+            "right_campaign_name": self.summary_vars["right"]["Campaign Name"].get(),
+            "left_fault_class": self.summary_vars["left"]["Fault Class"].get(),
+            "right_fault_class": self.summary_vars["right"]["Fault Class"].get(),
+            "metrics": metrics,
+            "findings": finding_lines,
+            "interpretation": interpretation_lines,
+        }
+
+        generated_files = write_snapshot_bundle(export_dir, snapshot)
+        self.status_text.set(f"Exported results snapshot to {export_dir}")
+        messagebox.showinfo(
+            "Results Snapshot Exported",
+            "Saved the presentation-ready snapshot bundle to:\n"
+            f"{export_dir}\n\n"
+            + "\n".join(str(path.name) for path in generated_files),
         )
 
 

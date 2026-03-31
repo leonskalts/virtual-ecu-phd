@@ -1,14 +1,14 @@
 Continue from the current repository state.
 
-This project is a virtual ECU framework for automotive thermal management, developed as a cross-layer hardware-origin fault-propagation platform connected to VLSI and automotive electronics.
+This project is a virtual ECU framework for automotive thermal management, now developed as a cross-layer hardware-origin fault propagation platform connected to VLSI and automotive electronics.
 
-Implemented fault classes:
+Current implemented fault classes:
 - sensing-path faults
 - timing/communication-path faults
 - actuation-path faults
 - computation/memory-path faults
 
-Important built-in campaigns:
+Current built-in campaigns include:
 - baseline
 - sensor_bias_only
 - sensor_interface_intermittent
@@ -20,25 +20,31 @@ Important built-in campaigns:
 - calibration_memory_corruption
 - paper_default
 
-Implemented capabilities:
-- valid CSV logging and summary output
-- paper-results scripts
-- batch experiment runner
-- batch analysis script
-- claim-focused analysis script
-- Tkinter GUI with:
-  - comparison mode
-  - exportable comparison reports
-  - batch results tab
-  - improved plot layout and selectable plot view
+Current important project state:
+- paper-results scripts exist
+- batch runner exists
+- batch analysis and claim-focused analysis scripts exist
+- GUI supports campaign comparison
+- GUI supports exportable comparison reports
+- GUI supports results snapshots
+- GUI supports batch-results viewing
+- Presentation Mode was refined so it now affects only the Comparison Figures view, not Comparison Summary or Batch Results
 
-The latest pushed commit is:
-9f1a8a4
+What I want you to do first:
+1. Inspect the current repository state.
+2. Summarize what is already implemented now.
+3. Identify the best next improvement that would make the project stronger as a research/demo platform, without changing the C simulator into a low-level hardware simulator.
+4. Prefer the next step to be practical and visible, not just paper-writing help.
 
-First inspect the repository and summarize:
-1. current campaigns
-2. current GUI capabilities
-3. current batch-analysis capabilities
-4. what the best next improvement should be
+Important constraints:
+- keep the C simulator architecture simple
+- keep the project modular
+- keep it compilable with gcc in WSL
+- keep Python tooling lightweight
+- do not add heavy dependencies
+- do not forget the VLSI + automotive cross-layer framing
 
-Then continue from there without redoing previous work.
+When you answer, first give:
+- current repo summary
+- best next improvement
+- why that improvement is better than other possible next steps
