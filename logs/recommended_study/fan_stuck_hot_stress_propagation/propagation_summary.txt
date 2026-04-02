@@ -1,0 +1,48 @@
+Cross-Layer Propagation Report
+=============================
+
+Stuck-off fan power-stage fault under thermally stressful conditions
+--------------------------------------------------------------------
+Campaign ID: fan_stuck_hot_stress
+Duration: 120.0 s
+
+Research framing: Strong actuation-path demo: a fan power-stage fault becomes immediate tracking loss, then drives thermal stress and limp-home protection.
+
+Propagation Chain
+-----------------
+1. Hardware-Origin Fault
+   Story: Permanent fan gate-driver or power-stage stuck-off fault under hot, low-airflow conditions.
+   Evidence: fan stuck off (permanent) at 78.1 s during urban traffic
+   Detail: permanent fault active, parameter=0.000
+2. ECU Manifestation
+   Story: The ECU requests fan actuation, but realized fan response stays unavailable, creating a clear actuator-tracking mismatch.
+   Evidence: Fan command remains high while realized fan stays unavailable at 78.1 s during urban traffic
+   Detail: Fan command was 0.471 while fan actual was 0.000.
+3. Diagnostic Effect
+   Story: Fan-tracking evidence appears almost immediately because commanded and realized fan behavior diverge sharply.
+   Evidence: Primary DTC: fan tracking fault at 78.5 s during urban traffic
+   Detail: Primary diagnostic evidence first appears as fan tracking fault.
+4. Safe-State / System Effect
+   Story: Protection escalates quickly and the run later develops clear thermal stress, making the cross-layer story easy to explain in demos.
+   Evidence: Safe state: precautionary cooling at 78.5 s during urban traffic
+   Detail: Protection escalated into precautionary cooling.
+
+Key Timings
+-----------
+- First injected fault: 78.1 s (latency from first fault: 0.0 s)
+- First ECU manifestation: 78.1 s (latency from first fault: 0.0 s)
+- First diagnostic effect: 78.5 s (latency from first fault: 0.4 s)
+- First thermal warning: 106.5 s (latency from first fault: 28.4 s)
+- First safe-state escalation: 78.5 s (latency from first fault: 0.4 s)
+- Peak coolant temperature: 120.0 s (latency from first fault: 41.9 s)
+
+Chronological Milestones
+------------------------
+- [1. Hardware-Origin Fault] fan stuck off (permanent) at 78.1 s during urban traffic (active until 120.0 s)
+- [2. ECU Manifestation] Fan command remains high while realized fan stays unavailable at 78.1 s during urban traffic
+- [3. Diagnostic Effect] Primary DTC: fan tracking fault at 78.5 s during urban traffic
+- [4. Safe-State / System Effect] Safe state: precautionary cooling at 78.5 s during urban traffic
+- [4. Safe-State / System Effect] Safe state: limp home at 78.6 s during urban traffic
+- [4. Safe-State / System Effect] Thermal warning threshold crossed at 106.5 s during hot idle
+- [4. Safe-State / System Effect] Peak coolant temperature: 114.6 C at 120.0 s during hot idle
+

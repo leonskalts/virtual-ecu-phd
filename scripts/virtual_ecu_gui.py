@@ -23,6 +23,14 @@ except ImportError as exc:  # pragma: no cover - import failure is environment-s
 os.environ.setdefault("MPLCONFIGDIR", "/tmp/virtual_ecu_mpl")
 
 import matplotlib.pyplot as plt
+from propagation_report import (
+    LANE_LABELS,
+    build_propagation_report,
+    propagation_csv_rows,
+    save_propagation_plot,
+    write_propagation_csv,
+    write_propagation_summary,
+)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -887,6 +895,37 @@ def save_fan_comparison_plot(
     plt.close(fig)
 
 
+def save_propagation_comparison_bundle(
+    export_dir: Path,
+    left_label: str,
+    left_rows: Sequence[Dict[str, str]],
+    right_label: str,
+    right_rows: Sequence[Dict[str, str]],
+) -> List[Path]:
+    left_report = build_propagation_report(left_rows)
+    right_report = build_propagation_report(right_rows)
+
+    csv_path = export_dir / "cross_layer_propagation_timeline.csv"
+    summary_path = export_dir / "cross_layer_propagation_summary.txt"
+    figure_path = export_dir / "cross_layer_propagation_timeline.png"
+
+    write_propagation_csv(
+        csv_path,
+        [
+            *propagation_csv_rows("left", left_report),
+            *propagation_csv_rows("right", right_report),
+        ],
+    )
+    write_propagation_summary(summary_path, [left_report, right_report], [left_label, right_label])
+    save_propagation_plot(
+        [left_label, right_label],
+        [left_report, right_report],
+        figure_path,
+    )
+
+    return [csv_path, summary_path, figure_path]
+
+
 class PlotCanvas(ttk.Frame):
     """Small reusable plotting widget backed by a Tkinter Canvas."""
 
@@ -1022,6 +1061,18 @@ class PlotCanvas(ttk.Frame):
             "y_label": y_label,
             "max_value": max_value,
             "x_label": x_label,
+        }
+        self.redraw()
+
+    def plot_propagation_timeline(
+        self,
+        labels: Sequence[str],
+        reports: Sequence[Dict[str, object]],
+    ) -> None:
+        self._drawer = self._draw_propagation_timeline
+        self._payload = {
+            "labels": list(labels),
+            "reports": list(reports),
         }
         self.redraw()
 
@@ -1514,6 +1565,182 @@ class PlotCanvas(ttk.Frame):
                 width=slot_width * 0.9,
             )
 
+    def _draw_propagation_timeline(self, payload: object) -> None:
+        data = payload  # type: ignore[assignment]
+        labels = data["labels"]
+        reports = data["reports"]
+
+        if not reports:
+            self._draw_message("No propagation data is available.")
+            return
+
+        lane_order = (
+            "hardware_origin",
+            "ecu_manifestation",
+            "diagnostic_effect",
+            "system_effect",
+        )
+        lane_positions = {lane: len(lane_order) - 1 - index for index, lane in enumerate(lane_order)}
+        style_by_index = (
+            (LEFT_COLOR, LEFT_DASH, 0.14),
+            (RIGHT_COLOR, RIGHT_DASH, -0.14),
+        )
+
+        max_time_s = 0.0
+        for report in reports:
+            max_time_s = max(max_time_s, float(report.get("duration_s", 0.0)))
+            for item in report.get("timeline_items", []):
+                if item.get("item_type") == "interval":
+                    max_time_s = max(max_time_s, float(item.get("end_s", 0.0)))
+                max_time_s = max(max_time_s, float(item.get("time_s", 0.0)))
+
+        if max_time_s <= 0.0:
+            max_time_s = 1.0
+
+        legend_entries = [
+            (label, style_by_index[min(index, len(style_by_index) - 1)][0], style_by_index[min(index, len(style_by_index) - 1)][1])
+            for index, label in enumerate(labels)
+        ]
+        legend_height = self._draw_legend(legend_entries, left=86, top=10, right=self._canvas_size()[0] - 16)
+        left, top, right, bottom = self._draw_axes(
+            "Stage",
+            top_margin=18 + legend_height,
+            bottom_margin=74,
+        )
+
+        def map_x(value: float) -> float:
+            return left + value * (right - left) / max_time_s
+
+        lane_min = -0.35
+        lane_max = 3.35
+
+        def map_y(value: float) -> float:
+            return bottom - (value - lane_min) * (bottom - top) / (lane_max - lane_min)
+
+        lane_colors = {
+            "hardware_origin": "#f6e6e2",
+            "ecu_manifestation": "#eef4fb",
+            "diagnostic_effect": "#f6f0dd",
+            "system_effect": "#edf6ee",
+        }
+
+        for tick in range(6):
+            x_value = tick * max_time_s / 5.0
+            x_pos = map_x(x_value)
+            self.canvas.create_line(x_pos, top, x_pos, bottom + 4, fill="#e7edf2", dash=(2, 4))
+            self.canvas.create_text(
+                x_pos,
+                bottom + 14,
+                text=f"{x_value:.0f}",
+                anchor="n",
+                fill="#506070",
+                font=self._font("tick"),
+            )
+
+        for lane in lane_order:
+            lane_y = map_y(float(lane_positions[lane]))
+            lane_top = map_y(float(lane_positions[lane]) + 0.42)
+            lane_bottom = map_y(float(lane_positions[lane]) - 0.42)
+            self.canvas.create_rectangle(
+                left,
+                lane_top,
+                right,
+                lane_bottom,
+                fill=lane_colors[lane],
+                outline="",
+            )
+            self.canvas.create_line(left - 4, lane_y, right, lane_y, fill="#dde5ec", dash=(2, 4))
+            self.canvas.create_text(
+                left - 8,
+                lane_y,
+                text=LANE_LABELS.get(lane, lane),
+                anchor="e",
+                fill="#506070",
+                font=self._font("tick"),
+            )
+
+        arrow_x = left - 38
+        self.canvas.create_line(arrow_x, map_y(3.25), arrow_x, map_y(-0.25), fill="#7b8b99", width=2, arrow=tk.LAST)
+        self.canvas.create_text(
+            arrow_x - 12,
+            (map_y(3.25) + map_y(-0.25)) / 2.0,
+            text="Propagation",
+            angle=90,
+            fill="#607180",
+            font=self._font("legend"),
+        )
+
+        for report_index, report in enumerate(reports):
+            color, dash, offset = style_by_index[min(report_index, len(style_by_index) - 1)]
+
+            for item_index, item in enumerate(report.get("timeline_items", [])):
+                lane = str(item.get("lane", "hardware_origin"))
+                y_pos = map_y(lane_positions.get(lane, 0) + offset)
+
+                if item.get("item_type") == "interval":
+                    x0 = map_x(float(item.get("start_s", 0.0)))
+                    x1 = map_x(float(item.get("end_s", 0.0)))
+                    midpoint = (x0 + x1) / 2.0
+                    label_offset = -14 if report_index == 0 else 14
+                    self.canvas.create_line(
+                        x0,
+                        y_pos,
+                        x1,
+                        y_pos,
+                        fill=color,
+                        width=self._line_width(emphasis=True) + 2,
+                        dash=dash or (),
+                    )
+                    self.canvas.create_line(x0, y_pos - 6, x0, y_pos + 6, fill=color, width=self._line_width())
+                    self.canvas.create_line(x1, y_pos - 6, x1, y_pos + 6, fill=color, width=self._line_width())
+                    self.canvas.create_text(
+                        midpoint,
+                        y_pos + label_offset,
+                        text=str(item.get("evidence_label", item.get("short_label", ""))),
+                        fill=color,
+                        font=self._font("legend"),
+                        width=max(x1 - x0 + 10, 80),
+                    )
+                    continue
+
+                x_pos = map_x(float(item.get("time_s", 0.0)))
+                marker_size = 4 if self.presentation_mode else 3
+                label_offset = -15 if (report_index == 0) == (item_index % 2 == 0) else 15
+                self.canvas.create_line(
+                    x_pos,
+                    y_pos - 7,
+                    x_pos,
+                    y_pos + 7,
+                    fill=color,
+                    width=self._line_width(),
+                    dash=dash or (),
+                )
+                self.canvas.create_oval(
+                    x_pos - marker_size,
+                    y_pos - marker_size,
+                    x_pos + marker_size,
+                    y_pos + marker_size,
+                    fill=color,
+                    outline=color,
+                )
+                self.canvas.create_text(
+                    x_pos,
+                    y_pos + label_offset,
+                    text=str(item.get("evidence_label", item.get("short_label", ""))),
+                    fill=color,
+                    font=self._font("tick"),
+                    width=130 if self.presentation_mode else 104,
+                )
+
+        self.canvas.create_text(
+            left,
+            bottom + 34,
+            anchor="w",
+            text="Read top-to-bottom as: hardware-origin fault -> ECU manifestation -> diagnostic effect -> safe-state/system effect.",
+            fill="#5b6b79",
+            font=self._font("legend"),
+        )
+
 
 class VirtualECUGui(tk.Tk):
     METRIC_NAMES = (
@@ -1541,6 +1768,7 @@ class VirtualECUGui(tk.Tk):
         "Coolant Temperature Comparison",
         "Safe-State Comparison",
         "Fan Command / Actual Comparison",
+        "Cross-Layer Propagation Timeline",
     )
     RECOMMENDED_DEMO_COMPARISONS = (
         ("Baseline vs Fan Hot Stress", "baseline", "fan_stuck_hot_stress"),
@@ -1583,6 +1811,9 @@ class VirtualECUGui(tk.Tk):
         self.batch_interpretation_var = tk.StringVar(value="-")
         self.left_description_var = tk.StringVar(value="-")
         self.right_description_var = tk.StringVar(value="-")
+        self.comparison_plot_help_var = tk.StringVar(
+            value="Use the propagation view to read top-to-bottom from hardware-origin fault to ECU manifestation, diagnostics, and safe-state/system effect."
+        )
         self.batch_csv_path = tk.StringVar(value=str(DEFAULT_BATCH_AGGREGATE_CSV))
         self.batch_run_count_var = tk.StringVar(value="-")
         self.batch_fault_classes_var = tk.StringVar(value="-")
@@ -1818,7 +2049,7 @@ class VirtualECUGui(tk.Tk):
         selector.bind("<<ComboboxSelected>>", self._on_plot_selection_changed)
         ttk.Label(
             plot_header,
-            text="Use this dedicated figures page for cleaner, presentation-friendly plots during live demos, thesis walkthroughs, and screenshots.",
+            textvariable=self.comparison_plot_help_var,
             style="Hint.TLabel",
             wraplength=720,
             justify="left",
@@ -2241,6 +2472,39 @@ class VirtualECUGui(tk.Tk):
     def _on_batch_plot_selection_changed(self, _event: tk.Event[tk.Misc] | None = None) -> None:
         self._refresh_batch_plot()
 
+    def _update_comparison_plot_help(self) -> None:
+        selected_plot = self.comparison_plot_choice.get()
+
+        default_help = {
+            "Coolant Temperature Comparison": "Use this figure for the high-level thermal trajectory comparison and threshold crossing story.",
+            "Safe-State Comparison": "Use this figure to show protection-state escalation timing and end-state severity across campaigns.",
+            "Fan Command / Actual Comparison": "Use this figure when permanent actuation faults are present and you want a direct command-versus-realization view.",
+            "Cross-Layer Propagation Timeline": "Use this figure to read top-to-bottom from hardware-origin fault to ECU manifestation, diagnostic effect, and safe-state/system effect.",
+        }
+
+        if selected_plot != "Cross-Layer Propagation Timeline" or self.current_plot_results is None:
+            self.comparison_plot_help_var.set(default_help.get(selected_plot, "Select a comparison plot to inspect the current runs."))
+            return
+
+        left_result = self.current_plot_results["left"]  # type: ignore[index]
+        right_result = self.current_plot_results["right"]  # type: ignore[index]
+        left_report = build_propagation_report(left_result["raw_rows"])  # type: ignore[index]
+        left_text = f"Left: {left_report['story']['headline']}"  # type: ignore[index]
+
+        if right_result is None:
+            self.comparison_plot_help_var.set(
+                "Propagation view: read the chain top-to-bottom as hardware-origin fault -> ECU manifestation -> diagnostic effect -> safe-state/system effect.\n"
+                + left_text
+            )
+            return
+
+        right_report = build_propagation_report(right_result["raw_rows"])  # type: ignore[index]
+        right_text = f"Right: {right_report['story']['headline']}"  # type: ignore[index]
+        self.comparison_plot_help_var.set(
+            "Propagation view: read the chain top-to-bottom as hardware-origin fault -> ECU manifestation -> diagnostic effect -> safe-state/system effect.\n"
+            f"{left_text}\n{right_text}"
+        )
+
     def browse_batch_results(self) -> None:
         selected = filedialog.askopenfilename(
             title="Select Batch Aggregate Summary CSV",
@@ -2518,6 +2782,7 @@ class VirtualECUGui(tk.Tk):
         self.export_button.state(["disabled"])
         self.comparison_findings_var.set("Run a comparison to generate automatic findings.")
         self.comparison_interpretation_var.set("-")
+        self._update_comparison_plot_help()
         for slot in ("left", "right"):
             for metric_name in self.METRIC_NAMES:
                 self.summary_vars[slot][metric_name].set("-")
@@ -2723,6 +2988,7 @@ class VirtualECUGui(tk.Tk):
             return
 
         selected_plot = self.comparison_plot_choice.get()
+        self._update_comparison_plot_help()
         self.comparison_plot.set_title(selected_plot)
 
         if self.current_plot_results is None:
@@ -2802,6 +3068,17 @@ class VirtualECUGui(tk.Tk):
                 y_label="State",
                 tick_labels=SAFE_STATE_LABELS,
             )
+            return
+
+        if selected_plot == "Cross-Layer Propagation Timeline":
+            reports = [build_propagation_report(left_rows)]
+            labels = [left_label]
+
+            if right_rows is not None:
+                reports.append(build_propagation_report(right_rows))
+                labels.append(self.summary_vars["right"]["Campaign Name"].get())
+
+            self.comparison_plot.plot_propagation_timeline(labels, reports)
             return
 
         fan_series = [
@@ -2935,10 +3212,20 @@ class VirtualECUGui(tk.Tk):
                 export_dir / "fan_comparison.png",
             )
 
+        propagation_files = save_propagation_comparison_bundle(
+            export_dir,
+            left_label,
+            left_rows,
+            right_label,
+            right_rows,
+        )
+
         self.status_text.set(f"Exported comparison report to {export_dir}")
         messagebox.showinfo(
             "Comparison Exported",
-            f"Saved the comparison report and plot images to:\n{export_dir}",
+            "Saved the comparison report, plots, and propagation bundle to:\n"
+            f"{export_dir}\n\n"
+            + "\n".join(path.name for path in propagation_files),
         )
 
     def export_results_snapshot(self) -> None:
@@ -2987,6 +3274,15 @@ class VirtualECUGui(tk.Tk):
         }
 
         generated_files = write_snapshot_bundle(export_dir, snapshot)
+        generated_files.extend(
+            save_propagation_comparison_bundle(
+                export_dir,
+                self.summary_vars["left"]["Campaign Name"].get(),
+                left_result["raw_rows"],  # type: ignore[index]
+                self.summary_vars["right"]["Campaign Name"].get(),
+                right_result["raw_rows"],  # type: ignore[index]
+            )
+        )
         self.status_text.set(f"Exported results snapshot to {export_dir}")
         messagebox.showinfo(
             "Results Snapshot Exported",

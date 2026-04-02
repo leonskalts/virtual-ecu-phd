@@ -1,0 +1,53 @@
+Cross-Layer Propagation Report
+=============================
+
+Mixed hardware-origin campaign with sensing and actuation faults
+----------------------------------------------------------------
+Campaign ID: paper_default
+Duration: 120.0 s
+
+Research framing: Mixed-fault demo: sensing, actuation, and safety effects appear in a staged chain that is useful for thesis walkthroughs.
+
+Propagation Chain
+-----------------
+1. Hardware-Origin Fault
+   Story: Sequential sensing-path, pump-actuation, and fan power-stage faults representing a multi-stage cross-layer failure story.
+   Evidence: sensor bias (transient) at 30.0 s during highway load
+   Detail: transient fault active, parameter=6.000
+2. ECU Manifestation
+   Story: The ECU first sees biased sensing, then reduced pump authority, then loss of realized fan actuation.
+   Evidence: Biased coolant measurement visible at ECU input at 30.0 s during highway load
+   Detail: Coolant measurement residual reached 6.00 C.
+3. Diagnostic Effect
+   Story: Diagnostic evidence evolves from sensor-rationality to pump-tracking and fan-tracking behavior as the fault chain progresses.
+   Evidence: Primary DTC: coolant sensor rationality at 30.0 s during highway load
+   Detail: Primary diagnostic evidence first appears as coolant sensor rationality.
+4. Safe-State / System Effect
+   Story: Protection responds in stages, making the run well suited for explaining progressive propagation across layers.
+   Evidence: Safe state: precautionary cooling at 61.0 s during urban traffic
+   Detail: Protection escalated into precautionary cooling.
+
+Key Timings
+-----------
+- First injected fault: 30.0 s (latency from first fault: 0.0 s)
+- First ECU manifestation: 30.0 s (latency from first fault: 0.0 s)
+- First diagnostic effect: 30.0 s (latency from first fault: 0.0 s)
+- First thermal warning: n/a (latency from first fault: n/a)
+- First safe-state escalation: 61.0 s (latency from first fault: 31.0 s)
+- Peak coolant temperature: 96.6 s (latency from first fault: 66.6 s)
+
+Chronological Milestones
+------------------------
+- [1. Hardware-Origin Fault] sensor bias (transient) at 30.0 s during highway load (active until 45.0 s)
+- [2. ECU Manifestation] Biased coolant measurement visible at ECU input at 30.0 s during highway load
+- [3. Diagnostic Effect] Primary DTC: coolant sensor rationality at 30.0 s during highway load
+- [1. Hardware-Origin Fault] pump degraded (transient) at 60.0 s during highway load (active until 85.0 s)
+- [2. ECU Manifestation] Pump response falls below ECU command at 60.1 s during urban traffic
+- [3. Diagnostic Effect] Primary DTC: pump tracking fault at 61.0 s during urban traffic
+- [4. Safe-State / System Effect] Safe state: precautionary cooling at 61.0 s during urban traffic
+- [4. Safe-State / System Effect] Safe state: limp home at 61.1 s during urban traffic
+- [1. Hardware-Origin Fault] fan stuck off (permanent) at 90.0 s during urban traffic (active until 120.0 s)
+- [2. ECU Manifestation] Fan command remains high while realized fan stays unavailable at 96.3 s during hot idle
+- [3. Diagnostic Effect] Primary DTC: fan tracking fault at 96.5 s during hot idle
+- [4. Safe-State / System Effect] Peak coolant temperature: 92.5 C at 96.6 s during hot idle
+

@@ -282,7 +282,12 @@ The GUI also plots:
 - a selector-driven large comparison plot area for:
   coolant temperature comparison,
   safe-state comparison,
-  and fan command / actual comparison when one or both campaigns include a permanent fault
+  fan command / actual comparison when one or both campaigns include a permanent fault,
+  and a cross-layer propagation timeline that reads top-to-bottom as:
+  hardware-origin fault,
+  ECU manifestation,
+  diagnostic effect,
+  and safe-state/system effect
 
 The GUI also includes a lightweight `Batch Results` tab for loading an existing
 aggregate summary CSV such as `results/batch/paper_quick/aggregate_summary.csv`.
@@ -325,6 +330,9 @@ The GUI can also export the current comparison into:
 - `results/gui_comparison_reports/<left>_vs_<right>/coolant_temperature_comparison.png`
 - `results/gui_comparison_reports/<left>_vs_<right>/safe_state_comparison.png`
 - `results/gui_comparison_reports/<left>_vs_<right>/fan_comparison.png` when applicable
+- `results/gui_comparison_reports/<left>_vs_<right>/cross_layer_propagation_timeline.csv`
+- `results/gui_comparison_reports/<left>_vs_<right>/cross_layer_propagation_summary.txt`
+- `results/gui_comparison_reports/<left>_vs_<right>/cross_layer_propagation_timeline.png`
 
 For minimal setup, the GUI uses Python's built-in Tkinter library. On Windows,
 Tkinter is typically included with Python. On WSL, it runs with WSLg or another
@@ -433,6 +441,39 @@ evaluation story:
 - `stale_sensor_data_only` shows the core sampled-data timing fault in a clean, explainable form
 - `stale_sensor_data_hot_stress` turns the same abstraction into a clearer thermal/safety demonstration case
 - the batch runner now sweeps stale-data hold time, start time, duration, and persistence strongly enough to expose meaningful detection and protection trends
+
+## Propagation Reports
+
+For a single raw campaign CSV, generate a compact cross-layer propagation
+bundle that highlights the explicit chain from hardware-origin fault to ECU
+manifestation, diagnostic effect, and safe-state/system effect:
+
+```sh
+python3 scripts/generate_propagation_report.py logs/recommended_study/fan_stuck_hot_stress.csv
+```
+
+This writes a small bundle beside the input CSV (or to a custom `--output-dir`)
+containing:
+
+- `propagation_timeline.csv`
+- `propagation_summary.txt`
+- `propagation_timeline.png`
+
+The propagation summary is intended to be thesis/demo friendly:
+
+- a short campaign-aware research framing line
+- a four-step propagation chain with evidence and timing
+- key timings from first fault to ECU, diagnostic, and system consequences
+- a chronological milestone list
+
+The propagation CSV is intended to stay easy to inspect in a spreadsheet:
+
+- `chain_stage` rows for the four-step causal story
+- `timeline_item` rows for the chronological supporting evidence
+- phase labels, observed signals, and latency-from-first-fault fields
+
+The same propagation view is also available directly inside the GUI comparison
+plot selector and is included in exported GUI comparison/snapshot bundles.
 
 ## Paper Tables and Figures
 

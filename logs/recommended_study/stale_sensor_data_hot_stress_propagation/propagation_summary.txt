@@ -1,0 +1,49 @@
+Cross-Layer Propagation Report
+=============================
+
+Thermally stressed stale coolant-sensor update campaign
+-------------------------------------------------------
+Campaign ID: stale_sensor_data_hot_stress
+Duration: 120.0 s
+
+Research framing: Strong timing/communication demo: stale sampled data turns a refresh-delay fault into visible thermal and safety escalation.
+
+Propagation Chain
+-----------------
+1. Hardware-Origin Fault
+   Story: Persistent sensor-to-ECU timing or communication refresh delay that leaves the controller operating on aged coolant data.
+   Evidence: stale sensor data (permanent) at 65.0 s during urban traffic
+   Detail: permanent fault active, parameter=15000.000
+2. ECU Manifestation
+   Story: The ECU acts on stale coolant measurements, so cooling demand lags behind the true thermal state during the stressed phase.
+   Evidence: Aged coolant sample drives ECU control decisions at 88.9 s during urban traffic
+   Detail: Measured coolant was 95.57 C while true coolant was 93.57 C.
+3. Diagnostic Effect
+   Story: Sensor-rationality and cooling-performance evidence appear once the stale measurement lag grows large enough to distort control behavior.
+   Evidence: Primary DTC: coolant sensor rationality at 92.0 s during hot idle
+   Detail: Primary diagnostic evidence first appears as coolant sensor rationality.
+4. Safe-State / System Effect
+   Story: Delayed cooling action produces warning-level thermal stress and safe-state escalation, making the timing fault research-visible.
+   Evidence: Thermal warning threshold crossed at 95.0 s during hot idle
+   Detail: Coolant temperature crossed the warning threshold.
+
+Key Timings
+-----------
+- First injected fault: 65.0 s (latency from first fault: 0.0 s)
+- First ECU manifestation: 88.9 s (latency from first fault: 23.9 s)
+- First diagnostic effect: 92.0 s (latency from first fault: 27.0 s)
+- First thermal warning: 95.0 s (latency from first fault: 30.0 s)
+- First safe-state escalation: 95.0 s (latency from first fault: 30.0 s)
+- Peak coolant temperature: 120.0 s (latency from first fault: 55.0 s)
+
+Chronological Milestones
+------------------------
+- [1. Hardware-Origin Fault] stale sensor data (permanent) at 65.0 s during urban traffic (active until 120.0 s)
+- [2. ECU Manifestation] Aged coolant sample drives ECU control decisions at 88.9 s during urban traffic
+- [3. Diagnostic Effect] Primary DTC: coolant sensor rationality at 92.0 s during hot idle
+- [4. Safe-State / System Effect] Thermal warning threshold crossed at 95.0 s during hot idle
+- [4. Safe-State / System Effect] Safe state: precautionary cooling at 95.0 s during hot idle
+- [4. Safe-State / System Effect] Safe state: limp home at 95.1 s during hot idle
+- [3. Diagnostic Effect] Primary DTC: cooling performance low at 95.5 s during hot idle
+- [4. Safe-State / System Effect] Peak coolant temperature: 142.4 C at 120.0 s during hot idle
+

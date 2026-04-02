@@ -1,0 +1,48 @@
+Cross-Layer Propagation Report
+=============================
+
+Corrupted coolant-control target calibration campaign
+-----------------------------------------------------
+Campaign ID: calibration_memory_corruption
+Duration: 120.0 s
+
+Research framing: Strong computation/memory demo: corrupted calibration shifts controller behavior before thermal and safety consequences become visible.
+
+Propagation Chain
+-----------------
+1. Hardware-Origin Fault
+   Story: Corrupted calibration register or nonvolatile memory bit upset affecting the cooling-control target.
+   Evidence: calibration memory corruption (permanent) at 52.0 s during highway load
+   Detail: permanent fault active, parameter=16.000
+2. ECU Manifestation
+   Story: The ECU continues with a delayed cooling request even though measured temperatures are correct, because the internal target is shifted.
+   Evidence: Cooling request remains delayed despite rising temperature at 60.7 s during urban traffic
+   Detail: Coolant reached 95.11 C while pump command was 0.265 and fan command was 0.000.
+3. Diagnostic Effect
+   Story: Thermal and cooling-performance evidence appears later than in direct actuation faults because the error begins inside control computation.
+   Evidence: Primary DTC: cooling performance low at 91.5 s during hot idle
+   Detail: Primary diagnostic evidence first appears as cooling performance low.
+4. Safe-State / System Effect
+   Story: Coolant temperature rises higher than nominal and protection eventually escalates, illustrating delayed cross-layer propagation.
+   Evidence: Thermal warning threshold crossed at 91.5 s during hot idle
+   Detail: Coolant temperature crossed the warning threshold.
+
+Key Timings
+-----------
+- First injected fault: 52.0 s (latency from first fault: 0.0 s)
+- First ECU manifestation: 60.7 s (latency from first fault: 8.7 s)
+- First diagnostic effect: 91.5 s (latency from first fault: 39.5 s)
+- First thermal warning: 91.5 s (latency from first fault: 39.5 s)
+- First safe-state escalation: 91.5 s (latency from first fault: 39.5 s)
+- Peak coolant temperature: 108.5 s (latency from first fault: 56.5 s)
+
+Chronological Milestones
+------------------------
+- [1. Hardware-Origin Fault] calibration memory corruption (permanent) at 52.0 s during highway load (active until 120.0 s)
+- [2. ECU Manifestation] Cooling request remains delayed despite rising temperature at 60.7 s during urban traffic
+- [3. Diagnostic Effect] Primary DTC: cooling performance low at 91.5 s during hot idle
+- [4. Safe-State / System Effect] Thermal warning threshold crossed at 91.5 s during hot idle
+- [4. Safe-State / System Effect] Safe state: precautionary cooling at 91.5 s during hot idle
+- [4. Safe-State / System Effect] Safe state: limp home at 92.1 s during hot idle
+- [4. Safe-State / System Effect] Peak coolant temperature: 108.2 C at 108.5 s during hot idle
+
