@@ -107,6 +107,20 @@ LEFT_COLOR = "#c4473a"
 RIGHT_COLOR = "#1f5aa6"
 LEFT_DASH = None
 RIGHT_DASH = (6, 4)
+EVIDENCE_STAGE_DISPLAY = {
+    "Hardware-Origin Fault": "1. Hardware-Origin Fault",
+    "ECU-Visible Manifestation": "2. ECU Manifestation",
+    "First Diagnostic Evidence": "3. Diagnostic Evidence",
+    "First Safe-State Transition": "4. Safe-State Transition",
+    "Peak Thermal Severity": "5. Peak Thermal Severity",
+}
+EVIDENCE_STAGE_TAGS = {
+    "Hardware-Origin Fault": "evidence_hardware",
+    "ECU-Visible Manifestation": "evidence_ecu",
+    "First Diagnostic Evidence": "evidence_diagnostic",
+    "First Safe-State Transition": "evidence_safe_state",
+    "Peak Thermal Severity": "evidence_thermal",
+}
 
 CAMPAIGN_STORIES = {
     "baseline": {
@@ -349,6 +363,24 @@ def format_evidence_time(value: object) -> str:
         return f"{float(value):.1f} s"
     except (TypeError, ValueError):
         return "n/a"
+
+
+def wrap_evidence_text(value: str, *, width: int, max_lines: int = 2) -> str:
+    normalized = " ".join(value.split())
+    if not normalized:
+        return "n/a"
+
+    lines = textwrap.wrap(normalized, width=width)
+    if len(lines) <= max_lines:
+        return "\n".join(lines)
+
+    visible = lines[:max_lines]
+    visible[-1] = textwrap.shorten(
+        visible[-1] + " " + " ".join(lines[max_lines:]),
+        width=width,
+        placeholder="...",
+    )
+    return "\n".join(visible)
 
 
 def _first_report_event(report: Dict[str, object], *, lane: str | None = None, effect_subtype: str | None = None) -> Dict[str, object] | None:
@@ -2004,7 +2036,7 @@ class VirtualECUGui(tk.Tk):
         style.configure("MetricLabel.TLabel", font=("TkDefaultFont", 10, "bold"), foreground="#1f3040")
         style.configure("Batch.Treeview", rowheight=26, font=("TkDefaultFont", 9))
         style.configure("Batch.Treeview.Heading", font=("TkDefaultFont", 9, "bold"))
-        style.configure("Evidence.Treeview", rowheight=28, font=("TkDefaultFont", 9))
+        style.configure("Evidence.Treeview", rowheight=44, font=("TkDefaultFont", 9))
         style.configure("Evidence.Treeview.Heading", font=("TkDefaultFont", 9, "bold"))
 
     def _build_layout(self) -> None:
@@ -2196,17 +2228,17 @@ class VirtualECUGui(tk.Tk):
         self._build_propagation_evidence_panel(plots)
 
     def _build_propagation_evidence_panel(self, parent: ttk.Frame) -> None:
-        panel = ttk.LabelFrame(parent, text="Propagation Evidence", padding=10)
-        panel.grid(row=2, column=0, sticky="ew", pady=(10, 0))
+        panel = ttk.LabelFrame(parent, text="Propagation Evidence", padding=(10, 8, 10, 10))
+        panel.grid(row=2, column=0, sticky="ew", pady=(8, 0))
         panel.columnconfigure(0, weight=1)
 
         ttk.Label(
             panel,
-            text="Evidence rows come from the same propagation-report logic used by the timeline and exports.",
+            text="Compact evidence from the same propagation-report logic used by the timeline and exports.",
             style="Hint.TLabel",
             wraplength=980,
             justify="left",
-        ).grid(row=0, column=0, sticky="w", pady=(0, 8))
+        ).grid(row=0, column=0, sticky="w", pady=(0, 6))
 
         table_area = ttk.Frame(panel)
         table_area.grid(row=1, column=0, sticky="ew")
@@ -2217,7 +2249,7 @@ class VirtualECUGui(tk.Tk):
             table_area,
             columns=columns,
             show="headings",
-            height=8,
+            height=6,
             style="Evidence.Treeview",
         )
         headings = {
@@ -2228,11 +2260,11 @@ class VirtualECUGui(tk.Tk):
             "explanation": "Short Explanation",
         }
         widths = {
-            "run": 150,
-            "stage": 190,
-            "time": 80,
-            "signal": 210,
-            "explanation": 560,
+            "run": 135,
+            "stage": 205,
+            "time": 76,
+            "signal": 235,
+            "explanation": 640,
         }
         anchors = {
             "run": tk.W,
@@ -2249,6 +2281,13 @@ class VirtualECUGui(tk.Tk):
                 anchor=anchors[column_id],
                 stretch=column_id == "explanation",
             )
+
+        self.propagation_evidence_table.tag_configure("evidence_hardware", background="#f8e8e4")
+        self.propagation_evidence_table.tag_configure("evidence_ecu", background="#eef5fc")
+        self.propagation_evidence_table.tag_configure("evidence_diagnostic", background="#f8f1dc")
+        self.propagation_evidence_table.tag_configure("evidence_safe_state", background="#edf7ee")
+        self.propagation_evidence_table.tag_configure("evidence_thermal", background="#f3eef8")
+        self.propagation_evidence_table.tag_configure("evidence_empty", background="#f7f9fb")
 
         scroll = ttk.Scrollbar(table_area, orient="vertical", command=self.propagation_evidence_table.yview)
         self.propagation_evidence_table.configure(yscrollcommand=scroll.set)
@@ -2724,6 +2763,7 @@ class VirtualECUGui(tk.Tk):
                 "-",
                 "Run a campaign comparison to populate propagation evidence.",
             ),
+            tags=("evidence_empty",),
         )
 
     def _set_propagation_evidence_rows(self, rows: Sequence[Dict[str, str]]) -> None:
@@ -2734,16 +2774,18 @@ class VirtualECUGui(tk.Tk):
             self.propagation_evidence_table.delete(item_id)
 
         for row in rows:
+            stage = row["stage"]
             self.propagation_evidence_table.insert(
                 "",
                 "end",
                 values=(
                     row["run"],
-                    row["stage"],
+                    EVIDENCE_STAGE_DISPLAY.get(stage, stage),
                     row["time"],
-                    row["signal"],
-                    row["explanation"],
+                    wrap_evidence_text(row["signal"], width=28, max_lines=2),
+                    wrap_evidence_text(row["explanation"], width=76, max_lines=2),
                 ),
+                tags=(EVIDENCE_STAGE_TAGS.get(stage, "evidence_empty"),),
             )
 
     def _update_propagation_evidence(
