@@ -341,6 +341,133 @@ def metric_card_colors(metric_name: str, value: str) -> Tuple[str, str]:
     return neutral
 
 
+def format_evidence_time(value: object) -> str:
+    if value is None:
+        return "n/a"
+
+    try:
+        return f"{float(value):.1f} s"
+    except (TypeError, ValueError):
+        return "n/a"
+
+
+def _first_report_event(report: Dict[str, object], *, lane: str | None = None, effect_subtype: str | None = None) -> Dict[str, object] | None:
+    for event in report.get("events", []):  # type: ignore[assignment]
+        if lane is not None and event.get("lane") != lane:
+            continue
+        if effect_subtype is not None and event.get("effect_subtype") != effect_subtype:
+            continue
+        return event
+    return None
+
+
+def _chain_step(report: Dict[str, object], chain_stage: str) -> Dict[str, object] | None:
+    for step in report.get("chain", []):  # type: ignore[assignment]
+        if step.get("chain_stage") == chain_stage:
+            return step
+    return None
+
+
+def _chain_evidence_row(
+    run_label: str,
+    report: Dict[str, object],
+    *,
+    stage_label: str,
+    chain_stage: str,
+    fallback_signal: str,
+) -> Dict[str, str]:
+    step = _chain_step(report, chain_stage)
+    event = _first_report_event(report, lane=chain_stage)
+
+    if step is None:
+        return {
+            "run": run_label,
+            "stage": stage_label,
+            "time": "n/a",
+            "signal": fallback_signal,
+            "explanation": "No evidence was extracted for this propagation stage.",
+        }
+
+    signal = str(event.get("signal", "")) if event is not None else ""
+    if not signal:
+        signal = str(step.get("evidence_label", fallback_signal))
+
+    return {
+        "run": run_label,
+        "stage": stage_label,
+        "time": format_evidence_time(step.get("evidence_time_s")),
+        "signal": signal,
+        "explanation": str(step.get("evidence_detail", "")),
+    }
+
+
+def _event_evidence_row(
+    run_label: str,
+    event: Dict[str, object] | None,
+    *,
+    stage_label: str,
+    fallback_signal: str,
+    fallback_explanation: str,
+) -> Dict[str, str]:
+    if event is None:
+        return {
+            "run": run_label,
+            "stage": stage_label,
+            "time": "n/a",
+            "signal": fallback_signal,
+            "explanation": fallback_explanation,
+        }
+
+    return {
+        "run": run_label,
+        "stage": stage_label,
+        "time": format_evidence_time(event.get("time_s")),
+        "signal": str(event.get("signal", fallback_signal)),
+        "explanation": str(event.get("detail", fallback_explanation)),
+    }
+
+
+def propagation_evidence_rows(run_label: str, report: Dict[str, object]) -> List[Dict[str, str]]:
+    """Summarize the report evidence shown beside the propagation timeline."""
+    return [
+        _chain_evidence_row(
+            run_label,
+            report,
+            stage_label="Hardware-Origin Fault",
+            chain_stage="hardware_origin",
+            fallback_signal="fault injection schedule",
+        ),
+        _chain_evidence_row(
+            run_label,
+            report,
+            stage_label="ECU-Visible Manifestation",
+            chain_stage="ecu_manifestation",
+            fallback_signal="ECU-visible fault manifestation",
+        ),
+        _chain_evidence_row(
+            run_label,
+            report,
+            stage_label="First Diagnostic Evidence",
+            chain_stage="diagnostic_effect",
+            fallback_signal="primary_dtc_label",
+        ),
+        _event_evidence_row(
+            run_label,
+            _first_report_event(report, effect_subtype="safe_state"),
+            stage_label="First Safe-State Transition",
+            fallback_signal="safe_state_label",
+            fallback_explanation="No non-normal safe-state transition occurred during this run.",
+        ),
+        _event_evidence_row(
+            run_label,
+            _first_report_event(report, effect_subtype="peak_temperature"),
+            stage_label="Peak Thermal Severity",
+            fallback_signal="coolant_temp_true_c",
+            fallback_explanation="No peak-temperature evidence was extracted from the run.",
+        ),
+    ]
+
+
 def comparison_export_dir(left_campaign_id: str, right_campaign_id: str) -> Path:
     return EXPORT_ROOT / f"{left_campaign_id}_vs_{right_campaign_id}"
 
@@ -1842,6 +1969,7 @@ class VirtualECUGui(tk.Tk):
         self.batch_table: ttk.Treeview | None = None
         self.batch_plot: PlotCanvas | None = None
         self.comparison_plot: PlotCanvas | None = None
+        self.propagation_evidence_table: ttk.Treeview | None = None
 
         self._configure_style()
         self._build_layout()
@@ -1876,6 +2004,8 @@ class VirtualECUGui(tk.Tk):
         style.configure("MetricLabel.TLabel", font=("TkDefaultFont", 10, "bold"), foreground="#1f3040")
         style.configure("Batch.Treeview", rowheight=26, font=("TkDefaultFont", 9))
         style.configure("Batch.Treeview.Heading", font=("TkDefaultFont", 9, "bold"))
+        style.configure("Evidence.Treeview", rowheight=28, font=("TkDefaultFont", 9))
+        style.configure("Evidence.Treeview.Heading", font=("TkDefaultFont", 9, "bold"))
 
     def _build_layout(self) -> None:
         self.configure(background="#f4f6f8")
@@ -2029,7 +2159,8 @@ class VirtualECUGui(tk.Tk):
         plots = ttk.Frame(parent, padding=(12, 8, 12, 12), style="Root.TFrame")
         plots.grid(row=0, column=0, sticky="nsew")
         plots.columnconfigure(0, weight=1)
-        plots.rowconfigure(1, weight=1, minsize=700)
+        plots.rowconfigure(1, weight=1, minsize=520)
+        plots.rowconfigure(2, weight=0)
 
         plot_header = ttk.Frame(plots, style="Root.TFrame")
         plot_header.grid(row=0, column=0, sticky="ew", pady=(0, 10))
@@ -2058,10 +2189,72 @@ class VirtualECUGui(tk.Tk):
         self.comparison_plot = PlotCanvas(
             plots,
             self.comparison_plot_choice.get(),
-            canvas_height=700,
+            canvas_height=560,
         )
         self.comparison_plot.grid(row=1, column=0, sticky="nsew")
         self.comparison_plot.show_message("Run a comparison from the Comparison Summary page to display the selected plot here.")
+        self._build_propagation_evidence_panel(plots)
+
+    def _build_propagation_evidence_panel(self, parent: ttk.Frame) -> None:
+        panel = ttk.LabelFrame(parent, text="Propagation Evidence", padding=10)
+        panel.grid(row=2, column=0, sticky="ew", pady=(10, 0))
+        panel.columnconfigure(0, weight=1)
+
+        ttk.Label(
+            panel,
+            text="Evidence rows come from the same propagation-report logic used by the timeline and exports.",
+            style="Hint.TLabel",
+            wraplength=980,
+            justify="left",
+        ).grid(row=0, column=0, sticky="w", pady=(0, 8))
+
+        table_area = ttk.Frame(panel)
+        table_area.grid(row=1, column=0, sticky="ew")
+        table_area.columnconfigure(0, weight=1)
+
+        columns = ("run", "stage", "time", "signal", "explanation")
+        self.propagation_evidence_table = ttk.Treeview(
+            table_area,
+            columns=columns,
+            show="headings",
+            height=8,
+            style="Evidence.Treeview",
+        )
+        headings = {
+            "run": "Run",
+            "stage": "Stage",
+            "time": "Time",
+            "signal": "Observed Signal / Event",
+            "explanation": "Short Explanation",
+        }
+        widths = {
+            "run": 150,
+            "stage": 190,
+            "time": 80,
+            "signal": 210,
+            "explanation": 560,
+        }
+        anchors = {
+            "run": tk.W,
+            "stage": tk.W,
+            "time": tk.CENTER,
+            "signal": tk.W,
+            "explanation": tk.W,
+        }
+        for column_id in columns:
+            self.propagation_evidence_table.heading(column_id, text=headings[column_id])
+            self.propagation_evidence_table.column(
+                column_id,
+                width=widths[column_id],
+                anchor=anchors[column_id],
+                stretch=column_id == "explanation",
+            )
+
+        scroll = ttk.Scrollbar(table_area, orient="vertical", command=self.propagation_evidence_table.yview)
+        self.propagation_evidence_table.configure(yscrollcommand=scroll.set)
+        self.propagation_evidence_table.grid(row=0, column=0, sticky="ew")
+        scroll.grid(row=0, column=1, sticky="ns")
+        self._clear_propagation_evidence()
 
     def _build_batch_tab(self, parent: ttk.Frame) -> None:
         controls = ttk.LabelFrame(parent, text="Batch Aggregate Summary", padding=14)
@@ -2514,6 +2707,65 @@ class VirtualECUGui(tk.Tk):
         if selected:
             self.batch_csv_path.set(selected)
 
+    def _clear_propagation_evidence(self) -> None:
+        if self.propagation_evidence_table is None:
+            return
+
+        for item_id in self.propagation_evidence_table.get_children():
+            self.propagation_evidence_table.delete(item_id)
+
+        self.propagation_evidence_table.insert(
+            "",
+            "end",
+            values=(
+                "-",
+                "Run comparison",
+                "n/a",
+                "-",
+                "Run a campaign comparison to populate propagation evidence.",
+            ),
+        )
+
+    def _set_propagation_evidence_rows(self, rows: Sequence[Dict[str, str]]) -> None:
+        if self.propagation_evidence_table is None:
+            return
+
+        for item_id in self.propagation_evidence_table.get_children():
+            self.propagation_evidence_table.delete(item_id)
+
+        for row in rows:
+            self.propagation_evidence_table.insert(
+                "",
+                "end",
+                values=(
+                    row["run"],
+                    row["stage"],
+                    row["time"],
+                    row["signal"],
+                    row["explanation"],
+                ),
+            )
+
+    def _update_propagation_evidence(
+        self,
+        left_result: Dict[str, object],
+        right_result: Dict[str, object] | None,
+    ) -> None:
+        left_rows = left_result["raw_rows"]  # type: ignore[assignment]
+        left_label = self.summary_vars["left"]["Campaign Name"].get()
+        reports = [(left_label, build_propagation_report(left_rows))]
+
+        if right_result is not None:
+            right_rows = right_result["raw_rows"]  # type: ignore[assignment]
+            right_label = self.summary_vars["right"]["Campaign Name"].get()
+            reports.append((right_label, build_propagation_report(right_rows)))
+
+        evidence_rows: List[Dict[str, str]] = []
+        for label, report in reports:
+            evidence_rows.extend(propagation_evidence_rows(label, report))
+
+        self._set_propagation_evidence_rows(evidence_rows)
+
     def load_batch_results(self) -> None:
         csv_path = Path(self.batch_csv_path.get()).expanduser()
         try:
@@ -2790,6 +3042,7 @@ class VirtualECUGui(tk.Tk):
         if self.comparison_plot is not None:
             self.comparison_plot.set_title(self.comparison_plot_choice.get())
             self.comparison_plot.show_message("Run a comparison from the Comparison Summary page to display the selected plot here.")
+        self._clear_propagation_evidence()
 
     def run_left_only(self) -> None:
         self._run_campaigns(include_right=False)
@@ -2907,6 +3160,7 @@ class VirtualECUGui(tk.Tk):
         }
         self._refresh_metric_cells()
         self._update_comparison_findings(left_result, right_result)
+        self._update_propagation_evidence(left_result, right_result)
         self._refresh_selected_plot()
 
     def _update_comparison_findings(

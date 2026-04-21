@@ -289,6 +289,14 @@ The GUI also plots:
   diagnostic effect,
   and safe-state/system effect
 
+The `Comparison Figures` tab also includes a lightweight `Propagation Evidence`
+panel beside the propagation-timeline workflow. For each loaded run, it lists
+the hardware-origin fault evidence, ECU-visible manifestation, first diagnostic
+evidence, first safe-state transition, and peak thermal severity. This makes the
+hardware-origin fault -> ECU manifestation -> diagnostic evidence -> safe-state
+/ thermal outcome chain easier to explain during demos without opening the raw
+CSV files.
+
 The GUI also includes a lightweight `Batch Results` tab for loading an existing
 aggregate summary CSV such as `results/batch/paper_quick/aggregate_summary.csv`.
 That tab provides:
