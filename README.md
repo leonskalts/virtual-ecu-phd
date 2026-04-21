@@ -299,6 +299,14 @@ hardware-origin fault -> ECU manifestation -> diagnostic evidence -> safe-state
 / thermal outcome chain easier to explain during demos without opening the raw
 CSV files.
 
+The GUI also includes a `Fault Path` tab with two small Canvas-based system
+diagrams for the selected left and right campaigns. The diagram highlights the
+qualitative ECU subsystem where the campaign's hardware-origin fault abstraction
+enters the path: sensor/ADC front-end, timing/communication link, ECU control
+and calibration memory, actuator driver/power stage, or the thermal plant /
+coolant system. This is a presentation aid for cross-layer reasoning, not a
+circuit-level or device-level simulation.
+
 The GUI also includes a lightweight `Batch Results` tab for loading an existing
 aggregate summary CSV such as `results/batch/paper_quick/aggregate_summary.csv`.
 That tab provides:

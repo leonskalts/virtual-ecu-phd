@@ -121,6 +121,37 @@ EVIDENCE_STAGE_TAGS = {
     "First Safe-State Transition": "evidence_safe_state",
     "Peak Thermal Severity": "evidence_thermal",
 }
+FAULT_PATH_BLOCKS: Sequence[Tuple[str, str]] = (
+    ("sensor_adc", "Sensor / ADC\nFront-End"),
+    ("timing_link", "Timing /\nCommunication Link"),
+    ("ecu_control_memory", "ECU Control +\nCalibration Memory"),
+    ("actuator_power", "Actuator Driver /\nPower Stage"),
+    ("thermal_plant", "Thermal Plant /\nCoolant System"),
+)
+CAMPAIGN_AFFECTED_BLOCKS = {
+    "baseline": (),
+    "sensor_bias_only": ("sensor_adc",),
+    "sensor_interface_intermittent": ("sensor_adc",),
+    "stale_sensor_data_only": ("timing_link",),
+    "stale_sensor_data_hot_stress": ("timing_link",),
+    "pump_degraded_only": ("actuator_power",),
+    "fan_stuck_only": ("actuator_power",),
+    "fan_stuck_hot_stress": ("actuator_power",),
+    "calibration_memory_corruption": ("ecu_control_memory",),
+    "paper_default": ("sensor_adc", "actuator_power"),
+}
+FAULT_PATH_NOTES = {
+    "baseline": "Nominal sensing, timing, control, actuation, and thermal path.",
+    "sensor_bias_only": "Sensing-path corruption enters through the ADC/front-end measurement chain.",
+    "sensor_interface_intermittent": "Intermittent sensor-interface corruption appears before ECU control logic.",
+    "stale_sensor_data_only": "A timing/communication delay leaves the ECU acting on aged coolant data.",
+    "stale_sensor_data_hot_stress": "A stale-data timing path is stressed by hotter, lower-airflow operation.",
+    "pump_degraded_only": "Actuator authority is reduced between ECU command and realized coolant flow.",
+    "fan_stuck_only": "Fan driver or power-stage behavior prevents commanded fan actuation.",
+    "fan_stuck_hot_stress": "Fan power-stage loss propagates into a strong thermal/safety response.",
+    "calibration_memory_corruption": "A corrupted calibration target shifts ECU control behavior internally.",
+    "paper_default": "Mixed sensing and actuation faults propagate through the ECU path in stages.",
+}
 
 CAMPAIGN_STORIES = {
     "baseline": {
@@ -1901,6 +1932,158 @@ class PlotCanvas(ttk.Frame):
         )
 
 
+class FaultPathDiagram(ttk.Frame):
+    """Canvas-based qualitative cross-layer ECU path visualization."""
+
+    def __init__(self, master: tk.Misc, side_label: str, accent_color: str) -> None:
+        super().__init__(master)
+        self.side_label = side_label
+        self.accent_color = accent_color
+        self.campaign_id = "baseline"
+        self.campaign_label = "Baseline"
+        self.affected_blocks: Tuple[str, ...] = ()
+
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(1, weight=1)
+
+        self.title_var = tk.StringVar(value=side_label)
+        ttk.Label(self, textvariable=self.title_var, style="Section.TLabel").grid(
+            row=0,
+            column=0,
+            sticky="w",
+            padx=6,
+            pady=(0, 4),
+        )
+        self.canvas = tk.Canvas(
+            self,
+            background="#ffffff",
+            height=330,
+            highlightthickness=1,
+            highlightbackground="#c7d0d9",
+        )
+        self.canvas.grid(row=1, column=0, sticky="nsew")
+        self.canvas.bind("<Configure>", lambda _event: self.redraw())
+        self.set_campaign("baseline")
+
+    def set_campaign(self, campaign_id: str) -> None:
+        story = campaign_story(campaign_id)
+        self.campaign_id = campaign_id
+        self.campaign_label = story["campaign_name"]
+        self.affected_blocks = tuple(CAMPAIGN_AFFECTED_BLOCKS.get(campaign_id, ()))
+        self.title_var.set(f"{self.side_label}: {self.campaign_label}")
+        self.redraw()
+
+    def redraw(self) -> None:
+        self.canvas.delete("all")
+        width = max(self.canvas.winfo_width(), 420)
+        height = max(self.canvas.winfo_height(), 280)
+        margin_x = 28
+        top = 76
+        block_gap = 14
+        block_count = len(FAULT_PATH_BLOCKS)
+        block_width = max((width - 2 * margin_x - block_gap * (block_count - 1)) / block_count, 72)
+        block_height = 78
+        note = FAULT_PATH_NOTES.get(self.campaign_id, "Selected campaign mapped onto the qualitative ECU path.")
+
+        self.canvas.create_text(
+            margin_x,
+            22,
+            anchor="w",
+            text="Qualitative Cross-Layer Fault Path",
+            fill="#1d3448",
+            font=("TkDefaultFont", 12, "bold"),
+        )
+        self.canvas.create_text(
+            margin_x,
+            48,
+            anchor="w",
+            text=note,
+            fill="#4d5c69",
+            font=("TkDefaultFont", 9),
+            width=max(width - 2 * margin_x, 260),
+        )
+
+        centers: Dict[str, Tuple[float, float]] = {}
+        for index, (block_id, label) in enumerate(FAULT_PATH_BLOCKS):
+            x0 = margin_x + index * (block_width + block_gap)
+            y0 = top
+            x1 = x0 + block_width
+            y1 = y0 + block_height
+            is_affected = block_id in self.affected_blocks
+            fill = "#fff4df" if is_affected else "#f7f9fb"
+            outline = self.accent_color if is_affected else "#cbd5df"
+            line_width = 3 if is_affected else 1
+
+            self.canvas.create_rectangle(
+                x0,
+                y0,
+                x1,
+                y1,
+                fill=fill,
+                outline=outline,
+                width=line_width,
+            )
+            self.canvas.create_text(
+                (x0 + x1) / 2,
+                (y0 + y1) / 2,
+                text=label,
+                fill="#1f2e3b",
+                font=("TkDefaultFont", 9, "bold" if is_affected else "normal"),
+                justify="center",
+                width=max(block_width - 12, 60),
+            )
+            centers[block_id] = ((x0 + x1) / 2, (y0 + y1) / 2)
+
+            if index > 0:
+                previous_id = FAULT_PATH_BLOCKS[index - 1][0]
+                prev_x, prev_y = centers[previous_id]
+                self.canvas.create_line(
+                    prev_x + block_width / 2,
+                    prev_y,
+                    x0 - 4,
+                    prev_y,
+                    fill="#8a98a6",
+                    width=2,
+                    arrow=tk.LAST,
+                )
+
+        legend_y = top + block_height + 34
+        if self.affected_blocks:
+            legend_text = "Highlighted block(s): hardware-origin fault abstraction for this campaign."
+            legend_fill = self.accent_color
+        else:
+            legend_text = "No injected hardware-origin fault: nominal path is shown without highlighted blocks."
+            legend_fill = "#3f7f52"
+
+        self.canvas.create_rectangle(
+            margin_x,
+            legend_y - 11,
+            margin_x + 18,
+            legend_y + 7,
+            fill="#fff4df" if self.affected_blocks else "#e8f4ec",
+            outline=legend_fill,
+            width=2,
+        )
+        self.canvas.create_text(
+            margin_x + 28,
+            legend_y - 2,
+            anchor="w",
+            text=legend_text,
+            fill="#33404d",
+            font=("TkDefaultFont", 9),
+            width=max(width - 2 * margin_x - 34, 260),
+        )
+        self.canvas.create_text(
+            margin_x,
+            min(height - 24, legend_y + 46),
+            anchor="w",
+            text="Interpretation: hardware-origin fault -> ECU-visible manifestation -> diagnostic/safety effect.",
+            fill="#5b6b79",
+            font=("TkDefaultFont", 9),
+            width=max(width - 2 * margin_x, 260),
+        )
+
+
 class VirtualECUGui(tk.Tk):
     METRIC_NAMES = (
         "Final DTC",
@@ -2002,6 +2185,8 @@ class VirtualECUGui(tk.Tk):
         self.batch_plot: PlotCanvas | None = None
         self.comparison_plot: PlotCanvas | None = None
         self.propagation_evidence_table: ttk.Treeview | None = None
+        self.left_fault_path_diagram: FaultPathDiagram | None = None
+        self.right_fault_path_diagram: FaultPathDiagram | None = None
 
         self._configure_style()
         self._build_layout()
@@ -2089,6 +2274,11 @@ class VirtualECUGui(tk.Tk):
         figures_tab.rowconfigure(0, weight=1)
         notebook.add(figures_tab, text="Comparison Figures")
 
+        fault_path_tab = ttk.Frame(notebook, padding=(4, 8, 4, 6), style="Root.TFrame")
+        fault_path_tab.columnconfigure(0, weight=1)
+        fault_path_tab.rowconfigure(1, weight=1)
+        notebook.add(fault_path_tab, text="Fault Path")
+
         batch_tab = ttk.Frame(notebook, padding=(4, 8, 4, 6), style="Root.TFrame")
         batch_tab.columnconfigure(0, weight=1)
         batch_tab.rowconfigure(3, weight=1)
@@ -2096,6 +2286,7 @@ class VirtualECUGui(tk.Tk):
 
         self._build_comparison_summary_tab(summary_tab)
         self._build_comparison_figures_tab(figures_tab)
+        self._build_fault_path_tab(fault_path_tab)
         self._build_batch_tab(batch_tab)
 
     def _build_comparison_summary_tab(self, parent: ttk.Frame) -> None:
@@ -2294,6 +2485,47 @@ class VirtualECUGui(tk.Tk):
         self.propagation_evidence_table.grid(row=0, column=0, sticky="ew")
         scroll.grid(row=0, column=1, sticky="ns")
         self._clear_propagation_evidence()
+
+    def _build_fault_path_tab(self, parent: ttk.Frame) -> None:
+        header = ttk.Frame(parent, padding=(12, 8, 12, 10), style="Root.TFrame")
+        header.grid(row=0, column=0, sticky="ew")
+        header.columnconfigure(0, weight=1)
+        ttk.Label(header, text="Cross-Layer Fault Path Visualization", style="Section.TLabel").grid(
+            row=0,
+            column=0,
+            sticky="w",
+        )
+        ttk.Label(
+            header,
+            text=(
+                "Use this qualitative view to map the selected campaigns onto the ECU path from sensor electronics "
+                "through timing, control memory, actuation, and thermal-system outcome."
+            ),
+            style="Hint.TLabel",
+            wraplength=1050,
+            justify="left",
+        ).grid(row=1, column=0, sticky="w", pady=(4, 0))
+
+        diagram_area = ttk.Frame(parent, padding=(12, 0, 12, 12), style="Root.TFrame")
+        diagram_area.grid(row=1, column=0, sticky="nsew")
+        diagram_area.columnconfigure(0, weight=1)
+        diagram_area.columnconfigure(1, weight=1)
+        diagram_area.rowconfigure(0, weight=1)
+
+        left_frame = ttk.LabelFrame(diagram_area, text="Left Campaign Path", padding=10)
+        left_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
+        left_frame.columnconfigure(0, weight=1)
+        left_frame.rowconfigure(0, weight=1)
+        self.left_fault_path_diagram = FaultPathDiagram(left_frame, "Left", LEFT_COLOR)
+        self.left_fault_path_diagram.grid(row=0, column=0, sticky="nsew")
+
+        right_frame = ttk.LabelFrame(diagram_area, text="Right Campaign Path", padding=10)
+        right_frame.grid(row=0, column=1, sticky="nsew", padx=(8, 0))
+        right_frame.columnconfigure(0, weight=1)
+        right_frame.rowconfigure(0, weight=1)
+        self.right_fault_path_diagram = FaultPathDiagram(right_frame, "Right", RIGHT_COLOR)
+        self.right_fault_path_diagram.grid(row=0, column=0, sticky="nsew")
+        self._refresh_fault_path_diagrams()
 
     def _build_batch_tab(self, parent: ttk.Frame) -> None:
         controls = ttk.LabelFrame(parent, text="Batch Aggregate Summary", padding=14)
@@ -2659,12 +2891,14 @@ class VirtualECUGui(tk.Tk):
 
     def _on_campaign_changed(self, _event: tk.Event[tk.Misc] | None = None) -> None:
         self._refresh_campaign_context()
+        self._refresh_fault_path_diagrams()
         self._reset_summary_values()
 
     def _apply_demo_comparison(self, left_campaign: str, right_campaign: str) -> None:
         self.left_campaign.set(left_campaign)
         self.right_campaign.set(right_campaign)
         self._refresh_campaign_context()
+        self._refresh_fault_path_diagrams()
         self._reset_summary_values()
         self.status_text.set(f"Demo shortlist loaded: {left_campaign} vs {right_campaign}. Run comparison to inspect it.")
 
@@ -3069,6 +3303,12 @@ class VirtualECUGui(tk.Tk):
             self.context_vars[slot]["Hardware Source"].set(story["hardware_source"])
             self.context_vars[slot]["ECU Manifestation"].set(story["ecu_manifestation"])
 
+    def _refresh_fault_path_diagrams(self) -> None:
+        if self.left_fault_path_diagram is not None:
+            self.left_fault_path_diagram.set_campaign(self.left_campaign.get())
+        if self.right_fault_path_diagram is not None:
+            self.right_fault_path_diagram.set_campaign(self.right_campaign.get())
+
     def _reset_summary_values(self) -> None:
         self.current_comparison = None
         self.current_plot_results = None
@@ -3200,6 +3440,7 @@ class VirtualECUGui(tk.Tk):
             "left": left_result,
             "right": right_result,
         }
+        self._refresh_fault_path_diagrams()
         self._refresh_metric_cells()
         self._update_comparison_findings(left_result, right_result)
         self._update_propagation_evidence(left_result, right_result)
