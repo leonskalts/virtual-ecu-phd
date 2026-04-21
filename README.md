@@ -197,6 +197,7 @@ This workflow:
 
 - generates the recommended single-run campaign logs in `logs/recommended_study/`
 - writes the single-run paper/demo bundle to `results/paper/`
+- regenerates curated cross-layer propagation bundles beside selected recommended logs
 - refreshes the compact batch study in `results/batch/paper_quick/`
 - regenerates the batch-analysis and claim-focused outputs
 
@@ -211,6 +212,7 @@ Most important outputs to inspect first:
 - `results/paper/table_2_cross_campaign_results.csv`
 - `results/paper/figure_1_coolant_temperature_vs_time.png`
 - `results/paper/figure_2_safe_state_timeline.png`
+- `logs/recommended_study/fan_stuck_hot_stress_propagation/propagation_summary.txt`
 - `results/batch/paper_quick/aggregate_summary.csv`
 - `results/batch/paper_quick/analysis/table_batch_2_fault_type_summary.csv`
 - `results/batch/paper_quick/analysis_claims/table_claim_1_main_comparison.csv`
@@ -234,7 +236,7 @@ timing comparison.
 The recommended final workflow keeps outputs in four main places:
 
 - `logs/`
-  single-run simulator CSV files, including `logs/recommended_study/`
+  single-run simulator CSV files, including `logs/recommended_study/`, plus curated propagation bundles for selected recommended runs
 - `results/batch/`
   compact and larger batch studies such as `results/batch/paper_quick/`
 - `results/paper/`
@@ -415,6 +417,11 @@ Each run keeps:
 - one raw time-series CSV
 - one one-row summary CSV
 
+Before a batch profile is rerun, the batch runner removes its previous
+`aggregate_summary.csv` and `runs/` directory for that batch ID. This keeps the
+run folder reproducible and prevents stale CSV files from surviving beside the
+current aggregate.
+
 The aggregate summary CSV collects one row per run and includes at least:
 
 - `campaign_id`
@@ -482,6 +489,13 @@ The propagation CSV is intended to stay easy to inspect in a spreadsheet:
 
 The same propagation view is also available directly inside the GUI comparison
 plot selector and is included in exported GUI comparison/snapshot bundles.
+The recommended workflow also regenerates curated propagation bundles for the
+strongest recommended cases:
+
+- `fan_stuck_hot_stress`
+- `calibration_memory_corruption`
+- `stale_sensor_data_hot_stress`
+- `paper_default`
 
 ## Paper Tables and Figures
 
@@ -491,22 +505,22 @@ Generate the main paper tables and figures from the current campaign logs:
 python3 scripts/generate_paper_results.py
 ```
 
-This writes the following outputs to `results/`:
+This writes the following outputs to `results/paper/` by default:
 
-- `table_1_campaign_definition.csv`
-- `table_2_cross_campaign_results.csv`
-- `figure_1_coolant_temperature_vs_time.png`
-- `figure_2_safe_state_timeline.png`
-- `figure_3_fan_command_vs_actual.png`
+- `results/paper/table_1_campaign_definition.csv`
+- `results/paper/table_2_cross_campaign_results.csv`
+- `results/paper/figure_1_coolant_temperature_vs_time.png`
+- `results/paper/figure_2_safe_state_timeline.png`
+- `results/paper/figure_3_fan_command_vs_actual.png`
 
-If needed, generate or refresh the required campaign logs first:
+For the recommended thesis/paper bundle, prefer the integrated workflow:
 
 ```sh
-./virtual_ecu logs/baseline.csv baseline
-./virtual_ecu logs/transient.csv sensor_bias_only
-./virtual_ecu logs/permanent.csv fan_stuck_only
-./virtual_ecu logs/permanent_stress.csv fan_stuck_hot_stress
-./virtual_ecu logs/paper_default.csv paper_default
+make recommended-study
 ```
+
+If using `generate_paper_results.py` directly, it reads campaign logs from
+`logs/recommended_study/` by default. You can override the input and output
+locations with `--logs-dir` and `--results-dir`.
 
 The script uses Python 3 and Matplotlib, which are available on a typical WSL Python setup.

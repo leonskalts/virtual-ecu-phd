@@ -23,6 +23,13 @@ RECOMMENDED_CAMPAIGNS: Sequence[Tuple[str, str]] = (
     ("paper_default", "Paper Default"),
 )
 
+PROPAGATION_REPORT_CAMPAIGNS: Sequence[str] = (
+    "fan_stuck_hot_stress",
+    "calibration_memory_corruption",
+    "stale_sensor_data_hot_stress",
+    "paper_default",
+)
+
 
 def detect_executable() -> Path:
     for candidate in (PROJECT_ROOT / "virtual_ecu", PROJECT_ROOT / "virtual_ecu.exe"):
@@ -57,6 +64,22 @@ def run_campaign_logs(executable: Path) -> List[Path]:
     return generated_logs
 
 
+def generate_propagation_reports() -> None:
+    for campaign_id in PROPAGATION_REPORT_CAMPAIGNS:
+        input_csv = RECOMMENDED_LOGS_DIR / f"{campaign_id}.csv"
+        output_dir = RECOMMENDED_LOGS_DIR / f"{campaign_id}_propagation"
+        print(f"Generating propagation report: {campaign_id}")
+        run_command(
+            (
+                sys.executable,
+                "scripts/generate_propagation_report.py",
+                str(input_csv),
+                "--output-dir",
+                str(output_dir),
+            )
+        )
+
+
 def write_manifest(generated_logs: Iterable[Path]) -> None:
     RECOMMENDED_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     manifest_path = RECOMMENDED_RESULTS_DIR / "recommended_study_manifest.txt"
@@ -70,6 +93,10 @@ def write_manifest(generated_logs: Iterable[Path]) -> None:
         RECOMMENDED_BATCH_DIR / "aggregate_summary.csv",
         RECOMMENDED_BATCH_DIR / "analysis" / "table_batch_2_fault_type_summary.csv",
         RECOMMENDED_BATCH_DIR / "analysis_claims" / "table_claim_1_main_comparison.csv",
+        *(
+            RECOMMENDED_LOGS_DIR / f"{campaign_id}_propagation" / "propagation_timeline.csv"
+            for campaign_id in PROPAGATION_REPORT_CAMPAIGNS
+        ),
     ]
 
     with manifest_path.open("w", encoding="utf-8") as handle:
@@ -104,6 +131,9 @@ def main() -> None:
             str(RECOMMENDED_RESULTS_DIR),
         )
     )
+
+    print("Generating curated propagation report bundles")
+    generate_propagation_reports()
 
     print("Refreshing compact batch study")
     run_command(

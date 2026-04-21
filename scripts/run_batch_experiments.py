@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import shutil
 import subprocess
 from dataclasses import dataclass
 from itertools import product
@@ -383,6 +384,18 @@ def write_csv(path: Path, columns: Sequence[str], rows: Iterable[Dict[str, str]]
         writer.writerows(rows)
 
 
+def clean_batch_outputs(output_dir: Path) -> None:
+    """Remove files owned by this runner so stale run CSVs cannot survive."""
+    aggregate_path = output_dir / "aggregate_summary.csv"
+    runs_dir = output_dir / "runs"
+
+    if aggregate_path.exists():
+        aggregate_path.unlink()
+
+    if runs_dir.exists():
+        shutil.rmtree(runs_dir)
+
+
 def run_batch(profile_name: str, specs: Sequence[RunSpec], output_dir: Path) -> Path:
     executable = detect_executable()
     runs_dir = output_dir / "runs"
@@ -431,6 +444,7 @@ def main() -> None:
         raise SystemExit("No batch runs were generated.")
 
     output_dir.mkdir(parents=True, exist_ok=True)
+    clean_batch_outputs(output_dir)
     aggregate_path = run_batch(args.profile, specs, output_dir)
 
     print("\nBatch experiment complete.")

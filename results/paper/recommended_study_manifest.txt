@@ -26,3 +26,7 @@ Key output files:
 - results/batch/paper_quick/aggregate_summary.csv
 - results/batch/paper_quick/analysis/table_batch_2_fault_type_summary.csv
 - results/batch/paper_quick/analysis_claims/table_claim_1_main_comparison.csv
+- logs/recommended_study/fan_stuck_hot_stress_propagation/propagation_timeline.csv
+- logs/recommended_study/calibration_memory_corruption_propagation/propagation_timeline.csv
+- logs/recommended_study/stale_sensor_data_hot_stress_propagation/propagation_timeline.csv
+- logs/recommended_study/paper_default_propagation/propagation_timeline.csv
