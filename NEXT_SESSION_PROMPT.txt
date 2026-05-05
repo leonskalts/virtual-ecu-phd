@@ -1,43 +1,55 @@
-Continue from the current repository state.
-
-This project is a virtual ECU framework for automotive thermal management, framed as a cross-layer hardware-origin fault propagation platform for VLSI + automotive electronics research.
+Read NEXT_SESSION_PROMPT.txt and continue from the current repository state.
 
 Before making changes:
 1. Run git status --short.
-2. Inspect README.md.
-3. Inspect scripts/virtual_ecu_gui.py.
-4. Inspect scripts/propagation_report.py and scripts/generate_propagation_report.py.
-5. Inspect the current recommended workflow in scripts/run_recommended_study.py and Makefile.
+2. Inspect scripts/virtual_ecu_gui.py.
+3. Inspect README.md.
+4. Inspect the current Multi-Fault Scenario Builder and Scenario Timeline implementation.
 
-Current important features expected in the repo:
-- Modular C virtual ECU simulator.
-- Built-in campaigns for sensing-path, timing/communication-path, actuation-path, and computation/memory-path faults.
-- Recommended study workflow.
-- Batch study workflow.
-- Paper/demo output generation.
-- GUI with campaign comparison, comparison figures, batch results, propagation timeline, propagation evidence panel, exportable reports/snapshots, and presentation mode scoped to comparison figures.
-- Cleanup/reproducibility improvements for generated batch outputs and dependency files.
-
-Next task idea:
-Add a lightweight fault visualization panel to the GUI using Tkinter Canvas, not external images. The diagram should qualitatively show:
-Sensor / ADC Front-End -> Timing / Communication Link -> ECU Control + Calibration Memory -> Actuator Driver / Power Stage -> Thermal Plant / Coolant System.
-
-The visualization should highlight affected subsystem(s) depending on selected/loaded campaign:
-- baseline -> nominal, no fault highlight
-- sensor_bias_only -> Sensor / ADC Front-End
-- sensor_interface_intermittent -> Sensor / ADC Front-End
-- stale_sensor_data_only -> Timing / Communication Link
-- stale_sensor_data_hot_stress -> Timing / Communication Link
-- pump_degraded_only -> Actuator Driver / Power Stage
-- fan_stuck_only -> Actuator Driver / Power Stage
-- fan_stuck_hot_stress -> Actuator Driver / Power Stage
-- calibration_memory_corruption -> ECU Control + Calibration Memory
-- paper_default -> multiple affected blocks
+Then refine the Multi-Fault Scenario Timeline in the GUI so it looks clean and presentation-friendly.
 
 Keep the C simulator unchanged.
-Keep GUI in Python/Tkinter.
+Keep the GUI in Python/Tkinter.
 Do not add heavy dependencies.
-Do not use external image files unless absolutely necessary.
-Make the diagram presentation-friendly and useful for explaining hardware-origin fault -> ECU-visible manifestation -> diagnostic/safety/thermal effect.
 
-First summarize the current state and propose exactly where the visualization should be placed in the GUI before editing files.
+The current Scenario Timeline works functionally, but it looks visually crowded and not polished enough for thesis/demo use.
+
+Please do all of the following:
+
+1. Redesign the Scenario Timeline visually without removing the feature.
+2. Make it cleaner, simpler, and easier to read at a glance.
+3. Reduce clutter inside the timeline area:
+   - remove unnecessary explanatory text from inside the drawing area
+   - avoid too much small text inside the chart itself
+   - keep only the most important labels visible
+4. Improve spacing and hierarchy:
+   - give the timeline more breathing room
+   - increase margins/padding
+   - align the event rows more cleanly
+5. Make the timeline feel more like a presentation card and less like a debugging canvas.
+6. Improve the time axis:
+   - make start/end markers cleaner
+   - keep labels readable
+   - avoid overlapping labels
+7. Improve event rendering:
+   - cleaner bars
+   - clearer permanent-fault visualization
+   - better row separation
+   - more consistent colors
+8. Keep the live update behavior when events are added, updated, removed, reordered, or loaded from presets.
+9. Keep the existing scenario builder workflow and buttons intact.
+10. Do not break:
+   - custom presets
+   - run scenario actions
+   - comparison flow
+   - figures/export workflow
+
+Also provide:
+- what visual changes were made
+- why the timeline now looks better
+- whether it is now suitable for thesis/demo screenshots
+
+Finally run verification:
+- make
+- python3 -m py_compile scripts/virtual_ecu_gui.py
+- a smoke test if possible
