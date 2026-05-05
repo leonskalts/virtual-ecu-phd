@@ -80,6 +80,57 @@ static int configure_experiment_from_args(ecu_state_t *state, int argc, char **a
         return 0;
     }
 
+    if (strcmp(argv[arg_index], "custom_multi") == 0) {
+        fault_event_t events[ECU_MAX_FAULT_EVENTS];
+        unsigned int event_count;
+        unsigned int required_argc;
+        unsigned int i;
+
+        if (argc <= arg_index + 1) {
+            fprintf(stderr, "%s", experiment_campaign_usage());
+            experiment_list_campaigns(stderr);
+            return -1;
+        }
+
+        event_count = (unsigned int)strtoul(argv[arg_index + 1], NULL, 10);
+        if (event_count < 2U || event_count > ECU_MAX_FAULT_EVENTS) {
+            fprintf(stderr, "custom_multi expects between 2 and %u ordered fault events.\n", ECU_MAX_FAULT_EVENTS);
+            fprintf(stderr, "%s", experiment_campaign_usage());
+            return -1;
+        }
+
+        required_argc = (unsigned int)(arg_index + 2) + (event_count * 5U);
+        if ((unsigned int)argc != required_argc) {
+            fprintf(stderr, "custom_multi requires exactly %u event argument groups.\n", event_count);
+            fprintf(stderr, "%s", experiment_campaign_usage());
+            return -1;
+        }
+
+        memset(events, 0, sizeof(events));
+        for (i = 0U; i < event_count; i++) {
+            int base_index = arg_index + 2 + (int)(i * 5U);
+
+            events[i].mode = experiment_fault_mode_from_string(argv[base_index]);
+            events[i].start_ms = (unsigned int)strtoul(argv[base_index + 1], NULL, 10);
+            events[i].duration_ms = (unsigned int)strtoul(argv[base_index + 2], NULL, 10);
+            events[i].behavior = experiment_fault_behavior_from_string(argv[base_index + 3]);
+            events[i].parameter = strtof(argv[base_index + 4], NULL);
+
+            if (events[i].mode == FAULT_NONE || events[i].behavior == FAULT_BEHAVIOR_NONE) {
+                fprintf(stderr, "Invalid custom_multi fault configuration at event %u.\n", i + 1U);
+                fprintf(stderr, "%s", experiment_campaign_usage());
+                return -1;
+            }
+        }
+
+        if (experiment_configure_custom_fault_sequence(state, "custom_multi", events, event_count) != 0) {
+            fprintf(stderr, "Failed to configure custom multi-fault scenario.\n");
+            return -1;
+        }
+
+        return 0;
+    }
+
     if (experiment_configure_campaign(state, argv[arg_index]) != 0) {
         fprintf(stderr, "Unknown campaign '%s'.\n", argv[arg_index]);
         fprintf(stderr, "%s", experiment_campaign_usage());

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import csv
+import json
 import os
 import subprocess
 import threading
@@ -35,9 +36,12 @@ from propagation_report import (
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 LOGS_DIR = PROJECT_ROOT / "logs"
+CUSTOM_LOGS_DIR = LOGS_DIR / "gui_custom"
+CUSTOM_PRESETS_DIR = PROJECT_ROOT / "presets" / "gui_custom"
 EXPORT_ROOT = PROJECT_ROOT / "results" / "gui_comparison_reports"
 SNAPSHOT_ROOT = PROJECT_ROOT / "results" / "gui_snapshots"
 DEFAULT_BATCH_AGGREGATE_CSV = PROJECT_ROOT / "results" / "batch" / "paper_quick" / "aggregate_summary.csv"
+MAX_CUSTOM_SCENARIO_EVENTS = 4
 
 CAMPAIGNS: Sequence[Tuple[str, str]] = (
     ("baseline", "Baseline"),
@@ -51,6 +55,169 @@ CAMPAIGNS: Sequence[Tuple[str, str]] = (
     ("calibration_memory_corruption", "Calibration Memory Corruption"),
     ("paper_default", "Paper Default"),
 )
+CUSTOM_FAULT_TYPES: Sequence[Tuple[str, str]] = (
+    ("sensor_bias", "Sensor Bias"),
+    ("sensor_interface_intermittent", "Sensor Interface Intermittent"),
+    ("stale_sensor_data", "Stale Sensor Data"),
+    ("pump_degraded", "Pump Degraded"),
+    ("fan_stuck_off", "Fan Stuck Off"),
+    ("calibration_memory_corruption", "Calibration Memory Corruption"),
+)
+CUSTOM_FAULT_BEHAVIORS: Sequence[Tuple[str, str]] = (
+    ("transient", "Transient"),
+    ("permanent", "Permanent"),
+)
+CUSTOM_DEFAULT_PARAMETERS = {
+    "sensor_bias": "6.0",
+    "sensor_interface_intermittent": "8.0",
+    "stale_sensor_data": "2500",
+    "pump_degraded": "0.45",
+    "fan_stuck_off": "0.0",
+    "calibration_memory_corruption": "16.0",
+}
+BUILTIN_CUSTOM_PRESETS = {
+    "sensor_bias_demo": {
+        "preset_kind": "single",
+        "preset_name": "sensor_bias_demo",
+        "fault_type": "sensor_bias",
+        "fault_behavior": "transient",
+        "start_ms": 20000,
+        "duration_ms": 10000,
+        "parameter": 8.0,
+    },
+    "stale_sensor_data_demo": {
+        "preset_kind": "single",
+        "preset_name": "stale_sensor_data_demo",
+        "fault_type": "stale_sensor_data",
+        "fault_behavior": "transient",
+        "start_ms": 20000,
+        "duration_ms": 10000,
+        "parameter": 2500.0,
+    },
+    "fan_stuck_off_demo": {
+        "preset_kind": "single",
+        "preset_name": "fan_stuck_off_demo",
+        "fault_type": "fan_stuck_off",
+        "fault_behavior": "permanent",
+        "start_ms": 60000,
+        "duration_ms": 0,
+        "parameter": 0.0,
+    },
+}
+BUILTIN_MULTI_CUSTOM_PRESETS = {
+    "sensor_bias_then_fan_loss_demo": {
+        "preset_kind": "multi",
+        "preset_name": "sensor_bias_then_fan_loss_demo",
+        "events": [
+            {
+                "fault_type": "sensor_bias",
+                "fault_behavior": "transient",
+                "start_ms": 20000,
+                "duration_ms": 10000,
+                "parameter": 8.0,
+            },
+            {
+                "fault_type": "fan_stuck_off",
+                "fault_behavior": "permanent",
+                "start_ms": 65000,
+                "duration_ms": 0,
+                "parameter": 0.0,
+            },
+        ],
+    },
+    "stale_then_pump_demo": {
+        "preset_kind": "multi",
+        "preset_name": "stale_then_pump_demo",
+        "events": [
+            {
+                "fault_type": "stale_sensor_data",
+                "fault_behavior": "transient",
+                "start_ms": 25000,
+                "duration_ms": 15000,
+                "parameter": 3000.0,
+            },
+            {
+                "fault_type": "pump_degraded",
+                "fault_behavior": "transient",
+                "start_ms": 60000,
+                "duration_ms": 25000,
+                "parameter": 0.45,
+            },
+        ],
+    },
+}
+CUSTOM_MODE_AFFECTED_BLOCKS = {
+    "sensor_bias": ("sensor_adc",),
+    "sensor_interface_intermittent": ("sensor_adc",),
+    "stale_sensor_data": ("timing_link",),
+    "pump_degraded": ("actuator_power",),
+    "fan_stuck_off": ("actuator_power",),
+    "calibration_memory_corruption": ("ecu_control_memory",),
+}
+CUSTOM_FAULT_NOTES = {
+    "sensor_bias": "Custom sensing-path bias enters through the ADC/front-end chain.",
+    "sensor_interface_intermittent": "Custom intermittent corruption appears at the sensor-interface boundary before ECU control logic.",
+    "stale_sensor_data": "Custom stale sampled-data timing leaves the ECU acting on aged coolant information.",
+    "pump_degraded": "Custom pump-path degradation reduces realized actuation authority after the ECU command.",
+    "fan_stuck_off": "Custom fan driver or power-stage loss prevents commanded fan actuation.",
+    "calibration_memory_corruption": "Custom calibration corruption changes ECU control behavior internally before plant-level consequences emerge.",
+}
+CUSTOM_FAULT_STORY_BASE = {
+    "sensor_bias": {
+        "campaign_name": "Custom Sensor Bias",
+        "description": "Custom sensing-path bias case configured from the GUI.",
+        "fault_class": "sensing-path fault",
+        "hardware_source": "ADC offset, reference drift, or analog front-end bias in the coolant sensing chain.",
+        "ecu_manifestation": "Biased coolant measurement reaches the ECU even though the plant state itself is unchanged.",
+        "diagnostic_effect": "Coolant sensor rationality evidence is expected to appear quickly from the measurement residual.",
+        "system_effect": "The main effect is distorted sensing and diagnostic visibility rather than an immediate strong thermal escalation.",
+    },
+    "sensor_interface_intermittent": {
+        "campaign_name": "Custom Sensor Interface Intermittent",
+        "description": "Custom bursty sensing-path disturbance configured from the GUI.",
+        "fault_class": "sensing-path fault",
+        "hardware_source": "Intermittent sensor-interface corruption such as connector intermittency, burst noise, or sampling glitches.",
+        "ecu_manifestation": "Bursty coolant-reading disturbances appear at the ECU interface while the true thermal state remains smoother.",
+        "diagnostic_effect": "Sensor rationality behavior is expected to track the timing and persistence of the bursts.",
+        "system_effect": "Control disturbance is usually temporary unless the disturbance persists long enough to couple into thermal stress.",
+    },
+    "stale_sensor_data": {
+        "campaign_name": "Custom Stale Sensor Data",
+        "description": "Custom timing/communication-path case configured from the GUI.",
+        "fault_class": "timing/communication-path fault",
+        "hardware_source": "Sample-refresh delay, stale register handoff, or delayed sensor-to-ECU communication update path.",
+        "ecu_manifestation": "The controller receives older coolant information than the true plant state and reacts late.",
+        "diagnostic_effect": "Sensor rationality or cooling-performance evidence can appear once the stale-data lag becomes large enough.",
+        "system_effect": "Cooling demand arrives late, making the timing fault visible through higher peak temperature or earlier protection.",
+    },
+    "pump_degraded": {
+        "campaign_name": "Custom Pump Degraded",
+        "description": "Custom actuation-path degradation case configured from the GUI.",
+        "fault_class": "actuation-path fault",
+        "hardware_source": "Weak driver behavior, supply droop, aging, or partial pump authority loss.",
+        "ecu_manifestation": "Pump actual response is reduced relative to the ECU command.",
+        "diagnostic_effect": "Pump-tracking and cooling-performance evidence are expected when the mismatch persists.",
+        "system_effect": "Reduced coolant flow can raise thermal stress and trigger stronger safety action if the severity is high enough.",
+    },
+    "fan_stuck_off": {
+        "campaign_name": "Custom Fan Stuck Off",
+        "description": "Custom permanent or sustained fan actuation-loss case configured from the GUI.",
+        "fault_class": "actuation-path fault",
+        "hardware_source": "PWM output, gate-driver, or power-stage loss that leaves the fan effectively unavailable.",
+        "ecu_manifestation": "The ECU commands fan actuation, but realized fan response stays unavailable.",
+        "diagnostic_effect": "Fan tracking evidence is expected quickly because commanded and realized actuation diverge sharply.",
+        "system_effect": "Thermal stress and safe-state escalation become more likely as airflow support is lost.",
+    },
+    "calibration_memory_corruption": {
+        "campaign_name": "Custom Calibration Memory Corruption",
+        "description": "Custom computation/memory-path case configured from the GUI.",
+        "fault_class": "computation/memory-path fault",
+        "hardware_source": "Corrupted calibration register, state-memory upset, or nonvolatile memory disturbance affecting the cooling target.",
+        "ecu_manifestation": "The ECU applies a shifted cooling target even when sensed temperature remains correct.",
+        "diagnostic_effect": "Thermal and cooling-performance evidence appears after the corrupted internal control behavior propagates outward.",
+        "system_effect": "The controller itself becomes miscalibrated, which can raise peak temperature and trigger earlier protective action.",
+    },
+}
 
 MODE_TO_CLASS = {
     "sensor_bias": "sensing-path fault",
@@ -128,6 +295,14 @@ FAULT_PATH_BLOCKS: Sequence[Tuple[str, str]] = (
     ("actuator_power", "Actuator Driver /\nPower Stage"),
     ("thermal_plant", "Thermal Plant /\nCoolant System"),
 )
+FAULT_PATH_BLOCK_CLASS = {
+    "sensor_adc": "Sensing Path",
+    "timing_link": "Timing / Link",
+    "ecu_control_memory": "Control / Memory",
+    "actuator_power": "Actuation Path",
+    "thermal_plant": "Plant Outcome",
+}
+FAULT_PATH_BLOCK_DISPLAY = {block_id: label.replace("\n", " ") for block_id, label in FAULT_PATH_BLOCKS}
 CAMPAIGN_AFFECTED_BLOCKS = {
     "baseline": (),
     "sensor_bias_only": ("sensor_adc",),
@@ -138,7 +313,7 @@ CAMPAIGN_AFFECTED_BLOCKS = {
     "fan_stuck_only": ("actuator_power",),
     "fan_stuck_hot_stress": ("actuator_power",),
     "calibration_memory_corruption": ("ecu_control_memory",),
-    "paper_default": ("sensor_adc", "actuator_power"),
+    "paper_default": ("sensor_adc", "actuator_power", "thermal_plant"),
 }
 FAULT_PATH_NOTES = {
     "baseline": "Nominal sensing, timing, control, actuation, and thermal path.",
@@ -150,7 +325,7 @@ FAULT_PATH_NOTES = {
     "fan_stuck_only": "Fan driver or power-stage behavior prevents commanded fan actuation.",
     "fan_stuck_hot_stress": "Fan power-stage loss propagates into a strong thermal/safety response.",
     "calibration_memory_corruption": "A corrupted calibration target shifts ECU control behavior internally.",
-    "paper_default": "Mixed sensing and actuation faults propagate through the ECU path in stages.",
+    "paper_default": "Mixed sensing and actuation faults propagate across the chain and end with a clear plant-level thermal consequence.",
 }
 
 CAMPAIGN_STORIES = {
@@ -250,6 +425,315 @@ CAMPAIGN_STORIES = {
 def read_csv_rows(path: Path) -> List[Dict[str, str]]:
     with path.open("r", newline="", encoding="utf-8") as handle:
         return list(csv.DictReader(handle))
+
+
+def sanitize_preset_name(name: str) -> str:
+    cleaned = "".join(char if char.isalnum() or char in {"_", "-"} else "_" for char in name.strip().lower())
+    while "__" in cleaned:
+        cleaned = cleaned.replace("__", "_")
+    return cleaned.strip("_")
+
+
+def preset_file_path(name: str) -> Path:
+    return CUSTOM_PRESETS_DIR / f"{sanitize_preset_name(name)}.json"
+
+
+def custom_preset_payload(name: str, config: Dict[str, object]) -> Dict[str, object]:
+    if str(config.get("kind", "single")) == "multi":
+        events = config.get("events", [])
+        return {
+            "preset_kind": "multi",
+            "preset_name": name,
+            "events": [
+                {
+                    "fault_type": str(event["fault_type"]),
+                    "fault_behavior": str(event["fault_behavior"]),
+                    "start_ms": int(event["start_ms"]),
+                    "duration_ms": int(event["duration_ms"]),
+                    "parameter": float(event["parameter"]),
+                }
+                for event in events  # type: ignore[union-attr]
+            ],
+        }
+
+    return {
+        "preset_kind": "single",
+        "preset_name": name,
+        "fault_type": str(config["fault_type"]),
+        "fault_behavior": str(config["fault_behavior"]),
+        "start_ms": int(config["start_ms"]),
+        "duration_ms": int(config["duration_ms"]),
+        "parameter": float(config["parameter"]),
+    }
+
+
+def write_custom_preset(path: Path, payload: Dict[str, object]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as handle:
+        json.dump(payload, handle, indent=2, sort_keys=True)
+        handle.write("\n")
+
+
+def read_custom_preset(path: Path) -> Dict[str, object]:
+    with path.open("r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+
+    preset_kind = str(payload.get("preset_kind", "single"))
+    if preset_kind == "multi":
+        events = []
+        for event in payload["events"]:
+            events.append(
+                {
+                    "fault_type": str(event["fault_type"]),
+                    "fault_behavior": str(event["fault_behavior"]),
+                    "start_ms": int(event["start_ms"]),
+                    "duration_ms": int(event["duration_ms"]),
+                    "parameter": float(event["parameter"]),
+                }
+            )
+        return {
+            "preset_kind": "multi",
+            "preset_name": str(payload["preset_name"]),
+            "events": events,
+        }
+
+    return {
+        "preset_kind": "single",
+        "preset_name": str(payload["preset_name"]),
+        "fault_type": str(payload["fault_type"]),
+        "fault_behavior": str(payload["fault_behavior"]),
+        "start_ms": int(payload["start_ms"]),
+        "duration_ms": int(payload["duration_ms"]),
+        "parameter": float(payload["parameter"]),
+    }
+
+
+def list_custom_preset_files() -> List[Path]:
+    if not CUSTOM_PRESETS_DIR.exists():
+        return []
+    return sorted(CUSTOM_PRESETS_DIR.glob("*.json"))
+
+
+def custom_mode_label(mode: str) -> str:
+    return FAULT_TYPE_DISPLAY.get(mode, mode.replace("_", " ").title())
+
+
+def custom_behavior_label(behavior: str) -> str:
+    return behavior.replace("_", " ").title()
+
+
+def custom_parameter_token(parameter: float) -> str:
+    token = f"{parameter:g}"
+    parts: List[str] = []
+    for char in token:
+        if char.isalnum():
+            parts.append(char)
+        elif char == "-":
+            parts.append("neg")
+        elif char == ".":
+            parts.append("p")
+        else:
+            parts.append("_")
+    return "".join(parts) or "0"
+
+
+def default_custom_event(
+    fault_type: str = "sensor_bias",
+    fault_behavior: str = "transient",
+    start_ms: int = 20000,
+    duration_ms: int = 10000,
+    parameter: float | None = None,
+) -> Dict[str, object]:
+    actual_parameter = parameter
+    if actual_parameter is None:
+        actual_parameter = float(CUSTOM_DEFAULT_PARAMETERS.get(fault_type, "0.0"))
+
+    return {
+        "fault_type": fault_type,
+        "fault_behavior": fault_behavior,
+        "start_ms": int(start_ms),
+        "duration_ms": int(duration_ms),
+        "parameter": float(actual_parameter),
+    }
+
+
+def custom_events(config: Dict[str, object]) -> List[Dict[str, object]]:
+    if str(config.get("kind", "single")) == "multi":
+        return [dict(event) for event in config.get("events", [])]  # type: ignore[arg-type]
+    return [
+        default_custom_event(
+            fault_type=str(config["fault_type"]),
+            fault_behavior=str(config["fault_behavior"]),
+            start_ms=int(config["start_ms"]),
+            duration_ms=int(config["duration_ms"]),
+            parameter=float(config["parameter"]),
+        )
+    ]
+
+
+def custom_campaign_id(config: Dict[str, object]) -> str:
+    if str(config.get("kind", "single")) == "multi":
+        parts = []
+        for index, event in enumerate(custom_events(config), start=1):
+            parts.append(
+                f"e{index}_{event['fault_type']}_{event['fault_behavior']}"
+                f"_start{event['start_ms']}_dur{event['duration_ms']}"
+                f"_param{custom_parameter_token(float(event['parameter']))}"
+            )
+        return "custom_multi_" + "__".join(parts)
+
+    return (
+        f"custom_{config['fault_type']}_{config['fault_behavior']}"
+        f"_start{config['start_ms']}_dur{config['duration_ms']}"
+        f"_param{custom_parameter_token(float(config['parameter']))}"
+    )
+
+
+def custom_log_path(config: Dict[str, object]) -> Path:
+    return CUSTOM_LOGS_DIR / f"{custom_campaign_id(config)}.csv"
+
+
+def custom_campaign_label(config: Dict[str, object]) -> str:
+    if str(config.get("kind", "single")) == "multi":
+        events = custom_events(config)
+        labels = [custom_mode_label(str(event["fault_type"])) for event in events]
+        sequence = " -> ".join(labels[:3])
+        if len(labels) > 3:
+            sequence += " -> ..."
+        return f"Custom Multi-Fault Scenario ({len(events)} events: {sequence})"
+
+    fault_label = custom_mode_label(str(config["fault_type"]))
+    behavior = str(config["fault_behavior"])
+    start_ms = int(config["start_ms"])
+    duration_ms = int(config["duration_ms"])
+    parameter = float(config["parameter"])
+    timing = (
+        f"{start_ms} ms onward"
+        if behavior == "permanent" and duration_ms == 0
+        else f"{start_ms}-{start_ms + duration_ms} ms"
+    )
+    return f"Custom {fault_label} ({behavior}, {timing}, p={parameter:g})"
+
+
+def primary_fault_mode(first_row: Dict[str, str]) -> str:
+    modes = event_modes(first_row)
+    if modes:
+        return modes[0]
+    mode_label = first_row.get("fault_mode_label", "none")
+    return mode_label if mode_label and mode_label != "none" else "none"
+
+
+def primary_fault_behavior(first_row: Dict[str, str]) -> str:
+    behaviors = event_behaviors(first_row)
+    if behaviors:
+        return behaviors[0]
+    behavior_label = first_row.get("fault_behavior_label", "none")
+    return behavior_label if behavior_label and behavior_label != "none" else "none"
+
+
+def story_for_run(
+    campaign_id: str,
+    first_row: Dict[str, str] | None = None,
+    campaign_label: str | None = None,
+) -> Dict[str, str]:
+    if campaign_id in CAMPAIGN_STORIES:
+        return campaign_story(campaign_id)
+
+    if first_row is None:
+        return campaign_story(campaign_id)
+
+    modes = event_modes(first_row)
+    if len(modes) > 1:
+        hardware_segments: List[str] = []
+        affected_blocks = affected_blocks_for_run(campaign_id, first_row)
+        for block_id in affected_blocks:
+            hardware_segments.append(FAULT_PATH_BLOCK_DISPLAY.get(block_id, block_id.replace("_", " ")))
+
+        sequence = " -> ".join(custom_mode_label(mode) for mode in modes)
+        timing_parts = []
+        for index, mode in enumerate(modes, start=1):
+            timing_parts.append(
+                f"{custom_mode_label(mode)} at {first_row.get(f'campaign_event_{index}_start_ms', '0')} ms"
+            )
+
+        return {
+            "campaign_name": campaign_label or f"Custom Multi-Fault Scenario ({len(modes)} events)",
+            "description": (
+                "Ordered custom multi-fault scenario configured from the GUI. "
+                f"Sequence: {sequence}. Event timing: {'; '.join(timing_parts)}."
+            ),
+            "fault_class": infer_fault_class(first_row),
+            "hardware_source": (
+                "Multiple hardware-origin faults are staged across: "
+                + ", ".join(hardware_segments if hardware_segments else ["the ECU signal and actuation path"])
+                + "."
+            ),
+            "ecu_manifestation": (
+                "The ECU sees a staged propagation story as successive fault events become active in order, "
+                "so sensing, control, timing, or actuation effects can evolve across the same run."
+            ),
+            "diagnostic_effect": (
+                "Diagnostic evidence may change over time as later events add new symptoms on top of the earlier path disturbance."
+            ),
+            "system_effect": (
+                "This scenario is designed for thesis/demo use when you want one run to show how multiple electronics-origin faults "
+                "stack into thermal and safety consequences."
+            ),
+        }
+
+    mode = primary_fault_mode(first_row)
+    base_story = CUSTOM_FAULT_STORY_BASE.get(mode)
+    if base_story is None:
+        return campaign_story(campaign_id)
+
+    story = dict(base_story)
+    behavior = primary_fault_behavior(first_row)
+    start_ms = first_row.get("campaign_event_1_start_ms", first_row.get("active_fault_start_ms", "0"))
+    duration_ms = first_row.get("campaign_event_1_duration_ms", first_row.get("active_fault_duration_ms", "0"))
+    parameter = first_row.get("campaign_event_1_parameter", first_row.get("active_fault_parameter", "0"))
+    if campaign_label:
+        story["campaign_name"] = campaign_label
+    story["description"] = (
+        f"{story['description']} "
+        f"Configured as {behavior} with start={start_ms} ms, duration={duration_ms} ms, parameter={parameter}."
+    )
+    return story
+
+
+def affected_blocks_for_run(campaign_id: str, first_row: Dict[str, str] | None = None) -> Tuple[str, ...]:
+    if campaign_id in CAMPAIGN_AFFECTED_BLOCKS:
+        return tuple(CAMPAIGN_AFFECTED_BLOCKS[campaign_id])
+    if first_row is None:
+        return ()
+
+    affected = []
+    for mode in event_modes(first_row):
+        for block_id in CUSTOM_MODE_AFFECTED_BLOCKS.get(mode, ()):
+            if block_id not in affected:
+                affected.append(block_id)
+
+    return tuple(affected)
+
+
+def fault_path_note_for_run(campaign_id: str, first_row: Dict[str, str] | None = None) -> str:
+    if campaign_id in FAULT_PATH_NOTES:
+        return FAULT_PATH_NOTES[campaign_id]
+    if first_row is None:
+        return "Selected campaign mapped onto the qualitative ECU path."
+
+    modes = event_modes(first_row)
+    if len(modes) > 1:
+        return (
+            "Custom multi-fault scenario mapped onto every affected subsystem touched by the ordered event list. "
+            "Use the propagation timeline and figures tabs to explain how the narrative evolves from one block to the next."
+        )
+
+    mode = primary_fault_mode(first_row)
+    behavior = primary_fault_behavior(first_row)
+    note = CUSTOM_FAULT_NOTES.get(mode, "Selected campaign mapped onto the qualitative ECU path.")
+    if behavior == "permanent":
+        return f"{note} The custom run is configured as a persistent fault from its start time."
+    return note
 
 
 def summary_path_for(log_path: Path) -> Path:
@@ -1941,6 +2425,7 @@ class FaultPathDiagram(ttk.Frame):
         self.accent_color = accent_color
         self.campaign_id = "baseline"
         self.campaign_label = "Baseline"
+        self.first_row: Dict[str, str] | None = None
         self.affected_blocks: Tuple[str, ...] = ()
 
         self.columnconfigure(0, weight=1)
@@ -1965,25 +2450,121 @@ class FaultPathDiagram(ttk.Frame):
         self.canvas.bind("<Configure>", lambda _event: self.redraw())
         self.set_campaign("baseline")
 
-    def set_campaign(self, campaign_id: str) -> None:
-        story = campaign_story(campaign_id)
+    def _highlighted_block_names(self) -> str:
+        if not self.affected_blocks:
+            return "Nominal path only"
+        return ", ".join(FAULT_PATH_BLOCK_DISPLAY.get(block_id, block_id) for block_id in self.affected_blocks)
+
+    def _draw_block_icon(
+        self,
+        block_id: str,
+        x0: float,
+        y0: float,
+        x1: float,
+        y1: float,
+        *,
+        highlight: bool,
+    ) -> None:
+        color = self.accent_color if highlight else "#7d8a96"
+        inner_left = x0 + 12
+        inner_top = y0 + 16
+        inner_right = x1 - 12
+        inner_bottom = y0 + 46
+        center_x = (inner_left + inner_right) / 2
+        center_y = (inner_top + inner_bottom) / 2
+
+        if block_id == "sensor_adc":
+            self.canvas.create_oval(
+                inner_left,
+                inner_top + 6,
+                inner_left + 20,
+                inner_top + 26,
+                outline=color,
+                width=2,
+            )
+            self.canvas.create_line(inner_left + 20, center_y, inner_right - 24, center_y, fill=color, width=2)
+            self.canvas.create_line(
+                inner_right - 24,
+                center_y,
+                inner_right - 12,
+                center_y - 7,
+                inner_right,
+                center_y + 7,
+                fill=color,
+                width=2,
+                smooth=True,
+            )
+            return
+
+        if block_id == "timing_link":
+            self.canvas.create_oval(center_x - 13, inner_top + 1, center_x + 13, inner_top + 27, outline=color, width=2)
+            self.canvas.create_line(center_x, inner_top + 6, center_x, inner_top + 14, fill=color, width=2)
+            self.canvas.create_line(center_x, inner_top + 14, center_x + 7, inner_top + 18, fill=color, width=2)
+            self.canvas.create_line(inner_left, inner_bottom - 6, inner_right, inner_bottom - 6, fill=color, width=2, dash=(4, 3))
+            return
+
+        if block_id == "ecu_control_memory":
+            self.canvas.create_rectangle(inner_left + 4, inner_top + 4, center_x + 6, inner_bottom - 2, outline=color, width=2)
+            self.canvas.create_line(center_x + 12, inner_top + 4, center_x + 12, inner_bottom - 2, fill=color, width=2)
+            for offset in (0, 8, 16):
+                self.canvas.create_line(center_x + 16, inner_top + 8 + offset, inner_right, inner_top + 8 + offset, fill=color, width=2)
+            return
+
+        if block_id == "actuator_power":
+            self.canvas.create_rectangle(inner_left + 2, inner_top + 6, inner_left + 24, inner_bottom - 6, outline=color, width=2)
+            self.canvas.create_line(inner_left + 24, center_y, inner_right - 18, center_y, fill=color, width=2)
+            self.canvas.create_polygon(
+                inner_right - 18,
+                center_y - 10,
+                inner_right,
+                center_y,
+                inner_right - 18,
+                center_y + 10,
+                outline=color,
+                fill="",
+                width=2,
+            )
+            return
+
+        self.canvas.create_rectangle(inner_left + 4, inner_top + 2, inner_right - 4, inner_bottom - 2, outline=color, width=2)
+        for offset in (0, 10, 20):
+            self.canvas.create_line(
+                inner_left + 10,
+                inner_top + 8 + offset,
+                inner_right - 10,
+                inner_top + 8 + offset,
+                fill=color,
+                width=2,
+            )
+        self.canvas.create_line(center_x, inner_top - 2, center_x, inner_bottom + 4, fill=color, width=2)
+
+    def set_campaign(self, campaign_id: str, first_row: Dict[str, str] | None = None) -> None:
+        story = story_for_run(campaign_id, first_row)
         self.campaign_id = campaign_id
         self.campaign_label = story["campaign_name"]
-        self.affected_blocks = tuple(CAMPAIGN_AFFECTED_BLOCKS.get(campaign_id, ()))
+        self.first_row = first_row
+        self.affected_blocks = affected_blocks_for_run(campaign_id, first_row)
         self.title_var.set(f"{self.side_label}: {self.campaign_label}")
         self.redraw()
 
     def redraw(self) -> None:
         self.canvas.delete("all")
-        width = max(self.canvas.winfo_width(), 420)
-        height = max(self.canvas.winfo_height(), 280)
-        margin_x = 28
-        top = 76
-        block_gap = 14
+        width = max(self.canvas.winfo_width(), 460)
+        height = max(self.canvas.winfo_height(), 320)
+        margin_x = 26
+        top = 84
+        block_gap = 12
         block_count = len(FAULT_PATH_BLOCKS)
-        block_width = max((width - 2 * margin_x - block_gap * (block_count - 1)) / block_count, 72)
-        block_height = 78
-        note = FAULT_PATH_NOTES.get(self.campaign_id, "Selected campaign mapped onto the qualitative ECU path.")
+        block_width = max((width - 2 * margin_x - block_gap * (block_count - 1)) / block_count, 78)
+        block_height = 112
+        note = fault_path_note_for_run(self.campaign_id, self.first_row)
+        story = story_for_run(self.campaign_id, self.first_row, self.campaign_label)
+        fault_class = story["fault_class"]
+        affected_labels = self._highlighted_block_names()
+        block_index = {block_id: index for index, (block_id, _label) in enumerate(FAULT_PATH_BLOCKS)}
+        highlighted_indices = [block_index[block_id] for block_id in self.affected_blocks if block_id in block_index]
+        route_start = min(highlighted_indices) if highlighted_indices else None
+        route_end = max(highlighted_indices) if highlighted_indices else None
 
         self.canvas.create_text(
             margin_x,
@@ -2002,6 +2583,22 @@ class FaultPathDiagram(ttk.Frame):
             font=("TkDefaultFont", 9),
             width=max(width - 2 * margin_x, 260),
         )
+        self.canvas.create_text(
+            margin_x,
+            66,
+            anchor="w",
+            text="Hardware-Origin Focus",
+            fill="#5b6b79",
+            font=("TkDefaultFont", 9, "bold"),
+        )
+        self.canvas.create_text(
+            width - margin_x,
+            66,
+            anchor="e",
+            text="System-Level Thermal Outcome",
+            fill="#5b6b79",
+            font=("TkDefaultFont", 9, "bold"),
+        )
 
         centers: Dict[str, Tuple[float, float]] = {}
         for index, (block_id, label) in enumerate(FAULT_PATH_BLOCKS):
@@ -2010,8 +2607,10 @@ class FaultPathDiagram(ttk.Frame):
             x1 = x0 + block_width
             y1 = y0 + block_height
             is_affected = block_id in self.affected_blocks
-            fill = "#fff4df" if is_affected else "#f7f9fb"
+            fill = "#fff5e2" if is_affected else "#f7f9fb"
             outline = self.accent_color if is_affected else "#cbd5df"
+            header_fill = self.accent_color if is_affected else "#dfe7ee"
+            title_fill = "#ffffff" if is_affected else "#4f5f6d"
             line_width = 3 if is_affected else 1
 
             self.canvas.create_rectangle(
@@ -2023,9 +2622,26 @@ class FaultPathDiagram(ttk.Frame):
                 outline=outline,
                 width=line_width,
             )
+            self.canvas.create_rectangle(
+                x0,
+                y0,
+                x1,
+                y0 + 22,
+                fill=header_fill,
+                outline=outline,
+                width=line_width,
+            )
             self.canvas.create_text(
                 (x0 + x1) / 2,
-                (y0 + y1) / 2,
+                y0 + 11,
+                text=FAULT_PATH_BLOCK_CLASS.get(block_id, ""),
+                fill=title_fill,
+                font=("TkDefaultFont", 8, "bold"),
+            )
+            self._draw_block_icon(block_id, x0, y0 + 22, x1, y0 + 64, highlight=is_affected)
+            self.canvas.create_text(
+                (x0 + x1) / 2,
+                y0 + 84,
                 text=label,
                 fill="#1f2e3b",
                 font=("TkDefaultFont", 9, "bold" if is_affected else "normal"),
@@ -2036,48 +2652,81 @@ class FaultPathDiagram(ttk.Frame):
 
             if index > 0:
                 previous_id = FAULT_PATH_BLOCKS[index - 1][0]
-                prev_x, prev_y = centers[previous_id]
+                prev_x = centers[previous_id][0]
+                arrow_y = y0 + 56
+                highlight_path = route_start is not None and route_end is not None and route_start < index <= route_end
                 self.canvas.create_line(
                     prev_x + block_width / 2,
-                    prev_y,
+                    arrow_y,
                     x0 - 4,
-                    prev_y,
-                    fill="#8a98a6",
-                    width=2,
+                    arrow_y,
+                    fill=self.accent_color if highlight_path else "#8a98a6",
+                    width=3 if highlight_path else 2,
                     arrow=tk.LAST,
                 )
 
-        legend_y = top + block_height + 34
+        footer_y = top + block_height + 26
+        footer_height = max(height - footer_y - 18, 86)
+        footer_fill = "#f8fafc"
+        self.canvas.create_rectangle(
+            margin_x,
+            footer_y,
+            width - margin_x,
+            footer_y + footer_height,
+            fill=footer_fill,
+            outline="#d8e0e7",
+            width=1,
+        )
+
         if self.affected_blocks:
-            legend_text = "Highlighted block(s): hardware-origin fault abstraction for this campaign."
-            legend_fill = self.accent_color
+            state_text = "Highlighted block(s) mark the primary subsystem(s) touched by this campaign."
+            badge_fill = "#fff5e2"
+            badge_outline = self.accent_color
         else:
-            legend_text = "No injected hardware-origin fault: nominal path is shown without highlighted blocks."
-            legend_fill = "#3f7f52"
+            state_text = "Nominal baseline: the full path is shown without emphasized fault-origin blocks."
+            badge_fill = "#e8f4ec"
+            badge_outline = "#3f7f52"
 
         self.canvas.create_rectangle(
             margin_x,
-            legend_y - 11,
+            footer_y + 16,
             margin_x + 18,
-            legend_y + 7,
-            fill="#fff4df" if self.affected_blocks else "#e8f4ec",
-            outline=legend_fill,
+            footer_y + 34,
+            fill=badge_fill,
+            outline=badge_outline,
             width=2,
         )
         self.canvas.create_text(
             margin_x + 28,
-            legend_y - 2,
+            footer_y + 25,
             anchor="w",
-            text=legend_text,
+            text=state_text,
             fill="#33404d",
             font=("TkDefaultFont", 9),
             width=max(width - 2 * margin_x - 34, 260),
         )
         self.canvas.create_text(
             margin_x,
-            min(height - 24, legend_y + 46),
+            footer_y + 54,
             anchor="w",
-            text="Interpretation: hardware-origin fault -> ECU-visible manifestation -> diagnostic/safety effect.",
+            text=f"Fault class: {fault_class}",
+            fill="#1f2e3b",
+            font=("TkDefaultFont", 9, "bold"),
+        )
+        self.canvas.create_text(
+            margin_x,
+            footer_y + 74,
+            anchor="w",
+            text=f"Highlighted subsystem(s): {affected_labels}",
+            fill="#33404d",
+            font=("TkDefaultFont", 9),
+            width=max(width - 2 * margin_x, 260),
+        )
+        self.canvas.create_text(
+            margin_x,
+            min(height - 18, footer_y + footer_height - 12),
+            anchor="w",
+            text="Readout: left-to-right shows sensing, timing, control/memory, actuation, then plant-level outcome.",
             fill="#5b6b79",
             font=("TkDefaultFont", 9),
             width=max(width - 2 * margin_x, 260),
@@ -2147,12 +2796,31 @@ class VirtualECUGui(tk.Tk):
         self.batch_plot_choice = tk.StringVar(value=self.BATCH_PLOT_OPTIONS[0])
         self.status_text = tk.StringVar(value="Select two campaigns and run a comparison.")
         self.batch_status_text = tk.StringVar(value="Load a batch aggregate summary CSV to inspect sweep-level trends.")
+        self.custom_status_text = tk.StringVar(
+            value="Configure a single-fault or multi-fault custom run, then load it into the same comparison workflow used by the built-in campaigns."
+        )
         self.comparison_findings_var = tk.StringVar(value="Run a comparison to generate automatic findings.")
         self.comparison_interpretation_var = tk.StringVar(value="-")
         self.batch_findings_var = tk.StringVar(value="Load a batch aggregate summary CSV to generate automatic findings.")
         self.batch_interpretation_var = tk.StringVar(value="-")
         self.left_description_var = tk.StringVar(value="-")
         self.right_description_var = tk.StringVar(value="-")
+        self.custom_fault_type = tk.StringVar(value=CUSTOM_FAULT_TYPES[0][0])
+        self.custom_fault_behavior = tk.StringVar(value=CUSTOM_FAULT_BEHAVIORS[0][0])
+        self.custom_start_ms = tk.StringVar(value="20000")
+        self.custom_duration_ms = tk.StringVar(value="10000")
+        self.custom_parameter = tk.StringVar(value=CUSTOM_DEFAULT_PARAMETERS[CUSTOM_FAULT_TYPES[0][0]])
+        self.custom_preset_name = tk.StringVar(value="sensor_bias_demo_copy")
+        self.custom_preset_choice = tk.StringVar(value="")
+        self.multi_fault_type = tk.StringVar(value=CUSTOM_FAULT_TYPES[0][0])
+        self.multi_fault_behavior = tk.StringVar(value=CUSTOM_FAULT_BEHAVIORS[0][0])
+        self.multi_start_ms = tk.StringVar(value="20000")
+        self.multi_duration_ms = tk.StringVar(value="10000")
+        self.multi_parameter = tk.StringVar(value=CUSTOM_DEFAULT_PARAMETERS[CUSTOM_FAULT_TYPES[0][0]])
+        self.multi_preset_name = tk.StringVar(value="sensor_bias_then_fan_loss_demo_copy")
+        self.multi_preset_choice = tk.StringVar(value="")
+        self.custom_saved_paths_var = tk.StringVar(value="-")
+        self.custom_last_run_var = tk.StringVar(value="-")
         self.comparison_plot_help_var = tk.StringVar(
             value="Use the propagation view to read top-to-bottom from hardware-origin fault to ECU manifestation, diagnostics, and safe-state/system effect."
         )
@@ -2160,6 +2828,11 @@ class VirtualECUGui(tk.Tk):
         self.batch_run_count_var = tk.StringVar(value="-")
         self.batch_fault_classes_var = tk.StringVar(value="-")
         self.batch_fault_types_var = tk.StringVar(value="-")
+        self.custom_summary_vars = {
+            name: tk.StringVar(value="-")
+            for name in ("Campaign Name", "Fault Class", *self.METRIC_NAMES)
+        }
+        self.custom_loaded_slot_var = tk.StringVar(value="-")
 
         self.summary_vars = {
             "left": {name: tk.StringVar(value="-") for name in ("Campaign Name", "Fault Class", *self.METRIC_NAMES)},
@@ -2180,6 +2853,7 @@ class VirtualECUGui(tk.Tk):
         self.metric_cells: Dict[str, Dict[str, Dict[str, tk.Widget]]] = {"left": {}, "right": {}}
         self.current_comparison: Dict[str, object] | None = None
         self.current_plot_results: Dict[str, object] | None = None
+        self.last_custom_result: Dict[str, object] | None = None
         self.batch_rows: List[Dict[str, str]] = []
         self.batch_table: ttk.Treeview | None = None
         self.batch_plot: PlotCanvas | None = None
@@ -2187,12 +2861,27 @@ class VirtualECUGui(tk.Tk):
         self.propagation_evidence_table: ttk.Treeview | None = None
         self.left_fault_path_diagram: FaultPathDiagram | None = None
         self.right_fault_path_diagram: FaultPathDiagram | None = None
+        self.notebook: ttk.Notebook | None = None
+        self.comparison_figures_tab: ttk.Frame | None = None
+        self.custom_preset_catalog: Dict[str, Dict[str, object]] = {}
+        self.custom_preset_selector: ttk.Combobox | None = None
+        self.multi_preset_catalog: Dict[str, Dict[str, object]] = {}
+        self.multi_preset_selector: ttk.Combobox | None = None
+        self.multi_event_listbox: tk.Listbox | None = None
+        self.custom_action_buttons: List[ttk.Button] = []
+        self.multi_events: List[Dict[str, object]] = [
+            default_custom_event("sensor_bias", "transient", 20000, 10000, 8.0),
+            default_custom_event("fan_stuck_off", "permanent", 65000, 0, 0.0),
+        ]
 
         self._configure_style()
         self._build_layout()
         self._apply_presentation_mode()
         self._refresh_campaign_context()
         self._reset_summary_values()
+        self._clear_custom_result_summary()
+        self._refresh_custom_preset_catalog()
+        self._refresh_multi_preset_catalog()
         self._clear_batch_results()
 
         if self.executable is None:
@@ -2203,6 +2892,7 @@ class VirtualECUGui(tk.Tk):
             self.run_left_button.state(["disabled"])
             self.snapshot_button.state(["disabled"])
             self.export_button.state(["disabled"])
+            self._set_custom_controls_enabled(False)
 
         if DEFAULT_BATCH_AGGREGATE_CSV.exists():
             self.load_batch_results()
@@ -2263,6 +2953,7 @@ class VirtualECUGui(tk.Tk):
 
         notebook = ttk.Notebook(self)
         notebook.grid(row=1, column=0, sticky="nsew", padx=12, pady=(0, 12))
+        self.notebook = notebook
 
         summary_tab = ttk.Frame(notebook, padding=(4, 8, 4, 6), style="Root.TFrame")
         summary_tab.columnconfigure(0, weight=1)
@@ -2273,6 +2964,12 @@ class VirtualECUGui(tk.Tk):
         figures_tab.columnconfigure(0, weight=1)
         figures_tab.rowconfigure(0, weight=1)
         notebook.add(figures_tab, text="Comparison Figures")
+        self.comparison_figures_tab = figures_tab
+
+        custom_tab = ttk.Frame(notebook, padding=(4, 8, 4, 6), style="Root.TFrame")
+        custom_tab.columnconfigure(0, weight=1)
+        custom_tab.rowconfigure(1, weight=1)
+        notebook.add(custom_tab, text="Custom Experiment")
 
         fault_path_tab = ttk.Frame(notebook, padding=(4, 8, 4, 6), style="Root.TFrame")
         fault_path_tab.columnconfigure(0, weight=1)
@@ -2286,6 +2983,7 @@ class VirtualECUGui(tk.Tk):
 
         self._build_comparison_summary_tab(summary_tab)
         self._build_comparison_figures_tab(figures_tab)
+        self._build_custom_experiment_tab(custom_tab)
         self._build_fault_path_tab(fault_path_tab)
         self._build_batch_tab(batch_tab)
 
@@ -2486,6 +3184,371 @@ class VirtualECUGui(tk.Tk):
         scroll.grid(row=0, column=1, sticky="ns")
         self._clear_propagation_evidence()
 
+    def _build_custom_experiment_tab(self, parent: ttk.Frame) -> None:
+        header = ttk.Frame(parent, padding=(12, 8, 12, 10), style="Root.TFrame")
+        header.grid(row=0, column=0, sticky="ew")
+        header.columnconfigure(0, weight=1)
+        ttk.Label(header, text="Custom Experiment Builder", style="Section.TLabel").grid(row=0, column=0, sticky="w")
+        ttk.Label(
+            header,
+            text=(
+                "This tab runs the simulator custom single-fault and lightweight multi-fault CLI paths, saves "
+                "deterministic CSV outputs in `logs/gui_custom/`, and feeds the result back into the same comparison, "
+                "propagation, and export views."
+            ),
+            style="Hint.TLabel",
+            wraplength=1050,
+            justify="left",
+        ).grid(row=1, column=0, sticky="w", pady=(4, 0))
+
+        content = ttk.Frame(parent, padding=(12, 0, 12, 12), style="Root.TFrame")
+        content.grid(row=1, column=0, sticky="nsew")
+        content.columnconfigure(0, weight=5)
+        content.columnconfigure(1, weight=4)
+        content.rowconfigure(0, weight=1)
+
+        builder_notebook = ttk.Notebook(content)
+        builder_notebook.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+
+        single_tab = ttk.Frame(builder_notebook, style="Root.TFrame")
+        multi_tab = ttk.Frame(builder_notebook, style="Root.TFrame")
+        builder_notebook.add(single_tab, text="Single Fault")
+        builder_notebook.add(multi_tab, text="Multi-Fault Scenario")
+
+        self._build_single_custom_builder(single_tab)
+        self._build_multi_custom_builder(multi_tab)
+
+        summary = ttk.LabelFrame(content, text="Last Custom Run", padding=14)
+        summary.grid(row=0, column=1, sticky="nsew")
+        summary.columnconfigure(1, weight=1)
+
+        self._build_custom_metric_row(summary, 0, "Campaign Name", self.custom_summary_vars["Campaign Name"])
+        self._build_custom_metric_row(summary, 1, "Loaded Into", self.custom_loaded_slot_var, wraplength=360)
+        self._build_custom_metric_row(summary, 2, "Fault Class", self.custom_summary_vars["Fault Class"])
+        self._build_custom_metric_row(summary, 3, "Final DTC", self.custom_summary_vars["Final DTC"])
+        self._build_custom_metric_row(summary, 4, "Final Safe State", self.custom_summary_vars["Final Safe State"])
+        self._build_custom_metric_row(summary, 5, "Maximum Coolant Temperature", self.custom_summary_vars["Maximum Coolant Temperature"])
+        self._build_custom_metric_row(summary, 6, "Detection Latency", self.custom_summary_vars["Detection Latency"])
+        self._build_custom_metric_row(summary, 7, "Safe-State Latency", self.custom_summary_vars["Safe-State Latency"])
+        self._build_custom_metric_row(summary, 8, "Saved Files", self.custom_saved_paths_var, wraplength=360)
+        self._build_custom_metric_row(summary, 9, "Last Loaded Mode", self.custom_last_run_var, wraplength=360)
+
+    def _build_single_custom_builder(self, parent: ttk.Frame) -> None:
+        builder = ttk.LabelFrame(parent, text="Custom Single-Fault Configuration", padding=14)
+        builder.grid(row=0, column=0, sticky="nsew")
+        builder.columnconfigure(1, weight=1)
+        builder.columnconfigure(3, weight=1)
+
+        ttk.Label(builder, text="Fault Type", style="FieldName.TLabel").grid(row=0, column=0, sticky="w")
+        type_box = ttk.Combobox(
+            builder,
+            textvariable=self.custom_fault_type,
+            values=[fault_type for fault_type, _label in CUSTOM_FAULT_TYPES],
+            state="readonly",
+            width=32,
+        )
+        type_box.grid(row=0, column=1, sticky="ew", padx=(10, 18), pady=(0, 8))
+        type_box.bind("<<ComboboxSelected>>", self._on_custom_fault_type_changed)
+
+        ttk.Label(builder, text="Fault Behavior", style="FieldName.TLabel").grid(row=0, column=2, sticky="w")
+        behavior_box = ttk.Combobox(
+            builder,
+            textvariable=self.custom_fault_behavior,
+            values=[behavior for behavior, _label in CUSTOM_FAULT_BEHAVIORS],
+            state="readonly",
+            width=18,
+        )
+        behavior_box.grid(row=0, column=3, sticky="ew", padx=(10, 0), pady=(0, 8))
+        behavior_box.bind("<<ComboboxSelected>>", self._on_custom_fault_behavior_changed)
+
+        ttk.Label(builder, text="Fault Start [ms]", style="FieldName.TLabel").grid(row=1, column=0, sticky="w")
+        ttk.Entry(builder, textvariable=self.custom_start_ms, width=18).grid(row=1, column=1, sticky="w", padx=(10, 18), pady=(0, 8))
+
+        ttk.Label(builder, text="Fault Duration [ms]", style="FieldName.TLabel").grid(row=1, column=2, sticky="w")
+        ttk.Entry(builder, textvariable=self.custom_duration_ms, width=18).grid(row=1, column=3, sticky="w", padx=(10, 0), pady=(0, 8))
+
+        ttk.Label(builder, text="Fault Parameter", style="FieldName.TLabel").grid(row=2, column=0, sticky="w")
+        ttk.Entry(builder, textvariable=self.custom_parameter, width=18).grid(row=2, column=1, sticky="w", padx=(10, 18))
+
+        ttk.Label(
+            builder,
+            text=(
+                "Validation: start and duration must be non-negative integers, parameter must be numeric, and duration "
+                "0 is reserved for permanent faults because the simulator interprets it as persistent from the start time."
+            ),
+            style="Hint.TLabel",
+            wraplength=700,
+            justify="left",
+        ).grid(row=3, column=0, columnspan=4, sticky="w", pady=(10, 8))
+
+        ttk.Separator(builder, orient="horizontal").grid(row=4, column=0, columnspan=4, sticky="ew", pady=(2, 10))
+
+        ttk.Label(builder, text="Preset Name", style="FieldName.TLabel").grid(row=5, column=0, sticky="w")
+        ttk.Entry(builder, textvariable=self.custom_preset_name, width=24).grid(row=5, column=1, sticky="w", padx=(10, 18), pady=(0, 8))
+
+        ttk.Label(builder, text="Saved / Starter Preset", style="FieldName.TLabel").grid(row=5, column=2, sticky="w")
+        self.custom_preset_selector = ttk.Combobox(
+            builder,
+            textvariable=self.custom_preset_choice,
+            state="readonly",
+            width=26,
+        )
+        self.custom_preset_selector.grid(row=5, column=3, sticky="ew", padx=(10, 0), pady=(0, 8))
+
+        preset_actions = ttk.Frame(builder, style="Root.TFrame")
+        preset_actions.grid(row=6, column=0, columnspan=4, sticky="w", pady=(0, 10))
+        ttk.Button(preset_actions, text="Save Preset", command=self.save_custom_preset).grid(row=0, column=0, sticky="w")
+        ttk.Button(preset_actions, text="Load Preset", command=self.load_selected_custom_preset).grid(row=0, column=1, sticky="w", padx=(8, 0))
+        ttk.Button(preset_actions, text="Delete Preset", command=self.delete_selected_custom_preset).grid(row=0, column=2, sticky="w", padx=(8, 0))
+
+        ttk.Label(
+            builder,
+            text=(
+                "Presets are stored as lightweight JSON files in `presets/gui_custom/`. Built-in starter presets are "
+                "always available for quick demo setup, and user-saved presets keep repeated experiments reproducible."
+            ),
+            style="Hint.TLabel",
+            wraplength=720,
+            justify="left",
+        ).grid(row=7, column=0, columnspan=4, sticky="w", pady=(0, 8))
+
+        primary_actions = ttk.Frame(builder, style="Root.TFrame")
+        primary_actions.grid(row=8, column=0, columnspan=4, sticky="w")
+        run_show = ttk.Button(primary_actions, text="Run Custom and Show Figures", command=self.run_custom_only)
+        run_show.grid(row=0, column=0, sticky="w")
+        compare_show = ttk.Button(
+            primary_actions,
+            text="Compare Custom vs Baseline and Show Figures",
+            command=self.compare_custom_vs_baseline,
+        )
+        compare_show.grid(row=0, column=1, sticky="w", padx=(8, 0))
+
+        ttk.Label(
+            builder,
+            text=(
+                "Fastest demo path: use one of the two buttons above. The GUI runs the custom fault, loads it into the "
+                "comparison workflow automatically, and opens the Comparison Figures tab."
+            ),
+            style="Hint.TLabel",
+            wraplength=720,
+            justify="left",
+        ).grid(row=9, column=0, columnspan=4, sticky="w", pady=(10, 6))
+
+        actions = ttk.Frame(builder, style="Root.TFrame")
+        actions.grid(row=10, column=0, columnspan=4, sticky="w")
+
+        run_only = ttk.Button(actions, text="Run Custom Only", command=self.run_custom_only)
+        run_only.grid(row=0, column=0, sticky="w")
+        load_left = ttk.Button(actions, text="Load Custom as Left", command=self.load_custom_as_left)
+        load_left.grid(row=0, column=1, sticky="w", padx=(8, 0))
+        load_right = ttk.Button(actions, text="Load Custom as Right", command=self.load_custom_as_right)
+        load_right.grid(row=0, column=2, sticky="w", padx=(8, 0))
+        compare_baseline = ttk.Button(actions, text="Compare Custom vs Baseline", command=self.compare_custom_vs_baseline)
+        compare_baseline.grid(row=0, column=3, sticky="w", padx=(8, 0))
+
+        ttk.Label(
+            builder,
+            text=(
+                "Advanced loading options: Load Custom as Left compares against the currently selected built-in right "
+                "campaign, while Load Custom as Right compares against the currently selected built-in left campaign."
+            ),
+            style="Hint.TLabel",
+            wraplength=720,
+            justify="left",
+        ).grid(row=11, column=0, columnspan=4, sticky="w", pady=(10, 4))
+
+        ttk.Label(
+            builder,
+            textvariable=self.custom_status_text,
+            style="Hint.TLabel",
+            wraplength=720,
+            justify="left",
+        ).grid(row=12, column=0, columnspan=4, sticky="w", pady=(2, 0))
+
+        self.custom_action_buttons.extend([run_show, compare_show, run_only, load_left, load_right, compare_baseline])
+
+    def _build_multi_custom_builder(self, parent: ttk.Frame) -> None:
+        builder = ttk.LabelFrame(parent, text="Ordered Multi-Fault Scenario", padding=14)
+        builder.grid(row=0, column=0, sticky="nsew")
+        builder.columnconfigure(1, weight=1)
+        builder.columnconfigure(3, weight=1)
+        builder.columnconfigure(4, weight=1)
+
+        ttk.Label(
+            builder,
+            text=(
+                f"Build a lightweight ordered scenario with 2 to {MAX_CUSTOM_SCENARIO_EVENTS} fault events. "
+                "Use add, update, and move controls to stage the narrative you want to present."
+            ),
+            style="Hint.TLabel",
+            wraplength=760,
+            justify="left",
+        ).grid(row=0, column=0, columnspan=5, sticky="w", pady=(0, 10))
+
+        ttk.Label(builder, text="Fault Type", style="FieldName.TLabel").grid(row=1, column=0, sticky="w")
+        type_box = ttk.Combobox(
+            builder,
+            textvariable=self.multi_fault_type,
+            values=[fault_type for fault_type, _label in CUSTOM_FAULT_TYPES],
+            state="readonly",
+            width=28,
+        )
+        type_box.grid(row=1, column=1, sticky="ew", padx=(10, 18), pady=(0, 8))
+        type_box.bind("<<ComboboxSelected>>", self._on_multi_fault_type_changed)
+
+        ttk.Label(builder, text="Fault Behavior", style="FieldName.TLabel").grid(row=1, column=2, sticky="w")
+        behavior_box = ttk.Combobox(
+            builder,
+            textvariable=self.multi_fault_behavior,
+            values=[behavior for behavior, _label in CUSTOM_FAULT_BEHAVIORS],
+            state="readonly",
+            width=16,
+        )
+        behavior_box.grid(row=1, column=3, sticky="ew", padx=(10, 18), pady=(0, 8))
+        behavior_box.bind("<<ComboboxSelected>>", self._on_multi_fault_behavior_changed)
+
+        ttk.Label(builder, text="Fault Parameter", style="FieldName.TLabel").grid(row=1, column=4, sticky="w")
+        ttk.Entry(builder, textvariable=self.multi_parameter, width=16).grid(row=1, column=4, sticky="e", pady=(0, 8))
+
+        ttk.Label(builder, text="Fault Start [ms]", style="FieldName.TLabel").grid(row=2, column=0, sticky="w")
+        ttk.Entry(builder, textvariable=self.multi_start_ms, width=18).grid(row=2, column=1, sticky="w", padx=(10, 18), pady=(0, 8))
+
+        ttk.Label(builder, text="Fault Duration [ms]", style="FieldName.TLabel").grid(row=2, column=2, sticky="w")
+        ttk.Entry(builder, textvariable=self.multi_duration_ms, width=18).grid(row=2, column=3, sticky="w", padx=(10, 18), pady=(0, 8))
+
+        ttk.Label(
+            builder,
+            text=(
+                "Keep start times in the same order as the event list for the clearest thesis/demo story. "
+                "Duration 0 remains reserved for permanent faults."
+            ),
+            style="Hint.TLabel",
+            wraplength=760,
+            justify="left",
+        ).grid(row=3, column=0, columnspan=5, sticky="w", pady=(2, 8))
+
+        event_actions = ttk.Frame(builder, style="Root.TFrame")
+        event_actions.grid(row=4, column=0, columnspan=5, sticky="w", pady=(0, 10))
+        ttk.Button(event_actions, text="Add Event", command=self.add_multi_event).grid(row=0, column=0, sticky="w")
+        ttk.Button(event_actions, text="Update Selected", command=self.update_multi_event).grid(row=0, column=1, sticky="w", padx=(8, 0))
+        ttk.Button(event_actions, text="Remove Selected", command=self.remove_multi_event).grid(row=0, column=2, sticky="w", padx=(8, 0))
+        ttk.Button(event_actions, text="Move Up", command=self.move_multi_event_up).grid(row=0, column=3, sticky="w", padx=(8, 0))
+        ttk.Button(event_actions, text="Move Down", command=self.move_multi_event_down).grid(row=0, column=4, sticky="w", padx=(8, 0))
+        ttk.Button(event_actions, text="Clear Scenario", command=self.clear_multi_events).grid(row=0, column=5, sticky="w", padx=(8, 0))
+
+        list_frame = ttk.LabelFrame(builder, text="Scenario Event List", padding=10)
+        list_frame.grid(row=5, column=0, columnspan=5, sticky="nsew", pady=(0, 10))
+        list_frame.columnconfigure(0, weight=1)
+        list_frame.rowconfigure(0, weight=1)
+
+        self.multi_event_listbox = tk.Listbox(
+            list_frame,
+            height=7,
+            activestyle="none",
+            exportselection=False,
+            bg="#ffffff",
+            fg="#1f2e3b",
+            selectbackground="#d6e4f5",
+            selectforeground="#17324d",
+            font=("TkDefaultFont", 10),
+        )
+        self.multi_event_listbox.grid(row=0, column=0, sticky="nsew")
+        self.multi_event_listbox.bind("<<ListboxSelect>>", self._on_multi_event_selected)
+        scroll = ttk.Scrollbar(list_frame, orient="vertical", command=self.multi_event_listbox.yview)
+        self.multi_event_listbox.configure(yscrollcommand=scroll.set)
+        scroll.grid(row=0, column=1, sticky="ns")
+
+        ttk.Label(
+            builder,
+            text=(
+                "Scenario presets store the full ordered event list in the same `presets/gui_custom/` folder used by "
+                "the single-fault builder."
+            ),
+            style="Hint.TLabel",
+            wraplength=760,
+            justify="left",
+        ).grid(row=6, column=0, columnspan=5, sticky="w", pady=(0, 8))
+
+        ttk.Label(builder, text="Preset Name", style="FieldName.TLabel").grid(row=7, column=0, sticky="w")
+        ttk.Entry(builder, textvariable=self.multi_preset_name, width=28).grid(row=7, column=1, sticky="w", padx=(10, 18), pady=(0, 8))
+
+        ttk.Label(builder, text="Saved / Starter Preset", style="FieldName.TLabel").grid(row=7, column=2, sticky="w")
+        self.multi_preset_selector = ttk.Combobox(
+            builder,
+            textvariable=self.multi_preset_choice,
+            state="readonly",
+            width=28,
+        )
+        self.multi_preset_selector.grid(row=7, column=3, columnspan=2, sticky="ew", padx=(10, 0), pady=(0, 8))
+
+        preset_actions = ttk.Frame(builder, style="Root.TFrame")
+        preset_actions.grid(row=8, column=0, columnspan=5, sticky="w", pady=(0, 10))
+        ttk.Button(preset_actions, text="Save Scenario Preset", command=self.save_multi_preset).grid(row=0, column=0, sticky="w")
+        ttk.Button(preset_actions, text="Load Scenario Preset", command=self.load_selected_multi_preset).grid(row=0, column=1, sticky="w", padx=(8, 0))
+        ttk.Button(preset_actions, text="Delete Scenario Preset", command=self.delete_selected_multi_preset).grid(row=0, column=2, sticky="w", padx=(8, 0))
+
+        primary_actions = ttk.Frame(builder, style="Root.TFrame")
+        primary_actions.grid(row=9, column=0, columnspan=5, sticky="w")
+        run_show = ttk.Button(primary_actions, text="Run Scenario and Show Figures", command=self.run_multi_only)
+        run_show.grid(row=0, column=0, sticky="w")
+        compare_show = ttk.Button(
+            primary_actions,
+            text="Compare Scenario vs Baseline and Show Figures",
+            command=self.compare_multi_vs_baseline,
+        )
+        compare_show.grid(row=0, column=1, sticky="w", padx=(8, 0))
+
+        ttk.Label(
+            builder,
+            text=(
+                "Fastest demo path: use one of the two buttons above. The scenario is executed, loaded into the "
+                "comparison workflow, and the Comparison Figures tab opens automatically."
+            ),
+            style="Hint.TLabel",
+            wraplength=760,
+            justify="left",
+        ).grid(row=10, column=0, columnspan=5, sticky="w", pady=(10, 6))
+
+        actions = ttk.Frame(builder, style="Root.TFrame")
+        actions.grid(row=11, column=0, columnspan=5, sticky="w")
+        run_only = ttk.Button(actions, text="Run Scenario Only", command=self.run_multi_only)
+        run_only.grid(row=0, column=0, sticky="w")
+        load_left = ttk.Button(actions, text="Load Scenario as Left", command=self.load_multi_as_left)
+        load_left.grid(row=0, column=1, sticky="w", padx=(8, 0))
+        load_right = ttk.Button(actions, text="Load Scenario as Right", command=self.load_multi_as_right)
+        load_right.grid(row=0, column=2, sticky="w", padx=(8, 0))
+        compare_baseline = ttk.Button(actions, text="Compare Scenario vs Baseline", command=self.compare_multi_vs_baseline)
+        compare_baseline.grid(row=0, column=3, sticky="w", padx=(8, 0))
+
+        ttk.Label(
+            builder,
+            textvariable=self.custom_status_text,
+            style="Hint.TLabel",
+            wraplength=760,
+            justify="left",
+        ).grid(row=12, column=0, columnspan=5, sticky="w", pady=(10, 0))
+
+        self.custom_action_buttons.extend([run_show, compare_show, run_only, load_left, load_right, compare_baseline])
+        self._refresh_multi_event_listbox(select_index=0 if self.multi_events else None)
+
+    def _build_custom_metric_row(
+        self,
+        parent: ttk.Frame,
+        row: int,
+        title: str,
+        variable: tk.StringVar,
+        *,
+        wraplength: int = 280,
+    ) -> None:
+        ttk.Label(parent, text=title, style="MetricLabel.TLabel").grid(row=row, column=0, sticky="nw", padx=(0, 12), pady=4)
+        ttk.Label(
+            parent,
+            textvariable=variable,
+            style="FieldValue.TLabel",
+            wraplength=wraplength,
+            justify="left",
+        ).grid(row=row, column=1, sticky="w", pady=4)
+
     def _build_fault_path_tab(self, parent: ttk.Frame) -> None:
         header = ttk.Frame(parent, padding=(12, 8, 12, 10), style="Root.TFrame")
         header.grid(row=0, column=0, sticky="ew")
@@ -2499,7 +3562,8 @@ class VirtualECUGui(tk.Tk):
             header,
             text=(
                 "Use this qualitative view to map the selected campaigns onto the ECU path from sensor electronics "
-                "through timing, control memory, actuation, and thermal-system outcome."
+                "through timing, control memory, actuation, and thermal-system outcome. In comparison mode, the two "
+                "small diagrams keep the left/right story readable without crowding the main summary tab."
             ),
             style="Hint.TLabel",
             wraplength=1050,
@@ -2723,6 +3787,459 @@ class VirtualECUGui(tk.Tk):
             pady=10,
         ).pack(fill="x")
 
+    def _set_custom_controls_enabled(self, enabled: bool) -> None:
+        state = ["!disabled"] if enabled else ["disabled"]
+        for button in self.custom_action_buttons:
+            button.state(state)
+
+    def _open_comparison_figures_tab(self) -> None:
+        if self.notebook is not None and self.comparison_figures_tab is not None:
+            self.notebook.select(self.comparison_figures_tab)
+
+    def _clear_custom_result_summary(self) -> None:
+        for variable in self.custom_summary_vars.values():
+            variable.set("-")
+        self.custom_saved_paths_var.set("-")
+        self.custom_last_run_var.set("-")
+        self.custom_loaded_slot_var.set("-")
+        self.last_custom_result = None
+
+    def _current_custom_form_config(self) -> Dict[str, object] | None:
+        return self._validate_custom_config()
+
+    def _apply_custom_config_to_form(self, config: Dict[str, object]) -> None:
+        self.custom_fault_type.set(str(config["fault_type"]))
+        self.custom_fault_behavior.set(str(config["fault_behavior"]))
+        self.custom_start_ms.set(str(int(config["start_ms"])))
+        self.custom_duration_ms.set(str(int(config["duration_ms"])))
+        self.custom_parameter.set(f"{float(config['parameter']):g}")
+
+    def _current_multi_form_config(self) -> Dict[str, object] | None:
+        return self._validate_multi_scenario_config()
+
+    def _apply_multi_config_to_form(self, config: Dict[str, object]) -> None:
+        self.multi_events = [default_custom_event(**event) for event in config["events"]]  # type: ignore[arg-type]
+        self._refresh_multi_event_listbox(select_index=0 if self.multi_events else None)
+
+    def _refresh_custom_preset_catalog(self) -> None:
+        catalog: Dict[str, Dict[str, object]] = {}
+
+        for name, payload in BUILTIN_CUSTOM_PRESETS.items():
+            catalog[name] = {
+                "source": "builtin",
+                "path": None,
+                "config": dict(payload),
+            }
+
+        for path in list_custom_preset_files():
+            try:
+                payload = read_custom_preset(path)
+            except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
+                continue
+            if str(payload.get("preset_kind", "single")) != "single":
+                continue
+            catalog[str(payload["preset_name"])] = {
+                "source": "file",
+                "path": path,
+                "config": payload,
+            }
+
+        self.custom_preset_catalog = dict(sorted(catalog.items(), key=lambda item: item[0]))
+        choices = list(self.custom_preset_catalog)
+        if self.custom_preset_selector is not None:
+            self.custom_preset_selector.configure(values=choices)
+
+        if choices:
+            if self.custom_preset_choice.get() not in self.custom_preset_catalog:
+                self.custom_preset_choice.set(choices[0])
+        else:
+            self.custom_preset_choice.set("")
+
+    def _refresh_multi_preset_catalog(self) -> None:
+        catalog: Dict[str, Dict[str, object]] = {}
+
+        for name, payload in BUILTIN_MULTI_CUSTOM_PRESETS.items():
+            catalog[name] = {
+                "source": "builtin",
+                "path": None,
+                "config": dict(payload),
+            }
+
+        for path in list_custom_preset_files():
+            try:
+                payload = read_custom_preset(path)
+            except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
+                continue
+            if str(payload.get("preset_kind", "single")) != "multi":
+                continue
+            catalog[str(payload["preset_name"])] = {
+                "source": "file",
+                "path": path,
+                "config": payload,
+            }
+
+        self.multi_preset_catalog = dict(sorted(catalog.items(), key=lambda item: item[0]))
+        choices = list(self.multi_preset_catalog)
+        if self.multi_preset_selector is not None:
+            self.multi_preset_selector.configure(values=choices)
+
+        if choices:
+            if self.multi_preset_choice.get() not in self.multi_preset_catalog:
+                self.multi_preset_choice.set(choices[0])
+        else:
+            self.multi_preset_choice.set("")
+
+    def _selected_multi_event_index(self) -> int | None:
+        if self.multi_event_listbox is None:
+            return None
+        selection = self.multi_event_listbox.curselection()
+        if not selection or not self.multi_events:
+            return None
+        return int(selection[0])
+
+    def _multi_event_display(self, event: Dict[str, object], index: int) -> str:
+        behavior = str(event["fault_behavior"])
+        start_ms = int(event["start_ms"])
+        duration_ms = int(event["duration_ms"])
+        duration_label = "onward" if behavior == "permanent" and duration_ms == 0 else f"{duration_ms} ms"
+        return (
+            f"{index + 1}. {custom_mode_label(str(event['fault_type']))} | {behavior} | "
+            f"start {start_ms} ms | duration {duration_label} | p={float(event['parameter']):g}"
+        )
+
+    def _refresh_multi_event_listbox(self, *, select_index: int | None = None) -> None:
+        if self.multi_event_listbox is None:
+            return
+
+        self.multi_event_listbox.delete(0, tk.END)
+        if not self.multi_events:
+            self.multi_event_listbox.insert(tk.END, "Add 2 to 4 events to define a multi-fault scenario.")
+            return
+
+        for index, event in enumerate(self.multi_events):
+            self.multi_event_listbox.insert(tk.END, self._multi_event_display(event, index))
+
+        if select_index is None:
+            select_index = 0
+        select_index = max(0, min(select_index, len(self.multi_events) - 1))
+        self.multi_event_listbox.selection_clear(0, tk.END)
+        self.multi_event_listbox.selection_set(select_index)
+        self.multi_event_listbox.activate(select_index)
+        self._set_multi_editor_event(self.multi_events[select_index])
+
+    def _set_multi_editor_event(self, event: Dict[str, object]) -> None:
+        self.multi_fault_type.set(str(event["fault_type"]))
+        self.multi_fault_behavior.set(str(event["fault_behavior"]))
+        self.multi_start_ms.set(str(int(event["start_ms"])))
+        self.multi_duration_ms.set(str(int(event["duration_ms"])))
+        self.multi_parameter.set(f"{float(event['parameter']):g}")
+
+    def save_custom_preset(self) -> None:
+        config = self._current_custom_form_config()
+        if config is None:
+            return
+
+        name = self.custom_preset_name.get().strip()
+        sanitized = sanitize_preset_name(name)
+        if not sanitized:
+            messagebox.showerror(
+                "Invalid Preset Name",
+                "Preset name must contain at least one letter or number.",
+            )
+            return
+
+        payload = custom_preset_payload(sanitized, config)
+        path = preset_file_path(sanitized)
+        write_custom_preset(path, payload)
+        self.custom_preset_name.set(sanitized)
+        self._refresh_custom_preset_catalog()
+        self._refresh_multi_preset_catalog()
+        self.custom_preset_choice.set(sanitized)
+        self.custom_status_text.set(
+            f"Saved preset '{sanitized}' to {path.relative_to(PROJECT_ROOT)}. You can now reload it for repeated demo or study runs."
+        )
+
+    def load_selected_custom_preset(self) -> None:
+        preset_name = self.custom_preset_choice.get().strip()
+        if not preset_name:
+            messagebox.showinfo("No Preset Selected", "Select a built-in or saved preset first.")
+            return
+
+        record = self.custom_preset_catalog.get(preset_name)
+        if record is None:
+            messagebox.showerror("Preset Not Found", f"The selected preset '{preset_name}' is no longer available.")
+            self._refresh_custom_preset_catalog()
+            return
+
+        config = dict(record["config"])  # type: ignore[arg-type]
+        self._apply_custom_config_to_form(config)
+        self.custom_preset_name.set(str(config["preset_name"]))
+        source = "built-in starter preset" if record["source"] == "builtin" else f"saved preset from {Path(record['path']).relative_to(PROJECT_ROOT)}"
+        self.custom_status_text.set(
+            f"Loaded preset '{preset_name}' from the {source}. The Custom Experiment form is ready to run."
+        )
+
+    def delete_selected_custom_preset(self) -> None:
+        preset_name = self.custom_preset_choice.get().strip()
+        if not preset_name:
+            messagebox.showinfo("No Preset Selected", "Select a saved preset first.")
+            return
+
+        record = self.custom_preset_catalog.get(preset_name)
+        if record is None:
+            messagebox.showerror("Preset Not Found", f"The selected preset '{preset_name}' is no longer available.")
+            self._refresh_custom_preset_catalog()
+            return
+
+        if record["source"] != "file":
+            messagebox.showinfo(
+                "Built-In Preset",
+                "Built-in starter presets stay available for demos and cannot be deleted.",
+            )
+            return
+
+        path = Path(record["path"])  # type: ignore[arg-type]
+        try:
+            path.unlink()
+        except OSError as exc:
+            messagebox.showerror("Delete Failed", f"Failed to delete preset '{preset_name}': {exc}")
+            return
+
+        self._refresh_custom_preset_catalog()
+        self._refresh_multi_preset_catalog()
+        self.custom_status_text.set(
+            f"Deleted preset '{preset_name}' from {path.relative_to(PROJECT_ROOT)}."
+        )
+
+    def _validate_custom_event_values(
+        self,
+        *,
+        fault_type: str,
+        behavior: str,
+        start_text: str,
+        duration_text: str,
+        parameter_text: str,
+        error_title: str,
+    ) -> Dict[str, object] | None:
+        try:
+            start_ms = int(start_text.strip())
+        except ValueError:
+            messagebox.showerror(error_title, "Fault start time must be an integer number of milliseconds.")
+            return None
+
+        try:
+            duration_ms = int(duration_text.strip())
+        except ValueError:
+            messagebox.showerror(error_title, "Fault duration must be an integer number of milliseconds.")
+            return None
+
+        try:
+            parameter = float(parameter_text.strip())
+        except ValueError:
+            messagebox.showerror(error_title, "Fault parameter must be numeric.")
+            return None
+
+        if fault_type not in {mode for mode, _label in CUSTOM_FAULT_TYPES}:
+            messagebox.showerror(error_title, "Select one of the supported custom fault types.")
+            return None
+
+        if behavior not in {name for name, _label in CUSTOM_FAULT_BEHAVIORS}:
+            messagebox.showerror(error_title, "Select either transient or permanent fault behavior.")
+            return None
+
+        if start_ms < 0:
+            messagebox.showerror(error_title, "Fault start time must be greater than or equal to 0 ms.")
+            return None
+
+        if duration_ms < 0:
+            messagebox.showerror(error_title, "Fault duration must be greater than or equal to 0 ms.")
+            return None
+
+        if behavior != "permanent" and duration_ms == 0:
+            messagebox.showerror(
+                error_title,
+                "Duration 0 is reserved for permanent faults because the simulator interprets it as persistent from the start time.",
+            )
+            return None
+
+        return {
+            "fault_type": fault_type,
+            "fault_behavior": behavior,
+            "start_ms": start_ms,
+            "duration_ms": duration_ms,
+            "parameter": parameter,
+        }
+
+    def _current_multi_editor_event(self) -> Dict[str, object] | None:
+        return self._validate_custom_event_values(
+            fault_type=self.multi_fault_type.get().strip(),
+            behavior=self.multi_fault_behavior.get().strip(),
+            start_text=self.multi_start_ms.get(),
+            duration_text=self.multi_duration_ms.get(),
+            parameter_text=self.multi_parameter.get(),
+            error_title="Invalid Multi-Fault Event",
+        )
+
+    def add_multi_event(self) -> None:
+        event = self._current_multi_editor_event()
+        if event is None:
+            return
+        if len(self.multi_events) >= MAX_CUSTOM_SCENARIO_EVENTS:
+            messagebox.showinfo(
+                "Scenario Full",
+                f"This lightweight builder supports up to {MAX_CUSTOM_SCENARIO_EVENTS} ordered fault events.",
+            )
+            return
+
+        self.multi_events.append(event)
+        self._refresh_multi_event_listbox(select_index=len(self.multi_events) - 1)
+        self.custom_status_text.set(
+            f"Added event {len(self.multi_events)} to the multi-fault scenario. Build 2 to {MAX_CUSTOM_SCENARIO_EVENTS} events, then run it."
+        )
+
+    def update_multi_event(self) -> None:
+        index = self._selected_multi_event_index()
+        if index is None:
+            messagebox.showinfo("No Event Selected", "Select an event from the scenario list first.")
+            return
+
+        event = self._current_multi_editor_event()
+        if event is None:
+            return
+
+        self.multi_events[index] = event
+        self._refresh_multi_event_listbox(select_index=index)
+        self.custom_status_text.set(f"Updated scenario event {index + 1}.")
+
+    def remove_multi_event(self) -> None:
+        index = self._selected_multi_event_index()
+        if index is None:
+            messagebox.showinfo("No Event Selected", "Select an event from the scenario list first.")
+            return
+
+        del self.multi_events[index]
+        next_index = min(index, len(self.multi_events) - 1) if self.multi_events else None
+        self._refresh_multi_event_listbox(select_index=next_index)
+        self.custom_status_text.set("Removed the selected scenario event.")
+
+    def move_multi_event_up(self) -> None:
+        index = self._selected_multi_event_index()
+        if index is None or index == 0:
+            return
+
+        self.multi_events[index - 1], self.multi_events[index] = self.multi_events[index], self.multi_events[index - 1]
+        self._refresh_multi_event_listbox(select_index=index - 1)
+        self.custom_status_text.set(f"Moved event {index + 1} up in the ordered scenario.")
+
+    def move_multi_event_down(self) -> None:
+        index = self._selected_multi_event_index()
+        if index is None or index >= len(self.multi_events) - 1:
+            return
+
+        self.multi_events[index + 1], self.multi_events[index] = self.multi_events[index], self.multi_events[index + 1]
+        self._refresh_multi_event_listbox(select_index=index + 1)
+        self.custom_status_text.set(f"Moved event {index + 1} down in the ordered scenario.")
+
+    def clear_multi_events(self) -> None:
+        self.multi_events = []
+        self._refresh_multi_event_listbox(select_index=None)
+        self.custom_status_text.set("Cleared the current multi-fault scenario. Add 2 to 4 events to run a new one.")
+
+    def save_multi_preset(self) -> None:
+        config = self._current_multi_form_config()
+        if config is None:
+            return
+
+        name = self.multi_preset_name.get().strip()
+        sanitized = sanitize_preset_name(name)
+        if not sanitized:
+            messagebox.showerror(
+                "Invalid Preset Name",
+                "Preset name must contain at least one letter or number.",
+            )
+            return
+
+        payload = custom_preset_payload(sanitized, config)
+        path = preset_file_path(sanitized)
+        write_custom_preset(path, payload)
+        self.multi_preset_name.set(sanitized)
+        self._refresh_custom_preset_catalog()
+        self._refresh_multi_preset_catalog()
+        self.multi_preset_choice.set(sanitized)
+        self.custom_status_text.set(
+            f"Saved multi-fault preset '{sanitized}' to {path.relative_to(PROJECT_ROOT)}."
+        )
+
+    def load_selected_multi_preset(self) -> None:
+        preset_name = self.multi_preset_choice.get().strip()
+        if not preset_name:
+            messagebox.showinfo("No Preset Selected", "Select a built-in or saved multi-fault preset first.")
+            return
+
+        record = self.multi_preset_catalog.get(preset_name)
+        if record is None:
+            messagebox.showerror("Preset Not Found", f"The selected preset '{preset_name}' is no longer available.")
+            self._refresh_multi_preset_catalog()
+            return
+
+        config = dict(record["config"])  # type: ignore[arg-type]
+        self._apply_multi_config_to_form(config)
+        self.multi_preset_name.set(str(config["preset_name"]))
+        source = "built-in starter preset" if record["source"] == "builtin" else f"saved preset from {Path(record['path']).relative_to(PROJECT_ROOT)}"
+        self.custom_status_text.set(
+            f"Loaded multi-fault preset '{preset_name}' from the {source}. The ordered scenario is ready to run."
+        )
+
+    def delete_selected_multi_preset(self) -> None:
+        preset_name = self.multi_preset_choice.get().strip()
+        if not preset_name:
+            messagebox.showinfo("No Preset Selected", "Select a saved multi-fault preset first.")
+            return
+
+        record = self.multi_preset_catalog.get(preset_name)
+        if record is None:
+            messagebox.showerror("Preset Not Found", f"The selected preset '{preset_name}' is no longer available.")
+            self._refresh_multi_preset_catalog()
+            return
+
+        if record["source"] != "file":
+            messagebox.showinfo(
+                "Built-In Preset",
+                "Built-in starter presets stay available for demos and cannot be deleted.",
+            )
+            return
+
+        path = Path(record["path"])  # type: ignore[arg-type]
+        try:
+            path.unlink()
+        except OSError as exc:
+            messagebox.showerror("Delete Failed", f"Failed to delete preset '{preset_name}': {exc}")
+            return
+
+        self._refresh_custom_preset_catalog()
+        self._refresh_multi_preset_catalog()
+        self.custom_status_text.set(
+            f"Deleted multi-fault preset '{preset_name}' from {path.relative_to(PROJECT_ROOT)}."
+        )
+
+    def _update_custom_result_summary(self, result: Dict[str, object], loaded_mode: str, loaded_slot: str) -> None:
+        summary = result["summary_row"]  # type: ignore[assignment]
+        first_row = result["raw_rows"][0]  # type: ignore[index]
+        campaign_id = str(result["campaign_id"])
+        self.custom_summary_vars["Campaign Name"].set(str(summary.get("campaign_label", campaign_id)))
+        self.custom_loaded_slot_var.set(loaded_slot)
+        self.custom_summary_vars["Fault Class"].set(summarize_fault_class(campaign_id, first_row))
+        self.custom_summary_vars["Final DTC"].set(str(summary.get("final_primary_dtc_label", "none")))
+        self.custom_summary_vars["Final Safe State"].set(str(summary.get("final_safe_state_label", "normal")))
+        self.custom_summary_vars["Maximum Coolant Temperature"].set(format_temperature(str(summary.get("max_coolant_temp_c", ""))))
+        self.custom_summary_vars["Detection Latency"].set(format_latency(str(summary.get("detection_latency_ms", ""))))
+        self.custom_summary_vars["Safe-State Latency"].set(format_latency(str(summary.get("safe_state_latency_ms", ""))))
+        self.custom_saved_paths_var.set(
+            f"{Path(result['log_path']).relative_to(PROJECT_ROOT)}\n{Path(result['summary_path']).relative_to(PROJECT_ROOT)}"
+        )
+        self.custom_last_run_var.set(loaded_mode)
+        self.last_custom_result = result
+
     def _build_findings_cards(
         self,
         parent: ttk.Frame,
@@ -2891,15 +4408,39 @@ class VirtualECUGui(tk.Tk):
 
     def _on_campaign_changed(self, _event: tk.Event[tk.Misc] | None = None) -> None:
         self._refresh_campaign_context()
-        self._refresh_fault_path_diagrams()
         self._reset_summary_values()
+        self._refresh_fault_path_diagrams()
+
+    def _on_custom_fault_type_changed(self, _event: tk.Event[tk.Misc] | None = None) -> None:
+        self.custom_parameter.set(CUSTOM_DEFAULT_PARAMETERS.get(self.custom_fault_type.get(), "0.0"))
+
+    def _on_custom_fault_behavior_changed(self, _event: tk.Event[tk.Misc] | None = None) -> None:
+        if self.custom_fault_behavior.get() == "permanent":
+            self.custom_duration_ms.set("0")
+        elif self.custom_duration_ms.get().strip() == "0":
+            self.custom_duration_ms.set("10000")
+
+    def _on_multi_fault_type_changed(self, _event: tk.Event[tk.Misc] | None = None) -> None:
+        self.multi_parameter.set(CUSTOM_DEFAULT_PARAMETERS.get(self.multi_fault_type.get(), "0.0"))
+
+    def _on_multi_fault_behavior_changed(self, _event: tk.Event[tk.Misc] | None = None) -> None:
+        if self.multi_fault_behavior.get() == "permanent":
+            self.multi_duration_ms.set("0")
+        elif self.multi_duration_ms.get().strip() == "0":
+            self.multi_duration_ms.set("10000")
+
+    def _on_multi_event_selected(self, _event: tk.Event[tk.Misc] | None = None) -> None:
+        index = self._selected_multi_event_index()
+        if index is None:
+            return
+        self._set_multi_editor_event(self.multi_events[index])
 
     def _apply_demo_comparison(self, left_campaign: str, right_campaign: str) -> None:
         self.left_campaign.set(left_campaign)
         self.right_campaign.set(right_campaign)
         self._refresh_campaign_context()
-        self._refresh_fault_path_diagrams()
         self._reset_summary_values()
+        self._refresh_fault_path_diagrams()
         self.status_text.set(f"Demo shortlist loaded: {left_campaign} vs {right_campaign}. Run comparison to inspect it.")
 
     def _on_presentation_mode_toggled(self) -> None:
@@ -3305,9 +4846,23 @@ class VirtualECUGui(tk.Tk):
 
     def _refresh_fault_path_diagrams(self) -> None:
         if self.left_fault_path_diagram is not None:
-            self.left_fault_path_diagram.set_campaign(self.left_campaign.get())
+            left_rows = None
+            if self.current_plot_results is not None:
+                left_rows = self.current_plot_results["left"]["raw_rows"]  # type: ignore[index]
+            self.left_fault_path_diagram.set_campaign(
+                self.left_campaign.get() if left_rows is None else str(self.current_plot_results["left"]["campaign_id"]),  # type: ignore[index]
+                None if left_rows is None else left_rows[0],
+            )
         if self.right_fault_path_diagram is not None:
-            self.right_fault_path_diagram.set_campaign(self.right_campaign.get())
+            right_rows = None
+            right_campaign_id = self.right_campaign.get()
+            if self.current_plot_results is not None and self.current_plot_results["right"] is not None:
+                right_rows = self.current_plot_results["right"]["raw_rows"]  # type: ignore[index]
+                right_campaign_id = str(self.current_plot_results["right"]["campaign_id"])  # type: ignore[index]
+            self.right_fault_path_diagram.set_campaign(
+                right_campaign_id,
+                None if right_rows is None else right_rows[0],
+            )
 
     def _reset_summary_values(self) -> None:
         self.current_comparison = None
@@ -3325,12 +4880,137 @@ class VirtualECUGui(tk.Tk):
             self.comparison_plot.set_title(self.comparison_plot_choice.get())
             self.comparison_plot.show_message("Run a comparison from the Comparison Summary page to display the selected plot here.")
         self._clear_propagation_evidence()
+        self._refresh_fault_path_diagrams()
 
     def run_left_only(self) -> None:
         self._run_campaigns(include_right=False)
 
     def run_comparison(self) -> None:
         self._run_campaigns(include_right=True)
+
+    def run_custom_only(self) -> None:
+        self._run_custom_experiment("only")
+
+    def load_custom_as_left(self) -> None:
+        self._run_custom_experiment("left")
+
+    def load_custom_as_right(self) -> None:
+        self._run_custom_experiment("right")
+
+    def compare_custom_vs_baseline(self) -> None:
+        self._run_custom_experiment("baseline")
+
+    def run_multi_only(self) -> None:
+        self._run_multi_experiment("only")
+
+    def load_multi_as_left(self) -> None:
+        self._run_multi_experiment("left")
+
+    def load_multi_as_right(self) -> None:
+        self._run_multi_experiment("right")
+
+    def compare_multi_vs_baseline(self) -> None:
+        self._run_multi_experiment("baseline")
+
+    def _validate_custom_config(self) -> Dict[str, object] | None:
+        return self._validate_custom_event_values(
+            fault_type=self.custom_fault_type.get().strip(),
+            behavior=self.custom_fault_behavior.get().strip(),
+            start_text=self.custom_start_ms.get(),
+            duration_text=self.custom_duration_ms.get(),
+            parameter_text=self.custom_parameter.get(),
+            error_title="Invalid Custom Experiment",
+        )
+
+    def _validate_multi_scenario_config(self) -> Dict[str, object] | None:
+        if len(self.multi_events) < 2:
+            messagebox.showerror(
+                "Invalid Multi-Fault Scenario",
+                "Add at least two fault events before running a multi-fault scenario.",
+            )
+            return None
+
+        if len(self.multi_events) > MAX_CUSTOM_SCENARIO_EVENTS:
+            messagebox.showerror(
+                "Invalid Multi-Fault Scenario",
+                f"This lightweight builder supports at most {MAX_CUSTOM_SCENARIO_EVENTS} fault events.",
+            )
+            return None
+
+        previous_start = -1
+        normalized_events: List[Dict[str, object]] = []
+        for index, event in enumerate(self.multi_events, start=1):
+            validated = self._validate_custom_event_values(
+                fault_type=str(event["fault_type"]),
+                behavior=str(event["fault_behavior"]),
+                start_text=str(event["start_ms"]),
+                duration_text=str(event["duration_ms"]),
+                parameter_text=str(event["parameter"]),
+                error_title=f"Invalid Multi-Fault Scenario Event {index}",
+            )
+            if validated is None:
+                return None
+
+            start_ms = int(validated["start_ms"])
+            if start_ms < previous_start:
+                messagebox.showerror(
+                    "Invalid Multi-Fault Scenario",
+                    "Keep event start times in non-decreasing order so the ordered scenario remains easy to explain.",
+                )
+                return None
+
+            previous_start = start_ms
+            normalized_events.append(validated)
+
+        return {
+            "kind": "multi",
+            "events": normalized_events,
+        }
+
+    def _run_custom_experiment(self, mode: str) -> None:
+        config = self._validate_custom_config()
+        if config is None:
+            return
+        self._run_custom_request(mode, config)
+
+    def _run_multi_experiment(self, mode: str) -> None:
+        config = self._validate_multi_scenario_config()
+        if config is None:
+            return
+        self._run_custom_request(mode, config)
+
+    def _run_custom_request(self, mode: str, config: Dict[str, object]) -> None:
+        if self.executable is None:
+            messagebox.showerror(
+                "Executable Not Found",
+                "The compiled virtual ECU executable was not found. Build it first with 'make'.",
+            )
+            return
+
+        CUSTOM_LOGS_DIR.mkdir(parents=True, exist_ok=True)
+        run_noun = "custom multi-fault scenario" if str(config.get("kind", "single")) == "multi" else "custom experiment"
+        mode_text = {
+            "only": f"Running {run_noun}...",
+            "left": f"Running {run_noun} as left vs {self.right_campaign.get()}...",
+            "right": f"Running {run_noun} as right vs {self.left_campaign.get()}...",
+            "baseline": f"Running {run_noun} vs baseline...",
+        }.get(mode, f"Running {run_noun}...")
+        self.status_text.set(mode_text)
+        self.custom_status_text.set(
+            f"Executing {custom_campaign_label(config)} via the simulator custom CLI path and loading the generated CSV outputs."
+        )
+        self.run_compare_button.state(["disabled"])
+        self.run_left_button.state(["disabled"])
+        self.snapshot_button.state(["disabled"])
+        self.export_button.state(["disabled"])
+        self._set_custom_controls_enabled(False)
+
+        worker = threading.Thread(
+            target=self._run_custom_experiment_worker,
+            args=(mode, config),
+            daemon=True,
+        )
+        worker.start()
 
     def _run_campaigns(self, include_right: bool) -> None:
         if self.executable is None:
@@ -3351,6 +5031,7 @@ class VirtualECUGui(tk.Tk):
         self.run_left_button.state(["disabled"])
         self.snapshot_button.state(["disabled"])
         self.export_button.state(["disabled"])
+        self._set_custom_controls_enabled(False)
 
         worker = threading.Thread(
             target=self._run_campaigns_worker,
@@ -3359,9 +5040,23 @@ class VirtualECUGui(tk.Tk):
         )
         worker.start()
 
+    def _load_simulation_result(self, campaign_id: str, log_path: Path) -> Dict[str, object]:
+        summary_path = summary_path_for(log_path)
+        raw_rows = read_csv_rows(log_path)
+        summary_rows = read_csv_rows(summary_path)
+        if not raw_rows or not summary_rows:
+            raise RuntimeError("The simulator completed but did not generate readable CSV data.")
+
+        return {
+            "campaign_id": campaign_id,
+            "raw_rows": raw_rows,
+            "summary_row": summary_rows[0],
+            "log_path": log_path,
+            "summary_path": summary_path,
+        }
+
     def _run_single_campaign(self, campaign_id: str, slot: str) -> Dict[str, object]:
         log_path = campaign_log_path(campaign_id, slot)
-        summary_path = summary_path_for(log_path)
         command = [str(self.executable), str(log_path), campaign_id]
 
         completed = subprocess.run(
@@ -3374,16 +5069,50 @@ class VirtualECUGui(tk.Tk):
         if completed.returncode != 0:
             raise RuntimeError(completed.stderr or completed.stdout or "Unknown simulator failure.")
 
-        raw_rows = read_csv_rows(log_path)
-        summary_rows = read_csv_rows(summary_path)
-        if not raw_rows or not summary_rows:
-            raise RuntimeError("The simulator completed but did not generate readable CSV data.")
+        return self._load_simulation_result(campaign_id, log_path)
 
-        return {
-            "campaign_id": campaign_id,
-            "raw_rows": raw_rows,
-            "summary_row": summary_rows[0],
-        }
+    def _run_custom_campaign(self, config: Dict[str, object]) -> Dict[str, object]:
+        log_path = custom_log_path(config)
+        if str(config.get("kind", "single")) == "multi":
+            command = [str(self.executable), str(log_path), "custom_multi", str(len(custom_events(config)))]
+            for event in custom_events(config):
+                command.extend(
+                    [
+                        str(event["fault_type"]),
+                        str(event["start_ms"]),
+                        str(event["duration_ms"]),
+                        str(event["fault_behavior"]),
+                        f"{float(event['parameter']):g}",
+                    ]
+                )
+        else:
+            command = [
+                str(self.executable),
+                str(log_path),
+                "custom",
+                str(config["fault_type"]),
+                str(config["start_ms"]),
+                str(config["duration_ms"]),
+                str(config["fault_behavior"]),
+                f"{float(config['parameter']):g}",
+            ]
+
+        completed = subprocess.run(
+            command,
+            cwd=PROJECT_ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if completed.returncode != 0:
+            raise RuntimeError(completed.stderr or completed.stdout or "Unknown simulator failure.")
+
+        result = self._load_simulation_result(custom_campaign_id(config), log_path)
+        summary = dict(result["summary_row"])  # type: ignore[arg-type]
+        summary["campaign_label"] = custom_campaign_label(config)
+        result["summary_row"] = summary
+        result["custom_config"] = dict(config)
+        return result
 
     def _run_campaigns_worker(self, include_right: bool) -> None:
         try:
@@ -3400,13 +5129,99 @@ class VirtualECUGui(tk.Tk):
 
         self.after(0, lambda: self._apply_results(left_result, right_result))
 
+    def _run_custom_experiment_worker(self, mode: str, config: Dict[str, object]) -> None:
+        try:
+            custom_result = self._run_custom_campaign(config)
+            left_campaign_id = self.left_campaign.get()
+            right_campaign_id = self.right_campaign.get()
+            item_label = "Custom scenario" if str(config.get("kind", "single")) == "multi" else "Custom run"
+
+            if mode == "only":
+                left_result = custom_result
+                right_result = None
+                loaded_slot = "Left slot only"
+                loaded_mode = f"{item_label} loaded as Left and Comparison Figures opened."
+                completion_status = f"{item_label} loaded as Left and Comparison Figures opened."
+                custom_status = f"{item_label} loaded as Left and Comparison Figures opened for immediate plot review."
+            elif mode == "left":
+                left_result = custom_result
+                right_result = self._run_single_campaign(right_campaign_id, "right")
+                right_name = campaign_story(right_campaign_id)["campaign_name"]
+                loaded_slot = f"Left slot vs {right_name}"
+                loaded_mode = f"{item_label} loaded as Left and Comparison Figures opened."
+                completion_status = f"{item_label} loaded as Left and Comparison Figures opened."
+                custom_status = (
+                    f"{item_label} loaded as Left, compared against {right_name}, "
+                    "and Comparison Figures opened."
+                )
+            elif mode == "right":
+                left_result = self._run_single_campaign(left_campaign_id, "left")
+                right_result = custom_result
+                left_name = campaign_story(left_campaign_id)["campaign_name"]
+                loaded_slot = f"Right slot vs {left_name}"
+                loaded_mode = f"{item_label} loaded as Right and Comparison Figures opened."
+                completion_status = f"{item_label} loaded as Right and Comparison Figures opened."
+                custom_status = (
+                    f"{item_label} loaded as Right, compared against {left_name}, "
+                    "and Comparison Figures opened."
+                )
+            else:
+                left_result = custom_result
+                right_result = self._run_single_campaign("baseline", "right")
+                loaded_slot = "Left slot vs Baseline"
+                loaded_mode = f"{item_label} compared against Baseline and Comparison Figures opened."
+                completion_status = f"{item_label} compared against Baseline and Comparison Figures opened."
+                custom_status = f"{item_label} compared against Baseline and Comparison Figures opened."
+        except OSError as exc:
+            message = f"Failed to run simulator: {exc}"
+            self.after(0, lambda msg=message: self._show_error(msg))
+            return
+        except (RuntimeError, csv.Error) as exc:
+            message = str(exc)
+            self.after(0, lambda msg=message: self._show_error(msg))
+            return
+
+        self.after(
+            0,
+            lambda: self._apply_custom_results(
+                custom_result,
+                loaded_mode,
+                loaded_slot,
+                completion_status,
+                custom_status,
+                left_result,
+                right_result,
+            ),
+        )
+
     def _show_error(self, message: str) -> None:
         self.status_text.set("Run failed.")
+        self.custom_status_text.set("Custom experiment run failed.")
         self.run_compare_button.state(["!disabled"])
         self.run_left_button.state(["!disabled"])
         self.snapshot_button.state(["disabled"])
         self.export_button.state(["disabled"])
+        self._set_custom_controls_enabled(True)
         messagebox.showerror("Virtual ECU Run Failed", message)
+
+    def _apply_custom_results(
+        self,
+        custom_result: Dict[str, object],
+        loaded_mode: str,
+        loaded_slot: str,
+        completion_status: str,
+        custom_status: str,
+        left_result: Dict[str, object],
+        right_result: Dict[str, object] | None,
+    ) -> None:
+        self._update_custom_result_summary(custom_result, loaded_mode, loaded_slot)
+        self._apply_results(left_result, right_result)
+        self._open_comparison_figures_tab()
+        self.status_text.set(completion_status)
+        self.custom_status_text.set(
+            f"{custom_status} Saved files: {Path(custom_result['log_path']).relative_to(PROJECT_ROOT)} and "
+            f"{Path(custom_result['summary_path']).relative_to(PROJECT_ROOT)}."
+        )
 
     def _apply_results(
         self,
@@ -3415,14 +5230,17 @@ class VirtualECUGui(tk.Tk):
     ) -> None:
         self.run_compare_button.state(["!disabled"])
         self.run_left_button.state(["!disabled"])
+        self._set_custom_controls_enabled(True)
 
         left_campaign = str(left_result["campaign_id"])
         self._apply_summary_slot("left", left_campaign, left_result["raw_rows"], left_result["summary_row"])
+        left_label = self.summary_vars["left"]["Campaign Name"].get()
 
         if right_result is not None:
             right_campaign = str(right_result["campaign_id"])
             self._apply_summary_slot("right", right_campaign, right_result["raw_rows"], right_result["summary_row"])
-            self.status_text.set(f"Loaded comparison: {left_campaign} vs {right_campaign}.")
+            right_label = self.summary_vars["right"]["Campaign Name"].get()
+            self.status_text.set(f"Loaded comparison: {left_label} vs {right_label}.")
             self.current_comparison = {
                 "left": left_result,
                 "right": right_result,
@@ -3431,7 +5249,7 @@ class VirtualECUGui(tk.Tk):
             self.export_button.state(["!disabled"])
         else:
             self._clear_slot("right")
-            self.status_text.set(f"Loaded left campaign: {left_campaign}.")
+            self.status_text.set(f"Loaded left campaign: {left_label}.")
             self.current_comparison = None
             self.snapshot_button.state(["disabled"])
             self.export_button.state(["disabled"])
@@ -3480,9 +5298,13 @@ class VirtualECUGui(tk.Tk):
         rows = raw_rows  # type: ignore[assignment]
         summary = summary_row  # type: ignore[assignment]
         first_row = rows[0]
+        story = story_for_run(campaign_id, first_row, str(summary.get("campaign_label", campaign_id)))
 
-        self.summary_vars[slot]["Campaign Name"].set(summary.get("campaign_label", campaign_id))
+        self.summary_vars[slot]["Campaign Name"].set(story["campaign_name"])
         self.summary_vars[slot]["Fault Class"].set(summarize_fault_class(campaign_id, first_row))
+        self.context_vars[slot]["Fault Class"].set(story["fault_class"])
+        self.context_vars[slot]["Hardware Source"].set(story["hardware_source"])
+        self.context_vars[slot]["ECU Manifestation"].set(story["ecu_manifestation"])
         self.summary_vars[slot]["Final DTC"].set(summary.get("final_primary_dtc_label", "none"))
         self.summary_vars[slot]["Final Safe State"].set(summary.get("final_safe_state_label", "normal"))
         self.summary_vars[slot]["Maximum Coolant Temperature"].set(
@@ -3499,6 +5321,9 @@ class VirtualECUGui(tk.Tk):
         story = campaign_story(self.right_campaign.get() if slot == "right" else self.left_campaign.get())
         self.summary_vars[slot]["Campaign Name"].set(story["campaign_name"])
         self.summary_vars[slot]["Fault Class"].set(story["fault_class"])
+        self.context_vars[slot]["Fault Class"].set(story["fault_class"])
+        self.context_vars[slot]["Hardware Source"].set(story["hardware_source"])
+        self.context_vars[slot]["ECU Manifestation"].set(story["ecu_manifestation"])
         for metric_name in self.METRIC_NAMES:
             self.summary_vars[slot][metric_name].set("-")
 

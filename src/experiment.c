@@ -276,6 +276,48 @@ int experiment_configure_custom_single_fault(
     return 0;
 }
 
+int experiment_configure_custom_fault_sequence(
+    ecu_state_t *state,
+    const char *campaign_id,
+    const fault_event_t *events,
+    unsigned int event_count
+)
+{
+    unsigned int i;
+
+    if (events == NULL || event_count == 0U || event_count > ECU_MAX_FAULT_EVENTS) {
+        return -1;
+    }
+
+    zero_campaign(state);
+    copy_text(state->experiment.campaign_id, sizeof(state->experiment.campaign_id), campaign_id);
+    copy_text(state->experiment.campaign_label, sizeof(state->experiment.campaign_label), "Custom multi-fault scenario");
+    copy_text(state->experiment.campaign_category, sizeof(state->experiment.campaign_category), "custom_fault_sequence");
+    snprintf(
+        state->experiment.experiment_id,
+        sizeof(state->experiment.experiment_id),
+        "%s_%u_events",
+        campaign_id,
+        event_count
+    );
+
+    state->experiment.event_count = event_count;
+    state->experiment.ambient_offset_c = 0.0f;
+    state->experiment.engine_load_scale = 1.00f;
+    state->experiment.heat_generation_bias = 0.0f;
+    state->experiment.ram_air_scale = 1.00f;
+
+    for (i = 0U; i < event_count; i++) {
+        if (events[i].mode == FAULT_NONE || events[i].behavior == FAULT_BEHAVIOR_NONE) {
+            return -1;
+        }
+
+        state->experiment.events[i] = events[i];
+    }
+
+    return 0;
+}
+
 fault_mode_t experiment_fault_mode_from_string(const char *text)
 {
     if (strcmp(text, "sensor_bias") == 0) {
@@ -318,7 +360,8 @@ const char *experiment_campaign_usage(void)
         "Usage:\n"
         "  ./virtual_ecu [log_path]\n"
         "  ./virtual_ecu [log_path] <campaign_id>\n"
-        "  ./virtual_ecu [log_path] custom <fault_type> <start_ms> <duration_ms> <fault_behavior> <parameter>\n";
+        "  ./virtual_ecu [log_path] custom <fault_type> <start_ms> <duration_ms> <fault_behavior> <parameter>\n"
+        "  ./virtual_ecu [log_path] custom_multi <event_count> <fault_type> <start_ms> <duration_ms> <fault_behavior> <parameter> [...]\n";
 }
 
 void experiment_list_campaigns(FILE *stream)

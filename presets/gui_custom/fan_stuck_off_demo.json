@@ -1,0 +1,8 @@
+{
+  "duration_ms": 0,
+  "fault_behavior": "permanent",
+  "fault_type": "fan_stuck_off",
+  "parameter": 0.0,
+  "preset_name": "fan_stuck_off_demo",
+  "start_ms": 60000
+}

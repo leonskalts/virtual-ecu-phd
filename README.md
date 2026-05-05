@@ -307,6 +307,104 @@ and calibration memory, actuator driver/power stage, or the thermal plant /
 coolant system. This is a presentation aid for cross-layer reasoning, not a
 circuit-level or device-level simulation.
 
+The GUI also includes a `Custom Experiment` tab for driving the simulator's
+custom single-fault and lightweight multi-fault CLI paths from Tkinter. The
+single-fault builder lets you configure:
+
+- fault type
+- fault behavior (`transient` or `permanent`)
+- fault start time in milliseconds
+- fault duration in milliseconds
+- fault parameter / severity
+
+Supported custom fault types in the GUI are:
+
+- `sensor_bias`
+- `sensor_interface_intermittent`
+- `stale_sensor_data`
+- `pump_degraded`
+- `fan_stuck_off`
+- `calibration_memory_corruption`
+
+Typical GUI custom-run workflow:
+
+1. open `python3 scripts/virtual_ecu_gui.py`
+2. go to the `Custom Experiment` tab
+3. choose the fault type, behavior, start time, duration, and parameter
+4. for the fastest demo flow, use `Run Custom and Show Figures` or
+   `Compare Custom vs Baseline and Show Figures`
+5. the GUI automatically loads the custom run into the comparison workflow and
+   opens the `Comparison Figures` tab
+6. inspect the loaded result in the existing comparison figures, propagation
+   evidence, comparison summary, and fault-path views
+
+The same tab now also includes a `Multi-Fault Scenario` builder for small
+ordered scenarios with 2 to 4 fault events. Each event stores:
+
+- fault type
+- fault behavior
+- fault start time in milliseconds
+- fault duration in milliseconds
+- fault parameter / severity
+
+The GUI uses a minimal simulator CLI extension for this path:
+
+- `./virtual_ecu <log_path> custom_multi <event_count> <fault_type> <start_ms> <duration_ms> <fault_behavior> <parameter> [...]`
+
+Typical multi-fault workflow:
+
+1. open `python3 scripts/virtual_ecu_gui.py`
+2. go to the `Custom Experiment` tab and open `Multi-Fault Scenario`
+3. add, update, remove, or reorder 2 to 4 events
+4. for the fastest demo flow, use `Run Scenario and Show Figures` or
+   `Compare Scenario vs Baseline and Show Figures`
+5. the GUI automatically loads the scenario into the comparison workflow and
+   opens the `Comparison Figures` tab
+6. use the existing comparison summary, propagation evidence, fault-path view,
+   exports, and snapshots exactly as with built-in campaigns
+
+The same `Custom Experiment` tab also supports lightweight named presets for
+repeated demo and experiment setup for both single-fault and multi-fault
+configurations. Use:
+
+- `Save Preset` to store the current custom form settings
+- `Load Preset` to restore a saved or built-in starter preset into the form
+- `Delete Preset` to remove a user-saved preset
+- `Save Scenario Preset`, `Load Scenario Preset`, and `Delete Scenario Preset`
+  from the multi-fault builder for ordered multi-event scenarios
+
+Presets are stored deterministically in:
+
+- `presets/gui_custom/<preset_name>.json`
+
+Each preset stores:
+
+- preset name
+- either a single event:
+  fault type,
+  fault behavior,
+  start time,
+  duration,
+  and parameter
+- or an ordered multi-fault event list with the same fields per event
+
+Starter presets such as `sensor_bias_demo`, `stale_sensor_data_demo`, and
+`fan_stuck_off_demo` are available directly in the GUI for fast single-fault
+walkthroughs, and multi-fault starter presets such as
+`sensor_bias_then_fan_loss_demo` and `stale_then_pump_demo` are included for
+staged scenario demos. Presets are useful because they let you repeat the same
+custom configuration across meetings, figures, and comparison runs without
+retyping parameters or rebuilding the ordered event list.
+
+Custom GUI runs are saved deterministically in:
+
+- `logs/gui_custom/<custom_configuration>.csv`
+- `logs/gui_custom/<custom_configuration>_summary.csv`
+
+This keeps both the single-fault and multi-fault custom paths reproducible and
+makes it easy to rerun the same scenario for demos, thesis figures, or paper
+appendix material.
+
 The GUI also includes a lightweight `Batch Results` tab for loading an existing
 aggregate summary CSV such as `results/batch/paper_quick/aggregate_summary.csv`.
 That tab provides:

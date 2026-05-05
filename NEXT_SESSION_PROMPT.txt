@@ -1,50 +1,43 @@
 Continue from the current repository state.
 
-This project is a virtual ECU framework for automotive thermal management, now developed as a cross-layer hardware-origin fault propagation platform connected to VLSI and automotive electronics.
+This project is a virtual ECU framework for automotive thermal management, framed as a cross-layer hardware-origin fault propagation platform for VLSI + automotive electronics research.
 
-Current implemented fault classes:
-- sensing-path faults
-- timing/communication-path faults
-- actuation-path faults
-- computation/memory-path faults
+Before making changes:
+1. Run git status --short.
+2. Inspect README.md.
+3. Inspect scripts/virtual_ecu_gui.py.
+4. Inspect scripts/propagation_report.py and scripts/generate_propagation_report.py.
+5. Inspect the current recommended workflow in scripts/run_recommended_study.py and Makefile.
 
-Current built-in campaigns include:
-- baseline
-- sensor_bias_only
-- sensor_interface_intermittent
-- stale_sensor_data_only
-- stale_sensor_data_hot_stress
-- pump_degraded_only
-- fan_stuck_only
-- fan_stuck_hot_stress
-- calibration_memory_corruption
-- paper_default
+Current important features expected in the repo:
+- Modular C virtual ECU simulator.
+- Built-in campaigns for sensing-path, timing/communication-path, actuation-path, and computation/memory-path faults.
+- Recommended study workflow.
+- Batch study workflow.
+- Paper/demo output generation.
+- GUI with campaign comparison, comparison figures, batch results, propagation timeline, propagation evidence panel, exportable reports/snapshots, and presentation mode scoped to comparison figures.
+- Cleanup/reproducibility improvements for generated batch outputs and dependency files.
 
-Current important project state:
-- paper-results scripts exist
-- batch runner exists
-- batch analysis and claim-focused analysis scripts exist
-- GUI supports campaign comparison
-- GUI supports exportable comparison reports
-- GUI supports results snapshots
-- GUI supports batch-results viewing
-- Presentation Mode was refined so it now affects only the Comparison Figures view, not Comparison Summary or Batch Results
+Next task idea:
+Add a lightweight fault visualization panel to the GUI using Tkinter Canvas, not external images. The diagram should qualitatively show:
+Sensor / ADC Front-End -> Timing / Communication Link -> ECU Control + Calibration Memory -> Actuator Driver / Power Stage -> Thermal Plant / Coolant System.
 
-What I want you to do first:
-1. Inspect the current repository state.
-2. Summarize what is already implemented now.
-3. Identify the best next improvement that would make the project stronger as a research/demo platform, without changing the C simulator into a low-level hardware simulator.
-4. Prefer the next step to be practical and visible, not just paper-writing help.
+The visualization should highlight affected subsystem(s) depending on selected/loaded campaign:
+- baseline -> nominal, no fault highlight
+- sensor_bias_only -> Sensor / ADC Front-End
+- sensor_interface_intermittent -> Sensor / ADC Front-End
+- stale_sensor_data_only -> Timing / Communication Link
+- stale_sensor_data_hot_stress -> Timing / Communication Link
+- pump_degraded_only -> Actuator Driver / Power Stage
+- fan_stuck_only -> Actuator Driver / Power Stage
+- fan_stuck_hot_stress -> Actuator Driver / Power Stage
+- calibration_memory_corruption -> ECU Control + Calibration Memory
+- paper_default -> multiple affected blocks
 
-Important constraints:
-- keep the C simulator architecture simple
-- keep the project modular
-- keep it compilable with gcc in WSL
-- keep Python tooling lightweight
-- do not add heavy dependencies
-- do not forget the VLSI + automotive cross-layer framing
+Keep the C simulator unchanged.
+Keep GUI in Python/Tkinter.
+Do not add heavy dependencies.
+Do not use external image files unless absolutely necessary.
+Make the diagram presentation-friendly and useful for explaining hardware-origin fault -> ECU-visible manifestation -> diagnostic/safety/thermal effect.
 
-When you answer, first give:
-- current repo summary
-- best next improvement
-- why that improvement is better than other possible next steps
+First summarize the current state and propose exactly where the visualization should be placed in the GUI before editing files.
