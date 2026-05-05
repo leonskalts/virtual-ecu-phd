@@ -1,0 +1,46 @@
+{
+  "showcase_presets": [
+    {
+      "id": "baseline_vs_fan_hot_stress",
+      "title": "Baseline vs Fan Hot Stress",
+      "description": "Strong first demo: nominal behavior against a permanent fan power-stage loss under hot, low-airflow stress.",
+      "left_result": "logs/recommended_study/baseline.csv",
+      "right_result": "logs/recommended_study/fan_stuck_hot_stress.csv"
+    },
+    {
+      "id": "baseline_vs_calibration_memory_corruption",
+      "title": "Baseline vs Calibration Memory Corruption",
+      "description": "Computation/memory-path demo showing how a corrupted cooling target propagates into thermal and safety behavior.",
+      "left_result": "logs/recommended_study/baseline.csv",
+      "right_result": "logs/recommended_study/calibration_memory_corruption.csv"
+    },
+    {
+      "id": "baseline_vs_stale_sensor_hot_stress",
+      "title": "Baseline vs Stale Sensor Data Hot Stress",
+      "description": "Timing/communication-path demo showing stale coolant data under a stressed thermal operating condition.",
+      "left_result": "logs/recommended_study/baseline.csv",
+      "right_result": "logs/recommended_study/stale_sensor_data_hot_stress.csv"
+    },
+    {
+      "id": "stale_sensor_mild_vs_hot_stress",
+      "title": "Stale Sensor Mild vs Stale Sensor Hot Stress",
+      "description": "Mild-versus-stressed timing comparison for explaining why operating context changes fault consequence.",
+      "left_result": "logs/recommended_study/stale_sensor_data_only.csv",
+      "right_result": "logs/recommended_study/stale_sensor_data_hot_stress.csv"
+    },
+    {
+      "id": "baseline_vs_paper_default",
+      "title": "Baseline vs Paper Default",
+      "description": "Compact paper walkthrough comparing nominal behavior with the staged mixed-fault campaign.",
+      "left_result": "logs/recommended_study/baseline.csv",
+      "right_result": "logs/recommended_study/paper_default.csv"
+    },
+    {
+      "id": "baseline_vs_multi_fault_sequence",
+      "title": "Multi-Fault Sequence vs Baseline",
+      "description": "Saved GUI multi-fault sequence for showing staged sensing and actuation faults without rerunning the simulator.",
+      "left_result": "logs/recommended_study/baseline.csv",
+      "right_result": "logs/gui_custom/custom_multi_e1_sensor_bias_transient_start20000_dur10000_param8__e2_fan_stuck_off_permanent_start65000_dur0_param0__e3_sensor_interface_intermittent_permanent_start65000_dur0_param8.csv"
+    }
+  ]
+}

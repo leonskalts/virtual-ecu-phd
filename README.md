@@ -338,6 +338,62 @@ Typical GUI custom-run workflow:
 6. inspect the loaded result in the existing comparison figures, propagation
    evidence, comparison summary, and fault-path views
 
+The `Comparison Summary` tab can also load results that were generated earlier,
+without rerunning the simulator. Use `Load Existing as Left` or
+`Load Existing as Right`, then select a raw result CSV such as
+`logs/recommended_study/fan_stuck_hot_stress.csv` or a file from
+`logs/gui_custom/`. The GUI expects the matching summary file beside it using
+the deterministic naming convention `<name>_summary.csv`. Once loaded, the run
+feeds into the normal comparison summary, figures, propagation evidence,
+fault-path view, report export, and snapshot export workflow.
+
+The same comparison tab includes `Showcase / Demo Presets` for thesis and live
+demo use. A showcase preset is a curated saved left/right result pair with a
+short title and demo description, loaded in one click without rerunning the
+simulator. The preset definitions are stored in:
+
+- `presets/showcase_demo_presets.json`
+
+These presets point at existing CSV result pairs such as files in
+`logs/recommended_study/` and `logs/gui_custom/`. Loading one refreshes the
+comparison summary, figures, propagation evidence, fault-path visualization,
+and export/snapshot workflow exactly like a normal comparison. This makes it
+easy to start meetings or thesis walkthroughs from a stable, reproducible set
+of saved results.
+
+The GUI usability flow is intentionally optimized around common next actions:
+start with `Open Showcase Comparison` for the fastest saved demo, use
+`Run Built-In Comparison` for selected built-in campaigns, use
+`Compare vs Baseline & Open Figures` for custom faults or multi-fault scenarios,
+and use `Load Saved CSV as Left/Right` when reusing existing experiment files.
+Less common placement options are grouped as advanced actions so first-time use
+stays focused.
+
+The main comparison tab also includes a compact `Quick Start / Guided Use`
+panel. It is not a wizard; it simply points first-time users to the right tab or
+section for showcase demos, built-in comparisons, saved CSV loading, single
+custom faults, multi-fault scenarios, and batch-trend inspection.
+
+Recent GUI activity is kept in a small `Recent Results / Comparisons` section on
+the comparison tab. It stores the last few saved comparisons, loaded CSV pairs,
+showcase presets, and custom GUI runs in:
+
+- `presets/recent_results.json`
+
+Use the recent buttons to reload a previous result directly into the normal
+comparison summary, figures, propagation evidence, fault-path view, and export
+workflow. `Clear Recent History` removes the local recent list without touching
+the underlying experiment CSV files.
+
+Important recurring comparisons can also be pinned in a separate
+`Favorites / Pinned Comparisons` section. Favorites are intentionally saved
+left/right result pairs with a title and optional note, stored in:
+
+- `presets/favorite_comparisons.json`
+
+Use favorites for stable thesis/demo pairings or research checkpoints you want
+to reopen quickly without relying on short-term recent history.
+
 The same tab now also includes a `Multi-Fault Scenario` builder for small
 ordered scenarios with 2 to 4 fault events. Each event stores:
 

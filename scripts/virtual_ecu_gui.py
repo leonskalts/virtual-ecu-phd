@@ -38,10 +38,47 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 LOGS_DIR = PROJECT_ROOT / "logs"
 CUSTOM_LOGS_DIR = LOGS_DIR / "gui_custom"
 CUSTOM_PRESETS_DIR = PROJECT_ROOT / "presets" / "gui_custom"
+SHOWCASE_PRESETS_PATH = PROJECT_ROOT / "presets" / "showcase_demo_presets.json"
+RECENT_RESULTS_PATH = PROJECT_ROOT / "presets" / "recent_results.json"
+FAVORITE_COMPARISONS_PATH = PROJECT_ROOT / "presets" / "favorite_comparisons.json"
 EXPORT_ROOT = PROJECT_ROOT / "results" / "gui_comparison_reports"
 SNAPSHOT_ROOT = PROJECT_ROOT / "results" / "gui_snapshots"
 DEFAULT_BATCH_AGGREGATE_CSV = PROJECT_ROOT / "results" / "batch" / "paper_quick" / "aggregate_summary.csv"
 MAX_CUSTOM_SCENARIO_EVENTS = 4
+MAX_RECENT_RESULTS = 6
+MAX_FAVORITES = 8
+REQUIRED_RESULT_RAW_COLUMNS = {
+    "experiment_id",
+    "campaign_id",
+    "campaign_label",
+    "time_ms",
+    "time_s",
+    "phase_label",
+    "active_event_index",
+    "active_fault_parameter",
+    "fault_mode_label",
+    "fault_behavior_label",
+    "safe_state_id",
+    "safe_state_label",
+    "primary_dtc_id",
+    "primary_dtc_label",
+    "coolant_temp_true_c",
+    "coolant_temp_meas_c",
+    "pump_command",
+    "pump_actual",
+    "fan_command",
+    "fan_actual",
+}
+REQUIRED_RESULT_SUMMARY_COLUMNS = {
+    "experiment_id",
+    "campaign_id",
+    "campaign_label",
+    "detection_latency_ms",
+    "safe_state_latency_ms",
+    "max_coolant_temp_c",
+    "final_safe_state_label",
+    "final_primary_dtc_label",
+}
 
 CAMPAIGNS: Sequence[Tuple[str, str]] = (
     ("baseline", "Baseline"),
@@ -748,6 +785,247 @@ def summary_path_for(log_path: Path) -> Path:
     if log_path.suffix.lower() == ".csv":
         return log_path.with_name(f"{log_path.stem}_summary.csv")
     return log_path.with_name(f"{log_path.name}_summary.csv")
+
+
+def raw_path_for_summary(summary_path: Path) -> Path:
+    if summary_path.suffix.lower() == ".csv" and summary_path.stem.endswith("_summary"):
+        return summary_path.with_name(f"{summary_path.stem[:-8]}.csv")
+    return summary_path
+
+
+def validate_result_pair(
+    raw_rows: Sequence[Dict[str, str]],
+    summary_rows: Sequence[Dict[str, str]],
+    *,
+    raw_path: Path,
+    summary_path: Path,
+) -> None:
+    if not raw_rows:
+        raise RuntimeError(f"Raw CSV has no data rows: {raw_path}")
+    if not summary_rows:
+        raise RuntimeError(f"Summary CSV has no data rows: {summary_path}")
+
+    raw_columns = set(raw_rows[0])
+    missing_raw = sorted(REQUIRED_RESULT_RAW_COLUMNS - raw_columns)
+    if missing_raw:
+        raise RuntimeError(
+            "Raw CSV is missing required column(s): "
+            + ", ".join(missing_raw)
+            + f"\n\nSelected file: {raw_path}"
+        )
+
+    summary_columns = set(summary_rows[0])
+    missing_summary = sorted(REQUIRED_RESULT_SUMMARY_COLUMNS - summary_columns)
+    if missing_summary:
+        raise RuntimeError(
+            "Summary CSV is missing required column(s): "
+            + ", ".join(missing_summary)
+            + f"\n\nSummary file: {summary_path}"
+        )
+
+
+def load_existing_result_pair(selected_path: Path) -> Dict[str, object]:
+    raw_path = raw_path_for_summary(selected_path.expanduser())
+    summary_path = summary_path_for(raw_path)
+
+    if not raw_path.exists():
+        raise RuntimeError(f"Raw CSV log not found: {raw_path}")
+    if not summary_path.exists():
+        raise RuntimeError(
+            "Matching summary CSV was not found.\n\n"
+            f"Expected: {summary_path}\n\n"
+            "Select a raw <name>.csv file that has a matching <name>_summary.csv file beside it."
+        )
+
+    raw_rows = read_csv_rows(raw_path)
+    summary_rows = read_csv_rows(summary_path)
+    validate_result_pair(raw_rows, summary_rows, raw_path=raw_path, summary_path=summary_path)
+
+    summary = dict(summary_rows[0])
+    campaign_id = str(summary.get("campaign_id") or raw_rows[0].get("campaign_id") or raw_path.stem)
+    if not campaign_id or campaign_id == "unknown":
+        campaign_id = f"existing_{sanitize_preset_name(raw_path.stem)}"
+    if "campaign_label" not in summary or not summary["campaign_label"]:
+        summary["campaign_label"] = raw_path.stem.replace("_", " ").title()
+
+    return {
+        "campaign_id": campaign_id,
+        "raw_rows": raw_rows,
+        "summary_row": summary,
+        "log_path": raw_path,
+        "summary_path": summary_path,
+        "loaded_from_disk": True,
+    }
+
+
+def _project_path(path_text: str) -> Path:
+    path = Path(path_text).expanduser()
+    if path.is_absolute():
+        return path
+    return PROJECT_ROOT / path
+
+
+def read_showcase_presets(path: Path = SHOWCASE_PRESETS_PATH) -> List[Dict[str, str]]:
+    with path.open("r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+
+    records = payload.get("showcase_presets", [])
+    presets: List[Dict[str, str]] = []
+    for record in records:
+        presets.append(
+            {
+                "id": str(record["id"]),
+                "title": str(record["title"]),
+                "description": str(record["description"]),
+                "left_result": str(record["left_result"]),
+                "right_result": str(record["right_result"]),
+            }
+        )
+    return presets
+
+
+def load_showcase_preset_results(preset: Dict[str, str]) -> Tuple[Dict[str, object], Dict[str, object]]:
+    left_result = load_existing_result_pair(_project_path(preset["left_result"]))
+    right_result = load_existing_result_pair(_project_path(preset["right_result"]))
+    return left_result, right_result
+
+
+def _stored_result_path(path: Path) -> str:
+    resolved = path.expanduser()
+    try:
+        return str(resolved.relative_to(PROJECT_ROOT))
+    except ValueError:
+        return str(resolved)
+
+
+def _recent_result_item(
+    title: str,
+    *,
+    kind: str,
+    description: str,
+    left_path: Path,
+    right_path: Path | None,
+) -> Dict[str, str]:
+    return {
+        "title": title,
+        "kind": kind,
+        "description": description,
+        "left_result": _stored_result_path(left_path),
+        "right_result": "" if right_path is None else _stored_result_path(right_path),
+    }
+
+
+def read_recent_results(path: Path = RECENT_RESULTS_PATH) -> List[Dict[str, str]]:
+    if not path.exists():
+        return []
+
+    with path.open("r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+
+    items: List[Dict[str, str]] = []
+    for record in payload.get("recent_results", []):
+        left_result = str(record.get("left_result", ""))
+        if not left_result:
+            continue
+        items.append(
+            {
+                "title": str(record.get("title", "Recent result")),
+                "kind": str(record.get("kind", "result")),
+                "description": str(record.get("description", "")),
+                "left_result": left_result,
+                "right_result": str(record.get("right_result", "")),
+            }
+        )
+    return items[:MAX_RECENT_RESULTS]
+
+
+def write_recent_results(items: Sequence[Dict[str, str]], path: Path = RECENT_RESULTS_PATH) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "recent_results": [
+            {
+                "title": str(item["title"]),
+                "kind": str(item["kind"]),
+                "description": str(item.get("description", "")),
+                "left_result": str(item["left_result"]),
+                "right_result": str(item.get("right_result", "")),
+            }
+            for item in items[:MAX_RECENT_RESULTS]
+        ]
+    }
+    with path.open("w", encoding="utf-8") as handle:
+        json.dump(payload, handle, indent=2, sort_keys=True)
+        handle.write("\n")
+
+
+def load_recent_result_item(item: Dict[str, str]) -> Tuple[Dict[str, object], Dict[str, object] | None]:
+    left_result = load_existing_result_pair(_project_path(item["left_result"]))
+    right_path = item.get("right_result", "")
+    right_result = load_existing_result_pair(_project_path(right_path)) if right_path else None
+    return left_result, right_result
+
+
+def _favorite_comparison_item(
+    title: str,
+    *,
+    note: str,
+    left_path: Path,
+    right_path: Path,
+) -> Dict[str, str]:
+    return {
+        "title": title,
+        "note": note,
+        "left_result": _stored_result_path(left_path),
+        "right_result": _stored_result_path(right_path),
+    }
+
+
+def read_favorite_comparisons(path: Path = FAVORITE_COMPARISONS_PATH) -> List[Dict[str, str]]:
+    if not path.exists():
+        return []
+
+    with path.open("r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+
+    items: List[Dict[str, str]] = []
+    for record in payload.get("favorite_comparisons", []):
+        left_result = str(record.get("left_result", ""))
+        right_result = str(record.get("right_result", ""))
+        if not left_result or not right_result:
+            continue
+        items.append(
+            {
+                "title": str(record.get("title", "Favorite comparison")),
+                "note": str(record.get("note", "")),
+                "left_result": left_result,
+                "right_result": right_result,
+            }
+        )
+    return items[:MAX_FAVORITES]
+
+
+def write_favorite_comparisons(items: Sequence[Dict[str, str]], path: Path = FAVORITE_COMPARISONS_PATH) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "favorite_comparisons": [
+            {
+                "title": str(item["title"]),
+                "note": str(item.get("note", "")),
+                "left_result": str(item["left_result"]),
+                "right_result": str(item["right_result"]),
+            }
+            for item in items[:MAX_FAVORITES]
+        ]
+    }
+    with path.open("w", encoding="utf-8") as handle:
+        json.dump(payload, handle, indent=2, sort_keys=True)
+        handle.write("\n")
+
+
+def load_favorite_comparison_item(item: Dict[str, str]) -> Tuple[Dict[str, object], Dict[str, object]]:
+    left_result = load_existing_result_pair(_project_path(item["left_result"]))
+    right_result = load_existing_result_pair(_project_path(item["right_result"]))
+    return left_result, right_result
 
 
 def detect_executable() -> Path | None:
@@ -2780,8 +3058,8 @@ class ScenarioTimelineView(ttk.Frame):
         start_ms = int(event["start_ms"])
         behavior = str(event["fault_behavior"])
         return (
-            f"{self._format_time_label(start_ms)} start  •  "
-            f"{self._event_duration_label(event)}  •  "
+            f"start {self._format_time_label(start_ms)}  |  "
+            f"{self._event_duration_label(event)}  |  "
             f"{custom_behavior_label(behavior)}"
         )
 
@@ -2804,40 +3082,47 @@ class ScenarioTimelineView(ttk.Frame):
     def redraw(self) -> None:
         self.canvas.delete("all")
         width = max(self.canvas.winfo_width(), 700)
-        outer_pad = 18
-        axis_left = 230
-        axis_right = width - 34
+        outer_pad = 22
+        card_left = outer_pad
+        card_right = width - outer_pad
 
         if not self.events:
-            self.canvas.configure(height=168)
+            height = 176
+            self.canvas.configure(height=height)
             self.canvas.create_rectangle(
-                outer_pad,
-                14,
-                width - outer_pad,
-                154,
-                fill="#fbfcfd",
-                outline="#d8e0e7",
+                card_left,
+                18,
+                card_right,
+                height - 18,
+                fill="#fcfdff",
+                outline="#d7e0e8",
                 width=1,
             )
             self.canvas.create_text(
                 width / 2,
-                84,
+                height / 2,
                 anchor="center",
-                text="Add 2 to 4 events to preview the staged scenario timing.",
-                fill="#60707d",
-                font=("TkDefaultFont", 10),
+                text="Add events to preview the staged scenario.",
+                fill="#667684",
+                font=("TkDefaultFont", 11),
                 width=width - 80,
             )
             return
 
-        row_gap = 60
-        row_height = 38
-        top = 54
-        bottom_padding = 54
-        height = max(220, top + len(self.events) * row_gap + bottom_padding)
+        row_gap = 58
+        row_height = 36
+        header_top = 28
+        chart_top = 76
+        bottom_padding = 50
+        height = max(238, chart_top + len(self.events) * row_gap + bottom_padding)
         self.canvas.configure(height=height)
-        axis_top = top - 22
-        axis_bottom = top + (len(self.events) - 1) * row_gap + row_height / 2
+        label_left = card_left + 24
+        label_right = min(card_left + 220, width * 0.34)
+        axis_left = max(label_right + 22, card_left + 230)
+        axis_right = card_right - 30
+        axis_y = chart_top - 26
+        row_line_left = axis_left
+        row_line_right = axis_right
         span_ms = self._timeline_span_ms()
 
         def map_x(time_ms: int) -> float:
@@ -2846,33 +3131,55 @@ class ScenarioTimelineView(ttk.Frame):
             return axis_left + (float(time_ms) / float(span_ms)) * (axis_right - axis_left)
 
         self.canvas.create_rectangle(
-            outer_pad,
-            14,
-            width - outer_pad,
+            card_left,
+            18,
+            card_right,
             height - 18,
-            fill="#fbfcfd",
-            outline="#d8e0e7",
+            fill="#fcfdff",
+            outline="#d7e0e8",
             width=1,
         )
+        self.canvas.create_text(
+            label_left,
+            header_top,
+            anchor="w",
+            text=f"{len(self.events)} staged events",
+            fill="#22313f",
+            font=("TkDefaultFont", 10, "bold"),
+        )
 
-        tick_count = 4
-        for tick_index in range(tick_count + 1):
-            tick_ms = int(round((span_ms * tick_index) / float(tick_count)))
+        tick_fractions = [0.0, 0.5, 1.0]
+        if axis_right - axis_left >= 520:
+            tick_fractions = [0.0, 0.25, 0.5, 0.75, 1.0]
+
+        last_label_x = -9999.0
+        for tick_index, fraction in enumerate(tick_fractions):
+            tick_ms = int(round(span_ms * fraction))
             x = map_x(tick_ms)
-            self.canvas.create_line(x, axis_top, x, axis_bottom + 10, fill="#e7edf2", dash=(2, 4))
-            self.canvas.create_text(
-                x,
-                axis_top - 10,
-                anchor="s",
-                text=self._format_time_label(tick_ms),
-                fill="#61717e",
-                font=("TkDefaultFont", 8, "bold" if tick_index in {0, tick_count} else "normal"),
-            )
+            is_endpoint = tick_index in {0, len(tick_fractions) - 1}
+            grid_color = "#dfe7ee" if is_endpoint else "#edf2f6"
+            grid_bottom = chart_top + (len(self.events) - 1) * row_gap + row_height / 2 + 14
+            if is_endpoint:
+                self.canvas.create_line(x, axis_y, x, grid_bottom, fill=grid_color)
+            else:
+                self.canvas.create_line(x, axis_y, x, grid_bottom, fill=grid_color, dash=(2, 5))
+            if x - last_label_x >= 58 or is_endpoint:
+                self.canvas.create_text(
+                    x,
+                    axis_y - 12,
+                    anchor="s",
+                    text=self._format_time_label(tick_ms),
+                    fill="#5f6f7d",
+                    font=("TkDefaultFont", 9, "bold" if is_endpoint else "normal"),
+                )
+                last_label_x = x
 
-        self.canvas.create_line(axis_left, axis_top, axis_right, axis_top, fill="#8d99a5", width=2)
+        self.canvas.create_line(axis_left, axis_y, axis_right, axis_y, fill="#95a3af", width=2)
+        self.canvas.create_oval(axis_left - 3, axis_y - 3, axis_left + 3, axis_y + 3, fill="#95a3af", outline="")
+        self.canvas.create_oval(axis_right - 3, axis_y - 3, axis_right + 3, axis_y + 3, fill="#95a3af", outline="")
 
         for index, event in enumerate(self.events):
-            row_top = top + index * row_gap - 14
+            row_top = chart_top + index * row_gap - 14
             row_bottom = row_top + row_height
             center_y = (row_top + row_bottom) / 2
             start_ms = int(event["start_ms"])
@@ -2888,63 +3195,74 @@ class ScenarioTimelineView(ttk.Frame):
             label = f"{index + 1}. {custom_mode_label(str(event['fault_type']))}"
             details = self._row_meta_label(event)
 
-            self.canvas.create_rectangle(
-                outer_pad + 10,
-                row_top - 8,
-                width - outer_pad - 10,
-                row_bottom + 10,
-                fill="#ffffff",
-                outline="#eef2f5",
-                width=1,
-            )
+            if index > 0:
+                separator_y = row_top - 12
+                self.canvas.create_line(
+                    card_left + 18,
+                    separator_y,
+                    card_right - 18,
+                    separator_y,
+                    fill="#eef3f7",
+                )
+            self.canvas.create_rectangle(label_left, center_y - 6, label_left + 10, center_y + 6, fill=color, outline="")
             self.canvas.create_text(
-                outer_pad + 22,
-                row_top + 3,
+                label_left + 18,
+                center_y - 8,
                 anchor="w",
                 text=label,
                 fill="#22313f",
-                font=("TkDefaultFont", 9, "bold"),
+                font=("TkDefaultFont", 10, "bold"),
             )
             self.canvas.create_text(
-                outer_pad + 22,
-                row_bottom - 6,
+                label_left + 18,
+                center_y + 10,
                 anchor="w",
                 text=details,
-                fill="#6a7986",
-                font=("TkDefaultFont", 8),
+                fill="#6b7a87",
+                font=("TkDefaultFont", 9),
             )
-            self.canvas.create_line(axis_left, center_y, axis_right, center_y, fill="#edf2f6", width=12)
-            self.canvas.create_line(axis_left, center_y, axis_right, center_y, fill="#ffffff", width=6)
+            self.canvas.create_line(row_line_left, center_y, row_line_right, center_y, fill="#edf2f6", width=10)
+            self.canvas.create_line(row_line_left, center_y, row_line_right, center_y, fill="#ffffff", width=4)
             self.canvas.create_rectangle(
                 x0,
-                center_y - 10,
+                center_y - 8,
                 max(x1, x0 + 8),
-                center_y + 10,
+                center_y + 8,
                 fill=color,
                 outline="",
             )
-            self.canvas.create_line(x0, center_y - 12, x0, center_y + 12, fill=color, width=2)
+            self.canvas.create_line(x0, center_y - 12, x0, center_y + 12, fill="#ffffff", width=2)
             if behavior == "permanent" and duration_ms == 0:
                 self.canvas.create_polygon(
-                    x1 - 14,
-                    center_y - 10,
+                    x1 - 16,
+                    center_y - 8,
                     x1,
                     center_y,
-                    x1 - 14,
-                    center_y + 10,
+                    x1 - 16,
+                    center_y + 8,
                     fill=color,
                     outline=color,
                 )
-                self.canvas.create_text(
-                    min(axis_right - 6, x1 + 8),
+                self.canvas.create_line(
+                    max(x0 + 8, x1 - 40),
                     center_y,
-                    anchor="w",
-                    text="perm",
-                    fill="#5d6c78",
-                    font=("TkDefaultFont", 8, "bold"),
+                    x1 - 8,
+                    center_y,
+                    fill="#ffffff",
+                    width=2,
+                    dash=(3, 3),
                 )
+                if axis_right - x1 >= 46:
+                    self.canvas.create_text(
+                        x1 + 8,
+                        center_y,
+                        anchor="w",
+                        text="ongoing",
+                        fill="#5d6c78",
+                        font=("TkDefaultFont", 8, "bold"),
+                    )
             else:
-                self.canvas.create_line(x1, center_y - 8, x1, center_y + 8, fill="#ffffff", width=2)
+                self.canvas.create_line(x1, center_y - 7, x1, center_y + 7, fill="#ffffff", width=2)
 
 
 class VirtualECUGui(tk.Tk):
@@ -3008,10 +3326,12 @@ class VirtualECUGui(tk.Tk):
         self.presentation_mode = tk.BooleanVar(value=False)
         self.comparison_plot_choice = tk.StringVar(value=self.COMPARISON_PLOT_OPTIONS[0])
         self.batch_plot_choice = tk.StringVar(value=self.BATCH_PLOT_OPTIONS[0])
-        self.status_text = tk.StringVar(value="Select two campaigns and run a comparison.")
-        self.batch_status_text = tk.StringVar(value="Load a batch aggregate summary CSV to inspect sweep-level trends.")
+        self.status_text = tk.StringVar(
+            value="Fast start: load a Showcase preset, or click Run Built-In Comparison for the selected campaigns."
+        )
+        self.batch_status_text = tk.StringVar(value="Ready to load the default batch summary for sweep-level trends.")
         self.custom_status_text = tk.StringVar(
-            value="Configure a single-fault or multi-fault custom run, then load it into the same comparison workflow used by the built-in campaigns."
+            value="Fast path: adjust the fault settings, then click Compare vs Baseline & Open Figures."
         )
         self.comparison_findings_var = tk.StringVar(value="Run a comparison to generate automatic findings.")
         self.comparison_interpretation_var = tk.StringVar(value="-")
@@ -3026,6 +3346,15 @@ class VirtualECUGui(tk.Tk):
         self.custom_parameter = tk.StringVar(value=CUSTOM_DEFAULT_PARAMETERS[CUSTOM_FAULT_TYPES[0][0]])
         self.custom_preset_name = tk.StringVar(value="sensor_bias_demo_copy")
         self.custom_preset_choice = tk.StringVar(value="")
+        self.showcase_presets: List[Dict[str, str]] = []
+        self.showcase_preset_catalog: Dict[str, Dict[str, str]] = {}
+        self.showcase_preset_choice = tk.StringVar(value="")
+        self.showcase_description_var = tk.StringVar(value="Load a showcase preset to open a saved thesis/demo comparison.")
+        self.recent_results: List[Dict[str, str]] = []
+        self.favorite_comparisons: List[Dict[str, str]] = []
+        self.favorite_choice = tk.StringVar(value="")
+        self.favorite_title_var = tk.StringVar(value="")
+        self.favorite_note_var = tk.StringVar(value="")
         self.multi_fault_type = tk.StringVar(value=CUSTOM_FAULT_TYPES[0][0])
         self.multi_fault_behavior = tk.StringVar(value=CUSTOM_FAULT_BEHAVIORS[0][0])
         self.multi_start_ms = tk.StringVar(value="20000")
@@ -3067,6 +3396,7 @@ class VirtualECUGui(tk.Tk):
         self.metric_cells: Dict[str, Dict[str, Dict[str, tk.Widget]]] = {"left": {}, "right": {}}
         self.current_comparison: Dict[str, object] | None = None
         self.current_plot_results: Dict[str, object] | None = None
+        self.loaded_result_slots: Dict[str, Dict[str, object] | None] = {"left": None, "right": None}
         self.last_custom_result: Dict[str, object] | None = None
         self.batch_rows: List[Dict[str, str]] = []
         self.batch_table: ttk.Treeview | None = None
@@ -3078,6 +3408,10 @@ class VirtualECUGui(tk.Tk):
         self.multi_timeline_view: ScenarioTimelineView | None = None
         self.notebook: ttk.Notebook | None = None
         self.comparison_figures_tab: ttk.Frame | None = None
+        self.showcase_preset_selector: ttk.Combobox | None = None
+        self.recent_results_frame: ttk.Frame | None = None
+        self.favorite_selector: ttk.Combobox | None = None
+        self.favorites_frame: ttk.Frame | None = None
         self.custom_preset_catalog: Dict[str, Dict[str, object]] = {}
         self.custom_preset_selector: ttk.Combobox | None = None
         self.multi_preset_catalog: Dict[str, Dict[str, object]] = {}
@@ -3089,6 +3423,9 @@ class VirtualECUGui(tk.Tk):
             default_custom_event("fan_stuck_off", "permanent", 65000, 0, 0.0),
         ]
 
+        self._refresh_showcase_presets()
+        self._refresh_recent_results()
+        self._refresh_favorite_comparisons()
         self._configure_style()
         self._build_layout()
         self._apply_presentation_mode()
@@ -3144,7 +3481,7 @@ class VirtualECUGui(tk.Tk):
         )
         ttk.Label(
             header,
-            text="Use campaign comparison for live fault-propagation demos and batch results for quick sweep-level inspection. The scripted analysis remains the paper-grade workflow.",
+            text="Start with a showcase preset for a saved thesis/demo comparison, or run built-in, custom, and batch workflows from the tabs below.",
             style="Subheader.TLabel",
             wraplength=920,
             justify="left",
@@ -3203,8 +3540,10 @@ class VirtualECUGui(tk.Tk):
         self._build_batch_tab(batch_tab)
 
     def _build_comparison_summary_tab(self, parent: ttk.Frame) -> None:
+        self._build_quick_start_panel(parent)
+
         selectors_area = ttk.Frame(parent, padding=(12, 0, 12, 12), style="Root.TFrame")
-        selectors_area.grid(row=0, column=0, sticky="ew")
+        selectors_area.grid(row=1, column=0, sticky="ew")
         selectors_area.columnconfigure(0, weight=1)
         selectors_area.columnconfigure(1, weight=1)
         selectors_area.columnconfigure(2, weight=0)
@@ -3229,21 +3568,30 @@ class VirtualECUGui(tk.Tk):
         actions = ttk.Frame(selectors_area, style="Root.TFrame")
         actions.grid(row=0, column=2, rowspan=2, sticky="ne", padx=(12, 0))
 
-        self.run_compare_button = ttk.Button(actions, text="Run Comparison", command=self.run_comparison)
+        self.run_compare_button = ttk.Button(actions, text="Run Built-In Comparison", command=self.run_comparison)
         self.run_compare_button.grid(row=0, column=0, sticky="e")
-        self.run_left_button = ttk.Button(actions, text="Run Left Only", command=self.run_left_only)
+        self.run_left_button = ttk.Button(actions, text="Run Selected Left Only", command=self.run_left_only)
         self.run_left_button.grid(row=1, column=0, sticky="e", pady=(8, 0))
-        self.snapshot_button = ttk.Button(actions, text="Export Results Snapshot", command=self.export_results_snapshot)
-        self.snapshot_button.grid(row=2, column=0, sticky="e", pady=(8, 0))
+        ttk.Button(actions, text="Load Saved CSV as Left", command=self.load_existing_as_left).grid(
+            row=2, column=0, sticky="e", pady=(8, 0)
+        )
+        ttk.Button(actions, text="Load Saved CSV as Right", command=self.load_existing_as_right).grid(
+            row=3, column=0, sticky="e", pady=(8, 0)
+        )
+        self.snapshot_button = ttk.Button(actions, text="Export Snapshot", command=self.export_results_snapshot)
+        self.snapshot_button.grid(row=4, column=0, sticky="e", pady=(8, 0))
         self.snapshot_button.state(["disabled"])
-        self.export_button = ttk.Button(actions, text="Export Comparison Report", command=self.export_current_comparison)
-        self.export_button.grid(row=3, column=0, sticky="e", pady=(8, 0))
+        self.export_button = ttk.Button(actions, text="Export Full Report", command=self.export_current_comparison)
+        self.export_button.grid(row=5, column=0, sticky="e", pady=(8, 0))
         self.export_button.state(["disabled"])
 
         self._build_recommended_demo_shortcuts(selectors_area)
+        self._build_showcase_presets(selectors_area)
+        self._build_favorite_comparisons(selectors_area)
+        self._build_recent_results(selectors_area)
 
         info_area = ttk.Frame(parent, padding=(12, 0, 12, 12), style="Root.TFrame")
-        info_area.grid(row=1, column=0, sticky="ew")
+        info_area.grid(row=2, column=0, sticky="ew")
         info_area.columnconfigure(0, weight=3)
         info_area.columnconfigure(1, weight=2)
 
@@ -3282,7 +3630,7 @@ class VirtualECUGui(tk.Tk):
         self._build_context_column(context_frame, 1, "Right Context", "right", RIGHT_COLOR)
 
         findings_frame = ttk.LabelFrame(parent, text="Findings / Interpretation", padding=14)
-        findings_frame.grid(row=2, column=0, sticky="ew", padx=12, pady=(0, 12))
+        findings_frame.grid(row=3, column=0, sticky="ew", padx=12, pady=(0, 12))
         findings_frame.columnconfigure(0, weight=1)
         self._build_findings_cards(
             findings_frame,
@@ -3407,9 +3755,8 @@ class VirtualECUGui(tk.Tk):
         ttk.Label(
             header,
             text=(
-                "This tab runs the simulator custom single-fault and lightweight multi-fault CLI paths, saves "
-                "deterministic CSV outputs in `logs/gui_custom/`, and feeds the result back into the same comparison, "
-                "propagation, and export views."
+                "Use the primary buttons for the fastest path: run a custom case, open figures, and optionally compare "
+                "against baseline. Advanced buttons let you place the custom result on either comparison side."
             ),
             style="Hint.TLabel",
             wraplength=1050,
@@ -3488,8 +3835,8 @@ class VirtualECUGui(tk.Tk):
         ttk.Label(
             builder,
             text=(
-                "Validation: start and duration must be non-negative integers, parameter must be numeric, and duration "
-                "0 is reserved for permanent faults because the simulator interprets it as persistent from the start time."
+                "Defaults are demo-ready. Start/duration are milliseconds, parameter is the fault severity, and duration "
+                "0 is used only for permanent faults."
             ),
             style="Hint.TLabel",
             wraplength=700,
@@ -3529,11 +3876,11 @@ class VirtualECUGui(tk.Tk):
 
         primary_actions = ttk.Frame(builder, style="Root.TFrame")
         primary_actions.grid(row=8, column=0, columnspan=4, sticky="w")
-        run_show = ttk.Button(primary_actions, text="Run Custom and Show Figures", command=self.run_custom_only)
+        run_show = ttk.Button(primary_actions, text="Run & Open Figures", command=self.run_custom_only)
         run_show.grid(row=0, column=0, sticky="w")
         compare_show = ttk.Button(
             primary_actions,
-            text="Compare Custom vs Baseline and Show Figures",
+            text="Compare vs Baseline & Open Figures",
             command=self.compare_custom_vs_baseline,
         )
         compare_show.grid(row=0, column=1, sticky="w", padx=(8, 0))
@@ -3552,20 +3899,19 @@ class VirtualECUGui(tk.Tk):
         actions = ttk.Frame(builder, style="Root.TFrame")
         actions.grid(row=10, column=0, columnspan=4, sticky="w")
 
-        run_only = ttk.Button(actions, text="Run Custom Only", command=self.run_custom_only)
-        run_only.grid(row=0, column=0, sticky="w")
-        load_left = ttk.Button(actions, text="Load Custom as Left", command=self.load_custom_as_left)
-        load_left.grid(row=0, column=1, sticky="w", padx=(8, 0))
-        load_right = ttk.Button(actions, text="Load Custom as Right", command=self.load_custom_as_right)
-        load_right.grid(row=0, column=2, sticky="w", padx=(8, 0))
-        compare_baseline = ttk.Button(actions, text="Compare Custom vs Baseline", command=self.compare_custom_vs_baseline)
-        compare_baseline.grid(row=0, column=3, sticky="w", padx=(8, 0))
+        ttk.Label(actions, text="Advanced:", style="FieldName.TLabel").grid(row=0, column=0, sticky="w")
+        run_only = ttk.Button(actions, text="Run as Left Only", command=self.run_custom_only)
+        run_only.grid(row=0, column=1, sticky="w", padx=(8, 0))
+        load_left = ttk.Button(actions, text="Run as Left vs Selected Right", command=self.load_custom_as_left)
+        load_left.grid(row=0, column=2, sticky="w", padx=(8, 0))
+        load_right = ttk.Button(actions, text="Run as Right vs Selected Left", command=self.load_custom_as_right)
+        load_right.grid(row=0, column=3, sticky="w", padx=(8, 0))
 
         ttk.Label(
             builder,
             text=(
-                "Advanced loading options: Load Custom as Left compares against the currently selected built-in right "
-                "campaign, while Load Custom as Right compares against the currently selected built-in left campaign."
+                "Advanced options reuse the selected built-in campaign on the other side, which is useful when a baseline "
+                "comparison is not the story you want."
             ),
             style="Hint.TLabel",
             wraplength=720,
@@ -3580,7 +3926,7 @@ class VirtualECUGui(tk.Tk):
             justify="left",
         ).grid(row=12, column=0, columnspan=4, sticky="w", pady=(2, 0))
 
-        self.custom_action_buttons.extend([run_show, compare_show, run_only, load_left, load_right, compare_baseline])
+        self.custom_action_buttons.extend([run_show, compare_show, run_only, load_left, load_right])
 
     def _build_multi_custom_builder(self, parent: ttk.Frame) -> None:
         builder = ttk.LabelFrame(parent, text="Ordered Multi-Fault Scenario", padding=14)
@@ -3713,11 +4059,11 @@ class VirtualECUGui(tk.Tk):
 
         primary_actions = ttk.Frame(builder, style="Root.TFrame")
         primary_actions.grid(row=10, column=0, columnspan=5, sticky="w")
-        run_show = ttk.Button(primary_actions, text="Run Scenario and Show Figures", command=self.run_multi_only)
+        run_show = ttk.Button(primary_actions, text="Run Scenario & Open Figures", command=self.run_multi_only)
         run_show.grid(row=0, column=0, sticky="w")
         compare_show = ttk.Button(
             primary_actions,
-            text="Compare Scenario vs Baseline and Show Figures",
+            text="Compare vs Baseline & Open Figures",
             command=self.compare_multi_vs_baseline,
         )
         compare_show.grid(row=0, column=1, sticky="w", padx=(8, 0))
@@ -3735,14 +4081,13 @@ class VirtualECUGui(tk.Tk):
 
         actions = ttk.Frame(builder, style="Root.TFrame")
         actions.grid(row=12, column=0, columnspan=5, sticky="w")
-        run_only = ttk.Button(actions, text="Run Scenario Only", command=self.run_multi_only)
-        run_only.grid(row=0, column=0, sticky="w")
-        load_left = ttk.Button(actions, text="Load Scenario as Left", command=self.load_multi_as_left)
-        load_left.grid(row=0, column=1, sticky="w", padx=(8, 0))
-        load_right = ttk.Button(actions, text="Load Scenario as Right", command=self.load_multi_as_right)
-        load_right.grid(row=0, column=2, sticky="w", padx=(8, 0))
-        compare_baseline = ttk.Button(actions, text="Compare Scenario vs Baseline", command=self.compare_multi_vs_baseline)
-        compare_baseline.grid(row=0, column=3, sticky="w", padx=(8, 0))
+        ttk.Label(actions, text="Advanced:", style="FieldName.TLabel").grid(row=0, column=0, sticky="w")
+        run_only = ttk.Button(actions, text="Run as Left Only", command=self.run_multi_only)
+        run_only.grid(row=0, column=1, sticky="w", padx=(8, 0))
+        load_left = ttk.Button(actions, text="Run as Left vs Selected Right", command=self.load_multi_as_left)
+        load_left.grid(row=0, column=2, sticky="w", padx=(8, 0))
+        load_right = ttk.Button(actions, text="Run as Right vs Selected Left", command=self.load_multi_as_right)
+        load_right.grid(row=0, column=3, sticky="w", padx=(8, 0))
 
         ttk.Label(
             builder,
@@ -3752,7 +4097,7 @@ class VirtualECUGui(tk.Tk):
             justify="left",
         ).grid(row=13, column=0, columnspan=5, sticky="w", pady=(10, 0))
 
-        self.custom_action_buttons.extend([run_show, compare_show, run_only, load_left, load_right, compare_baseline])
+        self.custom_action_buttons.extend([run_show, compare_show, run_only, load_left, load_right])
         self._refresh_multi_event_listbox(select_index=0 if self.multi_events else None)
 
     def _build_custom_metric_row(
@@ -4027,6 +4372,318 @@ class VirtualECUGui(tk.Tk):
         self.custom_last_run_var.set("-")
         self.custom_loaded_slot_var.set("-")
         self.last_custom_result = None
+
+    def _refresh_showcase_presets(self) -> None:
+        try:
+            presets = read_showcase_presets()
+        except (OSError, KeyError, TypeError, json.JSONDecodeError) as exc:
+            self.showcase_presets = []
+            self.showcase_preset_catalog = {}
+            self.showcase_preset_choice.set("")
+            self.showcase_description_var.set(f"Showcase presets are unavailable: {exc}")
+            return
+
+        self.showcase_presets = presets
+        self.showcase_preset_catalog = {preset["title"]: preset for preset in presets}
+        choices = list(self.showcase_preset_catalog)
+        if self.showcase_preset_selector is not None:
+            self.showcase_preset_selector.configure(values=choices)
+
+        if choices:
+            if self.showcase_preset_choice.get() not in self.showcase_preset_catalog:
+                self.showcase_preset_choice.set(choices[0])
+            self._update_showcase_description()
+        else:
+            self.showcase_preset_choice.set("")
+            self.showcase_description_var.set("No showcase presets are defined yet.")
+
+    def _selected_showcase_preset(self) -> Dict[str, str] | None:
+        title = self.showcase_preset_choice.get().strip()
+        return self.showcase_preset_catalog.get(title)
+
+    def _update_showcase_description(self) -> None:
+        preset = self._selected_showcase_preset()
+        if preset is None:
+            self.showcase_description_var.set("Select a showcase preset to load a saved comparison.")
+            return
+
+        self.showcase_description_var.set(
+            f"{preset['description']} Sources: {preset['left_result']} vs {preset['right_result']}."
+        )
+
+    def _refresh_recent_results(self) -> None:
+        try:
+            self.recent_results = read_recent_results()
+        except (OSError, TypeError, json.JSONDecodeError):
+            self.recent_results = []
+
+    def _refresh_favorite_comparisons(self) -> None:
+        try:
+            self.favorite_comparisons = read_favorite_comparisons()
+        except (OSError, TypeError, json.JSONDecodeError):
+            self.favorite_comparisons = []
+
+    def _favorite_titles(self) -> List[str]:
+        return [favorite["title"] for favorite in self.favorite_comparisons]
+
+    def _refresh_favorites_panel(self) -> None:
+        if self.favorites_frame is not None:
+            for child in self.favorites_frame.winfo_children():
+                child.destroy()
+
+            if not self.favorite_comparisons:
+                ttk.Label(
+                    self.favorites_frame,
+                    text="No favorites yet. Load or run a comparison, then pin it here.",
+                    style="Hint.TLabel",
+                    justify="left",
+                ).grid(row=0, column=0, columnspan=3, sticky="w")
+            else:
+                for index, favorite in enumerate(self.favorite_comparisons[:MAX_FAVORITES]):
+                    row = index // 3
+                    column = index % 3
+                    title = favorite["title"]
+                    if len(title) > 38:
+                        title = title[:35] + "..."
+                    ttk.Button(
+                        self.favorites_frame,
+                        text=title,
+                        command=lambda favorite_item=dict(favorite): self.load_favorite_comparison(favorite_item),
+                    ).grid(row=row, column=column, sticky="ew", padx=(0, 8 if column < 2 else 0), pady=3)
+
+        if self.favorite_selector is not None:
+            self.favorite_selector.configure(values=self._favorite_titles())
+
+        if self.favorite_comparisons:
+            if self.favorite_choice.get() not in self._favorite_titles():
+                self.favorite_choice.set(self.favorite_comparisons[0]["title"])
+            self._sync_selected_favorite_fields()
+        else:
+            self.favorite_choice.set("")
+            self.favorite_title_var.set("")
+            self.favorite_note_var.set("")
+
+    def _selected_favorite(self) -> Dict[str, str] | None:
+        title = self.favorite_choice.get().strip()
+        for favorite in self.favorite_comparisons:
+            if favorite["title"] == title:
+                return favorite
+        return None
+
+    def _sync_selected_favorite_fields(self) -> None:
+        favorite = self._selected_favorite()
+        if favorite is None:
+            if not self.favorite_title_var.get().strip():
+                self.favorite_title_var.set("")
+            if not self.favorite_note_var.get().strip():
+                self.favorite_note_var.set("")
+            return
+        self.favorite_title_var.set(favorite["title"])
+        self.favorite_note_var.set(favorite.get("note", ""))
+
+    def _save_favorites(self) -> None:
+        write_favorite_comparisons(self.favorite_comparisons)
+        self._refresh_favorites_panel()
+
+    def _refresh_recent_results_panel(self) -> None:
+        if self.recent_results_frame is None:
+            return
+
+        for child in self.recent_results_frame.winfo_children():
+            child.destroy()
+
+        if not self.recent_results:
+            ttk.Label(
+                self.recent_results_frame,
+                text="No recent items yet. Run or load a comparison and it will appear here.",
+                style="Hint.TLabel",
+                justify="left",
+            ).grid(row=0, column=0, columnspan=3, sticky="w")
+            return
+
+        for index, item in enumerate(self.recent_results[:MAX_RECENT_RESULTS]):
+            row = index // 3
+            column = index % 3
+            title = item["title"]
+            if len(title) > 38:
+                title = title[:35] + "..."
+            button_text = f"{title}"
+            ttk.Button(
+                self.recent_results_frame,
+                text=button_text,
+                command=lambda recent_item=dict(item): self.load_recent_result(recent_item),
+            ).grid(row=row, column=column, sticky="ew", padx=(0, 8 if column < 2 else 0), pady=3)
+
+    def _remember_recent_result(self, item: Dict[str, str]) -> None:
+        key = (item["left_result"], item.get("right_result", ""))
+        remaining = [
+            existing
+            for existing in self.recent_results
+            if (existing.get("left_result", ""), existing.get("right_result", "")) != key
+        ]
+        self.recent_results = [item, *remaining][:MAX_RECENT_RESULTS]
+        try:
+            write_recent_results(self.recent_results)
+        except OSError:
+            return
+        self._refresh_recent_results_panel()
+
+    def _remember_results(
+        self,
+        left_result: Dict[str, object],
+        right_result: Dict[str, object] | None,
+        *,
+        kind: str,
+        title: str | None = None,
+        description: str = "",
+    ) -> None:
+        left_path = Path(left_result["log_path"])  # type: ignore[arg-type]
+        right_path = Path(right_result["log_path"]) if right_result is not None else None  # type: ignore[arg-type]
+        left_label = self.summary_vars["left"]["Campaign Name"].get()
+        right_label = self.summary_vars["right"]["Campaign Name"].get() if right_result is not None else ""
+        item_title = title or (f"{left_label} vs {right_label}" if right_result is not None else left_label)
+        item_description = description or (
+            "Recent comparison loaded through the GUI." if right_result is not None else "Recent single result loaded through the GUI."
+        )
+        self._remember_recent_result(
+            _recent_result_item(
+                item_title,
+                kind=kind,
+                description=item_description,
+                left_path=left_path,
+                right_path=right_path,
+            )
+        )
+
+    def load_recent_result(self, item: Dict[str, str]) -> None:
+        try:
+            left_result, right_result = load_recent_result_item(item)
+        except (OSError, RuntimeError, csv.Error) as exc:
+            self.status_text.set("Recent item load failed.")
+            messagebox.showerror("Recent Item Load Failed", str(exc))
+            return
+
+        self._apply_results(left_result, right_result, remember_recent=False)
+        self._remember_recent_result(item)
+        self._open_comparison_figures_tab()
+        self.status_text.set(f"Reloaded recent item: {item['title']}.")
+
+    def clear_recent_results(self) -> None:
+        self.recent_results = []
+        try:
+            write_recent_results(self.recent_results)
+        except OSError as exc:
+            messagebox.showerror("Clear Recent History Failed", str(exc))
+            return
+        self._refresh_recent_results_panel()
+        self.status_text.set("Recent results history cleared.")
+
+    def add_current_comparison_to_favorites(self) -> None:
+        if self.current_comparison is None:
+            messagebox.showinfo("No Comparison Loaded", "Load or run a left-versus-right comparison first.")
+            return
+
+        title = self.favorite_title_var.get().strip()
+        if not title:
+            title = (
+                f"{self.summary_vars['left']['Campaign Name'].get()} vs "
+                f"{self.summary_vars['right']['Campaign Name'].get()}"
+            )
+        note = self.favorite_note_var.get().strip()
+        left_result = self.current_comparison["left"]  # type: ignore[index]
+        right_result = self.current_comparison["right"]  # type: ignore[index]
+        item = _favorite_comparison_item(
+            title,
+            note=note,
+            left_path=Path(left_result["log_path"]),  # type: ignore[arg-type]
+            right_path=Path(right_result["log_path"]),  # type: ignore[arg-type]
+        )
+
+        key = (item["left_result"], item["right_result"])
+        remaining = [
+            existing
+            for existing in self.favorite_comparisons
+            if (existing["left_result"], existing["right_result"]) != key and existing["title"] != title
+        ]
+        self.favorite_comparisons = [item, *remaining][:MAX_FAVORITES]
+        try:
+            self._save_favorites()
+        except OSError as exc:
+            messagebox.showerror("Save Favorite Failed", str(exc))
+            return
+        self.favorite_choice.set(title)
+        self.status_text.set(f"Pinned favorite comparison: {title}.")
+
+    def update_selected_favorite(self) -> None:
+        favorite = self._selected_favorite()
+        if favorite is None:
+            messagebox.showinfo("No Favorite Selected", "Select a favorite comparison first.")
+            return
+
+        title = self.favorite_title_var.get().strip()
+        if not title:
+            messagebox.showerror("Invalid Favorite Title", "Favorite title must contain at least one letter or number.")
+            return
+
+        note = self.favorite_note_var.get().strip()
+        updated: List[Dict[str, str]] = []
+        for existing in self.favorite_comparisons:
+            if existing["title"] == favorite["title"]:
+                updated.append(
+                    {
+                        "title": title,
+                        "note": note,
+                        "left_result": existing["left_result"],
+                        "right_result": existing["right_result"],
+                    }
+                )
+            elif existing["title"] != title:
+                updated.append(existing)
+        self.favorite_comparisons = updated[:MAX_FAVORITES]
+        try:
+            self._save_favorites()
+        except OSError as exc:
+            messagebox.showerror("Update Favorite Failed", str(exc))
+            return
+        self.favorite_choice.set(title)
+        self.status_text.set(f"Updated favorite comparison: {title}.")
+
+    def remove_selected_favorite(self) -> None:
+        favorite = self._selected_favorite()
+        if favorite is None:
+            messagebox.showinfo("No Favorite Selected", "Select a favorite comparison first.")
+            return
+
+        self.favorite_comparisons = [
+            existing for existing in self.favorite_comparisons if existing["title"] != favorite["title"]
+        ]
+        try:
+            self._save_favorites()
+        except OSError as exc:
+            messagebox.showerror("Remove Favorite Failed", str(exc))
+            return
+        self.status_text.set(f"Removed favorite comparison: {favorite['title']}.")
+
+    def load_favorite_comparison(self, item: Dict[str, str]) -> None:
+        try:
+            left_result, right_result = load_favorite_comparison_item(item)
+        except (OSError, RuntimeError, csv.Error) as exc:
+            self.status_text.set("Favorite comparison load failed.")
+            messagebox.showerror("Favorite Comparison Load Failed", str(exc))
+            return
+
+        self._apply_results(
+            left_result,
+            right_result,
+            remember_recent=True,
+            recent_kind="favorite",
+            recent_title=item["title"],
+            recent_description=item.get("note", "") or "Favorite comparison reloaded through the GUI.",
+        )
+        self.favorite_choice.set(item["title"])
+        self._sync_selected_favorite_fields()
+        self._open_comparison_figures_tab()
+        self.status_text.set(f"Loaded favorite comparison: {item['title']}.")
 
     def _current_custom_form_config(self) -> Dict[str, object] | None:
         return self._validate_custom_config()
@@ -4536,8 +5193,58 @@ class VirtualECUGui(tk.Tk):
             pady=12,
         ).pack(fill="x")
 
+    def _build_quick_start_panel(self, parent: ttk.Frame) -> None:
+        panel = ttk.LabelFrame(parent, text="Quick Start / Guided Use", padding=12)
+        panel.grid(row=0, column=0, sticky="ew", padx=12, pady=(0, 10))
+        for column in range(3):
+            panel.columnconfigure(column, weight=1)
+
+        ttk.Label(
+            panel,
+            text="Best first demo: open the saved Showcase preset Baseline vs Fan Hot Stress.",
+            style="FieldName.TLabel",
+            wraplength=980,
+            justify="left",
+        ).grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, 6))
+
+        quick_paths = (
+            ("Showcase demo", "Comparison Summary -> Showcase / Demo Presets -> Open Showcase Comparison"),
+            ("Built-in comparison", "Comparison Summary -> choose left/right campaigns -> Run Built-In Comparison"),
+            ("Saved results", "Comparison Summary -> Load Saved CSV as Left/Right"),
+            ("Single custom fault", "Custom Experiment -> Single Fault -> Compare vs Baseline & Open Figures"),
+            ("Multi-fault scenario", "Custom Experiment -> Multi-Fault Scenario -> Compare vs Baseline & Open Figures"),
+            ("Batch trends", "Batch Results -> Load Batch Results -> choose a batch plot"),
+        )
+        for index, (title, guidance) in enumerate(quick_paths):
+            row = 1 + index // 3
+            column = index % 3
+            card = tk.Frame(panel, bg="#ffffff", bd=1, relief="solid", highlightthickness=0)
+            card.grid(row=row, column=column, sticky="nsew", padx=(0, 8 if column < 2 else 0), pady=4)
+            tk.Label(
+                card,
+                text=title,
+                bg="#ffffff",
+                fg="#22313f",
+                font=("TkDefaultFont", 9, "bold"),
+                anchor="w",
+                padx=10,
+                pady=0,
+            ).pack(fill="x", pady=(8, 2))
+            tk.Label(
+                card,
+                text=guidance,
+                bg="#ffffff",
+                fg="#4d5c69",
+                font=("TkDefaultFont", 9),
+                justify="left",
+                wraplength=315,
+                anchor="w",
+                padx=10,
+                pady=8,
+            ).pack(fill="x")
+
     def _build_recommended_demo_shortcuts(self, parent: ttk.Frame) -> None:
-        shortcuts = ttk.LabelFrame(parent, text="Recommended Demo Comparisons", padding=12)
+        shortcuts = ttk.LabelFrame(parent, text="Run Built-In Demo Comparisons", padding=12)
         shortcuts.grid(row=2, column=0, columnspan=3, sticky="ew", pady=(12, 0))
         shortcuts.columnconfigure(0, weight=1)
         shortcuts.columnconfigure(1, weight=1)
@@ -4545,7 +5252,7 @@ class VirtualECUGui(tk.Tk):
 
         ttk.Label(
             shortcuts,
-            text="Use these one-click pairings for live walkthroughs of nominal, timing-fault, computation/memory, and severe actuation-fault behavior.",
+            text="One click runs a built-in left/right comparison and opens the figure workflow. Use Showcase presets below when you prefer saved results with no rerun.",
             style="Hint.TLabel",
             wraplength=980,
             justify="left",
@@ -4555,8 +5262,115 @@ class VirtualECUGui(tk.Tk):
             ttk.Button(
                 shortcuts,
                 text=label,
-                command=lambda left=left_campaign, right=right_campaign: self._apply_demo_comparison(left, right),
+                command=lambda left=left_campaign, right=right_campaign: self._run_demo_comparison(left, right),
             ).grid(row=1 + index // 3, column=index % 3, sticky="ew", padx=(0, 8 if index % 3 < 2 else 0), pady=4)
+
+    def _build_showcase_presets(self, parent: ttk.Frame) -> None:
+        showcase = ttk.LabelFrame(parent, text="Showcase / Demo Presets", padding=12)
+        showcase.grid(row=3, column=0, columnspan=3, sticky="ew", pady=(10, 0))
+        showcase.columnconfigure(0, weight=0)
+        showcase.columnconfigure(1, weight=1)
+        showcase.columnconfigure(2, weight=0)
+
+        ttk.Label(
+            showcase,
+            text="Recommended first step for demos: choose Baseline vs Fan Hot Stress and open the saved comparison.",
+            style="Hint.TLabel",
+            wraplength=980,
+            justify="left",
+        ).grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, 8))
+
+        ttk.Label(showcase, text="Preset", style="FieldName.TLabel").grid(row=1, column=0, sticky="w")
+        self.showcase_preset_selector = ttk.Combobox(
+            showcase,
+            textvariable=self.showcase_preset_choice,
+            values=list(self.showcase_preset_catalog),
+            state="readonly",
+            width=42,
+        )
+        self.showcase_preset_selector.grid(row=1, column=1, sticky="ew", padx=(10, 10))
+        self.showcase_preset_selector.bind("<<ComboboxSelected>>", self._on_showcase_preset_selected)
+        ttk.Button(showcase, text="Open Showcase Comparison", command=self.load_selected_showcase_preset).grid(
+            row=1, column=2, sticky="e"
+        )
+        ttk.Label(
+            showcase,
+            textvariable=self.showcase_description_var,
+            style="Hint.TLabel",
+            wraplength=980,
+            justify="left",
+        ).grid(row=2, column=0, columnspan=3, sticky="w", pady=(8, 0))
+
+    def _build_favorite_comparisons(self, parent: ttk.Frame) -> None:
+        favorites = ttk.LabelFrame(parent, text="Favorites / Pinned Comparisons", padding=12)
+        favorites.grid(row=4, column=0, columnspan=3, sticky="ew", pady=(10, 0))
+        favorites.columnconfigure(0, weight=1)
+        favorites.columnconfigure(1, weight=1)
+        favorites.columnconfigure(2, weight=1)
+
+        ttk.Label(
+            favorites,
+            text="Pin recurring thesis/demo comparisons here. Favorites are intentional saved pairs, separate from Recent Results.",
+            style="Hint.TLabel",
+            wraplength=980,
+            justify="left",
+        ).grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, 8))
+
+        self.favorites_frame = ttk.Frame(favorites, style="Root.TFrame")
+        self.favorites_frame.grid(row=1, column=0, columnspan=3, sticky="ew")
+        for column in range(3):
+            self.favorites_frame.columnconfigure(column, weight=1)
+
+        ttk.Label(favorites, text="Selected Favorite", style="FieldName.TLabel").grid(row=2, column=0, sticky="w", pady=(10, 0))
+        self.favorite_selector = ttk.Combobox(
+            favorites,
+            textvariable=self.favorite_choice,
+            state="readonly",
+            width=38,
+        )
+        self.favorite_selector.grid(row=2, column=1, sticky="ew", padx=(10, 10), pady=(10, 0))
+        self.favorite_selector.bind("<<ComboboxSelected>>", self._on_favorite_selected)
+        ttk.Button(favorites, text="Load Favorite", command=self.load_selected_favorite).grid(
+            row=2, column=2, sticky="e", pady=(10, 0)
+        )
+
+        ttk.Label(favorites, text="Title", style="FieldName.TLabel").grid(row=3, column=0, sticky="w", pady=(8, 0))
+        ttk.Entry(favorites, textvariable=self.favorite_title_var).grid(row=3, column=1, sticky="ew", padx=(10, 10), pady=(8, 0))
+        ttk.Button(favorites, text="Pin Current Comparison", command=self.add_current_comparison_to_favorites).grid(
+            row=3, column=2, sticky="e", pady=(8, 0)
+        )
+
+        ttk.Label(favorites, text="Note", style="FieldName.TLabel").grid(row=4, column=0, sticky="w", pady=(8, 0))
+        ttk.Entry(favorites, textvariable=self.favorite_note_var).grid(row=4, column=1, sticky="ew", padx=(10, 10), pady=(8, 0))
+        actions = ttk.Frame(favorites, style="Root.TFrame")
+        actions.grid(row=4, column=2, sticky="e", pady=(8, 0))
+        ttk.Button(actions, text="Update Favorite", command=self.update_selected_favorite).grid(row=0, column=0, sticky="e")
+        ttk.Button(actions, text="Remove", command=self.remove_selected_favorite).grid(row=0, column=1, sticky="e", padx=(8, 0))
+
+        self._refresh_favorites_panel()
+
+    def _build_recent_results(self, parent: ttk.Frame) -> None:
+        recent = ttk.LabelFrame(parent, text="Recent Results / Comparisons", padding=12)
+        recent.grid(row=5, column=0, columnspan=3, sticky="ew", pady=(10, 0))
+        recent.columnconfigure(0, weight=1)
+        recent.columnconfigure(1, weight=0)
+
+        ttk.Label(
+            recent,
+            text=f"Reload the last {MAX_RECENT_RESULTS} saved comparisons or custom runs without browsing for CSV files.",
+            style="Hint.TLabel",
+            wraplength=900,
+            justify="left",
+        ).grid(row=0, column=0, sticky="w")
+        ttk.Button(recent, text="Clear Recent History", command=self.clear_recent_results).grid(
+            row=0, column=1, sticky="e", padx=(10, 0)
+        )
+
+        self.recent_results_frame = ttk.Frame(recent, style="Root.TFrame")
+        self.recent_results_frame.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(8, 0))
+        for column in range(3):
+            self.recent_results_frame.columnconfigure(column, weight=1)
+        self._refresh_recent_results_panel()
 
     def _build_context_column(
         self,
@@ -4637,6 +5451,7 @@ class VirtualECUGui(tk.Tk):
         self._refresh_campaign_context()
         self._reset_summary_values()
         self._refresh_fault_path_diagrams()
+        self.status_text.set("Campaign selection changed. Click Run Built-In Comparison to update the views.")
 
     def _on_custom_fault_type_changed(self, _event: tk.Event[tk.Misc] | None = None) -> None:
         self.custom_parameter.set(CUSTOM_DEFAULT_PARAMETERS.get(self.custom_fault_type.get(), "0.0"))
@@ -4662,13 +5477,24 @@ class VirtualECUGui(tk.Tk):
             return
         self._set_multi_editor_event(self.multi_events[index])
 
+    def _on_showcase_preset_selected(self, _event: tk.Event[tk.Misc] | None = None) -> None:
+        self._update_showcase_description()
+
+    def _on_favorite_selected(self, _event: tk.Event[tk.Misc] | None = None) -> None:
+        self._sync_selected_favorite_fields()
+
     def _apply_demo_comparison(self, left_campaign: str, right_campaign: str) -> None:
         self.left_campaign.set(left_campaign)
         self.right_campaign.set(right_campaign)
         self._refresh_campaign_context()
         self._reset_summary_values()
         self._refresh_fault_path_diagrams()
-        self.status_text.set(f"Demo shortlist loaded: {left_campaign} vs {right_campaign}. Run comparison to inspect it.")
+        self.status_text.set(f"Selected built-in pair: {left_campaign} vs {right_campaign}. Click Run Built-In Comparison.")
+
+    def _run_demo_comparison(self, left_campaign: str, right_campaign: str) -> None:
+        self._apply_demo_comparison(left_campaign, right_campaign)
+        self.status_text.set(f"Running built-in demo comparison: {left_campaign} vs {right_campaign}...")
+        self.run_comparison()
 
     def _on_presentation_mode_toggled(self) -> None:
         self._apply_presentation_mode()
@@ -4835,7 +5661,7 @@ class VirtualECUGui(tk.Tk):
         self.batch_run_count_var.set("-")
         self.batch_fault_classes_var.set("-")
         self.batch_fault_types_var.set("-")
-        self.batch_findings_var.set("Load a batch aggregate summary CSV to generate automatic findings.")
+        self.batch_findings_var.set("Load the default aggregate CSV, or browse to another batch summary.")
         self.batch_interpretation_var.set("-")
 
         if self.batch_table is not None:
@@ -4844,7 +5670,7 @@ class VirtualECUGui(tk.Tk):
 
         if self.batch_plot is not None:
             self.batch_plot.set_title(self.batch_plot_choice.get())
-            self.batch_plot.show_message("Load a batch aggregate summary CSV to view the sweep-level comparison.")
+            self.batch_plot.show_message("Load a batch aggregate CSV, then use the plot selector to inspect trends.")
 
     def _apply_batch_results(self, csv_path: Path, rows: Sequence[Dict[str, str]]) -> None:
         self.batch_rows = list(rows)
@@ -4858,7 +5684,7 @@ class VirtualECUGui(tk.Tk):
         )
 
         self._populate_batch_table(rows, fault_types)
-        self.batch_status_text.set(f"Loaded {len(rows)} batch runs from {csv_path}")
+        self.batch_status_text.set(f"Loaded {len(rows)} batch runs. Use the table and plot selector to inspect sweep-level trends.")
         self._update_batch_findings(rows)
         self._refresh_batch_plot()
 
@@ -4920,7 +5746,7 @@ class VirtualECUGui(tk.Tk):
         self.batch_plot.set_title(self.batch_plot_choice.get())
 
         if not self.batch_rows:
-            self.batch_plot.show_message("Load a batch aggregate summary CSV to view the sweep-level comparison.")
+            self.batch_plot.show_message("Load a batch aggregate CSV, then use the plot selector to inspect trends.")
             return
 
         fault_types = self._ordered_fault_types(self.batch_rows)
@@ -5094,6 +5920,7 @@ class VirtualECUGui(tk.Tk):
     def _reset_summary_values(self) -> None:
         self.current_comparison = None
         self.current_plot_results = None
+        self.loaded_result_slots = {"left": None, "right": None}
         self.snapshot_button.state(["disabled"])
         self.export_button.state(["disabled"])
         self.comparison_findings_var.set("Run a comparison to generate automatic findings.")
@@ -5114,6 +5941,26 @@ class VirtualECUGui(tk.Tk):
 
     def run_comparison(self) -> None:
         self._run_campaigns(include_right=True)
+
+    def load_existing_as_left(self) -> None:
+        self._load_existing_result_into_slot("left")
+
+    def load_existing_as_right(self) -> None:
+        self._load_existing_result_into_slot("right")
+
+    def load_selected_showcase_preset(self) -> None:
+        preset = self._selected_showcase_preset()
+        if preset is None:
+            messagebox.showinfo("No Showcase Preset", "Select a showcase preset first.")
+            return
+        self._load_showcase_preset(preset)
+
+    def load_selected_favorite(self) -> None:
+        favorite = self._selected_favorite()
+        if favorite is None:
+            messagebox.showinfo("No Favorite Selected", "Select a favorite comparison first.")
+            return
+        self.load_favorite_comparison(favorite)
 
     def run_custom_only(self) -> None:
         self._run_custom_experiment("only")
@@ -5250,9 +6097,11 @@ class VirtualECUGui(tk.Tk):
         LOGS_DIR.mkdir(parents=True, exist_ok=True)
         left_campaign = self.left_campaign.get()
         right_campaign = self.right_campaign.get()
+        left_name = campaign_story(left_campaign)["campaign_name"]
+        right_name = campaign_story(right_campaign)["campaign_name"]
         self.status_text.set(
-            f"Running comparison: {left_campaign} vs {right_campaign}..."
-            if include_right else f"Running left campaign: {left_campaign}..."
+            f"Running built-in comparison: {left_name} vs {right_name}..."
+            if include_right else f"Running selected left campaign: {left_name}..."
         )
         self.run_compare_button.state(["disabled"])
         self.run_left_button.state(["disabled"])
@@ -5271,8 +6120,7 @@ class VirtualECUGui(tk.Tk):
         summary_path = summary_path_for(log_path)
         raw_rows = read_csv_rows(log_path)
         summary_rows = read_csv_rows(summary_path)
-        if not raw_rows or not summary_rows:
-            raise RuntimeError("The simulator completed but did not generate readable CSV data.")
+        validate_result_pair(raw_rows, summary_rows, raw_path=log_path, summary_path=summary_path)
 
         return {
             "campaign_id": campaign_id,
@@ -5297,6 +6145,57 @@ class VirtualECUGui(tk.Tk):
             raise RuntimeError(completed.stderr or completed.stdout or "Unknown simulator failure.")
 
         return self._load_simulation_result(campaign_id, log_path)
+
+    def _choose_existing_result_path(self) -> Path | None:
+        selected = filedialog.askopenfilename(
+            title="Select an existing virtual ECU raw CSV log",
+            initialdir=str(LOGS_DIR if LOGS_DIR.exists() else PROJECT_ROOT),
+            filetypes=(("CSV files", "*.csv"), ("All files", "*.*")),
+        )
+        if not selected:
+            return None
+        return Path(selected)
+
+    def _load_existing_result_from_path(self, selected_path: Path) -> Dict[str, object]:
+        return load_existing_result_pair(selected_path)
+
+    def _load_existing_result_into_slot(self, slot: str) -> None:
+        selected_path = self._choose_existing_result_path()
+        if selected_path is None:
+            return
+
+        try:
+            result = self._load_existing_result_from_path(selected_path)
+        except (OSError, RuntimeError, csv.Error) as exc:
+            self.status_text.set("Existing result load failed.")
+            messagebox.showerror("Load Existing Results Failed", str(exc))
+            return
+
+        self._apply_existing_result(slot, result)
+
+    def _load_showcase_preset(self, preset: Dict[str, str]) -> None:
+        try:
+            left_result, right_result = load_showcase_preset_results(preset)
+        except (OSError, RuntimeError, csv.Error) as exc:
+            self.status_text.set("Showcase preset load failed.")
+            messagebox.showerror("Showcase Preset Load Failed", str(exc))
+            return
+
+        self._apply_results(
+            left_result,
+            right_result,
+            remember_recent=False,
+        )
+        self._remember_results(
+            left_result,
+            right_result,
+            kind="showcase",
+            title=preset["title"],
+            description=preset["description"],
+        )
+        self._open_comparison_figures_tab()
+        self.showcase_description_var.set(preset["description"])
+        self.status_text.set(f"Loaded showcase preset: {preset['title']}. Comparison Figures are ready.")
 
     def _run_custom_campaign(self, config: Dict[str, object]) -> Dict[str, object]:
         log_path = custom_log_path(config)
@@ -5431,6 +6330,50 @@ class VirtualECUGui(tk.Tk):
         self._set_custom_controls_enabled(True)
         messagebox.showerror("Virtual ECU Run Failed", message)
 
+    def _apply_existing_result(self, slot: str, result: Dict[str, object]) -> None:
+        slot_label = "Left" if slot == "left" else "Right"
+        self.loaded_result_slots[slot] = result
+        left_result = self.loaded_result_slots["left"]
+        right_result = self.loaded_result_slots["right"]
+
+        if left_result is not None:
+            self._apply_results(
+                left_result,
+                right_result,
+                recent_kind="saved",
+                recent_description="Saved CSV result loaded through the GUI.",
+            )
+            loaded_name = self.summary_vars[slot]["Campaign Name"].get()
+            if right_result is not None:
+                self.status_text.set(f"Loaded existing result as {slot_label}: {loaded_name}. Comparison is ready.")
+            else:
+                self.status_text.set(f"Loaded existing result as {slot_label}: {loaded_name}. Load a right result to compare.")
+            self._open_comparison_figures_tab()
+            return
+
+        self.run_compare_button.state(["!disabled"])
+        self.run_left_button.state(["!disabled"])
+        self._set_custom_controls_enabled(True)
+        self._clear_slot("left")
+        self._apply_summary_slot("right", str(result["campaign_id"]), result["raw_rows"], result["summary_row"])
+        self.current_comparison = None
+        self.current_plot_results = None
+        self.snapshot_button.state(["disabled"])
+        self.export_button.state(["disabled"])
+        if self.left_fault_path_diagram is not None:
+            self.left_fault_path_diagram.set_campaign(self.left_campaign.get(), None)
+        if self.right_fault_path_diagram is not None:
+            right_rows = result["raw_rows"]  # type: ignore[assignment]
+            self.right_fault_path_diagram.set_campaign(str(result["campaign_id"]), right_rows[0])
+        self._refresh_metric_cells()
+        self.comparison_findings_var.set("Load or run a left result to enable left-versus-right findings.")
+        self.comparison_interpretation_var.set("-")
+        self._clear_propagation_evidence()
+        if self.comparison_plot is not None:
+            self.comparison_plot.show_message("Loaded an existing right result. Load or run a left result to display comparison figures.")
+        loaded_name = self.summary_vars["right"]["Campaign Name"].get()
+        self.status_text.set(f"Loaded existing result as Right: {loaded_name}. Load a left result to compare.")
+
     def _apply_custom_results(
         self,
         custom_result: Dict[str, object],
@@ -5442,7 +6385,16 @@ class VirtualECUGui(tk.Tk):
         right_result: Dict[str, object] | None,
     ) -> None:
         self._update_custom_result_summary(custom_result, loaded_mode, loaded_slot)
-        self._apply_results(left_result, right_result)
+        self._apply_results(left_result, right_result, remember_recent=False)
+        self._remember_results(
+            left_result,
+            right_result,
+            kind="custom",
+            title=self.custom_summary_vars["Campaign Name"].get()
+            if right_result is None
+            else f"{self.custom_summary_vars['Campaign Name'].get()} comparison",
+            description="Custom experiment or scenario run from the GUI.",
+        )
         self._open_comparison_figures_tab()
         self.status_text.set(completion_status)
         self.custom_status_text.set(
@@ -5454,10 +6406,17 @@ class VirtualECUGui(tk.Tk):
         self,
         left_result: Dict[str, object],
         right_result: Dict[str, object] | None,
+        *,
+        remember_recent: bool = True,
+        recent_kind: str = "comparison",
+        recent_title: str | None = None,
+        recent_description: str = "",
     ) -> None:
         self.run_compare_button.state(["!disabled"])
         self.run_left_button.state(["!disabled"])
         self._set_custom_controls_enabled(True)
+        self.loaded_result_slots["left"] = left_result
+        self.loaded_result_slots["right"] = right_result
 
         left_campaign = str(left_result["campaign_id"])
         self._apply_summary_slot("left", left_campaign, left_result["raw_rows"], left_result["summary_row"])
@@ -5490,6 +6449,14 @@ class VirtualECUGui(tk.Tk):
         self._update_comparison_findings(left_result, right_result)
         self._update_propagation_evidence(left_result, right_result)
         self._refresh_selected_plot()
+        if remember_recent:
+            self._remember_results(
+                left_result,
+                right_result,
+                kind=recent_kind,
+                title=recent_title,
+                description=recent_description,
+            )
 
     def _update_comparison_findings(
         self,
