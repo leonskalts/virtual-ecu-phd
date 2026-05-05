@@ -4,52 +4,57 @@ Before making changes:
 1. Run git status --short.
 2. Inspect scripts/virtual_ecu_gui.py.
 3. Inspect README.md.
-4. Inspect the current Multi-Fault Scenario Builder and Scenario Timeline implementation.
+4. Inspect presets/recent_results.json if present.
+5. Summarize the current GUI usability features.
 
-Then refine the Multi-Fault Scenario Timeline in the GUI so it looks clean and presentation-friendly.
+Current important GUI usability features expected:
+- Quick Start / Guided Use panel
+- Showcase / Demo Presets
+- Load Existing Results
+- Custom single-fault experiments
+- Multi-fault scenario builder
+- Scenario Timeline
+- Recent Results / Recent Comparisons
+- Comparison Summary / Comparison Figures / Batch Results
+- Propagation Evidence and fault-path visualization
+- exportable reports and snapshots
 
-Keep the C simulator unchanged.
-Keep the GUI in Python/Tkinter.
-Do not add heavy dependencies.
+Next task idea:
+Add a lightweight Favorites / Pinned Comparisons feature to the virtual ECU GUI.
 
-The current Scenario Timeline works functionally, but it looks visually crowded and not polished enough for thesis/demo use.
+Requirements:
+- Keep the C simulator unchanged.
+- Keep the GUI in Python/Tkinter.
+- Do not add heavy dependencies.
 
-Please do all of the following:
+Goal:
+Let the user pin important comparison pairs for quick reuse, separate from Recent Results.
 
-1. Redesign the Scenario Timeline visually without removing the feature.
-2. Make it cleaner, simpler, and easier to read at a glance.
-3. Reduce clutter inside the timeline area:
-   - remove unnecessary explanatory text from inside the drawing area
-   - avoid too much small text inside the chart itself
-   - keep only the most important labels visible
-4. Improve spacing and hierarchy:
-   - give the timeline more breathing room
-   - increase margins/padding
-   - align the event rows more cleanly
-5. Make the timeline feel more like a presentation card and less like a debugging canvas.
-6. Improve the time axis:
-   - make start/end markers cleaner
-   - keep labels readable
-   - avoid overlapping labels
-7. Improve event rendering:
-   - cleaner bars
-   - clearer permanent-fault visualization
-   - better row separation
-   - more consistent colors
-8. Keep the live update behavior when events are added, updated, removed, reordered, or loaded from presets.
-9. Keep the existing scenario builder workflow and buttons intact.
-10. Do not break:
-   - custom presets
-   - run scenario actions
-   - comparison flow
-   - figures/export workflow
+A favorite item should store at least:
+- title
+- left result source
+- right result source
+- optional short note/description
 
-Also provide:
-- what visual changes were made
-- why the timeline now looks better
-- whether it is now suitable for thesis/demo screenshots
+The GUI should let the user:
+- add the current comparison as a favorite
+- load a favorite with one click
+- remove a favorite
+- optionally rename/edit the display title
 
-Finally run verification:
-- make
-- python3 -m py_compile scripts/virtual_ecu_gui.py
-- a smoke test if possible
+Reuse the existing comparison-loading pipeline so favorites update:
+- Comparison Summary
+- Comparison Figures
+- Propagation Evidence
+- Fault Path visualization
+- export/report workflow
+
+Store favorites in a simple deterministic format such as:
+presets/favorite_comparisons.json
+
+Keep the workflow compact and presentation-friendly.
+Do not clutter the interface.
+
+Update README with a short explanation of favorites and where they are stored.
+
+First summarize the cleanest place in the GUI to add this feature before editing files.
