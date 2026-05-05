@@ -237,6 +237,14 @@ FAULT_TYPE_DISPLAY = {
     "fan_stuck_off": "Fan Stuck Off",
     "calibration_memory_corruption": "Calibration Memory Corruption",
 }
+SCENARIO_TIMELINE_COLORS = {
+    "sensor_bias": "#c4473a",
+    "sensor_interface_intermittent": "#d17b29",
+    "stale_sensor_data": "#4d78c2",
+    "pump_degraded": "#2f8f7e",
+    "fan_stuck_off": "#8d4fb8",
+    "calibration_memory_corruption": "#8a5b2f",
+}
 
 FAULT_TYPE_ORDER = (
     "none",
@@ -2733,6 +2741,212 @@ class FaultPathDiagram(ttk.Frame):
         )
 
 
+class ScenarioTimelineView(ttk.Frame):
+    """Canvas-based live timeline for the ordered multi-fault scenario."""
+
+    def __init__(self, master: tk.Misc) -> None:
+        super().__init__(master)
+        self.events: List[Dict[str, object]] = []
+
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(0, weight=1)
+        self.canvas = tk.Canvas(
+            self,
+            background="#ffffff",
+            height=210,
+            highlightthickness=1,
+            highlightbackground="#c7d0d9",
+        )
+        self.canvas.grid(row=0, column=0, sticky="nsew")
+        self.canvas.bind("<Configure>", lambda _event: self.redraw())
+
+    def set_events(self, events: Sequence[Dict[str, object]]) -> None:
+        self.events = [dict(event) for event in events]
+        self.redraw()
+
+    def _event_duration_label(self, event: Dict[str, object]) -> str:
+        behavior = str(event["fault_behavior"])
+        duration_ms = int(event["duration_ms"])
+        if behavior == "permanent" and duration_ms == 0:
+            return "permanent"
+        return f"{duration_ms / 1000.0:.1f}s"
+
+    def _format_time_label(self, time_ms: int) -> str:
+        if time_ms >= 10000:
+            return f"{time_ms / 1000.0:.0f}s"
+        return f"{time_ms / 1000.0:.1f}s"
+
+    def _row_meta_label(self, event: Dict[str, object]) -> str:
+        start_ms = int(event["start_ms"])
+        behavior = str(event["fault_behavior"])
+        return (
+            f"{self._format_time_label(start_ms)} start  •  "
+            f"{self._event_duration_label(event)}  •  "
+            f"{custom_behavior_label(behavior)}"
+        )
+
+    def _timeline_span_ms(self) -> int:
+        finite_durations = [int(event["duration_ms"]) for event in self.events if int(event["duration_ms"]) > 0]
+        permanent_tail = max(finite_durations, default=12000)
+        endpoints: List[int] = [30000]
+
+        for event in self.events:
+            start_ms = int(event["start_ms"])
+            duration_ms = int(event["duration_ms"])
+            behavior = str(event["fault_behavior"])
+            if behavior == "permanent" and duration_ms == 0:
+                endpoints.append(start_ms + permanent_tail)
+            else:
+                endpoints.append(start_ms + duration_ms)
+
+        return max(endpoints)
+
+    def redraw(self) -> None:
+        self.canvas.delete("all")
+        width = max(self.canvas.winfo_width(), 700)
+        outer_pad = 18
+        axis_left = 230
+        axis_right = width - 34
+
+        if not self.events:
+            self.canvas.configure(height=168)
+            self.canvas.create_rectangle(
+                outer_pad,
+                14,
+                width - outer_pad,
+                154,
+                fill="#fbfcfd",
+                outline="#d8e0e7",
+                width=1,
+            )
+            self.canvas.create_text(
+                width / 2,
+                84,
+                anchor="center",
+                text="Add 2 to 4 events to preview the staged scenario timing.",
+                fill="#60707d",
+                font=("TkDefaultFont", 10),
+                width=width - 80,
+            )
+            return
+
+        row_gap = 60
+        row_height = 38
+        top = 54
+        bottom_padding = 54
+        height = max(220, top + len(self.events) * row_gap + bottom_padding)
+        self.canvas.configure(height=height)
+        axis_top = top - 22
+        axis_bottom = top + (len(self.events) - 1) * row_gap + row_height / 2
+        span_ms = self._timeline_span_ms()
+
+        def map_x(time_ms: int) -> float:
+            if span_ms <= 0:
+                return float(axis_left)
+            return axis_left + (float(time_ms) / float(span_ms)) * (axis_right - axis_left)
+
+        self.canvas.create_rectangle(
+            outer_pad,
+            14,
+            width - outer_pad,
+            height - 18,
+            fill="#fbfcfd",
+            outline="#d8e0e7",
+            width=1,
+        )
+
+        tick_count = 4
+        for tick_index in range(tick_count + 1):
+            tick_ms = int(round((span_ms * tick_index) / float(tick_count)))
+            x = map_x(tick_ms)
+            self.canvas.create_line(x, axis_top, x, axis_bottom + 10, fill="#e7edf2", dash=(2, 4))
+            self.canvas.create_text(
+                x,
+                axis_top - 10,
+                anchor="s",
+                text=self._format_time_label(tick_ms),
+                fill="#61717e",
+                font=("TkDefaultFont", 8, "bold" if tick_index in {0, tick_count} else "normal"),
+            )
+
+        self.canvas.create_line(axis_left, axis_top, axis_right, axis_top, fill="#8d99a5", width=2)
+
+        for index, event in enumerate(self.events):
+            row_top = top + index * row_gap - 14
+            row_bottom = row_top + row_height
+            center_y = (row_top + row_bottom) / 2
+            start_ms = int(event["start_ms"])
+            duration_ms = int(event["duration_ms"])
+            behavior = str(event["fault_behavior"])
+            bar_end_ms = start_ms + duration_ms
+            if behavior == "permanent" and duration_ms == 0:
+                bar_end_ms = span_ms
+
+            x0 = map_x(start_ms)
+            x1 = map_x(max(bar_end_ms, start_ms + 1))
+            color = SCENARIO_TIMELINE_COLORS.get(str(event["fault_type"]), "#5077b8")
+            label = f"{index + 1}. {custom_mode_label(str(event['fault_type']))}"
+            details = self._row_meta_label(event)
+
+            self.canvas.create_rectangle(
+                outer_pad + 10,
+                row_top - 8,
+                width - outer_pad - 10,
+                row_bottom + 10,
+                fill="#ffffff",
+                outline="#eef2f5",
+                width=1,
+            )
+            self.canvas.create_text(
+                outer_pad + 22,
+                row_top + 3,
+                anchor="w",
+                text=label,
+                fill="#22313f",
+                font=("TkDefaultFont", 9, "bold"),
+            )
+            self.canvas.create_text(
+                outer_pad + 22,
+                row_bottom - 6,
+                anchor="w",
+                text=details,
+                fill="#6a7986",
+                font=("TkDefaultFont", 8),
+            )
+            self.canvas.create_line(axis_left, center_y, axis_right, center_y, fill="#edf2f6", width=12)
+            self.canvas.create_line(axis_left, center_y, axis_right, center_y, fill="#ffffff", width=6)
+            self.canvas.create_rectangle(
+                x0,
+                center_y - 10,
+                max(x1, x0 + 8),
+                center_y + 10,
+                fill=color,
+                outline="",
+            )
+            self.canvas.create_line(x0, center_y - 12, x0, center_y + 12, fill=color, width=2)
+            if behavior == "permanent" and duration_ms == 0:
+                self.canvas.create_polygon(
+                    x1 - 14,
+                    center_y - 10,
+                    x1,
+                    center_y,
+                    x1 - 14,
+                    center_y + 10,
+                    fill=color,
+                    outline=color,
+                )
+                self.canvas.create_text(
+                    min(axis_right - 6, x1 + 8),
+                    center_y,
+                    anchor="w",
+                    text="perm",
+                    fill="#5d6c78",
+                    font=("TkDefaultFont", 8, "bold"),
+                )
+            else:
+                self.canvas.create_line(x1, center_y - 8, x1, center_y + 8, fill="#ffffff", width=2)
+
+
 class VirtualECUGui(tk.Tk):
     METRIC_NAMES = (
         "Final DTC",
@@ -2861,6 +3075,7 @@ class VirtualECUGui(tk.Tk):
         self.propagation_evidence_table: ttk.Treeview | None = None
         self.left_fault_path_diagram: FaultPathDiagram | None = None
         self.right_fault_path_diagram: FaultPathDiagram | None = None
+        self.multi_timeline_view: ScenarioTimelineView | None = None
         self.notebook: ttk.Notebook | None = None
         self.comparison_figures_tab: ttk.Frame | None = None
         self.custom_preset_catalog: Dict[str, Dict[str, object]] = {}
@@ -3373,6 +3588,7 @@ class VirtualECUGui(tk.Tk):
         builder.columnconfigure(1, weight=1)
         builder.columnconfigure(3, weight=1)
         builder.columnconfigure(4, weight=1)
+        builder.rowconfigure(6, weight=1)
 
         ttk.Label(
             builder,
@@ -3458,37 +3674,45 @@ class VirtualECUGui(tk.Tk):
         self.multi_event_listbox.configure(yscrollcommand=scroll.set)
         scroll.grid(row=0, column=1, sticky="ns")
 
+        timeline_frame = ttk.LabelFrame(builder, text="Scenario Timeline", padding=10)
+        timeline_frame.grid(row=6, column=0, columnspan=5, sticky="nsew", pady=(0, 10))
+        timeline_frame.columnconfigure(0, weight=1)
+        timeline_frame.rowconfigure(0, weight=1)
+        self.multi_timeline_view = ScenarioTimelineView(timeline_frame)
+        self.multi_timeline_view.grid(row=0, column=0, sticky="nsew")
+
         ttk.Label(
             builder,
             text=(
-                "Scenario presets store the full ordered event list in the same `presets/gui_custom/` folder used by "
-                "the single-fault builder."
+                "The timeline updates live as you add, edit, remove, or reorder events so you can sanity-check the staged sequence "
+                "before saving or running it. Scenario presets store the full ordered event list in the same "
+                "`presets/gui_custom/` folder used by the single-fault builder."
             ),
             style="Hint.TLabel",
             wraplength=760,
             justify="left",
-        ).grid(row=6, column=0, columnspan=5, sticky="w", pady=(0, 8))
+        ).grid(row=7, column=0, columnspan=5, sticky="w", pady=(0, 8))
 
-        ttk.Label(builder, text="Preset Name", style="FieldName.TLabel").grid(row=7, column=0, sticky="w")
-        ttk.Entry(builder, textvariable=self.multi_preset_name, width=28).grid(row=7, column=1, sticky="w", padx=(10, 18), pady=(0, 8))
+        ttk.Label(builder, text="Preset Name", style="FieldName.TLabel").grid(row=8, column=0, sticky="w")
+        ttk.Entry(builder, textvariable=self.multi_preset_name, width=28).grid(row=8, column=1, sticky="w", padx=(10, 18), pady=(0, 8))
 
-        ttk.Label(builder, text="Saved / Starter Preset", style="FieldName.TLabel").grid(row=7, column=2, sticky="w")
+        ttk.Label(builder, text="Saved / Starter Preset", style="FieldName.TLabel").grid(row=8, column=2, sticky="w")
         self.multi_preset_selector = ttk.Combobox(
             builder,
             textvariable=self.multi_preset_choice,
             state="readonly",
             width=28,
         )
-        self.multi_preset_selector.grid(row=7, column=3, columnspan=2, sticky="ew", padx=(10, 0), pady=(0, 8))
+        self.multi_preset_selector.grid(row=8, column=3, columnspan=2, sticky="ew", padx=(10, 0), pady=(0, 8))
 
         preset_actions = ttk.Frame(builder, style="Root.TFrame")
-        preset_actions.grid(row=8, column=0, columnspan=5, sticky="w", pady=(0, 10))
+        preset_actions.grid(row=9, column=0, columnspan=5, sticky="w", pady=(0, 10))
         ttk.Button(preset_actions, text="Save Scenario Preset", command=self.save_multi_preset).grid(row=0, column=0, sticky="w")
         ttk.Button(preset_actions, text="Load Scenario Preset", command=self.load_selected_multi_preset).grid(row=0, column=1, sticky="w", padx=(8, 0))
         ttk.Button(preset_actions, text="Delete Scenario Preset", command=self.delete_selected_multi_preset).grid(row=0, column=2, sticky="w", padx=(8, 0))
 
         primary_actions = ttk.Frame(builder, style="Root.TFrame")
-        primary_actions.grid(row=9, column=0, columnspan=5, sticky="w")
+        primary_actions.grid(row=10, column=0, columnspan=5, sticky="w")
         run_show = ttk.Button(primary_actions, text="Run Scenario and Show Figures", command=self.run_multi_only)
         run_show.grid(row=0, column=0, sticky="w")
         compare_show = ttk.Button(
@@ -3507,10 +3731,10 @@ class VirtualECUGui(tk.Tk):
             style="Hint.TLabel",
             wraplength=760,
             justify="left",
-        ).grid(row=10, column=0, columnspan=5, sticky="w", pady=(10, 6))
+        ).grid(row=11, column=0, columnspan=5, sticky="w", pady=(10, 6))
 
         actions = ttk.Frame(builder, style="Root.TFrame")
-        actions.grid(row=11, column=0, columnspan=5, sticky="w")
+        actions.grid(row=12, column=0, columnspan=5, sticky="w")
         run_only = ttk.Button(actions, text="Run Scenario Only", command=self.run_multi_only)
         run_only.grid(row=0, column=0, sticky="w")
         load_left = ttk.Button(actions, text="Load Scenario as Left", command=self.load_multi_as_left)
@@ -3526,7 +3750,7 @@ class VirtualECUGui(tk.Tk):
             style="Hint.TLabel",
             wraplength=760,
             justify="left",
-        ).grid(row=12, column=0, columnspan=5, sticky="w", pady=(10, 0))
+        ).grid(row=13, column=0, columnspan=5, sticky="w", pady=(10, 0))
 
         self.custom_action_buttons.extend([run_show, compare_show, run_only, load_left, load_right, compare_baseline])
         self._refresh_multi_event_listbox(select_index=0 if self.multi_events else None)
@@ -3908,6 +4132,9 @@ class VirtualECUGui(tk.Tk):
         )
 
     def _refresh_multi_event_listbox(self, *, select_index: int | None = None) -> None:
+        if self.multi_timeline_view is not None:
+            self.multi_timeline_view.set_events(self.multi_events)
+
         if self.multi_event_listbox is None:
             return
 

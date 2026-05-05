@@ -347,6 +347,12 @@ ordered scenarios with 2 to 4 fault events. Each event stores:
 - fault duration in milliseconds
 - fault parameter / severity
 
+The multi-fault builder also includes a lightweight live `Scenario Timeline`
+panel. It draws the current ordered event list on a shared horizontal time axis
+so you can quickly see fault type, start time, duration, and transient versus
+permanent behavior before running the scenario. The view is intentionally kept
+clean and presentation-friendly so it works well in thesis/demo screenshots.
+
 The GUI uses a minimal simulator CLI extension for this path:
 
 - `./virtual_ecu <log_path> custom_multi <event_count> <fault_type> <start_ms> <duration_ms> <fault_behavior> <parameter> [...]`
@@ -356,11 +362,12 @@ Typical multi-fault workflow:
 1. open `python3 scripts/virtual_ecu_gui.py`
 2. go to the `Custom Experiment` tab and open `Multi-Fault Scenario`
 3. add, update, remove, or reorder 2 to 4 events
-4. for the fastest demo flow, use `Run Scenario and Show Figures` or
+4. use the live scenario timeline to sanity-check the staged sequence
+5. for the fastest demo flow, use `Run Scenario and Show Figures` or
    `Compare Scenario vs Baseline and Show Figures`
-5. the GUI automatically loads the scenario into the comparison workflow and
+6. the GUI automatically loads the scenario into the comparison workflow and
    opens the `Comparison Figures` tab
-6. use the existing comparison summary, propagation evidence, fault-path view,
+7. use the existing comparison summary, propagation evidence, fault-path view,
    exports, and snapshots exactly as with built-in campaigns
 
 The same `Custom Experiment` tab also supports lightweight named presets for
