@@ -41,6 +41,8 @@ CUSTOM_PRESETS_DIR = PROJECT_ROOT / "presets" / "gui_custom"
 SHOWCASE_PRESETS_PATH = PROJECT_ROOT / "presets" / "showcase_demo_presets.json"
 RECENT_RESULTS_PATH = PROJECT_ROOT / "presets" / "recent_results.json"
 FAVORITE_COMPARISONS_PATH = PROJECT_ROOT / "presets" / "favorite_comparisons.json"
+GUI_SESSION_STATE_PATH = PROJECT_ROOT / "presets" / "gui_session_state.json"
+FAULT_PATH_ASSET_DIR = PROJECT_ROOT / "assets" / "fault_path"
 EXPORT_ROOT = PROJECT_ROOT / "results" / "gui_comparison_reports"
 SNAPSHOT_ROOT = PROJECT_ROOT / "results" / "gui_snapshots"
 DEFAULT_BATCH_AGGREGATE_CSV = PROJECT_ROOT / "results" / "batch" / "paper_quick" / "aggregate_summary.csv"
@@ -1028,6 +1030,25 @@ def load_favorite_comparison_item(item: Dict[str, str]) -> Tuple[Dict[str, objec
     return left_result, right_result
 
 
+def read_gui_session_state(path: Path = GUI_SESSION_STATE_PATH) -> Dict[str, object] | None:
+    if not path.exists():
+        return None
+
+    with path.open("r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+
+    if not isinstance(payload, dict):
+        raise TypeError("GUI session state must be a JSON object.")
+    return payload
+
+
+def write_gui_session_state(payload: Dict[str, object], path: Path = GUI_SESSION_STATE_PATH) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as handle:
+        json.dump(payload, handle, indent=2, sort_keys=True)
+        handle.write("\n")
+
+
 def detect_executable() -> Path | None:
     for candidate in (PROJECT_ROOT / "virtual_ecu", PROJECT_ROOT / "virtual_ecu.exe"):
         if candidate.exists():
@@ -1417,6 +1438,153 @@ def compare_detection_statement(
     if right_latency < left_latency:
         return ("Detection", f"{right_name} detects faster ({right_latency} ms vs {left_latency} ms).")
     return ("Detection", f"Both campaigns detect at the same latency ({left_latency} ms).")
+
+
+def comparison_verdict(
+    left_name: str,
+    left_summary: Dict[str, str],
+    right_name: str,
+    right_summary: Dict[str, str],
+) -> Tuple[List[str], str]:
+    verdict_lines: List[str] = []
+    left_points = 0
+    right_points = 0
+    left_reasons: List[str] = []
+    right_reasons: List[str] = []
+
+    left_temp = summary_max_temp(left_summary)
+    right_temp = summary_max_temp(right_summary)
+    if left_temp is not None and right_temp is not None:
+        if left_temp > right_temp:
+            verdict_lines.append(
+                f"Thermal severity: {left_name} peaks higher ({left_temp:.2f} C vs {right_temp:.2f} C)."
+            )
+            left_points += 1
+            left_reasons.append("higher peak coolant temperature")
+        elif right_temp > left_temp:
+            verdict_lines.append(
+                f"Thermal severity: {right_name} peaks higher ({right_temp:.2f} C vs {left_temp:.2f} C)."
+            )
+            right_points += 1
+            right_reasons.append("higher peak coolant temperature")
+        else:
+            verdict_lines.append(f"Thermal severity: both sides reach the same peak coolant temperature ({left_temp:.2f} C).")
+    else:
+        verdict_lines.append("Thermal severity: peak coolant temperature is unavailable for one or both sides.")
+
+    left_latency = summary_detection_latency(left_summary)
+    right_latency = summary_detection_latency(right_summary)
+    if left_latency is None and right_latency is None:
+        verdict_lines.append("Fault detection: neither side confirms a fault during the run.")
+    elif left_latency is None:
+        verdict_lines.append(f"Fault detection: {right_name} detects first ({right_latency} ms); {left_name} has no confirmed detection.")
+        right_points += 1
+        right_reasons.append("faster confirmed detection")
+    elif right_latency is None:
+        verdict_lines.append(f"Fault detection: {left_name} detects first ({left_latency} ms); {right_name} has no confirmed detection.")
+        left_points += 1
+        left_reasons.append("faster confirmed detection")
+    elif left_latency < right_latency:
+        verdict_lines.append(f"Fault detection: {left_name} detects faster ({left_latency} ms vs {right_latency} ms).")
+        left_points += 1
+        left_reasons.append("faster confirmed detection")
+    elif right_latency < left_latency:
+        verdict_lines.append(f"Fault detection: {right_name} detects faster ({right_latency} ms vs {left_latency} ms).")
+        right_points += 1
+        right_reasons.append("faster confirmed detection")
+    else:
+        verdict_lines.append(f"Fault detection: both sides confirm at the same latency ({left_latency} ms).")
+
+    left_state = left_summary.get("final_safe_state_label", "normal")
+    right_state = right_summary.get("final_safe_state_label", "normal")
+    left_state_score = safe_state_score(left_state)
+    right_state_score = safe_state_score(right_state)
+    left_safe_duration = summary_safe_mode_duration(left_summary) or 0
+    right_safe_duration = summary_safe_mode_duration(right_summary) or 0
+    left_safe_latency = summary_safe_state_latency(left_summary)
+    right_safe_latency = summary_safe_state_latency(right_summary)
+
+    left_safe_rank = (left_state_score, left_safe_duration, -(left_safe_latency if left_safe_latency is not None else 10**9))
+    right_safe_rank = (right_state_score, right_safe_duration, -(right_safe_latency if right_safe_latency is not None else 10**9))
+    if left_state_score > right_state_score:
+        verdict_lines.append(
+            f"Safe-state outcome: {left_name} reaches the harsher final protection state "
+            f"({humanize_label(left_state)} vs {humanize_label(right_state)})."
+        )
+        left_points += 1
+        left_reasons.append("more severe safe-state outcome")
+    elif right_state_score > left_state_score:
+        verdict_lines.append(
+            f"Safe-state outcome: {right_name} reaches the harsher final protection state "
+            f"({humanize_label(right_state)} vs {humanize_label(left_state)})."
+        )
+        right_points += 1
+        right_reasons.append("more severe safe-state outcome")
+    elif left_safe_duration > right_safe_duration:
+        verdict_lines.append(
+            f"Safe-state outcome: {left_name} spends longer in safe mode "
+            f"({left_safe_duration} ms vs {right_safe_duration} ms total, first entry {format_latency_value(left_safe_latency)})."
+        )
+        left_points += 1
+        left_reasons.append("longer safe-mode exposure")
+    elif right_safe_duration > left_safe_duration:
+        verdict_lines.append(
+            f"Safe-state outcome: {right_name} spends longer in safe mode "
+            f"({right_safe_duration} ms vs {left_safe_duration} ms total, first entry {format_latency_value(right_safe_latency)})."
+        )
+        right_points += 1
+        right_reasons.append("longer safe-mode exposure")
+    elif left_safe_latency is not None and right_safe_latency is not None and left_safe_latency < right_safe_latency:
+        verdict_lines.append(
+            f"Safe-state outcome: {left_name} enters protection earlier ({left_safe_latency} ms vs {right_safe_latency} ms)."
+        )
+        left_points += 1
+        left_reasons.append("earlier protection entry")
+    elif left_safe_latency is not None and right_safe_latency is not None and right_safe_latency < left_safe_latency:
+        verdict_lines.append(
+            f"Safe-state outcome: {right_name} enters protection earlier ({right_safe_latency} ms vs {left_safe_latency} ms)."
+        )
+        right_points += 1
+        right_reasons.append("earlier protection entry")
+    else:
+        verdict_lines.append(
+            f"Safe-state outcome: both sides finish at similar protection severity ({humanize_label(left_state)} vs {humanize_label(right_state)})."
+        )
+
+    left_dtc = left_summary.get("final_primary_dtc_label", "none")
+    right_dtc = right_summary.get("final_primary_dtc_label", "none")
+    left_end_rank = (dtc_score(left_summary), left_state_score, left_safe_duration)
+    right_end_rank = (dtc_score(right_summary), right_state_score, right_safe_duration)
+    if left_end_rank > right_end_rank:
+        verdict_lines.append(
+            f"End-of-run criticality: {left_name} finishes in the harsher end state ({humanize_label(left_dtc)} / {humanize_label(left_state)})."
+        )
+        left_points += 1
+        left_reasons.append("harsher final DTC/safe-state combination")
+    elif right_end_rank > left_end_rank:
+        verdict_lines.append(
+            f"End-of-run criticality: {right_name} finishes in the harsher end state ({humanize_label(right_dtc)} / {humanize_label(right_state)})."
+        )
+        right_points += 1
+        right_reasons.append("harsher final DTC/safe-state combination")
+    else:
+        verdict_lines.append(
+            f"End-of-run criticality: both sides finish with similar diagnostic/safety criticality ({humanize_label(left_dtc)} vs {humanize_label(right_dtc)})."
+        )
+
+    if left_points > right_points:
+        reason_text = ", ".join(left_reasons[:2]) if left_reasons else "stronger overall comparison severity"
+        takeaway = f"Overall takeaway: {left_name} is the stronger demonstration case overall, driven mainly by {reason_text}."
+    elif right_points > left_points:
+        reason_text = ", ".join(right_reasons[:2]) if right_reasons else "stronger overall comparison severity"
+        takeaway = f"Overall takeaway: {right_name} is the stronger demonstration case overall, driven mainly by {reason_text}."
+    else:
+        takeaway = (
+            f"Overall takeaway: the two cases are fairly balanced overall, so the best presentation choice depends on "
+            "whether you want to emphasize thermal severity, detection timing, or safe-state behavior."
+        )
+
+    return verdict_lines, takeaway
 
 
 def comparison_findings(
@@ -2702,6 +2870,67 @@ class PlotCanvas(ttk.Frame):
         )
 
 
+class ScrollableTabFrame(ttk.Frame):
+    """Notebook tab wrapper with vertical scrolling."""
+
+    def __init__(self, master: tk.Misc, *, padding: Tuple[int, int, int, int] = (4, 8, 4, 6)) -> None:
+        super().__init__(master, style="Root.TFrame")
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(0, weight=1)
+
+        self.canvas = tk.Canvas(
+            self,
+            background="#f4f6f8",
+            borderwidth=0,
+            highlightthickness=0,
+        )
+        self.canvas.grid(row=0, column=0, sticky="nsew")
+
+        self.scrollbar = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
+        self.scrollbar.grid(row=0, column=1, sticky="ns")
+        self.canvas.configure(yscrollcommand=self.scrollbar.set)
+
+        self.content = ttk.Frame(self.canvas, padding=padding, style="Root.TFrame")
+        self.content.columnconfigure(0, weight=1)
+        self._window_id = self.canvas.create_window((0, 0), window=self.content, anchor="nw")
+
+        self.content.bind("<Configure>", self._on_content_configure)
+        self.canvas.bind("<Configure>", self._on_canvas_configure)
+        self.canvas.bind("<Enter>", self._bind_mousewheel)
+        self.canvas.bind("<Leave>", self._unbind_mousewheel)
+        self.content.bind("<Enter>", self._bind_mousewheel)
+        self.content.bind("<Leave>", self._unbind_mousewheel)
+
+    def _on_content_configure(self, _event: tk.Event[tk.Misc]) -> None:
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+
+    def _on_canvas_configure(self, event: tk.Event[tk.Misc]) -> None:
+        self.canvas.itemconfigure(self._window_id, width=event.width)
+
+    def _bind_mousewheel(self, _event: tk.Event[tk.Misc]) -> None:
+        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+        self.canvas.bind_all("<Button-4>", self._on_mousewheel_linux)
+        self.canvas.bind_all("<Button-5>", self._on_mousewheel_linux)
+
+    def _unbind_mousewheel(self, _event: tk.Event[tk.Misc]) -> None:
+        self.canvas.unbind_all("<MouseWheel>")
+        self.canvas.unbind_all("<Button-4>")
+        self.canvas.unbind_all("<Button-5>")
+
+    def _on_mousewheel(self, event: tk.Event[tk.Misc]) -> None:
+        if getattr(event, "delta", 0) > 0:
+            self.canvas.yview_scroll(-1, "units")
+        elif getattr(event, "delta", 0) < 0:
+            self.canvas.yview_scroll(1, "units")
+
+    def _on_mousewheel_linux(self, event: tk.Event[tk.Misc]) -> None:
+        button = getattr(event, "num", 0)
+        if button == 4:
+            self.canvas.yview_scroll(-1, "units")
+        elif button == 5:
+            self.canvas.yview_scroll(1, "units")
+
+
 class FaultPathDiagram(ttk.Frame):
     """Canvas-based qualitative cross-layer ECU path visualization."""
 
@@ -2712,10 +2941,16 @@ class FaultPathDiagram(ttk.Frame):
         self.campaign_id = "baseline"
         self.campaign_label = "Baseline"
         self.first_row: Dict[str, str] | None = None
+        self.summary_row: Dict[str, str] | None = None
         self.affected_blocks: Tuple[str, ...] = ()
+        self.fault_class_var = tk.StringVar(value="-")
+        self.subsystem_var = tk.StringVar(value="-")
+        self.outcome_var = tk.StringVar(value="-")
+        self.note_var = tk.StringVar(value="-")
+        self.stage_images = self._load_stage_images()
 
         self.columnconfigure(0, weight=1)
-        self.rowconfigure(1, weight=1)
+        self.rowconfigure(2, weight=1)
 
         self.title_var = tk.StringVar(value=side_label)
         ttk.Label(self, textvariable=self.title_var, style="Section.TLabel").grid(
@@ -2723,23 +2958,159 @@ class FaultPathDiagram(ttk.Frame):
             column=0,
             sticky="w",
             padx=6,
-            pady=(0, 4),
+            pady=(0, 8),
         )
+        summary = tk.Frame(self, bg="#f4f7fa", bd=0, highlightthickness=0)
+        summary.grid(row=1, column=0, sticky="ew", padx=6, pady=(0, 8))
+        for column in range(3):
+            summary.grid_columnconfigure(column, weight=1)
+        self._build_summary_stat(summary, 0, "Fault Class", self.fault_class_var)
+        self._build_summary_stat(summary, 1, "Primary Subsystem", self.subsystem_var)
+        self._build_summary_stat(summary, 2, "Outcome", self.outcome_var)
+
         self.canvas = tk.Canvas(
             self,
             background="#ffffff",
-            height=330,
+            height=270,
             highlightthickness=1,
             highlightbackground="#c7d0d9",
         )
-        self.canvas.grid(row=1, column=0, sticky="nsew")
+        self.canvas.grid(row=2, column=0, sticky="nsew", padx=6)
         self.canvas.bind("<Configure>", lambda _event: self.redraw())
+        tk.Label(
+            self,
+            textvariable=self.note_var,
+            bg="#f4f6f8",
+            fg="#5b6b79",
+            font=("TkDefaultFont", 9),
+            justify="left",
+            anchor="w",
+            wraplength=640,
+            padx=6,
+            pady=0,
+        ).grid(row=3, column=0, sticky="ew", padx=6, pady=(8, 0))
         self.set_campaign("baseline")
+
+    def _load_stage_images(self) -> Dict[str, tk.PhotoImage]:
+        asset_names = {
+            "sensor_adc": "coolant Icon.png",
+            "timing_link": "Timing_Link.png",
+            "ecu_control_memory": "Control_memory.png",
+            "actuator_power": "Actuation_Path_fan.png",
+            "thermal_plant": "Plant_outcome_engine_temp.png",
+        }
+        images: Dict[str, tk.PhotoImage] = {}
+        for block_id, _label in FAULT_PATH_BLOCKS:
+            path = FAULT_PATH_ASSET_DIR / asset_names.get(block_id, f"{block_id}.png")
+            if not path.exists():
+                continue
+            try:
+                image = tk.PhotoImage(file=str(path))
+            except tk.TclError:
+                continue
+            scale = max(1, (max(image.width(), image.height()) + 63) // 64)
+            if scale > 1:
+                image = image.subsample(scale, scale)
+            images[block_id] = image
+        return images
 
     def _highlighted_block_names(self) -> str:
         if not self.affected_blocks:
             return "Nominal path only"
         return ", ".join(FAULT_PATH_BLOCK_DISPLAY.get(block_id, block_id) for block_id in self.affected_blocks)
+
+    def _primary_fault_block(self) -> str | None:
+        return self.affected_blocks[0] if self.affected_blocks else None
+
+    def _is_propagated_block(self, block_id: str) -> bool:
+        if block_id not in self.affected_blocks:
+            return False
+        primary = self._primary_fault_block()
+        return primary is not None and block_id != primary
+
+    def _primary_subsystem_summary(self) -> str:
+        if not self.affected_blocks:
+            return "Nominal full path"
+        names = [FAULT_PATH_BLOCK_DISPLAY.get(block_id, block_id) for block_id in self.affected_blocks]
+        if len(names) == 1:
+            return names[0]
+        if len(names) == 2:
+            return f"{names[0]} + {names[1]}"
+        return f"{names[0]} + {len(names) - 1} more"
+
+    def _outcome_summary(self, story: Dict[str, str]) -> str:
+        text = story.get("system_effect", "No system-level outcome available.")
+        return textwrap.shorten(text, width=68, placeholder="...")
+
+    def _footer_sentence(self, story: Dict[str, str]) -> str:
+        if not self.affected_blocks:
+            return "Reference path for comparison."
+        return textwrap.shorten(self._outcome_summary(story), width=88, placeholder="...")
+
+    def _outcome_level(self) -> Tuple[str, str, str]:
+        if self.summary_row is None:
+            return ("Normal", "#6f7f8d", "#f4f7fa")
+
+        safe_state = str(self.summary_row.get("final_safe_state_label", "normal"))
+        max_temp = float_or_none(str(self.summary_row.get("max_coolant_temp_c", "")))
+        severity = safe_state_score(safe_state)
+        if severity >= 2 or (max_temp is not None and max_temp >= 115.0):
+            return ("Severe", "#b5483b", "#fdecea")
+        if severity >= 1 or (max_temp is not None and max_temp >= 108.0):
+            return ("Warning", "#a06b12", "#fff5df")
+        return ("Normal", "#3f7f52", "#ebf6ee")
+
+    def _build_summary_stat(self, parent: tk.Frame, column: int, title: str, variable: tk.StringVar) -> None:
+        stat = tk.Frame(parent, bg="#ffffff", bd=1, relief="solid", highlightthickness=0)
+        stat.grid(row=0, column=column, sticky="ew", padx=(0 if column == 0 else 6, 0 if column == 2 else 6), pady=0)
+        tk.Label(
+            stat,
+            text=title,
+            bg="#ffffff",
+            fg="#6c7a88",
+            font=("TkDefaultFont", 8, "bold"),
+            anchor="w",
+            justify="left",
+            padx=10,
+            pady=0,
+        ).pack(fill="x", pady=(9, 2))
+        tk.Label(
+            stat,
+            textvariable=variable,
+            bg="#ffffff",
+            fg="#22313f",
+            font=("TkDefaultFont", 10),
+            anchor="w",
+            justify="left",
+            wraplength=155,
+            padx=10,
+            pady=0,
+        ).pack(fill="x", pady=(0, 9))
+
+    def _draw_stage_visual(
+        self,
+        block_id: str,
+        x0: float,
+        y0: float,
+        x1: float,
+        y1: float,
+        *,
+        highlight: bool,
+        severe_outcome: bool = False,
+    ) -> None:
+        image = self.stage_images.get(block_id)
+        if image is not None:
+            self.canvas.create_image((x0 + x1) / 2, (y0 + y1) / 2, image=image)
+            return
+        self._draw_block_icon(
+            block_id,
+            x0,
+            y0,
+            x1,
+            y1,
+            highlight=highlight,
+            severe_outcome=severe_outcome,
+        )
 
     def _draw_block_icon(
         self,
@@ -2750,154 +3121,152 @@ class FaultPathDiagram(ttk.Frame):
         y1: float,
         *,
         highlight: bool,
+        severe_outcome: bool = False,
     ) -> None:
-        color = self.accent_color if highlight else "#7d8a96"
-        inner_left = x0 + 12
-        inner_top = y0 + 16
-        inner_right = x1 - 12
-        inner_bottom = y0 + 46
+        if severe_outcome:
+            color = "#b5483b"
+        elif highlight:
+            color = self.accent_color
+        else:
+            color = "#7d8a96"
+        inner_left = x0 + 10
+        inner_top = y0 + 10
+        inner_right = x1 - 10
+        inner_bottom = y1 - 10
         center_x = (inner_left + inner_right) / 2
         center_y = (inner_top + inner_bottom) / 2
 
         if block_id == "sensor_adc":
-            self.canvas.create_oval(
-                inner_left,
-                inner_top + 6,
+            pipe_y = inner_bottom - 8
+            self.canvas.create_line(inner_left + 2, pipe_y, inner_right - 4, pipe_y, fill=color, width=2)
+            self.canvas.create_arc(
+                inner_left + 2,
+                pipe_y - 10,
                 inner_left + 20,
-                inner_top + 26,
+                pipe_y + 8,
+                start=180,
+                extent=180,
+                style=tk.ARC,
                 outline=color,
                 width=2,
             )
-            self.canvas.create_line(inner_left + 20, center_y, inner_right - 24, center_y, fill=color, width=2)
-            self.canvas.create_line(
-                inner_right - 24,
-                center_y,
-                inner_right - 12,
-                center_y - 7,
-                inner_right,
-                center_y + 7,
+            self.canvas.create_line(center_x + 8, inner_top + 2, center_x + 8, pipe_y - 2, fill=color, width=2)
+            self.canvas.create_oval(center_x + 1, inner_top + 16, center_x + 15, inner_top + 30, outline=color, width=2)
+            self.canvas.create_oval(
+                center_x + 5,
+                inner_top + 24,
+                center_x + 11,
+                inner_top + 30,
+                outline=color,
                 fill=color,
                 width=2,
-                smooth=True,
             )
+            for offset in (0, 6, 12):
+                self.canvas.create_line(inner_left + 4 + offset, inner_top + 8, inner_left + 8 + offset, inner_top + 8, fill=color, width=2)
             return
 
         if block_id == "timing_link":
-            self.canvas.create_oval(center_x - 13, inner_top + 1, center_x + 13, inner_top + 27, outline=color, width=2)
-            self.canvas.create_line(center_x, inner_top + 6, center_x, inner_top + 14, fill=color, width=2)
-            self.canvas.create_line(center_x, inner_top + 14, center_x + 7, inner_top + 18, fill=color, width=2)
-            self.canvas.create_line(inner_left, inner_bottom - 6, inner_right, inner_bottom - 6, fill=color, width=2, dash=(4, 3))
+            left_box = (inner_left + 2, center_y - 10, inner_left + 22, center_y + 10)
+            right_box = (inner_right - 22, center_y - 10, inner_right - 2, center_y + 10)
+            self.canvas.create_rectangle(*left_box, outline=color, width=2)
+            self.canvas.create_rectangle(*right_box, outline=color, width=2)
+            self.canvas.create_line(left_box[2], center_y, right_box[0] - 10, center_y, fill=color, width=2, dash=(4, 3))
+            self.canvas.create_polygon(
+                right_box[0] - 12,
+                center_y - 6,
+                right_box[0] - 2,
+                center_y,
+                right_box[0] - 12,
+                center_y + 6,
+                fill=color,
+                outline=color,
+            )
+            self.canvas.create_line(inner_left + 8, center_y - 16, inner_right - 8, center_y - 16, fill=color, width=2)
+            self.canvas.create_line(inner_right - 18, center_y - 20, inner_right - 8, center_y - 16, fill=color, width=2)
+            self.canvas.create_line(inner_right - 18, center_y - 12, inner_right - 8, center_y - 16, fill=color, width=2)
             return
 
         if block_id == "ecu_control_memory":
-            self.canvas.create_rectangle(inner_left + 4, inner_top + 4, center_x + 6, inner_bottom - 2, outline=color, width=2)
-            self.canvas.create_line(center_x + 12, inner_top + 4, center_x + 12, inner_bottom - 2, fill=color, width=2)
+            self.canvas.create_rectangle(inner_left + 4, inner_top + 6, center_x + 8, inner_bottom - 4, outline=color, width=2)
+            self.canvas.create_rectangle(center_x + 14, inner_top + 12, inner_right - 2, inner_bottom - 10, outline=color, width=2)
             for offset in (0, 8, 16):
-                self.canvas.create_line(center_x + 16, inner_top + 8 + offset, inner_right, inner_top + 8 + offset, fill=color, width=2)
+                self.canvas.create_line(center_x + 18, inner_top + 18 + offset, inner_right - 6, inner_top + 18 + offset, fill=color, width=2)
+            for offset in (0, 10, 20):
+                self.canvas.create_line(inner_left, inner_top + 12 + offset, inner_left + 4, inner_top + 12 + offset, fill=color, width=2)
+                self.canvas.create_line(center_x + 8, inner_top + 12 + offset, center_x + 12, inner_top + 12 + offset, fill=color, width=2)
             return
 
         if block_id == "actuator_power":
-            self.canvas.create_rectangle(inner_left + 2, inner_top + 6, inner_left + 24, inner_bottom - 6, outline=color, width=2)
-            self.canvas.create_line(inner_left + 24, center_y, inner_right - 18, center_y, fill=color, width=2)
-            self.canvas.create_polygon(
-                inner_right - 18,
-                center_y - 10,
-                inner_right,
-                center_y,
-                inner_right - 18,
-                center_y + 10,
-                outline=color,
-                fill="",
-                width=2,
-            )
+            driver_x1 = inner_left + 20
+            self.canvas.create_rectangle(inner_left + 2, inner_top + 8, driver_x1, inner_bottom - 6, outline=color, width=2)
+            self.canvas.create_line(driver_x1, center_y, inner_right - 28, center_y, fill=color, width=2)
+            fan_cx = inner_right - 14
+            fan_cy = center_y
+            self.canvas.create_oval(fan_cx - 12, fan_cy - 12, fan_cx + 12, fan_cy + 12, outline=color, width=2)
+            self.canvas.create_polygon(fan_cx, fan_cy - 2, fan_cx + 10, fan_cy - 8, fan_cx + 4, fan_cy + 2, outline=color, fill="", width=2)
+            self.canvas.create_polygon(fan_cx + 2, fan_cy + 1, fan_cx + 8, fan_cy + 11, fan_cx - 2, fan_cy + 5, outline=color, fill="", width=2)
+            self.canvas.create_polygon(fan_cx - 2, fan_cy + 1, fan_cx - 12, fan_cy - 3, fan_cx - 2, fan_cy - 7, outline=color, fill="", width=2)
             return
 
-        self.canvas.create_rectangle(inner_left + 4, inner_top + 2, inner_right - 4, inner_bottom - 2, outline=color, width=2)
+        self.canvas.create_rectangle(inner_left + 4, inner_top + 8, inner_right - 10, inner_bottom - 8, outline=color, width=2)
         for offset in (0, 10, 20):
-            self.canvas.create_line(
-                inner_left + 10,
-                inner_top + 8 + offset,
-                inner_right - 10,
-                inner_top + 8 + offset,
-                fill=color,
-                width=2,
-            )
-        self.canvas.create_line(center_x, inner_top - 2, center_x, inner_bottom + 4, fill=color, width=2)
+            self.canvas.create_line(inner_left + 12, inner_top + 14 + offset, inner_right - 18, inner_top + 14 + offset, fill=color, width=2)
+        self.canvas.create_line(inner_right - 8, inner_top + 12, inner_right + 4, inner_top + 4, fill=color, width=2)
+        self.canvas.create_line(inner_right - 8, center_y, inner_right + 4, center_y - 8, fill=color, width=2)
+        self.canvas.create_line(inner_right - 8, inner_bottom - 12, inner_right + 4, inner_bottom - 20, fill=color, width=2)
+        self.canvas.create_oval(inner_left + 10, inner_top + 4, inner_left + 24, inner_top + 18, outline=color, width=2)
+        self.canvas.create_line(inner_left + 17, inner_top + 18, inner_left + 17, inner_bottom - 2, fill=color, width=2)
 
-    def set_campaign(self, campaign_id: str, first_row: Dict[str, str] | None = None) -> None:
+    def set_campaign(
+        self,
+        campaign_id: str,
+        first_row: Dict[str, str] | None = None,
+        summary_row: Dict[str, str] | None = None,
+    ) -> None:
         story = story_for_run(campaign_id, first_row)
         self.campaign_id = campaign_id
         self.campaign_label = story["campaign_name"]
         self.first_row = first_row
+        self.summary_row = summary_row
         self.affected_blocks = affected_blocks_for_run(campaign_id, first_row)
-        self.title_var.set(f"{self.side_label}: {self.campaign_label}")
+        self.fault_class_var.set(story["fault_class"])
+        self.subsystem_var.set(self._primary_subsystem_summary())
+        self.outcome_var.set(self._outcome_summary(story))
+        self.note_var.set(self._footer_sentence(story))
+        if self.affected_blocks:
+            self.title_var.set(f"{self.side_label} Fault Case: {self.campaign_label}")
+        else:
+            self.title_var.set(f"{self.side_label} Reference: {self.campaign_label}")
         self.redraw()
 
     def redraw(self) -> None:
         self.canvas.delete("all")
-        width = max(self.canvas.winfo_width(), 460)
-        height = max(self.canvas.winfo_height(), 320)
+        width = max(self.canvas.winfo_width(), 660)
+        height = max(self.canvas.winfo_height(), 280)
         margin_x = 26
-        top = 84
-        block_gap = 12
+        top = 24
+        block_gap = 18
         block_count = len(FAULT_PATH_BLOCKS)
-        block_width = max((width - 2 * margin_x - block_gap * (block_count - 1)) / block_count, 78)
-        block_height = 112
-        note = fault_path_note_for_run(self.campaign_id, self.first_row)
-        story = story_for_run(self.campaign_id, self.first_row, self.campaign_label)
-        fault_class = story["fault_class"]
-        affected_labels = self._highlighted_block_names()
-        block_index = {block_id: index for index, (block_id, _label) in enumerate(FAULT_PATH_BLOCKS)}
-        highlighted_indices = [block_index[block_id] for block_id in self.affected_blocks if block_id in block_index]
-        route_start = min(highlighted_indices) if highlighted_indices else None
-        route_end = max(highlighted_indices) if highlighted_indices else None
-
-        self.canvas.create_text(
-            margin_x,
-            22,
-            anchor="w",
-            text="Qualitative Cross-Layer Fault Path",
-            fill="#1d3448",
-            font=("TkDefaultFont", 12, "bold"),
-        )
-        self.canvas.create_text(
-            margin_x,
-            48,
-            anchor="w",
-            text=note,
-            fill="#4d5c69",
-            font=("TkDefaultFont", 9),
-            width=max(width - 2 * margin_x, 260),
-        )
-        self.canvas.create_text(
-            margin_x,
-            66,
-            anchor="w",
-            text="Hardware-Origin Focus",
-            fill="#5b6b79",
-            font=("TkDefaultFont", 9, "bold"),
-        )
-        self.canvas.create_text(
-            width - margin_x,
-            66,
-            anchor="e",
-            text="System-Level Thermal Outcome",
-            fill="#5b6b79",
-            font=("TkDefaultFont", 9, "bold"),
-        )
+        block_width = max((width - 2 * margin_x - block_gap * (block_count - 1)) / block_count, 96)
+        block_height = 132
+        origin_block = self._primary_fault_block()
+        outcome_level, outcome_color, outcome_fill = self._outcome_level()
+        has_fault = bool(self.affected_blocks)
+        flow_y = top + 48
 
         centers: Dict[str, Tuple[float, float]] = {}
-        for index, (block_id, label) in enumerate(FAULT_PATH_BLOCKS):
+        for index, (block_id, _label) in enumerate(FAULT_PATH_BLOCKS):
             x0 = margin_x + index * (block_width + block_gap)
             y0 = top
             x1 = x0 + block_width
             y1 = y0 + block_height
-            is_affected = block_id in self.affected_blocks
-            fill = "#fff5e2" if is_affected else "#f7f9fb"
-            outline = self.accent_color if is_affected else "#cbd5df"
-            header_fill = self.accent_color if is_affected else "#dfe7ee"
-            title_fill = "#ffffff" if is_affected else "#4f5f6d"
-            line_width = 3 if is_affected else 1
+            is_origin = block_id == origin_block
+            is_outcome = block_id == "thermal_plant"
+            is_reference = not has_fault
+            fill = outcome_fill if is_outcome and outcome_level != "Normal" else "#eef4fa" if is_origin else "#fdfefe" if is_reference else "#fbfcfe"
+            outline = outcome_color if is_outcome and outcome_level != "Normal" else self.accent_color if is_origin else "#e2e8ee" if is_reference else "#d7e0e7"
+            title_fill = self.accent_color if is_origin else outcome_color if is_outcome and outcome_level != "Normal" else "#718290" if is_reference else "#5f707f"
+            line_width = 3 if is_origin else 2 if is_outcome and outcome_level != "Normal" else 1
 
             self.canvas.create_rectangle(
                 x0,
@@ -2908,52 +3277,83 @@ class FaultPathDiagram(ttk.Frame):
                 outline=outline,
                 width=line_width,
             )
-            self.canvas.create_rectangle(
-                x0,
-                y0,
-                x1,
-                y0 + 22,
-                fill=header_fill,
-                outline=outline,
-                width=line_width,
-            )
+            stage_label = FAULT_PATH_BLOCK_CLASS.get(block_id, "").replace(" Path", "")
             self.canvas.create_text(
                 (x0 + x1) / 2,
-                y0 + 11,
-                text=FAULT_PATH_BLOCK_CLASS.get(block_id, ""),
+                y0 + 16,
+                text=stage_label,
                 fill=title_fill,
-                font=("TkDefaultFont", 8, "bold"),
-            )
-            self._draw_block_icon(block_id, x0, y0 + 22, x1, y0 + 64, highlight=is_affected)
-            self.canvas.create_text(
-                (x0 + x1) / 2,
-                y0 + 84,
-                text=label,
-                fill="#1f2e3b",
-                font=("TkDefaultFont", 9, "bold" if is_affected else "normal"),
+                font=("TkDefaultFont", 9, "bold"),
                 justify="center",
-                width=max(block_width - 12, 60),
+                width=max(block_width - 16, 52),
+            )
+            self._draw_stage_visual(
+                block_id,
+                x0 + 8,
+                y0 + 28,
+                x1 - 8,
+                y0 + 92,
+                highlight=is_origin,
+                severe_outcome=is_outcome and outcome_level != "Normal",
             )
             centers[block_id] = ((x0 + x1) / 2, (y0 + y1) / 2)
 
             if index > 0:
                 previous_id = FAULT_PATH_BLOCKS[index - 1][0]
                 prev_x = centers[previous_id][0]
-                arrow_y = y0 + 56
-                highlight_path = route_start is not None and route_end is not None and route_start < index <= route_end
                 self.canvas.create_line(
                     prev_x + block_width / 2,
-                    arrow_y,
+                    flow_y,
                     x0 - 4,
-                    arrow_y,
-                    fill=self.accent_color if highlight_path else "#8a98a6",
-                    width=3 if highlight_path else 2,
+                    flow_y,
+                    fill="#c4ced7" if is_reference else "#b5c0ca",
+                    width=2,
                     arrow=tk.LAST,
                 )
 
-        footer_y = top + block_height + 26
-        footer_height = max(height - footer_y - 18, 86)
-        footer_fill = "#f8fafc"
+            if is_origin:
+                cue_x0 = x0 + 10
+                cue_x1 = min(x1 - 10, cue_x0 + 78)
+                self.canvas.create_rectangle(
+                    cue_x0,
+                    y0 + 8,
+                    cue_x1,
+                    y0 + 24,
+                    fill="#edf4fd",
+                    outline=self.accent_color,
+                    width=1,
+                )
+                self.canvas.create_text(
+                    (cue_x0 + cue_x1) / 2,
+                    y0 + 16,
+                    text="Fault origin",
+                    fill=self.accent_color,
+                    font=("TkDefaultFont", 8, "bold"),
+                )
+            elif is_outcome and has_fault and outcome_level != "Normal":
+                cue_x0 = x0 + 10
+                cue_x1 = min(x1 - 10, cue_x0 + 82)
+                self.canvas.create_rectangle(
+                    cue_x0,
+                    y0 + 8,
+                    cue_x1,
+                    y0 + 24,
+                    fill=outcome_fill,
+                    outline=outcome_color,
+                    width=1,
+                )
+                self.canvas.create_text(
+                    (cue_x0 + cue_x1) / 2,
+                    y0 + 16,
+                    text="Main outcome",
+                    fill=outcome_color,
+                    font=("TkDefaultFont", 8, "bold"),
+                )
+
+        footer_y = top + block_height + 18
+        footer_text = self.note_var.get().strip()
+        footer_height = max(height - footer_y - 16, 40)
+        footer_fill = "#f7f9fb"
         self.canvas.create_rectangle(
             margin_x,
             footer_y,
@@ -2963,59 +3363,14 @@ class FaultPathDiagram(ttk.Frame):
             outline="#d8e0e7",
             width=1,
         )
-
-        if self.affected_blocks:
-            state_text = "Highlighted block(s) mark the primary subsystem(s) touched by this campaign."
-            badge_fill = "#fff5e2"
-            badge_outline = self.accent_color
-        else:
-            state_text = "Nominal baseline: the full path is shown without emphasized fault-origin blocks."
-            badge_fill = "#e8f4ec"
-            badge_outline = "#3f7f52"
-
-        self.canvas.create_rectangle(
-            margin_x,
-            footer_y + 16,
-            margin_x + 18,
-            footer_y + 34,
-            fill=badge_fill,
-            outline=badge_outline,
-            width=2,
-        )
         self.canvas.create_text(
-            margin_x + 28,
-            footer_y + 25,
+            margin_x + 14,
+            footer_y + footer_height / 2,
             anchor="w",
-            text=state_text,
+            text=footer_text,
             fill="#33404d",
             font=("TkDefaultFont", 9),
-            width=max(width - 2 * margin_x - 34, 260),
-        )
-        self.canvas.create_text(
-            margin_x,
-            footer_y + 54,
-            anchor="w",
-            text=f"Fault class: {fault_class}",
-            fill="#1f2e3b",
-            font=("TkDefaultFont", 9, "bold"),
-        )
-        self.canvas.create_text(
-            margin_x,
-            footer_y + 74,
-            anchor="w",
-            text=f"Highlighted subsystem(s): {affected_labels}",
-            fill="#33404d",
-            font=("TkDefaultFont", 9),
-            width=max(width - 2 * margin_x, 260),
-        )
-        self.canvas.create_text(
-            margin_x,
-            min(height - 18, footer_y + footer_height - 12),
-            anchor="w",
-            text="Readout: left-to-right shows sensing, timing, control/memory, actuation, then plant-level outcome.",
-            fill="#5b6b79",
-            font=("TkDefaultFont", 9),
-            width=max(width - 2 * margin_x, 260),
+            width=max(width - 2 * margin_x - 28, 260),
         )
 
 
@@ -3324,6 +3679,7 @@ class VirtualECUGui(tk.Tk):
         self.left_campaign = tk.StringVar(value="baseline")
         self.right_campaign = tk.StringVar(value="fan_stuck_hot_stress")
         self.presentation_mode = tk.BooleanVar(value=False)
+        self.auto_restore_session = tk.BooleanVar(value=True)
         self.comparison_plot_choice = tk.StringVar(value=self.COMPARISON_PLOT_OPTIONS[0])
         self.batch_plot_choice = tk.StringVar(value=self.BATCH_PLOT_OPTIONS[0])
         self.status_text = tk.StringVar(
@@ -3333,6 +3689,9 @@ class VirtualECUGui(tk.Tk):
         self.custom_status_text = tk.StringVar(
             value="Fast path: adjust the fault settings, then click Compare vs Baseline & Open Figures."
         )
+        self.summary_resources_expanded = tk.BooleanVar(value=False)
+        self.comparison_verdict_var = tk.StringVar(value="Run a comparison to generate a compact verdict.")
+        self.comparison_takeaway_var = tk.StringVar(value="-")
         self.comparison_findings_var = tk.StringVar(value="Run a comparison to generate automatic findings.")
         self.comparison_interpretation_var = tk.StringVar(value="-")
         self.batch_findings_var = tk.StringVar(value="Load a batch aggregate summary CSV to generate automatic findings.")
@@ -3407,6 +3766,7 @@ class VirtualECUGui(tk.Tk):
         self.right_fault_path_diagram: FaultPathDiagram | None = None
         self.multi_timeline_view: ScenarioTimelineView | None = None
         self.notebook: ttk.Notebook | None = None
+        self.custom_builder_notebook: ttk.Notebook | None = None
         self.comparison_figures_tab: ttk.Frame | None = None
         self.showcase_preset_selector: ttk.Combobox | None = None
         self.recent_results_frame: ttk.Frame | None = None
@@ -3435,6 +3795,7 @@ class VirtualECUGui(tk.Tk):
         self._refresh_custom_preset_catalog()
         self._refresh_multi_preset_catalog()
         self._clear_batch_results()
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
 
         if self.executable is None:
             self.status_text.set(
@@ -3448,6 +3809,7 @@ class VirtualECUGui(tk.Tk):
 
         if DEFAULT_BATCH_AGGREGATE_CSV.exists():
             self.load_batch_results()
+        self.after(0, self._maybe_auto_restore_session)
 
     def _configure_style(self) -> None:
         style = ttk.Style(self)
@@ -3507,40 +3869,35 @@ class VirtualECUGui(tk.Tk):
         notebook.grid(row=1, column=0, sticky="nsew", padx=12, pady=(0, 12))
         self.notebook = notebook
 
-        summary_tab = ttk.Frame(notebook, padding=(4, 8, 4, 6), style="Root.TFrame")
-        summary_tab.columnconfigure(0, weight=1)
-        summary_tab.rowconfigure(1, weight=1)
+        summary_tab = ScrollableTabFrame(notebook)
+        summary_tab.content.columnconfigure(0, weight=1)
         notebook.add(summary_tab, text="Comparison Summary")
 
-        figures_tab = ttk.Frame(notebook, padding=(4, 8, 4, 6), style="Root.TFrame")
-        figures_tab.columnconfigure(0, weight=1)
-        figures_tab.rowconfigure(0, weight=1)
+        figures_tab = ScrollableTabFrame(notebook)
+        figures_tab.content.columnconfigure(0, weight=1)
         notebook.add(figures_tab, text="Comparison Figures")
         self.comparison_figures_tab = figures_tab
 
-        custom_tab = ttk.Frame(notebook, padding=(4, 8, 4, 6), style="Root.TFrame")
-        custom_tab.columnconfigure(0, weight=1)
-        custom_tab.rowconfigure(1, weight=1)
+        custom_tab = ScrollableTabFrame(notebook)
+        custom_tab.content.columnconfigure(0, weight=1)
         notebook.add(custom_tab, text="Custom Experiment")
 
-        fault_path_tab = ttk.Frame(notebook, padding=(4, 8, 4, 6), style="Root.TFrame")
-        fault_path_tab.columnconfigure(0, weight=1)
-        fault_path_tab.rowconfigure(1, weight=1)
+        fault_path_tab = ScrollableTabFrame(notebook)
+        fault_path_tab.content.columnconfigure(0, weight=1)
         notebook.add(fault_path_tab, text="Fault Path")
 
-        batch_tab = ttk.Frame(notebook, padding=(4, 8, 4, 6), style="Root.TFrame")
-        batch_tab.columnconfigure(0, weight=1)
-        batch_tab.rowconfigure(3, weight=1)
+        batch_tab = ScrollableTabFrame(notebook)
+        batch_tab.content.columnconfigure(0, weight=1)
         notebook.add(batch_tab, text="Batch Results")
 
-        self._build_comparison_summary_tab(summary_tab)
-        self._build_comparison_figures_tab(figures_tab)
-        self._build_custom_experiment_tab(custom_tab)
-        self._build_fault_path_tab(fault_path_tab)
-        self._build_batch_tab(batch_tab)
+        self._build_comparison_summary_tab(summary_tab.content)
+        self._build_comparison_figures_tab(figures_tab.content)
+        self._build_custom_experiment_tab(custom_tab.content)
+        self._build_fault_path_tab(fault_path_tab.content)
+        self._build_batch_tab(batch_tab.content)
 
     def _build_comparison_summary_tab(self, parent: ttk.Frame) -> None:
-        self._build_quick_start_panel(parent)
+        self._build_comparison_landing_panel(parent)
 
         selectors_area = ttk.Frame(parent, padding=(12, 0, 12, 12), style="Root.TFrame")
         selectors_area.grid(row=1, column=0, sticky="ew")
@@ -3585,11 +3942,6 @@ class VirtualECUGui(tk.Tk):
         self.export_button.grid(row=5, column=0, sticky="e", pady=(8, 0))
         self.export_button.state(["disabled"])
 
-        self._build_recommended_demo_shortcuts(selectors_area)
-        self._build_showcase_presets(selectors_area)
-        self._build_favorite_comparisons(selectors_area)
-        self._build_recent_results(selectors_area)
-
         info_area = ttk.Frame(parent, padding=(12, 0, 12, 12), style="Root.TFrame")
         info_area.grid(row=2, column=0, sticky="ew")
         info_area.columnconfigure(0, weight=3)
@@ -3629,15 +3981,19 @@ class VirtualECUGui(tk.Tk):
         self._build_context_column(context_frame, 0, "Left Context", "left", LEFT_COLOR)
         self._build_context_column(context_frame, 1, "Right Context", "right", RIGHT_COLOR)
 
-        findings_frame = ttk.LabelFrame(parent, text="Findings / Interpretation", padding=14)
-        findings_frame.grid(row=3, column=0, sticky="ew", padx=12, pady=(0, 12))
-        findings_frame.columnconfigure(0, weight=1)
+        verdict_frame = ttk.LabelFrame(parent, text="Comparison Verdict / Key Takeaway", padding=14)
+        verdict_frame.grid(row=3, column=0, sticky="ew", padx=12, pady=(0, 12))
+        verdict_frame.columnconfigure(0, weight=1)
         self._build_findings_cards(
-            findings_frame,
-            self.comparison_findings_var,
-            self.comparison_interpretation_var,
+            verdict_frame,
+            self.comparison_verdict_var,
+            self.comparison_takeaway_var,
             wraplength=540,
+            findings_title="Verdict",
+            interpretation_title="Key Takeaway",
         )
+
+        self._build_saved_resources_panel(parent)
 
     def _build_comparison_figures_tab(self, parent: ttk.Frame) -> None:
         plots = ttk.Frame(parent, padding=(12, 8, 12, 12), style="Root.TFrame")
@@ -3771,6 +4127,7 @@ class VirtualECUGui(tk.Tk):
 
         builder_notebook = ttk.Notebook(content)
         builder_notebook.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+        self.custom_builder_notebook = builder_notebook
 
         single_tab = ttk.Frame(builder_notebook, style="Root.TFrame")
         multi_tab = ttk.Frame(builder_notebook, style="Root.TFrame")
@@ -4130,12 +4487,12 @@ class VirtualECUGui(tk.Tk):
         ttk.Label(
             header,
             text=(
-                "Use this qualitative view to map the selected campaigns onto the ECU path from sensor electronics "
-                "through timing, control memory, actuation, and thermal-system outcome. In comparison mode, the two "
-                "small diagrams keep the left/right story readable without crowding the main summary tab."
+                "Use this visual comparison to map each campaign onto a recognizable ECU path: sensing hardware, "
+                "data transfer, ECU control/memory, actuation, and final thermal outcome. The left and right cards "
+                "keep the fault-origin story compact and presentation-friendly without crowding the main summary tab."
             ),
             style="Hint.TLabel",
-            wraplength=1050,
+            wraplength=980,
             justify="left",
         ).grid(row=1, column=0, sticky="w", pady=(4, 0))
 
@@ -4145,19 +4502,19 @@ class VirtualECUGui(tk.Tk):
         diagram_area.columnconfigure(1, weight=1)
         diagram_area.rowconfigure(0, weight=1)
 
-        left_frame = ttk.LabelFrame(diagram_area, text="Left Campaign Path", padding=10)
+        left_frame = tk.Frame(diagram_area, bg="#ffffff", bd=1, relief="solid", highlightthickness=0)
         left_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
-        left_frame.columnconfigure(0, weight=1)
-        left_frame.rowconfigure(0, weight=1)
+        left_frame.grid_columnconfigure(0, weight=1)
+        left_frame.grid_rowconfigure(0, weight=1)
         self.left_fault_path_diagram = FaultPathDiagram(left_frame, "Left", LEFT_COLOR)
-        self.left_fault_path_diagram.grid(row=0, column=0, sticky="nsew")
+        self.left_fault_path_diagram.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
 
-        right_frame = ttk.LabelFrame(diagram_area, text="Right Campaign Path", padding=10)
+        right_frame = tk.Frame(diagram_area, bg="#ffffff", bd=1, relief="solid", highlightthickness=0)
         right_frame.grid(row=0, column=1, sticky="nsew", padx=(8, 0))
-        right_frame.columnconfigure(0, weight=1)
-        right_frame.rowconfigure(0, weight=1)
+        right_frame.grid_columnconfigure(0, weight=1)
+        right_frame.grid_rowconfigure(0, weight=1)
         self.right_fault_path_diagram = FaultPathDiagram(right_frame, "Right", RIGHT_COLOR)
-        self.right_fault_path_diagram.grid(row=0, column=0, sticky="nsew")
+        self.right_fault_path_diagram.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
         self._refresh_fault_path_diagrams()
 
     def _build_batch_tab(self, parent: ttk.Frame) -> None:
@@ -4426,6 +4783,43 @@ class VirtualECUGui(tk.Tk):
     def _favorite_titles(self) -> List[str]:
         return [favorite["title"] for favorite in self.favorite_comparisons]
 
+    def _favorite_signature(self, item: Dict[str, str]) -> Tuple[str, str]:
+        return (item["left_result"], item["right_result"])
+
+    def _current_comparison_signature(self) -> Tuple[str, str] | None:
+        if self.current_comparison is None:
+            return None
+        left_result = self.current_comparison["left"]  # type: ignore[index]
+        right_result = self.current_comparison["right"]  # type: ignore[index]
+        return (
+            _stored_result_path(Path(left_result["log_path"])),  # type: ignore[arg-type]
+            _stored_result_path(Path(right_result["log_path"])),  # type: ignore[arg-type]
+        )
+
+    def _default_favorite_title(self) -> str:
+        left_name = self.summary_vars["left"]["Campaign Name"].get().strip() or "Left Run"
+        right_name = self.summary_vars["right"]["Campaign Name"].get().strip() or "Right Run"
+        return f"{left_name} vs {right_name}"
+
+    def _prefill_favorite_editor(self) -> None:
+        signature = self._current_comparison_signature()
+        if signature is None:
+            self.favorite_choice.set("")
+            self.favorite_title_var.set("")
+            self.favorite_note_var.set("")
+            return
+
+        for favorite in self.favorite_comparisons:
+            if self._favorite_signature(favorite) == signature:
+                self.favorite_choice.set(favorite["title"])
+                self.favorite_title_var.set(favorite["title"])
+                self.favorite_note_var.set(favorite.get("note", ""))
+                return
+
+        self.favorite_choice.set("")
+        self.favorite_title_var.set(self._default_favorite_title())
+        self.favorite_note_var.set("")
+
     def _refresh_favorites_panel(self) -> None:
         if self.favorites_frame is not None:
             for child in self.favorites_frame.winfo_children():
@@ -4456,12 +4850,11 @@ class VirtualECUGui(tk.Tk):
 
         if self.favorite_comparisons:
             if self.favorite_choice.get() not in self._favorite_titles():
-                self.favorite_choice.set(self.favorite_comparisons[0]["title"])
-            self._sync_selected_favorite_fields()
+                self._prefill_favorite_editor()
+            else:
+                self._sync_selected_favorite_fields()
         else:
-            self.favorite_choice.set("")
-            self.favorite_title_var.set("")
-            self.favorite_note_var.set("")
+            self._prefill_favorite_editor()
 
     def _selected_favorite(self) -> Dict[str, str] | None:
         title = self.favorite_choice.get().strip()
@@ -4585,10 +4978,7 @@ class VirtualECUGui(tk.Tk):
 
         title = self.favorite_title_var.get().strip()
         if not title:
-            title = (
-                f"{self.summary_vars['left']['Campaign Name'].get()} vs "
-                f"{self.summary_vars['right']['Campaign Name'].get()}"
-            )
+            title = self._default_favorite_title()
         note = self.favorite_note_var.get().strip()
         left_result = self.current_comparison["left"]  # type: ignore[index]
         right_result = self.current_comparison["right"]  # type: ignore[index]
@@ -4599,11 +4989,27 @@ class VirtualECUGui(tk.Tk):
             right_path=Path(right_result["log_path"]),  # type: ignore[arg-type]
         )
 
-        key = (item["left_result"], item["right_result"])
+        key = self._favorite_signature(item)
+        conflicting_title = next(
+            (
+                existing
+                for existing in self.favorite_comparisons
+                if existing["title"] == title and self._favorite_signature(existing) != key
+            ),
+            None,
+        )
+        if conflicting_title is not None:
+            messagebox.showerror(
+                "Favorite Title Already Used",
+                "Another pinned comparison already uses this title.\n\n"
+                "Choose a different title or load that favorite and edit it directly.",
+            )
+            return
+
         remaining = [
             existing
             for existing in self.favorite_comparisons
-            if (existing["left_result"], existing["right_result"]) != key and existing["title"] != title
+            if self._favorite_signature(existing) != key
         ]
         self.favorite_comparisons = [item, *remaining][:MAX_FAVORITES]
         try:
@@ -4623,6 +5029,22 @@ class VirtualECUGui(tk.Tk):
         title = self.favorite_title_var.get().strip()
         if not title:
             messagebox.showerror("Invalid Favorite Title", "Favorite title must contain at least one letter or number.")
+            return
+
+        conflict = next(
+            (
+                existing
+                for existing in self.favorite_comparisons
+                if existing["title"] == title and existing["title"] != favorite["title"]
+            ),
+            None,
+        )
+        if conflict is not None:
+            messagebox.showerror(
+                "Favorite Title Already Used",
+                "Another pinned comparison already uses this title.\n\n"
+                "Choose a different title for this favorite.",
+            )
             return
 
         note = self.favorite_note_var.get().strip()
@@ -4684,6 +5106,301 @@ class VirtualECUGui(tk.Tk):
         self._sync_selected_favorite_fields()
         self._open_comparison_figures_tab()
         self.status_text.set(f"Loaded favorite comparison: {item['title']}.")
+
+    def _session_result_reference(self, result: Dict[str, object] | None) -> str:
+        if result is None:
+            return ""
+        return _stored_result_path(Path(result["log_path"]))  # type: ignore[arg-type]
+
+    def _selected_notebook_index(self, notebook: ttk.Notebook | None) -> int:
+        if notebook is None:
+            return 0
+        try:
+            return int(notebook.index(notebook.select()))
+        except tk.TclError:
+            return 0
+
+    def _restore_notebook_index(self, notebook: ttk.Notebook | None, index: object) -> None:
+        if notebook is None:
+            return
+        try:
+            target_index = int(index)
+        except (TypeError, ValueError):
+            return
+        try:
+            tab_count = int(notebook.index("end"))
+        except tk.TclError:
+            return
+        if tab_count <= 0:
+            return
+        notebook.select(max(0, min(target_index, tab_count - 1)))
+
+    def _session_multi_events_payload(self) -> List[Dict[str, object]]:
+        events: List[Dict[str, object]] = []
+        for event in self.multi_events:
+            events.append(
+                {
+                    "fault_type": str(event["fault_type"]),
+                    "fault_behavior": str(event["fault_behavior"]),
+                    "start_ms": int(event["start_ms"]),
+                    "duration_ms": int(event["duration_ms"]),
+                    "parameter": float(event["parameter"]),
+                }
+            )
+        return events
+
+    def _collect_session_state(self) -> Dict[str, object]:
+        return {
+            "version": 1,
+            "auto_restore_last_session": bool(self.auto_restore_session.get()),
+            "comparison_controls": {
+                "left_campaign": self.left_campaign.get().strip(),
+                "right_campaign": self.right_campaign.get().strip(),
+                "comparison_plot_choice": self.comparison_plot_choice.get().strip(),
+                "selected_main_tab": self._selected_notebook_index(self.notebook),
+                "selected_showcase_title": self.showcase_preset_choice.get().strip(),
+                "selected_favorite_title": self.favorite_choice.get().strip(),
+                "favorite_title_edit": self.favorite_title_var.get().strip(),
+                "favorite_note_edit": self.favorite_note_var.get().strip(),
+                "presentation_mode": bool(self.presentation_mode.get()),
+            },
+            "loaded_results": {
+                "left_slot_result": self._session_result_reference(self.loaded_result_slots.get("left")),
+                "right_slot_result": self._session_result_reference(self.loaded_result_slots.get("right")),
+                "current_comparison_left": (
+                    self._session_result_reference(self.current_comparison.get("left"))  # type: ignore[union-attr]
+                    if self.current_comparison is not None
+                    else ""
+                ),
+                "current_comparison_right": (
+                    self._session_result_reference(self.current_comparison.get("right"))  # type: ignore[union-attr]
+                    if self.current_comparison is not None
+                    else ""
+                ),
+                "last_custom_result": self._session_result_reference(self.last_custom_result),
+            },
+            "custom_single_fault": {
+                "fault_type": self.custom_fault_type.get().strip(),
+                "fault_behavior": self.custom_fault_behavior.get().strip(),
+                "start_ms": self.custom_start_ms.get().strip(),
+                "duration_ms": self.custom_duration_ms.get().strip(),
+                "parameter": self.custom_parameter.get().strip(),
+                "preset_name": self.custom_preset_name.get().strip(),
+                "preset_choice": self.custom_preset_choice.get().strip(),
+            },
+            "multi_fault_builder": {
+                "fault_type": self.multi_fault_type.get().strip(),
+                "fault_behavior": self.multi_fault_behavior.get().strip(),
+                "start_ms": self.multi_start_ms.get().strip(),
+                "duration_ms": self.multi_duration_ms.get().strip(),
+                "parameter": self.multi_parameter.get().strip(),
+                "preset_name": self.multi_preset_name.get().strip(),
+                "preset_choice": self.multi_preset_choice.get().strip(),
+                "selected_builder_tab": self._selected_notebook_index(self.custom_builder_notebook),
+                "selected_event_index": self._selected_multi_event_index(),
+                "events": self._session_multi_events_payload(),
+            },
+            "batch_results": {
+                "csv_path": self.batch_csv_path.get().strip(),
+                "plot_choice": self.batch_plot_choice.get().strip(),
+            },
+            "recent_context": {
+                "status_text": self.status_text.get().strip(),
+                "custom_status_text": self.custom_status_text.get().strip(),
+                "batch_status_text": self.batch_status_text.get().strip(),
+            },
+        }
+
+    def _apply_saved_custom_single_state(self, payload: Dict[str, object]) -> None:
+        self.custom_fault_type.set(str(payload.get("fault_type", self.custom_fault_type.get())))
+        self.custom_fault_behavior.set(str(payload.get("fault_behavior", self.custom_fault_behavior.get())))
+        self.custom_start_ms.set(str(payload.get("start_ms", self.custom_start_ms.get())))
+        self.custom_duration_ms.set(str(payload.get("duration_ms", self.custom_duration_ms.get())))
+        self.custom_parameter.set(str(payload.get("parameter", self.custom_parameter.get())))
+        self.custom_preset_name.set(str(payload.get("preset_name", self.custom_preset_name.get())))
+        self.custom_preset_choice.set(str(payload.get("preset_choice", self.custom_preset_choice.get())))
+
+    def _apply_saved_multi_builder_state(self, payload: Dict[str, object]) -> None:
+        events: List[Dict[str, object]] = []
+        for raw_event in payload.get("events", []):  # type: ignore[assignment]
+            if not isinstance(raw_event, dict):
+                continue
+            try:
+                events.append(
+                    default_custom_event(
+                        fault_type=str(raw_event["fault_type"]),
+                        fault_behavior=str(raw_event["fault_behavior"]),
+                        start_ms=int(raw_event["start_ms"]),
+                        duration_ms=int(raw_event["duration_ms"]),
+                        parameter=float(raw_event["parameter"]),
+                    )
+                )
+            except (KeyError, TypeError, ValueError):
+                continue
+
+        self.multi_events = events
+        selected_index = payload.get("selected_event_index")
+        try:
+            select_index = None if selected_index is None else int(selected_index)
+        except (TypeError, ValueError):
+            select_index = None
+        self._refresh_multi_event_listbox(select_index=select_index)
+
+        self.multi_fault_type.set(str(payload.get("fault_type", self.multi_fault_type.get())))
+        self.multi_fault_behavior.set(str(payload.get("fault_behavior", self.multi_fault_behavior.get())))
+        self.multi_start_ms.set(str(payload.get("start_ms", self.multi_start_ms.get())))
+        self.multi_duration_ms.set(str(payload.get("duration_ms", self.multi_duration_ms.get())))
+        self.multi_parameter.set(str(payload.get("parameter", self.multi_parameter.get())))
+        self.multi_preset_name.set(str(payload.get("preset_name", self.multi_preset_name.get())))
+        self.multi_preset_choice.set(str(payload.get("preset_choice", self.multi_preset_choice.get())))
+        self._restore_notebook_index(self.custom_builder_notebook, payload.get("selected_builder_tab", 0))
+
+    def _restore_loaded_results_from_session(self, payload: Dict[str, object]) -> None:
+        left_ref = str(payload.get("left_slot_result", "")).strip()
+        right_ref = str(payload.get("right_slot_result", "")).strip()
+
+        left_result = load_existing_result_pair(_project_path(left_ref)) if left_ref else None
+        right_result = load_existing_result_pair(_project_path(right_ref)) if right_ref else None
+
+        self.loaded_result_slots = {"left": None, "right": None}
+        if left_result is not None and right_result is not None:
+            self._apply_results(left_result, right_result, remember_recent=False)
+            return
+        if left_result is not None:
+            self._apply_results(left_result, None, remember_recent=False)
+            return
+        if right_result is not None:
+            self._apply_existing_result("right", right_result)
+            return
+        self._reset_summary_values()
+
+    def _save_session_toggle_only(self) -> None:
+        try:
+            existing = read_gui_session_state() or {}
+        except (OSError, TypeError, json.JSONDecodeError):
+            existing = {}
+        existing["auto_restore_last_session"] = bool(self.auto_restore_session.get())
+        try:
+            write_gui_session_state(existing)
+        except OSError:
+            return
+
+    def save_session_state(self, *, quiet: bool = False) -> None:
+        try:
+            write_gui_session_state(self._collect_session_state())
+        except OSError as exc:
+            if quiet:
+                return
+            messagebox.showerror("Save Session Failed", str(exc))
+            return
+
+        if quiet:
+            return
+        self.status_text.set(f"Saved GUI session to {GUI_SESSION_STATE_PATH.relative_to(PROJECT_ROOT)}.")
+
+    def restore_session_state(self, *, quiet: bool = False) -> None:
+        try:
+            payload = read_gui_session_state()
+        except (OSError, TypeError, json.JSONDecodeError) as exc:
+            if quiet:
+                self.status_text.set(f"Session restore skipped: {exc}")
+                return
+            messagebox.showerror("Restore Session Failed", str(exc))
+            return
+
+        if payload is None:
+            message = f"No saved GUI session found at {GUI_SESSION_STATE_PATH.relative_to(PROJECT_ROOT)}."
+            if quiet:
+                self.status_text.set(message)
+            else:
+                messagebox.showinfo("No Saved Session", message)
+            return
+
+        try:
+            self.auto_restore_session.set(bool(payload.get("auto_restore_last_session", self.auto_restore_session.get())))
+
+            comparison_controls = payload.get("comparison_controls", {})
+            if isinstance(comparison_controls, dict):
+                self.left_campaign.set(str(comparison_controls.get("left_campaign", self.left_campaign.get())))
+                self.right_campaign.set(str(comparison_controls.get("right_campaign", self.right_campaign.get())))
+                plot_choice = str(comparison_controls.get("comparison_plot_choice", self.comparison_plot_choice.get()))
+                if plot_choice in self.COMPARISON_PLOT_OPTIONS:
+                    self.comparison_plot_choice.set(plot_choice)
+                self.presentation_mode.set(bool(comparison_controls.get("presentation_mode", self.presentation_mode.get())))
+                self.showcase_preset_choice.set(str(comparison_controls.get("selected_showcase_title", self.showcase_preset_choice.get())))
+                self.favorite_choice.set(str(comparison_controls.get("selected_favorite_title", self.favorite_choice.get())))
+                self.favorite_title_var.set(str(comparison_controls.get("favorite_title_edit", self.favorite_title_var.get())))
+                self.favorite_note_var.set(str(comparison_controls.get("favorite_note_edit", self.favorite_note_var.get())))
+
+            self._apply_presentation_mode()
+            self._refresh_campaign_context()
+
+            custom_single = payload.get("custom_single_fault", {})
+            if isinstance(custom_single, dict):
+                self._apply_saved_custom_single_state(custom_single)
+
+            multi_builder = payload.get("multi_fault_builder", {})
+            if isinstance(multi_builder, dict):
+                self._apply_saved_multi_builder_state(multi_builder)
+
+            batch_payload = payload.get("batch_results", {})
+            if isinstance(batch_payload, dict):
+                self.batch_csv_path.set(str(batch_payload.get("csv_path", self.batch_csv_path.get())))
+                batch_plot_choice = str(batch_payload.get("plot_choice", self.batch_plot_choice.get()))
+                if batch_plot_choice in self.BATCH_PLOT_OPTIONS:
+                    self.batch_plot_choice.set(batch_plot_choice)
+                if self.batch_csv_path.get().strip():
+                    self.load_batch_results()
+
+            loaded_results = payload.get("loaded_results", {})
+            if isinstance(loaded_results, dict):
+                self._restore_loaded_results_from_session(loaded_results)
+
+            recent_context = payload.get("recent_context", {})
+            if isinstance(recent_context, dict):
+                if self.current_comparison is None and not self.loaded_result_slots.get("right"):
+                    saved_status = str(recent_context.get("status_text", "")).strip()
+                    if saved_status:
+                        self.status_text.set(saved_status)
+                saved_custom_status = str(recent_context.get("custom_status_text", "")).strip()
+                if saved_custom_status:
+                    self.custom_status_text.set(saved_custom_status)
+                if not self.batch_rows:
+                    saved_batch_status = str(recent_context.get("batch_status_text", "")).strip()
+                    if saved_batch_status:
+                        self.batch_status_text.set(saved_batch_status)
+
+            if isinstance(comparison_controls, dict):
+                self._restore_notebook_index(self.notebook, comparison_controls.get("selected_main_tab", 0))
+                self._update_showcase_description()
+                if self.favorite_choice.get().strip():
+                    self._sync_selected_favorite_fields()
+
+            if not quiet:
+                self.status_text.set(f"Restored GUI session from {GUI_SESSION_STATE_PATH.relative_to(PROJECT_ROOT)}.")
+        except (OSError, RuntimeError, csv.Error, KeyError, TypeError, ValueError) as exc:
+            if quiet:
+                self.status_text.set(f"Automatic session restore skipped: {exc}")
+                return
+            messagebox.showerror("Restore Session Failed", str(exc))
+
+    def _maybe_auto_restore_session(self) -> None:
+        try:
+            payload = read_gui_session_state()
+        except (OSError, TypeError, json.JSONDecodeError) as exc:
+            self.status_text.set(f"Automatic session restore skipped: {exc}")
+            return
+
+        if payload is None:
+            return
+        self.auto_restore_session.set(bool(payload.get("auto_restore_last_session", self.auto_restore_session.get())))
+        if not self.auto_restore_session.get():
+            return
+        self.restore_session_state(quiet=True)
+
+    def _on_close(self) -> None:
+        self.save_session_state(quiet=True)
+        self.destroy()
 
     def _current_custom_form_config(self) -> Dict[str, object] | None:
         return self._validate_custom_config()
@@ -5131,6 +5848,8 @@ class VirtualECUGui(tk.Tk):
         interpretation_var: tk.StringVar,
         *,
         wraplength: int,
+        findings_title: str = "Key Findings",
+        interpretation_title: str = "Interpretation",
     ) -> None:
         cards = ttk.Frame(parent, style="Root.TFrame")
         cards.grid(row=0, column=0, sticky="ew")
@@ -5140,7 +5859,7 @@ class VirtualECUGui(tk.Tk):
         self._build_text_card(
             cards,
             0,
-            "Key Findings",
+            findings_title,
             findings_var,
             wraplength=wraplength,
             body_font=("TkDefaultFont", 10, "bold"),
@@ -5149,7 +5868,7 @@ class VirtualECUGui(tk.Tk):
         self._build_text_card(
             cards,
             1,
-            "Interpretation",
+            interpretation_title,
             interpretation_var,
             wraplength=wraplength,
             body_font=("TkDefaultFont", 10),
@@ -5243,6 +5962,186 @@ class VirtualECUGui(tk.Tk):
                 pady=8,
             ).pack(fill="x")
 
+        session_actions = ttk.Frame(panel, style="Root.TFrame")
+        session_actions.grid(row=3, column=0, columnspan=3, sticky="ew", pady=(8, 0))
+        session_actions.columnconfigure(0, weight=1)
+
+        ttk.Label(
+            session_actions,
+            text="Session continuity: save the current GUI state, restore it later, or auto-restore the last saved session on startup.",
+            style="Hint.TLabel",
+            wraplength=860,
+            justify="left",
+        ).grid(row=0, column=0, sticky="w")
+
+        action_buttons = ttk.Frame(session_actions, style="Root.TFrame")
+        action_buttons.grid(row=0, column=1, sticky="e", padx=(12, 0))
+        ttk.Button(action_buttons, text="Save Session", command=self.save_session_state).grid(row=0, column=0, sticky="e")
+        ttk.Button(action_buttons, text="Restore Session", command=self.restore_session_state).grid(row=0, column=1, sticky="e", padx=(8, 0))
+        ttk.Checkbutton(
+            action_buttons,
+            text="Auto-Restore Last Session",
+            variable=self.auto_restore_session,
+            command=self._save_session_toggle_only,
+        ).grid(row=0, column=2, sticky="e", padx=(10, 0))
+
+    def _build_comparison_landing_panel(self, parent: ttk.Frame) -> None:
+        outer = ttk.Frame(parent, padding=(12, 0, 12, 10), style="Root.TFrame")
+        outer.grid(row=0, column=0, sticky="ew")
+        outer.columnconfigure(0, weight=1)
+
+        panel = tk.Frame(outer, bg="#ffffff", bd=1, relief="solid", highlightthickness=0)
+        panel.grid(row=0, column=0, sticky="ew")
+        panel.grid_columnconfigure(0, weight=1)
+
+        tk.Label(
+            panel,
+            text="Start a Comparison",
+            bg="#ffffff",
+            fg="#1d3448",
+            font=("TkDefaultFont", 12, "bold"),
+            anchor="w",
+            padx=16,
+            pady=0,
+        ).grid(row=0, column=0, sticky="ew", pady=(14, 2))
+
+        tk.Label(
+            panel,
+            text="Choose the left and right campaigns below, then run the comparison or load saved CSV results into the two sides.",
+            bg="#ffffff",
+            fg="#4d5c69",
+            font=("TkDefaultFont", 10),
+            justify="left",
+            wraplength=980,
+            anchor="w",
+            padx=16,
+            pady=0,
+        ).grid(row=1, column=0, sticky="ew", pady=(0, 12))
+
+        steps = ttk.Frame(panel, style="Root.TFrame")
+        steps.grid(row=2, column=0, sticky="ew", padx=12, pady=(0, 12))
+        for column in range(3):
+            steps.columnconfigure(column, weight=1)
+
+        step_cards = (
+            ("1", "Choose Left / Right", "Use the two campaign selectors just below."),
+            ("2", "Run or Load", "Use the action buttons on the right to run or load results."),
+            ("3", "Need a Demo Start?", "Open Saved Resources below for the showcase comparison."),
+        )
+        for index, (number, title, text) in enumerate(step_cards):
+            card = tk.Frame(steps, bg="#f8fafc", bd=1, relief="solid", highlightthickness=0)
+            card.grid(row=0, column=index, sticky="ew", padx=(0, 8 if index < 2 else 0))
+            tk.Label(
+                card,
+                text=number,
+                bg="#e8f0fb",
+                fg="#1c4d8c",
+                font=("TkDefaultFont", 9, "bold"),
+                width=3,
+                anchor="center",
+                padx=0,
+                pady=4,
+            ).pack(anchor="w", padx=12, pady=(12, 6))
+            tk.Label(
+                card,
+                text=title,
+                bg="#f8fafc",
+                fg="#22313f",
+                font=("TkDefaultFont", 9, "bold"),
+                anchor="w",
+                justify="left",
+                padx=12,
+                pady=0,
+            ).pack(fill="x")
+            tk.Label(
+                card,
+                text=text,
+                bg="#f8fafc",
+                fg="#5a6977",
+                font=("TkDefaultFont", 9),
+                justify="left",
+                wraplength=240,
+                anchor="w",
+                padx=12,
+                pady=0,
+            ).pack(fill="x", pady=(4, 12))
+
+    def _toggle_summary_resources(self) -> None:
+        self.summary_resources_expanded.set(not self.summary_resources_expanded.get())
+        self._refresh_summary_resources_panel()
+
+    def _refresh_summary_resources_panel(self) -> None:
+        if getattr(self, "summary_resources_body", None) is None or getattr(self, "summary_resources_toggle_button", None) is None:
+            return
+        expanded = self.summary_resources_expanded.get()
+        self.summary_resources_toggle_button.configure(text="Hide Saved Resources" if expanded else "Show Saved Resources")
+        if expanded:
+            self.summary_resources_body.grid()
+        else:
+            self.summary_resources_body.grid_remove()
+
+    def _build_saved_resources_panel(self, parent: ttk.Frame) -> None:
+        panel = ttk.LabelFrame(parent, text="Saved Resources / Demo Aids", padding=12)
+        panel.grid(row=4, column=0, sticky="ew", padx=12, pady=(0, 12))
+        panel.columnconfigure(0, weight=1)
+        panel.columnconfigure(1, weight=0)
+
+        ttk.Label(
+            panel,
+            text="Showcase presets, demo shortcuts, favorites, recent results, and session continuity live here when you need them.",
+            style="Hint.TLabel",
+            wraplength=860,
+            justify="left",
+        ).grid(row=0, column=0, sticky="w")
+
+        self.summary_resources_toggle_button = ttk.Button(panel, text="Show Saved Resources", command=self._toggle_summary_resources)
+        self.summary_resources_toggle_button.grid(row=0, column=1, sticky="e", padx=(10, 0))
+
+        body = ttk.Frame(panel, style="Root.TFrame")
+        body.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(10, 0))
+        body.columnconfigure(0, weight=1)
+        self.summary_resources_body = body
+
+        session_row = ttk.LabelFrame(body, text="Session Continuity", padding=10)
+        session_row.grid(row=0, column=0, sticky="ew", pady=(0, 10))
+        session_row.columnconfigure(0, weight=1)
+        ttk.Label(
+            session_row,
+            text="Save the current GUI state, restore it later, or auto-restore the last saved session on startup.",
+            style="Hint.TLabel",
+            wraplength=860,
+            justify="left",
+        ).grid(row=0, column=0, sticky="w")
+        session_actions = ttk.Frame(session_row, style="Root.TFrame")
+        session_actions.grid(row=0, column=1, sticky="e", padx=(12, 0))
+        ttk.Button(session_actions, text="Save Session", command=self.save_session_state).grid(row=0, column=0, sticky="e")
+        ttk.Button(session_actions, text="Restore Session", command=self.restore_session_state).grid(row=0, column=1, sticky="e", padx=(8, 0))
+        ttk.Checkbutton(
+            session_actions,
+            text="Auto-Restore Last Session",
+            variable=self.auto_restore_session,
+            command=self._save_session_toggle_only,
+        ).grid(row=0, column=2, sticky="e", padx=(10, 0))
+
+        resources_grid = ttk.Frame(body, style="Root.TFrame")
+        resources_grid.grid(row=1, column=0, sticky="ew")
+        resources_grid.columnconfigure(0, weight=1)
+        resources_grid.columnconfigure(1, weight=1)
+
+        left_resources = ttk.Frame(resources_grid, style="Root.TFrame")
+        left_resources.grid(row=0, column=0, sticky="new", padx=(0, 8))
+        left_resources.columnconfigure(0, weight=1)
+        self._build_showcase_presets(left_resources)
+        self._build_recommended_demo_shortcuts(left_resources)
+
+        right_resources = ttk.Frame(resources_grid, style="Root.TFrame")
+        right_resources.grid(row=0, column=1, sticky="new", padx=(8, 0))
+        right_resources.columnconfigure(0, weight=1)
+        self._build_favorite_comparisons(right_resources)
+        self._build_recent_results(right_resources)
+
+        self._refresh_summary_resources_panel()
+
     def _build_recommended_demo_shortcuts(self, parent: ttk.Frame) -> None:
         shortcuts = ttk.LabelFrame(parent, text="Run Built-In Demo Comparisons", padding=12)
         shortcuts.grid(row=2, column=0, columnspan=3, sticky="ew", pady=(12, 0))
@@ -5310,7 +6209,7 @@ class VirtualECUGui(tk.Tk):
 
         ttk.Label(
             favorites,
-            text="Pin recurring thesis/demo comparisons here. Favorites are intentional saved pairs, separate from Recent Results.",
+            text="Keep stable thesis/demo comparison pairs here. Favorites are intentional saved pairs, separate from Recent Results.",
             style="Hint.TLabel",
             wraplength=980,
             justify="left",
@@ -5321,7 +6220,7 @@ class VirtualECUGui(tk.Tk):
         for column in range(3):
             self.favorites_frame.columnconfigure(column, weight=1)
 
-        ttk.Label(favorites, text="Selected Favorite", style="FieldName.TLabel").grid(row=2, column=0, sticky="w", pady=(10, 0))
+        ttk.Label(favorites, text="Saved Favorite", style="FieldName.TLabel").grid(row=2, column=0, sticky="w", pady=(10, 0))
         self.favorite_selector = ttk.Combobox(
             favorites,
             textvariable=self.favorite_choice,
@@ -5334,18 +6233,18 @@ class VirtualECUGui(tk.Tk):
             row=2, column=2, sticky="e", pady=(10, 0)
         )
 
-        ttk.Label(favorites, text="Title", style="FieldName.TLabel").grid(row=3, column=0, sticky="w", pady=(8, 0))
+        ttk.Label(favorites, text="Display Title", style="FieldName.TLabel").grid(row=3, column=0, sticky="w", pady=(8, 0))
         ttk.Entry(favorites, textvariable=self.favorite_title_var).grid(row=3, column=1, sticky="ew", padx=(10, 10), pady=(8, 0))
-        ttk.Button(favorites, text="Pin Current Comparison", command=self.add_current_comparison_to_favorites).grid(
+        ttk.Button(favorites, text="Pin Current Pair", command=self.add_current_comparison_to_favorites).grid(
             row=3, column=2, sticky="e", pady=(8, 0)
         )
 
-        ttk.Label(favorites, text="Note", style="FieldName.TLabel").grid(row=4, column=0, sticky="w", pady=(8, 0))
+        ttk.Label(favorites, text="Note / Context", style="FieldName.TLabel").grid(row=4, column=0, sticky="w", pady=(8, 0))
         ttk.Entry(favorites, textvariable=self.favorite_note_var).grid(row=4, column=1, sticky="ew", padx=(10, 10), pady=(8, 0))
         actions = ttk.Frame(favorites, style="Root.TFrame")
         actions.grid(row=4, column=2, sticky="e", pady=(8, 0))
-        ttk.Button(actions, text="Update Favorite", command=self.update_selected_favorite).grid(row=0, column=0, sticky="e")
-        ttk.Button(actions, text="Remove", command=self.remove_selected_favorite).grid(row=0, column=1, sticky="e", padx=(8, 0))
+        ttk.Button(actions, text="Save Edits", command=self.update_selected_favorite).grid(row=0, column=0, sticky="e")
+        ttk.Button(actions, text="Remove Pin", command=self.remove_selected_favorite).grid(row=0, column=1, sticky="e", padx=(8, 0))
 
         self._refresh_favorites_panel()
 
@@ -5382,12 +6281,14 @@ class VirtualECUGui(tk.Tk):
     ) -> None:
         block = tk.Frame(parent, bg="#ffffff", bd=1, relief="solid", highlightthickness=0)
         block.grid(row=0, column=column, sticky="nsew", padx=(0, 8 if column == 0 else 0))
+        block.grid_propagate(True)
 
         accent_bar = tk.Frame(block, bg=accent, width=12)
         accent_bar.pack(side="left", fill="y")
 
         body = tk.Frame(block, bg="#ffffff")
-        body.pack(side="left", fill="both", expand=True)
+        body.pack(side="left", fill="both", expand=True, padx=(0, 2))
+        body.columnconfigure(0, weight=1)
 
         tk.Label(
             body,
@@ -5396,36 +6297,60 @@ class VirtualECUGui(tk.Tk):
             fg="#1d3448",
             font=("TkDefaultFont", 10, "bold"),
             anchor="w",
-            padx=14,
+            padx=16,
             pady=0,
-        ).grid(row=0, column=0, sticky="w", pady=(14, 8))
-        self._add_context_row(body, 1, "Fault Class", self.context_vars[slot]["Fault Class"])
-        self._add_context_row(body, 2, "Hardware Source", self.context_vars[slot]["Hardware Source"])
-        self._add_context_row(body, 3, "ECU Manifestation", self.context_vars[slot]["ECU Manifestation"])
-
-    def _add_context_row(self, parent: tk.Frame, row: int, label: str, variable: tk.StringVar) -> None:
+        ).grid(row=0, column=0, sticky="ew", pady=(16, 2))
         tk.Label(
-            parent,
-            text=label,
+            body,
+            text="Hardware-Origin -> ECU Story",
             bg="#ffffff",
-            fg="#4d5c69",
+            fg="#6a7a88",
+            font=("TkDefaultFont", 9),
+            anchor="w",
+            padx=16,
+            pady=0,
+        ).grid(row=1, column=0, sticky="ew", pady=(0, 12))
+
+        self._add_context_row(body, 2, "Fault Class", self.context_vars[slot]["Fault Class"], compact=True)
+        self._add_context_row(body, 3, "Hardware Source", self.context_vars[slot]["Hardware Source"])
+        self._add_context_row(body, 4, "ECU Manifestation", self.context_vars[slot]["ECU Manifestation"], is_last=True)
+
+    def _add_context_row(
+        self,
+        parent: tk.Frame,
+        row: int,
+        label: str,
+        variable: tk.StringVar,
+        *,
+        compact: bool = False,
+        is_last: bool = False,
+    ) -> None:
+        card = tk.Frame(parent, bg="#f8fafc", bd=1, relief="solid", highlightthickness=0)
+        card.grid(row=row, column=0, sticky="ew", padx=14, pady=(0, 10 if not is_last else 14))
+        card.columnconfigure(0, weight=1)
+
+        tk.Label(
+            card,
+            text=label,
+            bg="#f8fafc",
+            fg="#566574",
             font=("TkDefaultFont", 9, "bold"),
             anchor="w",
-            padx=14,
+            padx=12,
             pady=0,
-        ).grid(row=row, column=0, sticky="nw", pady=(0, 2))
+        ).grid(row=0, column=0, sticky="ew", pady=(10, 2))
         tk.Label(
-            parent,
+            card,
             textvariable=variable,
-            bg="#ffffff",
+            bg="#f8fafc",
             fg="#374553",
             font=("TkDefaultFont", 10),
-            wraplength=325,
+            wraplength=300 if compact else 312,
             justify="left",
             anchor="w",
-            padx=14,
+            padx=12,
             pady=0,
-        ).grid(row=row + 1, column=0, sticky="nw", pady=(0, 12))
+        ).grid(row=1, column=0, sticky="ew", pady=(0, 10))
 
     def _add_metric_cell(self, parent: ttk.Frame, row: int, column: int, slot: str, metric_name: str) -> None:
         frame = tk.Frame(parent, bg="#eef3f7", bd=1, relief="solid", highlightthickness=0)
@@ -5900,21 +6825,27 @@ class VirtualECUGui(tk.Tk):
     def _refresh_fault_path_diagrams(self) -> None:
         if self.left_fault_path_diagram is not None:
             left_rows = None
+            left_summary = None
             if self.current_plot_results is not None:
                 left_rows = self.current_plot_results["left"]["raw_rows"]  # type: ignore[index]
+                left_summary = self.current_plot_results["left"]["summary_row"]  # type: ignore[index]
             self.left_fault_path_diagram.set_campaign(
                 self.left_campaign.get() if left_rows is None else str(self.current_plot_results["left"]["campaign_id"]),  # type: ignore[index]
                 None if left_rows is None else left_rows[0],
+                None if left_summary is None else left_summary,
             )
         if self.right_fault_path_diagram is not None:
             right_rows = None
+            right_summary = None
             right_campaign_id = self.right_campaign.get()
             if self.current_plot_results is not None and self.current_plot_results["right"] is not None:
                 right_rows = self.current_plot_results["right"]["raw_rows"]  # type: ignore[index]
+                right_summary = self.current_plot_results["right"]["summary_row"]  # type: ignore[index]
                 right_campaign_id = str(self.current_plot_results["right"]["campaign_id"])  # type: ignore[index]
             self.right_fault_path_diagram.set_campaign(
                 right_campaign_id,
                 None if right_rows is None else right_rows[0],
+                None if right_summary is None else right_summary,
             )
 
     def _reset_summary_values(self) -> None:
@@ -5923,6 +6854,8 @@ class VirtualECUGui(tk.Tk):
         self.loaded_result_slots = {"left": None, "right": None}
         self.snapshot_button.state(["disabled"])
         self.export_button.state(["disabled"])
+        self.comparison_verdict_var.set("Run a comparison to generate a compact verdict.")
+        self.comparison_takeaway_var.set("-")
         self.comparison_findings_var.set("Run a comparison to generate automatic findings.")
         self.comparison_interpretation_var.set("-")
         self._update_comparison_plot_help()
@@ -6361,11 +7294,13 @@ class VirtualECUGui(tk.Tk):
         self.snapshot_button.state(["disabled"])
         self.export_button.state(["disabled"])
         if self.left_fault_path_diagram is not None:
-            self.left_fault_path_diagram.set_campaign(self.left_campaign.get(), None)
+            self.left_fault_path_diagram.set_campaign(self.left_campaign.get(), None, None)
         if self.right_fault_path_diagram is not None:
             right_rows = result["raw_rows"]  # type: ignore[assignment]
-            self.right_fault_path_diagram.set_campaign(str(result["campaign_id"]), right_rows[0])
+            self.right_fault_path_diagram.set_campaign(str(result["campaign_id"]), right_rows[0], result["summary_row"])  # type: ignore[arg-type]
         self._refresh_metric_cells()
+        self.comparison_verdict_var.set("Load or run a left result to enable the comparison verdict.")
+        self.comparison_takeaway_var.set("-")
         self.comparison_findings_var.set("Load or run a left result to enable left-versus-right findings.")
         self.comparison_interpretation_var.set("-")
         self._clear_propagation_evidence()
@@ -6444,6 +7379,7 @@ class VirtualECUGui(tk.Tk):
             "left": left_result,
             "right": right_result,
         }
+        self._prefill_favorite_editor()
         self._refresh_fault_path_diagrams()
         self._refresh_metric_cells()
         self._update_comparison_findings(left_result, right_result)
@@ -6464,6 +7400,8 @@ class VirtualECUGui(tk.Tk):
         right_result: Dict[str, object] | None,
     ) -> None:
         if right_result is None:
+            self.comparison_verdict_var.set("Verdict becomes available after a left-versus-right comparison run.")
+            self.comparison_takeaway_var.set("-")
             self.comparison_findings_var.set("Findings become available after a left-versus-right comparison run.")
             self.comparison_interpretation_var.set("-")
             return
@@ -6472,6 +7410,10 @@ class VirtualECUGui(tk.Tk):
         right_name = self.summary_vars["right"]["Campaign Name"].get()
         left_summary = left_result["summary_row"]  # type: ignore[assignment]
         right_summary = right_result["summary_row"]  # type: ignore[assignment]
+
+        verdict_lines, takeaway_line = comparison_verdict(left_name, left_summary, right_name, right_summary)
+        self.comparison_verdict_var.set("\n".join(f"- {line}" for line in verdict_lines))
+        self.comparison_takeaway_var.set(takeaway_line)
 
         finding_lines, interpretation_lines = comparison_findings(left_name, left_summary, right_name, right_summary)
         self.comparison_findings_var.set("\n".join(f"- {line}" for line in finding_lines))

@@ -299,13 +299,14 @@ hardware-origin fault -> ECU manifestation -> diagnostic evidence -> safe-state
 / thermal outcome chain easier to explain during demos without opening the raw
 CSV files.
 
-The GUI also includes a `Fault Path` tab with two small Canvas-based system
-diagrams for the selected left and right campaigns. The diagram highlights the
-qualitative ECU subsystem where the campaign's hardware-origin fault abstraction
-enters the path: sensor/ADC front-end, timing/communication link, ECU control
-and calibration memory, actuator driver/power stage, or the thermal plant /
-coolant system. This is a presentation aid for cross-layer reasoning, not a
-circuit-level or device-level simulation.
+The GUI also includes a `Fault Path` tab with two image-based comparison cards
+for the selected left and right campaigns. Each card uses local PNG subsystem
+assets from `assets/fault_path/` to show a clearer left-to-right ECU story:
+coolant sensing hardware, sampled-data / communication transfer, ECU control
+and calibration memory, actuation hardware, and the plant-level thermal
+outcome. The faulty origin stage is highlighted and the thermal outcome can be
+lightly emphasized, making the tab easier to use for demos and thesis figures
+without claiming circuit-level or device-level realism.
 
 The GUI also includes a `Custom Experiment` tab for driving the simulator's
 custom single-fault and lightweight multi-fault CLI paths from Tkinter. The
@@ -373,6 +374,23 @@ The main comparison tab also includes a compact `Quick Start / Guided Use`
 panel. It is not a wizard; it simply points first-time users to the right tab or
 section for showcase demos, built-in comparisons, saved CSV loading, single
 custom faults, multi-fault scenarios, and batch-trend inspection.
+
+For live interpretation, the comparison tab also includes a compact
+`Comparison Verdict / Key Takeaway` section. It generates a short rule-based
+summary from the loaded left/right metrics so thesis or demo users can quickly
+see which side is thermally stronger, detects faster, reaches the harsher
+safe-state outcome, or serves as the stronger demonstration case overall.
+
+The same comparison area also includes lightweight `Save Session` and
+`Restore Session` actions plus optional `Auto-Restore Last Session` startup
+behavior. Session state is stored in:
+
+- `presets/gui_session_state.json`
+
+The saved session keeps only lightweight GUI state such as loaded result paths,
+selected comparison plot, selected showcase/favorite, custom-form values,
+multi-fault scenario builder state, and tab/view context. It does not copy raw
+CSV contents, so restore reuses the normal GUI loading pipelines.
 
 Recent GUI activity is kept in a small `Recent Results / Comparisons` section on
 the comparison tab. It stores the last few saved comparisons, loaded CSV pairs,
