@@ -1,0 +1,67 @@
+{
+  "auto_restore_last_session": true,
+  "batch_results": {
+    "csv_path": "/home/leonskal/code/virtual-ecu-phd/results/batch/paper_quick/aggregate_summary.csv",
+    "plot_choice": "Mean Detection Latency"
+  },
+  "comparison_controls": {
+    "comparison_plot_choice": "Coolant Temperature Comparison",
+    "favorite_note_edit": "",
+    "favorite_title_edit": "Pump Degraded Only vs Calibration Memory Corruption",
+    "left_campaign": "pump_degraded_only",
+    "presentation_mode": false,
+    "right_campaign": "calibration_memory_corruption",
+    "selected_favorite_title": "",
+    "selected_main_tab": 2,
+    "selected_showcase_title": "Baseline vs Fan Hot Stress"
+  },
+  "custom_single_fault": {
+    "duration_ms": "10000",
+    "fault_behavior": "transient",
+    "fault_type": "sensor_bias",
+    "parameter": "6.0",
+    "preset_choice": "fan_stuck_off_demo",
+    "preset_name": "sensor_bias_demo_copy",
+    "start_ms": "20000"
+  },
+  "loaded_results": {
+    "current_comparison_left": "logs/gui_left_pump_degraded_only.csv",
+    "current_comparison_right": "logs/gui_right_calibration_memory_corruption.csv",
+    "last_custom_result": "logs/gui_custom/custom_multi_e1_fan_stuck_off_permanent_start65000_dur0_param0__e2_calibration_memory_corruption_permanent_start100000_dur0_param16.csv",
+    "left_slot_result": "logs/gui_left_pump_degraded_only.csv",
+    "right_slot_result": "logs/gui_right_calibration_memory_corruption.csv"
+  },
+  "multi_fault_builder": {
+    "duration_ms": "0",
+    "events": [
+      {
+        "duration_ms": 0,
+        "fault_behavior": "permanent",
+        "fault_type": "fan_stuck_off",
+        "parameter": 0.0,
+        "start_ms": 65000
+      },
+      {
+        "duration_ms": 0,
+        "fault_behavior": "permanent",
+        "fault_type": "calibration_memory_corruption",
+        "parameter": 16.0,
+        "start_ms": 100000
+      }
+    ],
+    "fault_behavior": "permanent",
+    "fault_type": "calibration_memory_corruption",
+    "parameter": "16",
+    "preset_choice": "sensor_bias_then_fan_loss_demo",
+    "preset_name": "sensor_bias_then_fan_loss_demo_copy",
+    "selected_builder_tab": 1,
+    "selected_event_index": 1,
+    "start_ms": "100000"
+  },
+  "recent_context": {
+    "batch_status_text": "Loaded 47 batch runs. Use the table and plot selector to inspect sweep-level trends.",
+    "custom_status_text": "Custom scenario loaded as Left and Comparison Figures opened for immediate plot review. Saved files: logs/gui_custom/custom_multi_e1_fan_stuck_off_permanent_start65000_dur0_param0__e2_calibration_memory_corruption_permanent_start100000_dur0_param16.csv and logs/gui_custom/custom_multi_e1_fan_stuck_off_permanent_start65000_dur0_param0__e2_calibration_memory_corruption_permanent_start100000_dur0_param16_summary.csv.",
+    "status_text": "Loaded comparison: Pump Degraded Only vs Calibration Memory Corruption."
+  },
+  "version": 1
+}

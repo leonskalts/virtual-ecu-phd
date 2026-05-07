@@ -4,65 +4,54 @@ Before making changes:
 1. Run git status --short.
 2. Inspect scripts/virtual_ecu_gui.py.
 3. Inspect README.md.
-4. Summarize the current state of the Fault Path tab and the current GUI usability features.
+4. Summarize the current state of the main GUI tabs:
+   - Comparison Summary
+   - Comparison Figures
+   - Custom Experiment
+   - Fault Path
+   - Batch Results
 
-Current expected GUI features:
-- Comparison Summary / Comparison Figures / Custom Experiment / Fault Path / Batch Results tabs
-- Quick Start / Guided Use
-- Showcase / Demo Presets
-- Favorites / Pinned Comparisons
-- Recent Results / Recent Comparisons
-- Load Existing Results
-- Custom single-fault experiments
-- Multi-fault scenario builder
-- Scenario Timeline
-- Comparison Verdict / Key Takeaway
-- Session Save / Restore
-- Presentation Mode
-
-Current expected focus:
-The Fault Path tab has been iteratively redesigned but still needs a final clean, readable, first-time-user-friendly version.
-
-Next task:
-Finalize the Fault Path tab using the selected 5 subsystem icons and make it clean, readable, and presentation-friendly.
-
-Use these icon mappings:
-- Sensing Path -> thermometer in coolant / water icon
-- Timing / Link -> wireless / signal icon
-- Control / Memory -> memory chip icon
-- Actuation Path -> fan icon
-- Plant Outcome -> engine + thermometer icon
+Current expected state:
+The GUI has already gone through multiple rounds of usability and visual refinement.
+The goal now is NOT to redesign major workflows again.
+The goal is to do a final lightweight GUI polish pass so the interface feels visually consistent, clean, and presentation-ready across all tabs.
 
 Requirements:
 - Keep the C simulator unchanged.
 - Keep the GUI in Python/Tkinter.
 - Do not add heavy dependencies.
-- Do not add more labels, overlays, or repeated annotations.
-- Choose clarity over density.
+- Do not introduce new major features unless truly necessary.
+- Prefer consistency, clarity, and visual cleanup over more complexity.
 
-The final Fault Path tab should:
-- be understandable by a first-time user
-- show the 5-stage left-to-right subsystem flow clearly
-- keep the baseline/reference side visually quiet
-- clearly highlight the fault-origin subsystem in the fault case
-- optionally highlight the final plant outcome block
-- avoid duplicated explanations above and below the diagram
-- use only one short explanation sentence per card
-- be suitable for thesis/demo screenshots
+Next task:
+Do a final GUI consistency and polish pass across the main tabs.
 
-Also:
-- keep the top summary row compact
-- remove clutter
-- preserve the rest of the GUI workflows
+Please look for:
+- inconsistent spacing
+- uneven section hierarchy
+- mismatched button naming
+- repeated explanatory text
+- panels that still feel visually too dense
+- places where one tab looks noticeably less polished than the others
+- areas where typography, margins, or panel balance could be improved
 
-In your response:
-- explain what files changed
-- explain what clutter was removed
-- explain how the new visual flow works
-- explain why the final tab is easier for a first-time user
+Focus especially on:
+- overall consistency between tabs
+- clean presentation for thesis/demo screenshots
+- first-time user readability
+- keeping primary actions visually stronger than secondary ones
+
+Do NOT redesign the whole GUI again.
+Do NOT undo the recent usability work.
+Do NOT add clutter.
+
+Also provide:
+- what files changed
+- what visual inconsistencies were fixed
+- which areas became cleaner or more consistent
+- whether simulator behavior changed
+- whether the GUI now feels ready for thesis/demo use overall
 
 Verification:
 - python3 -m py_compile scripts/virtual_ecu_gui.py
 - PYTHONPATH=scripts python3 -c "import virtual_ecu_gui"
-
-Do not redesign the entire GUI again. Focus only on making the Fault Path tab finally clean and readable.

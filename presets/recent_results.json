@@ -1,3 +1,46 @@
 {
-  "recent_results": []
+  "recent_results": [
+    {
+      "description": "Recent comparison loaded through the GUI.",
+      "kind": "comparison",
+      "left_result": "logs/gui_left_pump_degraded_only.csv",
+      "right_result": "logs/gui_right_calibration_memory_corruption.csv",
+      "title": "Pump Degraded Only vs Calibration Memory Corruption"
+    },
+    {
+      "description": "Custom experiment or scenario run from the GUI.",
+      "kind": "custom",
+      "left_result": "logs/gui_custom/custom_multi_e1_fan_stuck_off_permanent_start65000_dur0_param0__e2_calibration_memory_corruption_permanent_start100000_dur0_param16.csv",
+      "right_result": "",
+      "title": "Custom Multi-Fault Scenario (2 events: Fan Stuck Off -> Calibration Memory Corruption)"
+    },
+    {
+      "description": "Custom experiment or scenario run from the GUI.",
+      "kind": "custom",
+      "left_result": "logs/gui_custom/custom_multi_e1_sensor_bias_transient_start20000_dur10000_param8__e2_fan_stuck_off_permanent_start65000_dur0_param0__e3_calibration_memory_corruption_permanent_start100000_dur0_param16.csv",
+      "right_result": "",
+      "title": "Custom Multi-Fault Scenario (3 events: Sensor Bias -> Fan Stuck Off -> Calibration Memory Corruption)"
+    },
+    {
+      "description": "Recent comparison loaded through the GUI.",
+      "kind": "comparison",
+      "left_result": "logs/gui_left_stale_sensor_data_hot_stress.csv",
+      "right_result": "logs/gui_right_fan_stuck_hot_stress.csv",
+      "title": "Stale Sensor Data Hot Stress vs Fan Stuck Hot Stress"
+    },
+    {
+      "description": "Recent comparison loaded through the GUI.",
+      "kind": "comparison",
+      "left_result": "logs/gui_left_baseline.csv",
+      "right_result": "logs/gui_right_calibration_memory_corruption.csv",
+      "title": "Baseline vs Calibration Memory Corruption"
+    },
+    {
+      "description": "Recent comparison loaded through the GUI.",
+      "kind": "comparison",
+      "left_result": "logs/gui_left_baseline.csv",
+      "right_result": "logs/gui_right_stale_sensor_data_only.csv",
+      "title": "Baseline vs Stale Sensor Data Only"
+    }
+  ]
 }
