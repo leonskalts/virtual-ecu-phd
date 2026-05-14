@@ -303,6 +303,12 @@ SAFE_STATE_LABELS = {
     2: "limp_home",
     3: "controlled_shutdown",
 }
+SAFE_STATE_DISPLAY_ORDER = (
+    "normal",
+    "precautionary_cooling",
+    "limp_home",
+    "controlled_shutdown",
+)
 SAFE_STATE_SEVERITY = {
     "normal": 0,
     "precautionary_cooling": 1,
@@ -1422,6 +1428,29 @@ def format_temp_value(value: float | None) -> str:
 
 def humanize_label(value: str) -> str:
     return value.replace("_", " ")
+
+
+def normalize_safe_state_label(value: object) -> str:
+    if value is None:
+        return "unknown"
+
+    text = str(value).strip()
+    if not text:
+        return "unknown"
+
+    numeric_value = int_or_none(text)
+    if numeric_value is not None:
+        return SAFE_STATE_LABELS.get(numeric_value, text)
+
+    normalized = text.lower().replace("-", "_").replace(" ", "_")
+    return normalized
+
+
+def safe_state_display_label(value: object) -> str:
+    normalized = normalize_safe_state_label(value)
+    if normalized == "unknown":
+        return "Unknown"
+    return humanize_label(normalized).title()
 
 
 def compare_detection_statement(
@@ -3939,6 +3968,7 @@ class VirtualECUGui(tk.Tk):
         "precautionary_cooling": "#f2c14e",
         "limp_home": "#e07a5f",
         "controlled_shutdown": "#7b2d26",
+        "unknown": "#8c99a5",
     }
 
     def __init__(self) -> None:
@@ -4098,6 +4128,8 @@ class VirtualECUGui(tk.Tk):
         style.configure("Hint.TLabel", font=("TkDefaultFont", 9), foreground="#4d5c69")
         style.configure("ColumnHeader.TLabel", font=("TkDefaultFont", 10, "bold"), foreground="#1d3448")
         style.configure("MetricLabel.TLabel", font=("TkDefaultFont", 10, "bold"), foreground="#1f3040")
+        style.configure("Primary.TButton", padding=(12, 7), font=("TkDefaultFont", 10, "bold"))
+        style.configure("Secondary.TButton", padding=(10, 6))
         style.configure("Batch.Treeview", rowheight=26, font=("TkDefaultFont", 9))
         style.configure("Batch.Treeview.Heading", font=("TkDefaultFont", 9, "bold"))
         style.configure("Evidence.Treeview", rowheight=52, font=("TkDefaultFont", 9))
@@ -4197,31 +4229,63 @@ class VirtualECUGui(tk.Tk):
             self._on_campaign_changed,
         )
 
-        actions = ttk.Frame(selectors_area, style="Root.TFrame")
+        actions = ttk.LabelFrame(selectors_area, text="Run / Load / Export", padding=12)
         actions.grid(row=0, column=2, rowspan=2, sticky="ne", padx=(12, 0))
+        actions.columnconfigure(0, weight=1)
 
-        self.run_compare_button = ttk.Button(actions, text="Run Built-In Comparison", command=self.run_comparison)
-        self.run_compare_button.grid(row=0, column=0, sticky="e")
-        self.run_left_button = ttk.Button(actions, text="Run Selected Left Only", command=self.run_left_only)
-        self.run_left_button.grid(row=1, column=0, sticky="e", pady=(8, 0))
-        ttk.Button(actions, text="Load Saved CSV as Left", command=self.load_existing_as_left).grid(
-            row=2, column=0, sticky="e", pady=(8, 0)
+        ttk.Label(
+            actions,
+            text="Start with the run actions, then use load or export only when you need a specific result path.",
+            style="Hint.TLabel",
+            wraplength=260,
+            justify="left",
+        ).grid(row=0, column=0, sticky="w")
+
+        primary_actions = ttk.Frame(actions, style="Root.TFrame")
+        primary_actions.grid(row=1, column=0, sticky="ew", pady=(10, 0))
+        primary_actions.columnconfigure(0, weight=1)
+        self.run_compare_button = ttk.Button(
+            primary_actions,
+            text="Run Comparison",
+            command=self.run_comparison,
+            style="Primary.TButton",
         )
-        ttk.Button(actions, text="Load Saved CSV as Right", command=self.load_existing_as_right).grid(
-            row=3, column=0, sticky="e", pady=(8, 0)
+        self.run_compare_button.grid(row=0, column=0, sticky="ew")
+        self.run_left_button = ttk.Button(
+            primary_actions,
+            text="Run Left Only",
+            command=self.run_left_only,
+            style="Secondary.TButton",
         )
-        self.snapshot_button = ttk.Button(actions, text="Export Snapshot", command=self.export_results_snapshot)
-        self.snapshot_button.grid(row=4, column=0, sticky="e", pady=(8, 0))
+        self.run_left_button.grid(row=1, column=0, sticky="ew", pady=(8, 0))
+
+        load_actions = ttk.Frame(actions, style="Root.TFrame")
+        load_actions.grid(row=2, column=0, sticky="ew", pady=(12, 0))
+        load_actions.columnconfigure(0, weight=1)
+        ttk.Label(load_actions, text="Load saved results", style="FieldName.TLabel").grid(row=0, column=0, sticky="w")
+        ttk.Button(load_actions, text="Load Result as Left", command=self.load_existing_as_left).grid(
+            row=1, column=0, sticky="ew", pady=(6, 0)
+        )
+        ttk.Button(load_actions, text="Load Result as Right", command=self.load_existing_as_right).grid(
+            row=2, column=0, sticky="ew", pady=(8, 0)
+        )
+
+        export_actions = ttk.Frame(actions, style="Root.TFrame")
+        export_actions.grid(row=3, column=0, sticky="ew", pady=(12, 0))
+        export_actions.columnconfigure(0, weight=1)
+        ttk.Label(export_actions, text="Export outputs", style="FieldName.TLabel").grid(row=0, column=0, sticky="w")
+        self.snapshot_button = ttk.Button(export_actions, text="Export Snapshot", command=self.export_results_snapshot)
+        self.snapshot_button.grid(row=1, column=0, sticky="ew", pady=(6, 0))
         self.snapshot_button.state(["disabled"])
-        self.export_button = ttk.Button(actions, text="Export Full Report", command=self.export_current_comparison)
-        self.export_button.grid(row=5, column=0, sticky="e", pady=(8, 0))
+        self.export_button = ttk.Button(export_actions, text="Export Full Report", command=self.export_current_comparison)
+        self.export_button.grid(row=2, column=0, sticky="ew", pady=(8, 0))
         self.export_button.state(["disabled"])
         self.presentation_bundle_button = ttk.Button(
-            actions,
+            export_actions,
             text="Export Presentation Bundle",
             command=self.export_presentation_bundle,
         )
-        self.presentation_bundle_button.grid(row=6, column=0, sticky="e", pady=(8, 0))
+        self.presentation_bundle_button.grid(row=3, column=0, sticky="ew", pady=(8, 0))
         self.presentation_bundle_button.state(["disabled"])
 
         info_area = ttk.Frame(parent, padding=(12, 0, 12, 12), style="Root.TFrame")
@@ -4278,13 +4342,23 @@ class VirtualECUGui(tk.Tk):
         self._build_saved_resources_panel(parent)
 
     def _build_comparison_figures_tab(self, parent: ttk.Frame) -> None:
-        plots = ttk.Frame(parent, padding=(12, 8, 12, 12), style="Root.TFrame")
-        plots.grid(row=0, column=0, sticky="nsew")
+        self._build_tab_header(
+            parent,
+            row=0,
+            title="Comparison Figures",
+            description=(
+                "Use this tab after loading or running a comparison. Keep the selector focused on one figure at a time "
+                "for cleaner screenshots and easier narration."
+            ),
+        )
+
+        plots = ttk.Frame(parent, padding=(12, 0, 12, 12), style="Root.TFrame")
+        plots.grid(row=1, column=0, sticky="nsew")
         plots.columnconfigure(0, weight=1)
         plots.rowconfigure(1, weight=1, minsize=560)
         plots.rowconfigure(2, weight=0)
 
-        plot_header = ttk.Frame(plots, style="Root.TFrame")
+        plot_header = ttk.LabelFrame(plots, text="Figure Selection", padding=12)
         plot_header.grid(row=0, column=0, sticky="ew", pady=(0, 10))
         plot_header.columnconfigure(0, weight=0)
         plot_header.columnconfigure(1, weight=0)
@@ -4398,20 +4472,15 @@ class VirtualECUGui(tk.Tk):
         self._clear_propagation_evidence()
 
     def _build_custom_experiment_tab(self, parent: ttk.Frame) -> None:
-        header = ttk.Frame(parent, padding=(12, 8, 12, 10), style="Root.TFrame")
-        header.grid(row=0, column=0, sticky="ew")
-        header.columnconfigure(0, weight=1)
-        ttk.Label(header, text="Custom Experiment Builder", style="Section.TLabel").grid(row=0, column=0, sticky="w")
-        ttk.Label(
-            header,
-            text=(
-                "Start with the builder tabs on the left. Use the main run buttons first for the fastest demo path, "
-                "then use presets and advanced load actions only when you want a specific comparison setup."
+        self._build_tab_header(
+            parent,
+            row=0,
+            title="Custom Experiment",
+            description=(
+                "Build a single fault or staged scenario, use the main run actions first, and keep presets or advanced "
+                "placement for the cases where you need a more specific comparison layout."
             ),
-            style="Hint.TLabel",
-            wraplength=1050,
-            justify="left",
-        ).grid(row=1, column=0, sticky="w", pady=(4, 0))
+        )
 
         content = ttk.Frame(parent, padding=(12, 0, 12, 12), style="Root.TFrame")
         content.grid(row=1, column=0, sticky="nsew")
@@ -4553,12 +4622,18 @@ class VirtualECUGui(tk.Tk):
 
         primary_actions = ttk.Frame(actions_card, style="Root.TFrame")
         primary_actions.grid(row=0, column=0, sticky="w")
-        run_show = ttk.Button(primary_actions, text="Run Custom & Open Figures", command=self.run_custom_only)
+        run_show = ttk.Button(
+            primary_actions,
+            text="Run Single Fault",
+            command=self.run_custom_only,
+            style="Primary.TButton",
+        )
         run_show.grid(row=0, column=0, sticky="w")
         compare_show = ttk.Button(
             primary_actions,
-            text="Compare Against Baseline",
+            text="Compare vs Baseline",
             command=self.compare_custom_vs_baseline,
+            style="Secondary.TButton",
         )
         compare_show.grid(row=0, column=1, sticky="w", padx=(8, 0))
 
@@ -4577,11 +4652,11 @@ class VirtualECUGui(tk.Tk):
         advanced.grid(row=2, column=0, sticky="w")
 
         ttk.Label(advanced, text="Advanced placement:", style="FieldName.TLabel").grid(row=0, column=0, sticky="w")
-        run_only = ttk.Button(advanced, text="Run Custom Only (Left)", command=self.run_custom_only)
+        run_only = ttk.Button(advanced, text="Run to Left Only", command=self.run_custom_only)
         run_only.grid(row=0, column=1, sticky="w", padx=(8, 0))
-        load_left = ttk.Button(advanced, text="Load Custom as Left", command=self.load_custom_as_left)
+        load_left = ttk.Button(advanced, text="Load as Left", command=self.load_custom_as_left)
         load_left.grid(row=0, column=2, sticky="w", padx=(8, 0))
-        load_right = ttk.Button(advanced, text="Load Custom as Right", command=self.load_custom_as_right)
+        load_right = ttk.Button(advanced, text="Load as Right", command=self.load_custom_as_right)
         load_right.grid(row=0, column=3, sticky="w", padx=(8, 0))
 
         ttk.Label(
@@ -4766,12 +4841,18 @@ class VirtualECUGui(tk.Tk):
 
         primary_actions = ttk.Frame(actions_card, style="Root.TFrame")
         primary_actions.grid(row=0, column=0, sticky="w")
-        run_show = ttk.Button(primary_actions, text="Run Scenario & Open Figures", command=self.run_multi_only)
+        run_show = ttk.Button(
+            primary_actions,
+            text="Run Scenario",
+            command=self.run_multi_only,
+            style="Primary.TButton",
+        )
         run_show.grid(row=0, column=0, sticky="w")
         compare_show = ttk.Button(
             primary_actions,
-            text="Compare Scenario Against Baseline",
+            text="Compare vs Baseline",
             command=self.compare_multi_vs_baseline,
+            style="Secondary.TButton",
         )
         compare_show.grid(row=0, column=1, sticky="w", padx=(8, 0))
 
@@ -4789,11 +4870,11 @@ class VirtualECUGui(tk.Tk):
         actions = ttk.Frame(actions_card, style="Root.TFrame")
         actions.grid(row=2, column=0, sticky="w")
         ttk.Label(actions, text="Advanced placement:", style="FieldName.TLabel").grid(row=0, column=0, sticky="w")
-        run_only = ttk.Button(actions, text="Run Scenario Only (Left)", command=self.run_multi_only)
+        run_only = ttk.Button(actions, text="Run to Left Only", command=self.run_multi_only)
         run_only.grid(row=0, column=1, sticky="w", padx=(8, 0))
-        load_left = ttk.Button(actions, text="Load Scenario as Left", command=self.load_multi_as_left)
+        load_left = ttk.Button(actions, text="Load as Left", command=self.load_multi_as_left)
         load_left.grid(row=0, column=2, sticky="w", padx=(8, 0))
-        load_right = ttk.Button(actions, text="Load Scenario as Right", command=self.load_multi_as_right)
+        load_right = ttk.Button(actions, text="Load as Right", command=self.load_multi_as_right)
         load_right.grid(row=0, column=3, sticky="w", padx=(8, 0))
 
         ttk.Label(
@@ -4834,24 +4915,15 @@ class VirtualECUGui(tk.Tk):
         ).grid(row=row, column=1, sticky="w", pady=4)
 
     def _build_fault_path_tab(self, parent: ttk.Frame) -> None:
-        header = ttk.Frame(parent, padding=(12, 8, 12, 10), style="Root.TFrame")
-        header.grid(row=0, column=0, sticky="ew")
-        header.columnconfigure(0, weight=1)
-        ttk.Label(header, text="Cross-Layer Fault Path Visualization", style="Section.TLabel").grid(
+        self._build_tab_header(
+            parent,
             row=0,
-            column=0,
-            sticky="w",
-        )
-        ttk.Label(
-            header,
-            text=(
-                "Read the ECU fault story from left to right: sensing, timing/link, control/memory, actuation, "
-                "and final plant outcome. The reference side stays quiet so the fault case is easier to scan."
+            title="Fault Path",
+            description=(
+                "Read the ECU fault story from left to right: sensing, timing/link, control/memory, actuation, and "
+                "final plant outcome. The reference side stays quiet so the fault case is easier to scan."
             ),
-            style="Hint.TLabel",
-            wraplength=980,
-            justify="left",
-        ).grid(row=1, column=0, sticky="w", pady=(4, 0))
+        )
 
         diagram_area = ttk.Frame(parent, padding=(12, 0, 12, 12), style="Root.TFrame")
         diagram_area.grid(row=1, column=0, sticky="nsew")
@@ -4875,15 +4947,25 @@ class VirtualECUGui(tk.Tk):
         self._refresh_fault_path_diagrams()
 
     def _build_batch_tab(self, parent: ttk.Frame) -> None:
+        self._build_tab_header(
+            parent,
+            row=0,
+            title="Batch Results",
+            description=(
+                "Use this tab as a compact viewing layer for aggregate sweeps. Keep it focused on quick comparison and "
+                "use the analysis scripts when you need publication-grade tables or figures."
+            ),
+        )
+
         controls = ttk.LabelFrame(parent, text="Batch Aggregate Summary", padding=14)
-        controls.grid(row=0, column=0, sticky="ew", padx=12, pady=(0, 12))
+        controls.grid(row=1, column=0, sticky="ew", padx=12, pady=(0, 12))
         controls.columnconfigure(1, weight=1)
 
         ttk.Label(controls, text="Aggregate CSV", style="FieldName.TLabel").grid(row=0, column=0, sticky="w")
         path_entry = ttk.Entry(controls, textvariable=self.batch_csv_path)
         path_entry.grid(row=0, column=1, sticky="ew", padx=(10, 10))
         ttk.Button(controls, text="Browse", command=self.browse_batch_results).grid(row=0, column=2, sticky="e")
-        ttk.Button(controls, text="Load Batch Results", command=self.load_batch_results).grid(
+        ttk.Button(controls, text="Load Aggregate CSV", command=self.load_batch_results, style="Primary.TButton").grid(
             row=0, column=3, sticky="e", padx=(8, 0)
         )
 
@@ -4899,7 +4981,7 @@ class VirtualECUGui(tk.Tk):
         )
 
         overview = ttk.Frame(parent, padding=(12, 0, 12, 12), style="Root.TFrame")
-        overview.grid(row=1, column=0, sticky="ew")
+        overview.grid(row=2, column=0, sticky="ew")
         overview.columnconfigure(0, weight=1)
         overview.columnconfigure(1, weight=1)
         overview.columnconfigure(2, weight=1)
@@ -4909,7 +4991,7 @@ class VirtualECUGui(tk.Tk):
         self._build_batch_stat_card(overview, 2, "Fault Types Present", self.batch_fault_types_var)
 
         findings_frame = ttk.LabelFrame(parent, text="Batch Findings / Interpretation", padding=14)
-        findings_frame.grid(row=2, column=0, sticky="ew", padx=12, pady=(0, 12))
+        findings_frame.grid(row=3, column=0, sticky="ew", padx=12, pady=(0, 12))
         findings_frame.columnconfigure(0, weight=1)
         self._build_findings_cards(
             findings_frame,
@@ -4919,7 +5001,7 @@ class VirtualECUGui(tk.Tk):
         )
 
         content = ttk.Frame(parent, padding=(12, 0, 12, 12), style="Root.TFrame")
-        content.grid(row=3, column=0, sticky="nsew")
+        content.grid(row=4, column=0, sticky="nsew")
         content.columnconfigure(0, weight=5)
         content.columnconfigure(1, weight=4)
         content.rowconfigure(0, weight=1)
@@ -5011,6 +5093,19 @@ class VirtualECUGui(tk.Tk):
         self.batch_plot = PlotCanvas(plot_frame, self.batch_plot_choice.get(), canvas_height=300)
         self.batch_plot.grid(row=2, column=0, sticky="nsew")
         self.batch_plot.show_message("Load a batch aggregate summary CSV to view the sweep-level comparison.")
+
+    def _build_tab_header(self, parent: ttk.Frame, *, row: int, title: str, description: str) -> None:
+        header = ttk.Frame(parent, padding=(12, 8, 12, 10), style="Root.TFrame")
+        header.grid(row=row, column=0, sticky="ew")
+        header.columnconfigure(0, weight=1)
+        ttk.Label(header, text=title, style="Section.TLabel").grid(row=0, column=0, sticky="w")
+        ttk.Label(
+            header,
+            text=description,
+            style="Hint.TLabel",
+            wraplength=1050,
+            justify="left",
+        ).grid(row=1, column=0, sticky="w", pady=(4, 0))
 
     def _build_selector_card(
         self,
@@ -7017,7 +7112,7 @@ class VirtualECUGui(tk.Tk):
                     self._format_batch_number(mean_or_none(safe_state_latency_values), decimals=1),
                     self._format_batch_number(mean_or_none(max_temp_values), decimals=2),
                     self._format_batch_number(mean_or_none(safe_mode_values), decimals=1),
-                    SAFE_STATE_LABELS.get(dominant_state, dominant_state),
+                    safe_state_display_label(dominant_state),
                 ),
             )
 
@@ -7129,12 +7224,17 @@ class VirtualECUGui(tk.Tk):
             return
 
         categories: List[str] = []
-        stacks = {
-            "normal": [],
-            "precautionary_cooling": [],
-            "limp_home": [],
-            "controlled_shutdown": [],
+        present_states = {
+            normalize_safe_state_label(row.get("final_safe_state", "unknown"))
+            for row in rows
+            if row.get("final_safe_state")
         }
+        state_order = [state for state in SAFE_STATE_DISPLAY_ORDER if state in present_states]
+        extra_states = sorted(state for state in present_states if state not in SAFE_STATE_DISPLAY_ORDER)
+        if not state_order and not extra_states:
+            state_order = ["unknown"]
+        ordered_states = [*state_order, *extra_states]
+        stacks = {state: [] for state in ordered_states}
 
         for fault_type in fault_types:
             type_rows = [row for row in rows if row["fault_type"] == fault_type]
@@ -7143,8 +7243,9 @@ class VirtualECUGui(tk.Tk):
 
             categories.append(FAULT_TYPE_DISPLAY.get(fault_type, fault_type))
             total_runs = float(len(type_rows))
-            for state in stacks:
-                count = sum(1 for row in type_rows if row.get("final_safe_state") == state)
+            normalized_states = [normalize_safe_state_label(row.get("final_safe_state", "unknown")) for row in type_rows]
+            for state in ordered_states:
+                count = sum(1 for normalized_state in normalized_states if normalized_state == state)
                 stacks[state].append((100.0 * count) / total_runs)
 
         if not categories:
@@ -7154,8 +7255,12 @@ class VirtualECUGui(tk.Tk):
         self.batch_plot.plot_stacked_bars(
             categories,
             [
-                (SAFE_STATE_LABELS[state], self.BATCH_SAFE_STATE_COLORS[state], stacks[state])
-                for state in ("normal", "precautionary_cooling", "limp_home", "controlled_shutdown")
+                (
+                    safe_state_display_label(state),
+                    self.BATCH_SAFE_STATE_COLORS.get(state, self.BATCH_SAFE_STATE_COLORS["unknown"]),
+                    stacks[state],
+                )
+                for state in ordered_states
             ],
             y_label="Outcome Share [%]",
             max_value=100.0,
