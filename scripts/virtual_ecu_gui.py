@@ -22,6 +22,11 @@ except ImportError as exc:  # pragma: no cover - import failure is environment-s
         "Install the Tk package for Python and try again."
     ) from exc
 
+try:
+    import customtkinter as ctk
+except ImportError:  # Keep the GUI runnable in minimal WSL/Python installs.
+    ctk = None  # type: ignore[assignment]
+
 os.environ.setdefault("MPLCONFIGDIR", "/tmp/virtual_ecu_mpl")
 
 import matplotlib.pyplot as plt
@@ -51,6 +56,19 @@ DEFAULT_BATCH_AGGREGATE_CSV = PROJECT_ROOT / "results" / "batch" / "paper_quick"
 MAX_CUSTOM_SCENARIO_EVENTS = 4
 MAX_RECENT_RESULTS = 6
 MAX_FAVORITES = 8
+CTK_AVAILABLE = ctk is not None
+UI_FONT = "DejaVu Sans"
+APP_BG = "#edf2f7"
+CARD_BG = "#ffffff"
+SOFT_CARD_BG = "#f8fafc"
+SIDEBAR_BG = "#14213d"
+SIDEBAR_ACTIVE = "#2f80ed"
+SIDEBAR_HOVER = "#1f3f70"
+SIDEBAR_TEXT = "#f8fafc"
+TEXT_DARK = "#172033"
+TEXT_MUTED = "#526173"
+ACCENT_GREEN = "#2d9c6f"
+ACCENT_AMBER = "#d89020"
 REQUIRED_RESULT_RAW_COLUMNS = {
     "experiment_id",
     "campaign_id",
@@ -3097,7 +3115,7 @@ class ScrollableTabFrame(ttk.Frame):
 
         self.canvas = tk.Canvas(
             self,
-            background="#f4f6f8",
+            background=APP_BG,
             borderwidth=0,
             highlightthickness=0,
         )
@@ -3921,7 +3939,7 @@ class ScenarioTimelineView(ttk.Frame):
                 self.canvas.create_line(x1, track_top - 5, x1, track_bottom + 5, fill=color, width=2)
 
 
-class VirtualECUGui(tk.Tk):
+class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, valid-type]
     METRIC_NAMES = (
         "Final DTC",
         "Final Safe State",
@@ -3972,6 +3990,9 @@ class VirtualECUGui(tk.Tk):
     }
 
     def __init__(self) -> None:
+        if CTK_AVAILABLE:
+            ctk.set_appearance_mode("light")
+            ctk.set_default_color_theme("blue")
         super().__init__()
         self.title("Virtual ECU Research GUI")
         self.geometry("1360x1020")
@@ -4028,6 +4049,11 @@ class VirtualECUGui(tk.Tk):
         self.comparison_plot_help_var = tk.StringVar(
             value="Use the propagation view to read top-to-bottom from hardware-origin fault to ECU manifestation, diagnostics, and safe-state/system effect."
         )
+        self.dashboard_comparison_var = tk.StringVar(value="No comparison loaded")
+        self.dashboard_export_var = tk.StringVar(value="Run a left-versus-right comparison to enable exports")
+        self.dashboard_batch_var = tk.StringVar(value="No batch aggregate loaded")
+        self.dashboard_custom_var = tk.StringVar(value="No custom run yet")
+        self.dashboard_runtime_var = tk.StringVar(value="Simulator executable detected" if self.executable else "Build the simulator before running campaigns")
         self.batch_csv_path = tk.StringVar(value=str(DEFAULT_BATCH_AGGREGATE_CSV))
         self.batch_run_count_var = tk.StringVar(value="-")
         self.batch_fault_classes_var = tk.StringVar(value="-")
@@ -4071,6 +4097,10 @@ class VirtualECUGui(tk.Tk):
         self.notebook: ttk.Notebook | None = None
         self.custom_builder_notebook: ttk.Notebook | None = None
         self.comparison_figures_tab: ttk.Frame | None = None
+        self.page_frames: Dict[str, tk.Widget] = {}
+        self.page_labels: Dict[str, str] = {}
+        self.sidebar_buttons: Dict[str, tk.Widget] = {}
+        self.sidebar_status_label: tk.Widget | None = None
         self.showcase_preset_selector: ttk.Combobox | None = None
         self.recent_results_frame: ttk.Frame | None = None
         self.favorite_selector: ttk.Combobox | None = None
@@ -4118,29 +4148,46 @@ class VirtualECUGui(tk.Tk):
 
     def _configure_style(self) -> None:
         style = ttk.Style(self)
-        style.configure("Root.TFrame", background="#f4f6f8")
+        style.configure("Root.TFrame", background=APP_BG)
         style.configure("Panel.TFrame", background="#eef3f7")
-        style.configure("Header.TLabel", font=("TkDefaultFont", 17, "bold"), background="#f4f6f8")
-        style.configure("Subheader.TLabel", font=("TkDefaultFont", 10), foreground="#465564", background="#f4f6f8")
-        style.configure("Section.TLabel", font=("TkDefaultFont", 12, "bold"))
-        style.configure("FieldName.TLabel", font=("TkDefaultFont", 10, "bold"), foreground="#22313f")
-        style.configure("FieldValue.TLabel", font=("TkDefaultFont", 10), foreground="#374553")
-        style.configure("Hint.TLabel", font=("TkDefaultFont", 9), foreground="#4d5c69")
-        style.configure("ColumnHeader.TLabel", font=("TkDefaultFont", 10, "bold"), foreground="#1d3448")
-        style.configure("MetricLabel.TLabel", font=("TkDefaultFont", 10, "bold"), foreground="#1f3040")
-        style.configure("Primary.TButton", padding=(12, 7), font=("TkDefaultFont", 10, "bold"))
+        style.configure("Header.TLabel", font=(UI_FONT, 20, "bold"), foreground=TEXT_DARK, background=APP_BG)
+        style.configure("Subheader.TLabel", font=(UI_FONT, 10), foreground=TEXT_MUTED, background=APP_BG)
+        style.configure("Section.TLabel", font=(UI_FONT, 13, "bold"), foreground=TEXT_DARK, background=APP_BG)
+        style.configure("FieldName.TLabel", font=(UI_FONT, 10, "bold"), foreground="#22313f")
+        style.configure("FieldValue.TLabel", font=(UI_FONT, 10), foreground="#374553")
+        style.configure("Hint.TLabel", font=(UI_FONT, 9), foreground="#4d5c69")
+        style.configure("ColumnHeader.TLabel", font=(UI_FONT, 10, "bold"), foreground="#1d3448")
+        style.configure("MetricLabel.TLabel", font=(UI_FONT, 10, "bold"), foreground="#1f3040")
+        style.configure("Primary.TButton", padding=(12, 7), font=(UI_FONT, 10, "bold"))
         style.configure("Secondary.TButton", padding=(10, 6))
-        style.configure("Batch.Treeview", rowheight=26, font=("TkDefaultFont", 9))
-        style.configure("Batch.Treeview.Heading", font=("TkDefaultFont", 9, "bold"))
-        style.configure("Evidence.Treeview", rowheight=52, font=("TkDefaultFont", 9))
-        style.configure("Evidence.Treeview.Heading", font=("TkDefaultFont", 9, "bold"))
+        style.configure("Batch.Treeview", rowheight=26, font=(UI_FONT, 9))
+        style.configure("Batch.Treeview.Heading", font=(UI_FONT, 9, "bold"))
+        style.configure("Evidence.Treeview", rowheight=52, font=(UI_FONT, 9))
+        style.configure("Evidence.Treeview.Heading", font=(UI_FONT, 9, "bold"))
+        style.configure("Sidebar.TNotebook", background=APP_BG, borderwidth=0)
+        style.configure("Sidebar.TNotebook.Tab", padding=0)
+        try:
+            style.layout("Sidebar.TNotebook.Tab", [])
+        except tk.TclError:
+            pass
 
     def _build_layout(self) -> None:
-        self.configure(background="#f4f6f8")
-        self.columnconfigure(0, weight=1)
-        self.rowconfigure(1, weight=1)
+        if CTK_AVAILABLE:
+            self.configure(fg_color=APP_BG)
+        else:
+            self.configure(background=APP_BG)
+        self.columnconfigure(0, weight=0)
+        self.columnconfigure(1, weight=1)
+        self.rowconfigure(0, weight=1)
 
-        header = ttk.Frame(self, padding=(16, 14, 16, 10), style="Root.TFrame")
+        self._build_sidebar()
+
+        content_shell = ttk.Frame(self, padding=(0, 0, 0, 0), style="Root.TFrame")
+        content_shell.grid(row=0, column=1, sticky="nsew")
+        content_shell.columnconfigure(0, weight=1)
+        content_shell.rowconfigure(1, weight=1)
+
+        header = ttk.Frame(content_shell, padding=(22, 18, 24, 12), style="Root.TFrame")
         header.grid(row=0, column=0, sticky="ew")
         header.columnconfigure(0, weight=1)
         header.columnconfigure(1, weight=0)
@@ -4150,7 +4197,7 @@ class VirtualECUGui(tk.Tk):
         )
         ttk.Label(
             header,
-            text="Start with a showcase preset for a saved thesis/demo comparison, or run built-in, custom, and batch workflows from the tabs below.",
+            text="A dashboard-style control room for running experiments, comparing fault behavior, inspecting propagation, and exporting research artifacts.",
             style="Subheader.TLabel",
             wraplength=920,
             justify="left",
@@ -4172,36 +4219,549 @@ class VirtualECUGui(tk.Tk):
             justify="right",
         ).grid(row=1, column=0, sticky="e", pady=(8, 0))
 
-        notebook = ttk.Notebook(self)
-        notebook.grid(row=1, column=0, sticky="nsew", padx=12, pady=(0, 12))
+        notebook = ttk.Notebook(content_shell, style="Sidebar.TNotebook")
+        notebook.grid(row=1, column=0, sticky="nsew", padx=18, pady=(0, 18))
+        notebook.bind("<<NotebookTabChanged>>", self._on_main_page_changed)
         self.notebook = notebook
+
+        dashboard_tab = ScrollableTabFrame(notebook, padding=(0, 0, 0, 0))
+        dashboard_tab.content.columnconfigure(0, weight=1)
+        notebook.add(dashboard_tab, text="Dashboard")
+        self._register_page("dashboard", "Dashboard", dashboard_tab)
 
         summary_tab = ScrollableTabFrame(notebook)
         summary_tab.content.columnconfigure(0, weight=1)
-        notebook.add(summary_tab, text="Comparison Summary")
+        notebook.add(summary_tab, text="Run / Load")
+        self._register_page("summary", "Run / Load", summary_tab)
 
         figures_tab = ScrollableTabFrame(notebook)
         figures_tab.content.columnconfigure(0, weight=1)
-        notebook.add(figures_tab, text="Comparison Figures")
+        notebook.add(figures_tab, text="Compare Figures")
         self.comparison_figures_tab = figures_tab
+        self._register_page("figures", "Compare Figures", figures_tab)
 
         custom_tab = ScrollableTabFrame(notebook)
         custom_tab.content.columnconfigure(0, weight=1)
-        notebook.add(custom_tab, text="Custom Experiment")
+        notebook.add(custom_tab, text="Custom Faults")
+        self._register_page("custom", "Custom Faults", custom_tab)
 
         fault_path_tab = ScrollableTabFrame(notebook)
         fault_path_tab.content.columnconfigure(0, weight=1)
         notebook.add(fault_path_tab, text="Fault Path")
+        self._register_page("fault_path", "Fault Path", fault_path_tab)
 
         batch_tab = ScrollableTabFrame(notebook)
         batch_tab.content.columnconfigure(0, weight=1)
         notebook.add(batch_tab, text="Batch Results")
+        self._register_page("batch", "Batch Results", batch_tab)
 
+        exports_tab = ScrollableTabFrame(notebook)
+        exports_tab.content.columnconfigure(0, weight=1)
+        notebook.add(exports_tab, text="Export Reports")
+        self._register_page("exports", "Export Reports", exports_tab)
+
+        self._build_dashboard_tab(dashboard_tab.content)
         self._build_comparison_summary_tab(summary_tab.content)
         self._build_comparison_figures_tab(figures_tab.content)
         self._build_custom_experiment_tab(custom_tab.content)
         self._build_fault_path_tab(fault_path_tab.content)
         self._build_batch_tab(batch_tab.content)
+        self._build_exports_tab(exports_tab.content)
+        self._set_active_nav("dashboard")
+
+    def _build_sidebar(self) -> None:
+        if CTK_AVAILABLE:
+            sidebar = ctk.CTkFrame(self, width=248, corner_radius=0, fg_color=SIDEBAR_BG)
+        else:
+            sidebar = tk.Frame(self, width=248, bg=SIDEBAR_BG)
+        sidebar.grid(row=0, column=0, sticky="ns")
+        sidebar.grid_propagate(False)
+        sidebar.columnconfigure(0, weight=1)
+
+        if CTK_AVAILABLE:
+            ctk.CTkLabel(
+                sidebar,
+                text="virtual ECU",
+                text_color=SIDEBAR_TEXT,
+                font=(UI_FONT, 20, "bold"),
+                anchor="w",
+            ).grid(row=0, column=0, sticky="ew", padx=22, pady=(26, 2))
+            ctk.CTkLabel(
+                sidebar,
+                text="Research dashboard",
+                text_color="#b7c3d4",
+                font=(UI_FONT, 12),
+                anchor="w",
+            ).grid(row=1, column=0, sticky="ew", padx=22, pady=(0, 20))
+        else:
+            tk.Label(
+                sidebar,
+                text="virtual ECU",
+                bg=SIDEBAR_BG,
+                fg=SIDEBAR_TEXT,
+                font=(UI_FONT, 20, "bold"),
+                anchor="w",
+            ).grid(row=0, column=0, sticky="ew", padx=22, pady=(26, 2))
+            tk.Label(
+                sidebar,
+                text="Research dashboard",
+                bg=SIDEBAR_BG,
+                fg="#b7c3d4",
+                font=(UI_FONT, 12),
+                anchor="w",
+            ).grid(row=1, column=0, sticky="ew", padx=22, pady=(0, 20))
+
+        nav_items = (
+            ("dashboard", "Dashboard"),
+            ("summary", "1. Run / Load"),
+            ("figures", "2. Compare"),
+            ("fault_path", "3. Fault Path"),
+            ("batch", "4. Batch Results"),
+            ("exports", "5. Exports"),
+            ("custom", "Custom Faults"),
+        )
+        for row, (page_key, label) in enumerate(nav_items, start=2):
+            button = self._create_sidebar_button(sidebar, page_key, label)
+            button.grid(row=row, column=0, sticky="ew", padx=14, pady=4)
+            self.sidebar_buttons[page_key] = button
+
+        sidebar.rowconfigure(10, weight=1)
+        if CTK_AVAILABLE:
+            self.sidebar_status_label = ctk.CTkLabel(
+                sidebar,
+                textvariable=self.dashboard_runtime_var,
+                text_color="#d4deec",
+                fg_color="#1b2b4a",
+                corner_radius=12,
+                font=(UI_FONT, 11),
+                wraplength=190,
+                justify="left",
+                anchor="w",
+            )
+        else:
+            self.sidebar_status_label = tk.Label(
+                sidebar,
+                textvariable=self.dashboard_runtime_var,
+                bg="#1b2b4a",
+                fg="#d4deec",
+                font=(UI_FONT, 11),
+                wraplength=190,
+                justify="left",
+                anchor="w",
+                padx=12,
+                pady=10,
+            )
+        self.sidebar_status_label.grid(row=11, column=0, sticky="ew", padx=16, pady=(12, 22))
+
+    def _create_sidebar_button(self, parent: tk.Misc, page_key: str, label: str) -> tk.Widget:
+        if CTK_AVAILABLE:
+            return ctk.CTkButton(
+                parent,
+                text=label,
+                command=lambda key=page_key: self._navigate_to_page(key),
+                height=38,
+                corner_radius=10,
+                fg_color="transparent",
+                hover_color=SIDEBAR_HOVER,
+                text_color=SIDEBAR_TEXT,
+                font=(UI_FONT, 13, "bold"),
+                anchor="w",
+            )
+        return tk.Button(
+            parent,
+            text=label,
+            command=lambda key=page_key: self._navigate_to_page(key),
+            bg=SIDEBAR_BG,
+            fg=SIDEBAR_TEXT,
+            activebackground=SIDEBAR_HOVER,
+            activeforeground=SIDEBAR_TEXT,
+            relief="flat",
+            borderwidth=0,
+            anchor="w",
+            padx=14,
+            pady=9,
+            font=(UI_FONT, 12, "bold"),
+        )
+
+    def _register_page(self, page_key: str, label: str, frame: tk.Widget) -> None:
+        self.page_frames[page_key] = frame
+        self.page_labels[page_key] = label
+
+    def _navigate_to_page(self, page_key: str) -> None:
+        if self.notebook is None:
+            return
+        frame = self.page_frames.get(page_key)
+        if frame is None:
+            return
+        try:
+            self.notebook.select(frame)
+        except tk.TclError:
+            return
+        self._set_active_nav(page_key)
+
+    def _on_main_page_changed(self, _event: tk.Event[tk.Misc] | None = None) -> None:
+        if self.notebook is None:
+            return
+        selected = self.notebook.select()
+        for page_key, frame in self.page_frames.items():
+            try:
+                if str(frame) == selected:
+                    self._set_active_nav(page_key)
+                    return
+            except tk.TclError:
+                return
+
+    def _set_active_nav(self, active_key: str) -> None:
+        for page_key, button in self.sidebar_buttons.items():
+            is_active = page_key == active_key
+            if CTK_AVAILABLE:
+                button.configure(  # type: ignore[attr-defined]
+                    fg_color=SIDEBAR_ACTIVE if is_active else "transparent",
+                    text_color="#ffffff" if is_active else SIDEBAR_TEXT,
+                )
+            else:
+                button.configure(  # type: ignore[attr-defined]
+                    bg=SIDEBAR_ACTIVE if is_active else SIDEBAR_BG,
+                    fg="#ffffff" if is_active else SIDEBAR_TEXT,
+                )
+
+    def _modern_frame(
+        self,
+        parent: tk.Misc,
+        *,
+        fg_color: str = CARD_BG,
+        corner_radius: int = 16,
+        border_color: str = "#d9e2ec",
+        border_width: int = 1,
+    ) -> tk.Widget:
+        if CTK_AVAILABLE:
+            return ctk.CTkFrame(
+                parent,
+                fg_color=fg_color,
+                corner_radius=corner_radius,
+                border_color=border_color,
+                border_width=border_width,
+            )
+        return tk.Frame(parent, bg=fg_color, bd=1 if border_width else 0, relief="solid", highlightthickness=0)
+
+    def _modern_label(
+        self,
+        parent: tk.Misc,
+        text: str = "",
+        *,
+        textvariable: tk.StringVar | None = None,
+        font: Tuple[str, int] | Tuple[str, int, str] = (UI_FONT, 11),
+        text_color: str = TEXT_DARK,
+        fg_color: str = CARD_BG,
+        wraplength: int | None = None,
+        justify: str = "left",
+        anchor: str = "w",
+    ) -> tk.Widget:
+        if CTK_AVAILABLE:
+            return ctk.CTkLabel(
+                parent,
+                text=text,
+                textvariable=textvariable,
+                font=font,
+                text_color=text_color,
+                fg_color=fg_color,
+                wraplength=wraplength or 0,
+                justify=justify,
+                anchor=anchor,
+            )
+        return tk.Label(
+            parent,
+            text=text,
+            textvariable=textvariable,
+            font=font,
+            fg=text_color,
+            bg=fg_color,
+            wraplength=wraplength or 0,
+            justify=justify,
+            anchor=anchor,
+        )
+
+    def _modern_button(
+        self,
+        parent: tk.Misc,
+        text: str,
+        command,
+        *,
+        color: str = SIDEBAR_ACTIVE,
+    ) -> tk.Widget:
+        if CTK_AVAILABLE:
+            return ctk.CTkButton(
+                parent,
+                text=text,
+                command=command,
+                fg_color=color,
+                hover_color="#1c63b7",
+                text_color="#ffffff",
+                height=38,
+                corner_radius=10,
+                font=(UI_FONT, 12, "bold"),
+            )
+        return tk.Button(
+            parent,
+            text=text,
+            command=command,
+            bg=color,
+            fg="#ffffff",
+            activebackground="#1c63b7",
+            activeforeground="#ffffff",
+            relief="flat",
+            borderwidth=0,
+            padx=12,
+            pady=8,
+            font=(UI_FONT, 11, "bold"),
+        )
+
+    def _dashboard_card(
+        self,
+        parent: tk.Misc,
+        *,
+        row: int,
+        column: int,
+        title: str,
+        value_var: tk.StringVar,
+        accent: str,
+        padx: Tuple[int, int] = (0, 10),
+    ) -> None:
+        card = self._modern_frame(parent, fg_color=CARD_BG, border_color="#dce6f1")
+        card.grid(row=row, column=column, sticky="nsew", padx=padx, pady=(0, 10))
+        card.columnconfigure(0, weight=1)
+        self._modern_label(
+            card,
+            text=title,
+            font=(UI_FONT, 10, "bold"),
+            text_color=TEXT_MUTED,
+            fg_color=CARD_BG,
+        ).grid(row=0, column=0, sticky="ew", padx=16, pady=(14, 4))
+        self._modern_label(
+            card,
+            textvariable=value_var,
+            font=(UI_FONT, 14, "bold"),
+            text_color=TEXT_DARK,
+            fg_color=CARD_BG,
+            wraplength=245,
+        ).grid(row=1, column=0, sticky="ew", padx=16, pady=(0, 14))
+        accent_bar = tk.Frame(card, bg=accent, height=3)
+        accent_bar.grid(row=2, column=0, sticky="ew", padx=16, pady=(0, 14))
+
+    def _build_dashboard_tab(self, parent: ttk.Frame) -> None:
+        shell = ttk.Frame(parent, padding=(12, 8, 12, 14), style="Root.TFrame")
+        shell.grid(row=0, column=0, sticky="nsew")
+        shell.columnconfigure(0, weight=1)
+
+        hero = self._modern_frame(shell, fg_color="#10233f", corner_radius=20, border_width=0)
+        hero.grid(row=0, column=0, sticky="ew", pady=(0, 14))
+        hero.columnconfigure(0, weight=1)
+        hero.columnconfigure(1, weight=0)
+        self._modern_label(
+            hero,
+            text="Virtual ECU Experiment Dashboard",
+            font=(UI_FONT, 24, "bold"),
+            text_color="#ffffff",
+            fg_color="#10233f",
+        ).grid(row=0, column=0, sticky="ew", padx=24, pady=(24, 4))
+        self._modern_label(
+            hero,
+            text=(
+                "Run or load an experiment, compare baseline-vs-fault behavior, inspect the propagation path, "
+                "review batch trends, and export publication-friendly bundles from one guided workspace."
+            ),
+            font=(UI_FONT, 12),
+            text_color="#d7e2f2",
+            fg_color="#10233f",
+            wraplength=820,
+        ).grid(row=1, column=0, sticky="ew", padx=24, pady=(0, 24))
+        self._modern_button(hero, "Run Default Comparison", self.run_comparison, color=ACCENT_GREEN).grid(
+            row=0, column=1, rowspan=2, sticky="e", padx=24, pady=24
+        )
+
+        metrics = ttk.Frame(shell, style="Root.TFrame")
+        metrics.grid(row=1, column=0, sticky="ew")
+        for column in range(4):
+            metrics.columnconfigure(column, weight=1)
+        self._dashboard_card(metrics, row=0, column=0, title="Current Comparison", value_var=self.dashboard_comparison_var, accent=SIDEBAR_ACTIVE)
+        self._dashboard_card(metrics, row=0, column=1, title="Export Readiness", value_var=self.dashboard_export_var, accent=ACCENT_GREEN)
+        self._dashboard_card(metrics, row=0, column=2, title="Batch Results", value_var=self.dashboard_batch_var, accent=ACCENT_AMBER)
+        self._dashboard_card(metrics, row=0, column=3, title="Custom Builder", value_var=self.dashboard_custom_var, accent=LEFT_COLOR, padx=(0, 0))
+
+        workflow = self._modern_frame(shell, fg_color=CARD_BG, corner_radius=18, border_color="#dce6f1")
+        workflow.grid(row=2, column=0, sticky="ew", pady=(4, 14))
+        workflow.columnconfigure(0, weight=1)
+        self._modern_label(
+            workflow,
+            text="Guided Workflow",
+            font=(UI_FONT, 16, "bold"),
+            text_color=TEXT_DARK,
+            fg_color=CARD_BG,
+        ).grid(row=0, column=0, sticky="ew", padx=18, pady=(18, 4))
+        self._modern_label(
+            workflow,
+            text="The left navigation follows the research workflow: run or load, compare, inspect the fault path, review batch evidence, then export.",
+            font=(UI_FONT, 10),
+            text_color=TEXT_MUTED,
+            fg_color=CARD_BG,
+            wraplength=980,
+        ).grid(row=1, column=0, sticky="ew", padx=18, pady=(0, 14))
+
+        steps = ttk.Frame(workflow, style="Root.TFrame")
+        steps.grid(row=2, column=0, sticky="ew", padx=14, pady=(0, 18))
+        for column in range(5):
+            steps.columnconfigure(column, weight=1)
+
+        step_defs = (
+            ("1", "Run or Load", "Start from built-in campaigns, saved CSV logs, showcase presets, or custom scenarios.", "summary"),
+            ("2", "Compare", "Read coolant, safe-state, fan, and propagation figures from the current result pair.", "figures"),
+            ("3", "Fault Path", "Explain how a hardware-origin fault moves through ECU-visible symptoms.", "fault_path"),
+            ("4", "Batch", "Summarize aggregate sweep behavior without changing batch CSV schemas.", "batch"),
+            ("5", "Export", "Generate snapshots, reports, and presentation bundles for papers or demos.", "exports"),
+        )
+        for column, (number, title, body, page_key) in enumerate(step_defs):
+            card = self._modern_frame(steps, fg_color=SOFT_CARD_BG, corner_radius=14, border_color="#e1e8f0")
+            card.grid(row=0, column=column, sticky="nsew", padx=(0, 8 if column < 4 else 0))
+            card.columnconfigure(0, weight=1)
+            self._modern_label(
+                card,
+                text=number,
+                font=(UI_FONT, 12, "bold"),
+                text_color=SIDEBAR_ACTIVE,
+                fg_color=SOFT_CARD_BG,
+            ).grid(row=0, column=0, sticky="w", padx=14, pady=(14, 2))
+            self._modern_label(
+                card,
+                text=title,
+                font=(UI_FONT, 11, "bold"),
+                text_color=TEXT_DARK,
+                fg_color=SOFT_CARD_BG,
+            ).grid(row=1, column=0, sticky="ew", padx=14)
+            self._modern_label(
+                card,
+                text=body,
+                font=(UI_FONT, 9),
+                text_color=TEXT_MUTED,
+                fg_color=SOFT_CARD_BG,
+                wraplength=175,
+            ).grid(row=2, column=0, sticky="ew", padx=14, pady=(4, 12))
+            self._modern_button(card, f"Open {title}", lambda key=page_key: self._navigate_to_page(key)).grid(
+                row=3, column=0, sticky="ew", padx=14, pady=(0, 14)
+            )
+
+        actions = ttk.Frame(shell, style="Root.TFrame")
+        actions.grid(row=3, column=0, sticky="ew")
+        actions.columnconfigure(0, weight=1)
+        actions.columnconfigure(1, weight=1)
+        actions.columnconfigure(2, weight=1)
+
+        action_defs = (
+            ("Showcase Comparison", "Load the selected saved thesis/demo pair without rerunning the simulator.", self.load_selected_showcase_preset),
+            ("Custom Fault Builder", "Create a single custom fault or staged multi-fault scenario.", lambda: self._navigate_to_page("custom")),
+            ("Export Reports", "Open the export page for snapshots, full reports, and presentation bundles.", lambda: self._navigate_to_page("exports")),
+        )
+        for column, (title, body, command) in enumerate(action_defs):
+            card = self._modern_frame(actions, fg_color=CARD_BG, corner_radius=16, border_color="#dce6f1")
+            card.grid(row=0, column=column, sticky="nsew", padx=(0, 10 if column < 2 else 0))
+            card.columnconfigure(0, weight=1)
+            self._modern_label(
+                card,
+                text=title,
+                font=(UI_FONT, 13, "bold"),
+                text_color=TEXT_DARK,
+                fg_color=CARD_BG,
+            ).grid(row=0, column=0, sticky="ew", padx=16, pady=(16, 4))
+            self._modern_label(
+                card,
+                text=body,
+                font=(UI_FONT, 10),
+                text_color=TEXT_MUTED,
+                fg_color=CARD_BG,
+                wraplength=330,
+            ).grid(row=1, column=0, sticky="ew", padx=16, pady=(0, 12))
+            self._modern_button(card, title, command).grid(row=2, column=0, sticky="ew", padx=16, pady=(0, 16))
+
+    def _build_exports_tab(self, parent: ttk.Frame) -> None:
+        self._build_tab_header(
+            parent,
+            row=0,
+            title="Export Reports",
+            description=(
+                "Exports are generated from the currently loaded left-versus-right comparison. "
+                "Run or load a comparison first, then create the report bundle that matches your paper or demo need."
+            ),
+        )
+
+        shell = ttk.Frame(parent, padding=(12, 0, 12, 12), style="Root.TFrame")
+        shell.grid(row=1, column=0, sticky="ew")
+        shell.columnconfigure(0, weight=1)
+        shell.columnconfigure(1, weight=1)
+        shell.columnconfigure(2, weight=1)
+
+        export_defs = (
+            (
+                "Results Snapshot",
+                "Compact markdown, text, CSV, and propagation assets for quick sharing.",
+                "Export Snapshot",
+                self.export_results_snapshot,
+                SIDEBAR_ACTIVE,
+            ),
+            (
+                "Full Comparison Report",
+                "Comparison CSV, markdown/text report, figures, and propagation bundle.",
+                "Export Full Report",
+                self.export_current_comparison,
+                ACCENT_GREEN,
+            ),
+            (
+                "Presentation Bundle",
+                "Presentation-ready summary, snapshot image, report bundle, and fault-path snapshots.",
+                "Export Presentation Bundle",
+                self.export_presentation_bundle,
+                LEFT_COLOR,
+            ),
+        )
+        for column, (title, body, button_text, command, color) in enumerate(export_defs):
+            card = self._modern_frame(shell, fg_color=CARD_BG, corner_radius=16, border_color="#dce6f1")
+            card.grid(row=0, column=column, sticky="nsew", padx=(0, 10 if column < 2 else 0))
+            card.columnconfigure(0, weight=1)
+            self._modern_label(
+                card,
+                text=title,
+                font=(UI_FONT, 14, "bold"),
+                text_color=TEXT_DARK,
+                fg_color=CARD_BG,
+            ).grid(row=0, column=0, sticky="ew", padx=16, pady=(18, 4))
+            self._modern_label(
+                card,
+                text=body,
+                font=(UI_FONT, 10),
+                text_color=TEXT_MUTED,
+                fg_color=CARD_BG,
+                wraplength=320,
+            ).grid(row=1, column=0, sticky="ew", padx=16, pady=(0, 14))
+            self._modern_button(card, button_text, command, color=color).grid(
+                row=2, column=0, sticky="ew", padx=16, pady=(0, 18)
+            )
+
+        status = self._modern_frame(parent, fg_color=CARD_BG, corner_radius=16, border_color="#dce6f1")
+        status.grid(row=2, column=0, sticky="ew", padx=12, pady=(0, 12))
+        status.columnconfigure(0, weight=1)
+        self._modern_label(
+            status,
+            text="Current Export Status",
+            font=(UI_FONT, 13, "bold"),
+            text_color=TEXT_DARK,
+            fg_color=CARD_BG,
+        ).grid(row=0, column=0, sticky="ew", padx=16, pady=(16, 4))
+        self._modern_label(
+            status,
+            textvariable=self.dashboard_export_var,
+            font=(UI_FONT, 11),
+            text_color=TEXT_MUTED,
+            fg_color=CARD_BG,
+            wraplength=980,
+        ).grid(row=1, column=0, sticky="ew", padx=16, pady=(0, 16))
 
     def _build_comparison_summary_tab(self, parent: ttk.Frame) -> None:
         self._build_comparison_landing_panel(parent)
@@ -5173,6 +5733,7 @@ class VirtualECUGui(tk.Tk):
     def _open_comparison_figures_tab(self) -> None:
         if self.notebook is not None and self.comparison_figures_tab is not None:
             self.notebook.select(self.comparison_figures_tab)
+            self._set_active_nav("figures")
 
     def _clear_custom_result_summary(self) -> None:
         for variable in self.custom_summary_vars.values():
@@ -5181,6 +5742,32 @@ class VirtualECUGui(tk.Tk):
         self.custom_last_run_var.set("-")
         self.custom_loaded_slot_var.set("-")
         self.last_custom_result = None
+        self._refresh_dashboard_state()
+
+    def _refresh_dashboard_state(self) -> None:
+        if self.current_comparison is not None:
+            left_name = self.summary_vars["left"]["Campaign Name"].get()
+            right_name = self.summary_vars["right"]["Campaign Name"].get()
+            self.dashboard_comparison_var.set(f"{left_name} vs {right_name}")
+            self.dashboard_export_var.set("Ready: snapshot, full report, and presentation bundle can be exported.")
+        elif self.current_plot_results is not None:
+            left_name = self.summary_vars["left"]["Campaign Name"].get()
+            self.dashboard_comparison_var.set(f"Single run loaded: {left_name}")
+            self.dashboard_export_var.set("Load or run a right-side result to enable comparison exports.")
+        else:
+            self.dashboard_comparison_var.set("No comparison loaded")
+            self.dashboard_export_var.set("Run a left-versus-right comparison to enable exports.")
+
+        if self.batch_rows:
+            self.dashboard_batch_var.set(f"{len(self.batch_rows)} aggregate rows loaded")
+        else:
+            self.dashboard_batch_var.set("No batch aggregate loaded")
+
+        custom_name = self.custom_summary_vars["Campaign Name"].get()
+        if custom_name and custom_name != "-":
+            self.dashboard_custom_var.set(custom_name)
+        else:
+            self.dashboard_custom_var.set("No custom run yet")
 
     def _refresh_showcase_presets(self) -> None:
         try:
@@ -5586,6 +6173,7 @@ class VirtualECUGui(tk.Tk):
         if tab_count <= 0:
             return
         notebook.select(max(0, min(target_index, tab_count - 1)))
+        self._on_main_page_changed()
 
     def _session_multi_events_payload(self) -> List[Dict[str, object]]:
         events: List[Dict[str, object]] = []
@@ -6292,6 +6880,7 @@ class VirtualECUGui(tk.Tk):
         )
         self.custom_last_run_var.set(loaded_mode)
         self.last_custom_result = result
+        self._refresh_dashboard_state()
 
     def _build_findings_cards(
         self,
@@ -7048,6 +7637,7 @@ class VirtualECUGui(tk.Tk):
         if self.batch_plot is not None:
             self.batch_plot.set_title(self.batch_plot_choice.get())
             self.batch_plot.show_message("Load a batch aggregate CSV, then use the plot selector to inspect trends.")
+        self._refresh_dashboard_state()
 
     def _apply_batch_results(self, csv_path: Path, rows: Sequence[Dict[str, str]]) -> None:
         self.batch_rows = list(rows)
@@ -7064,6 +7654,7 @@ class VirtualECUGui(tk.Tk):
         self.batch_status_text.set(f"Loaded {len(rows)} batch runs. Use the table and plot selector to inspect sweep-level trends.")
         self._update_batch_findings(rows)
         self._refresh_batch_plot()
+        self._refresh_dashboard_state()
 
     def _ordered_fault_types(self, rows: Sequence[Dict[str, str]]) -> List[str]:
         present = {row["fault_type"] for row in rows if row.get("fault_type")}
@@ -7332,6 +7923,7 @@ class VirtualECUGui(tk.Tk):
             self.comparison_plot.show_message("Run a comparison from the Comparison Summary page to display the selected plot here.")
         self._clear_propagation_evidence()
         self._refresh_fault_path_diagrams()
+        self._refresh_dashboard_state()
 
     def run_left_only(self) -> None:
         self._run_campaigns(include_right=False)
@@ -7780,6 +8372,7 @@ class VirtualECUGui(tk.Tk):
             self.comparison_plot.show_message("Loaded an existing right result. Load or run a left result to display comparison figures.")
         loaded_name = self.summary_vars["right"]["Campaign Name"].get()
         self.status_text.set(f"Loaded existing result as Right: {loaded_name}. Load a left result to compare.")
+        self._refresh_dashboard_state()
 
     def _apply_custom_results(
         self,
@@ -7861,6 +8454,7 @@ class VirtualECUGui(tk.Tk):
         self._update_comparison_findings(left_result, right_result)
         self._update_propagation_evidence(left_result, right_result)
         self._refresh_selected_plot()
+        self._refresh_dashboard_state()
         if remember_recent:
             self._remember_results(
                 left_result,
