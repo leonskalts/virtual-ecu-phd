@@ -4150,9 +4150,16 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         style = ttk.Style(self)
         style.configure("Root.TFrame", background=APP_BG)
         style.configure("Panel.TFrame", background="#eef3f7")
+        style.configure("Card.TFrame", background=CARD_BG)
+        style.configure("SoftCard.TFrame", background=SOFT_CARD_BG)
         style.configure("Header.TLabel", font=(UI_FONT, 20, "bold"), foreground=TEXT_DARK, background=APP_BG)
         style.configure("Subheader.TLabel", font=(UI_FONT, 10), foreground=TEXT_MUTED, background=APP_BG)
         style.configure("Section.TLabel", font=(UI_FONT, 13, "bold"), foreground=TEXT_DARK, background=APP_BG)
+        style.configure("CardTitle.TLabel", font=(UI_FONT, 13, "bold"), foreground=TEXT_DARK, background=CARD_BG)
+        style.configure("CardHint.TLabel", font=(UI_FONT, 9), foreground=TEXT_MUTED, background=CARD_BG)
+        style.configure("CardFieldName.TLabel", font=(UI_FONT, 10, "bold"), foreground="#22313f", background=CARD_BG)
+        style.configure("SoftCardTitle.TLabel", font=(UI_FONT, 11, "bold"), foreground=TEXT_DARK, background=SOFT_CARD_BG)
+        style.configure("SoftCardHint.TLabel", font=(UI_FONT, 9), foreground=TEXT_MUTED, background=SOFT_CARD_BG)
         style.configure("FieldName.TLabel", font=(UI_FONT, 10, "bold"), foreground="#22313f")
         style.configure("FieldValue.TLabel", font=(UI_FONT, 10), foreground="#374553")
         style.configure("Hint.TLabel", font=(UI_FONT, 9), foreground="#4d5c69")
@@ -4516,6 +4523,42 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             font=(UI_FONT, 11, "bold"),
         )
 
+    def _section_card(
+        self,
+        parent: tk.Misc,
+        *,
+        title: str,
+        description: str = "",
+        fg_color: str = CARD_BG,
+        border_color: str = "#dce6f1",
+    ) -> tk.Widget:
+        card = self._modern_frame(parent, fg_color=fg_color, corner_radius=16, border_color=border_color)
+        card.columnconfigure(0, weight=1)
+        title_style = "CardTitle.TLabel" if fg_color == CARD_BG else "SoftCardTitle.TLabel"
+        hint_style = "CardHint.TLabel" if fg_color == CARD_BG else "SoftCardHint.TLabel"
+        ttk.Label(card, text=title, style=title_style).grid(
+            row=0,
+            column=0,
+            sticky="ew",
+            padx=16,
+            pady=(16, 2 if description else 12),
+        )
+        if description:
+            ttk.Label(
+                card,
+                text=description,
+                style=hint_style,
+                wraplength=980,
+                justify="left",
+            ).grid(row=1, column=0, sticky="ew", padx=16, pady=(0, 12))
+        return card
+
+    def _card_content(self, card: tk.Widget, *, row: int = 2, padding: Tuple[int, int, int, int] = (16, 0, 16, 16)) -> ttk.Frame:
+        content = ttk.Frame(card, padding=padding, style="Card.TFrame")
+        content.grid(row=row, column=0, sticky="nsew")
+        content.columnconfigure(0, weight=1)
+        return content
+
     def _dashboard_card(
         self,
         parent: tk.Misc,
@@ -4789,24 +4832,21 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             self._on_campaign_changed,
         )
 
-        actions = ttk.LabelFrame(selectors_area, text="Run / Load / Export", padding=12)
-        actions.grid(row=0, column=2, rowspan=2, sticky="ne", padx=(12, 0))
+        actions_card = self._section_card(
+            selectors_area,
+            title="Run, Load, Export",
+            description="Start with a run action, load saved CSVs when needed, then export from the loaded comparison.",
+        )
+        actions_card.grid(row=0, column=2, rowspan=2, sticky="ne", padx=(12, 0))
+        actions = self._card_content(actions_card)
         actions.columnconfigure(0, weight=1)
 
-        ttk.Label(
-            actions,
-            text="Start with the run actions, then use load or export only when you need a specific result path.",
-            style="Hint.TLabel",
-            wraplength=260,
-            justify="left",
-        ).grid(row=0, column=0, sticky="w")
-
         primary_actions = ttk.Frame(actions, style="Root.TFrame")
-        primary_actions.grid(row=1, column=0, sticky="ew", pady=(10, 0))
+        primary_actions.grid(row=0, column=0, sticky="ew")
         primary_actions.columnconfigure(0, weight=1)
         self.run_compare_button = ttk.Button(
             primary_actions,
-            text="Run Comparison",
+            text="Run Built-In Comparison",
             command=self.run_comparison,
             style="Primary.TButton",
         )
@@ -4820,9 +4860,9 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.run_left_button.grid(row=1, column=0, sticky="ew", pady=(8, 0))
 
         load_actions = ttk.Frame(actions, style="Root.TFrame")
-        load_actions.grid(row=2, column=0, sticky="ew", pady=(12, 0))
+        load_actions.grid(row=1, column=0, sticky="ew", pady=(12, 0))
         load_actions.columnconfigure(0, weight=1)
-        ttk.Label(load_actions, text="Load saved results", style="FieldName.TLabel").grid(row=0, column=0, sticky="w")
+        ttk.Label(load_actions, text="Load saved results", style="CardFieldName.TLabel").grid(row=0, column=0, sticky="w")
         ttk.Button(load_actions, text="Load Result as Left", command=self.load_existing_as_left).grid(
             row=1, column=0, sticky="ew", pady=(6, 0)
         )
@@ -4831,9 +4871,9 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         )
 
         export_actions = ttk.Frame(actions, style="Root.TFrame")
-        export_actions.grid(row=3, column=0, sticky="ew", pady=(12, 0))
+        export_actions.grid(row=2, column=0, sticky="ew", pady=(12, 0))
         export_actions.columnconfigure(0, weight=1)
-        ttk.Label(export_actions, text="Export outputs", style="FieldName.TLabel").grid(row=0, column=0, sticky="w")
+        ttk.Label(export_actions, text="Export outputs", style="CardFieldName.TLabel").grid(row=0, column=0, sticky="w")
         self.snapshot_button = ttk.Button(export_actions, text="Export Snapshot", command=self.export_results_snapshot)
         self.snapshot_button.grid(row=1, column=0, sticky="ew", pady=(6, 0))
         self.snapshot_button.state(["disabled"])
@@ -4853,8 +4893,13 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         info_area.columnconfigure(0, weight=3)
         info_area.columnconfigure(1, weight=2)
 
-        summary_frame = ttk.LabelFrame(info_area, text="Comparison Summary", padding=14)
-        summary_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+        summary_card = self._section_card(
+            info_area,
+            title="Comparison Metrics",
+            description="Side-by-side campaign identity, fault class, diagnostics, thermal severity, and safety timing.",
+        )
+        summary_card.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+        summary_frame = self._card_content(summary_card)
         summary_frame.columnconfigure(0, minsize=190)
         summary_frame.columnconfigure(1, weight=1)
         summary_frame.columnconfigure(2, weight=1)
@@ -4879,16 +4924,26 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             justify="left",
         ).grid(row=len(summary_rows) + 1, column=0, columnspan=3, sticky="w", pady=(10, 0))
 
-        context_frame = ttk.LabelFrame(info_area, text="Campaign Context", padding=14)
-        context_frame.grid(row=0, column=1, sticky="nsew")
+        context_card = self._section_card(
+            info_area,
+            title="Campaign Context",
+            description="A compact hardware-origin-to-ECU story for each side of the comparison.",
+        )
+        context_card.grid(row=0, column=1, sticky="nsew")
+        context_frame = self._card_content(context_card)
         context_frame.columnconfigure(0, weight=1)
         context_frame.columnconfigure(1, weight=1)
 
         self._build_context_column(context_frame, 0, "Left Context", "left", LEFT_COLOR)
         self._build_context_column(context_frame, 1, "Right Context", "right", RIGHT_COLOR)
 
-        verdict_frame = ttk.LabelFrame(parent, text="Comparison Verdict / Key Takeaway", padding=14)
-        verdict_frame.grid(row=3, column=0, sticky="ew", padx=12, pady=(0, 12))
+        verdict_card = self._section_card(
+            parent,
+            title="Comparison Verdict",
+            description="Automatically generated findings and a short takeaway for narration or report drafting.",
+        )
+        verdict_card.grid(row=3, column=0, sticky="ew", padx=12, pady=(0, 12))
+        verdict_frame = self._card_content(verdict_card)
         verdict_frame.columnconfigure(0, weight=1)
         self._build_findings_cards(
             verdict_frame,
@@ -4918,13 +4973,18 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         plots.rowconfigure(1, weight=1, minsize=560)
         plots.rowconfigure(2, weight=0)
 
-        plot_header = ttk.LabelFrame(plots, text="Figure Selection", padding=12)
-        plot_header.grid(row=0, column=0, sticky="ew", pady=(0, 10))
+        plot_header_card = self._section_card(
+            plots,
+            title="Figure Selection",
+            description="Choose the comparison view that best supports the current research question.",
+        )
+        plot_header_card.grid(row=0, column=0, sticky="ew", pady=(0, 10))
+        plot_header = self._card_content(plot_header_card)
         plot_header.columnconfigure(0, weight=0)
         plot_header.columnconfigure(1, weight=0)
         plot_header.columnconfigure(2, weight=1)
 
-        ttk.Label(plot_header, text="Comparison Plot", style="FieldName.TLabel").grid(row=0, column=0, sticky="w")
+        ttk.Label(plot_header, text="Comparison Plot", style="CardFieldName.TLabel").grid(row=0, column=0, sticky="w")
         selector = ttk.Combobox(
             plot_header,
             textvariable=self.comparison_plot_choice,
@@ -4937,35 +4997,41 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         ttk.Label(
             plot_header,
             textvariable=self.comparison_plot_help_var,
-            style="Hint.TLabel",
+            style="CardHint.TLabel",
             wraplength=680,
             justify="left",
         ).grid(row=0, column=2, sticky="w", padx=(14, 0))
 
-        self.comparison_plot = PlotCanvas(
+        plot_card = self._section_card(
             plots,
+            title="Comparison Dashboard",
+            description="The active figure uses the loaded left/right result pair and updates without changing result files.",
+        )
+        plot_card.grid(row=1, column=0, sticky="nsew")
+        plot_card.rowconfigure(2, weight=1)
+        plot_body = self._card_content(plot_card)
+        plot_body.rowconfigure(0, weight=1, minsize=560)
+        self.comparison_plot = PlotCanvas(
+            plot_body,
             self.comparison_plot_choice.get(),
             canvas_height=560,
         )
-        self.comparison_plot.grid(row=1, column=0, sticky="nsew")
+        self.comparison_plot.grid(row=0, column=0, sticky="nsew")
         self.comparison_plot.show_message("Run a comparison from the Comparison Summary page to display the selected plot here.")
         self._build_propagation_evidence_panel(plots)
 
     def _build_propagation_evidence_panel(self, parent: ttk.Frame) -> None:
-        panel = ttk.LabelFrame(parent, text="Propagation Evidence", padding=(10, 8, 10, 10))
-        panel.grid(row=2, column=0, sticky="ew", pady=(8, 0))
+        panel_card = self._section_card(
+            parent,
+            title="Propagation Evidence",
+            description="Compact evidence from the same propagation-report logic used by the timeline and exports.",
+        )
+        panel_card.grid(row=2, column=0, sticky="ew", pady=(8, 0))
+        panel = self._card_content(panel_card)
         panel.columnconfigure(0, weight=1)
 
-        ttk.Label(
-            panel,
-            text="Compact evidence from the same propagation-report logic used by the timeline and exports.",
-            style="Hint.TLabel",
-            wraplength=980,
-            justify="left",
-        ).grid(row=0, column=0, sticky="w", pady=(0, 6))
-
         table_area = ttk.Frame(panel)
-        table_area.grid(row=1, column=0, sticky="ew")
+        table_area.grid(row=0, column=0, sticky="ew")
         table_area.columnconfigure(0, weight=1)
         table_area.rowconfigure(0, weight=1)
 
@@ -5054,22 +5120,23 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
 
         single_tab = ttk.Frame(builder_notebook, style="Root.TFrame")
         multi_tab = ttk.Frame(builder_notebook, style="Root.TFrame")
+        for builder_tab in (single_tab, multi_tab):
+            builder_tab.columnconfigure(0, weight=1)
+            builder_tab.rowconfigure(0, weight=1)
         builder_notebook.add(single_tab, text="1. Single Fault")
         builder_notebook.add(multi_tab, text="2. Multi-Fault Scenario")
 
         self._build_single_custom_builder(single_tab)
         self._build_multi_custom_builder(multi_tab)
 
-        summary = ttk.LabelFrame(content, text="Last Custom Run Summary", padding=14)
-        summary.grid(row=0, column=1, sticky="nsew")
+        summary_card = self._section_card(
+            content,
+            title="Last Custom Run",
+            description="Confirm what ran, where it was loaded, and which result files were generated.",
+        )
+        summary_card.grid(row=0, column=1, sticky="nsew")
+        summary = self._card_content(summary_card)
         summary.columnconfigure(1, weight=1)
-        ttk.Label(
-            summary,
-            text="Use this panel to confirm what was run, where it was loaded, and which result files were generated.",
-            style="Hint.TLabel",
-            wraplength=300,
-            justify="left",
-        ).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
 
         self._build_custom_metric_row(summary, 1, "Campaign Name", self.custom_summary_vars["Campaign Name"], wraplength=300)
         self._build_custom_metric_row(summary, 2, "Loaded Into", self.custom_loaded_slot_var, wraplength=300)
@@ -5083,20 +5150,23 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self._build_custom_metric_row(summary, 10, "Last Loaded Mode", self.custom_last_run_var, wraplength=300)
 
     def _build_single_custom_builder(self, parent: ttk.Frame) -> None:
-        builder = ttk.LabelFrame(parent, text="Single-Fault Builder", padding=14)
+        builder = self._section_card(
+            parent,
+            title="Single-Fault Builder",
+            description="Set one injected fault, optionally save it as a preset, then run or compare it from the main action card.",
+        )
         builder.grid(row=0, column=0, sticky="nsew")
         builder.columnconfigure(0, weight=1)
 
-        ttk.Label(
+        setup_card = self._section_card(
             builder,
-            text="Best first step: set one fault, then use a main run action below to open Comparison Figures immediately.",
-            style="Hint.TLabel",
-            wraplength=780,
-            justify="left",
-        ).grid(row=0, column=0, sticky="w", pady=(0, 10))
-
-        setup = ttk.LabelFrame(builder, text="1. Fault Setup", padding=12)
-        setup.grid(row=1, column=0, sticky="ew")
+            title="1. Fault Setup",
+            description="Defaults are demo-ready; tune timing and severity only when the experiment needs it.",
+            fg_color=SOFT_CARD_BG,
+            border_color="#e1e8f0",
+        )
+        setup_card.grid(row=2, column=0, sticky="ew", padx=16, pady=(0, 10))
+        setup = self._card_content(setup_card, padding=(14, 0, 14, 14))
         setup.columnconfigure(1, weight=1)
         setup.columnconfigure(3, weight=1)
 
@@ -5142,8 +5212,15 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             justify="left",
         ).grid(row=3, column=0, columnspan=4, sticky="w", pady=(10, 0))
 
-        presets = ttk.LabelFrame(builder, text="2. Presets", padding=12)
-        presets.grid(row=2, column=0, sticky="ew", pady=(10, 0))
+        presets_card = self._section_card(
+            builder,
+            title="2. Presets",
+            description="Save repeatable single-fault configurations without changing preset file formats.",
+            fg_color=SOFT_CARD_BG,
+            border_color="#e1e8f0",
+        )
+        presets_card.grid(row=3, column=0, sticky="ew", padx=16, pady=(0, 10))
+        presets = self._card_content(presets_card, padding=(14, 0, 14, 14))
         presets.columnconfigure(1, weight=1)
         presets.columnconfigure(3, weight=1)
 
@@ -5176,8 +5253,15 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             justify="left",
         ).grid(row=2, column=0, columnspan=4, sticky="w")
 
-        actions_card = ttk.LabelFrame(builder, text="3. Run Actions", padding=12)
-        actions_card.grid(row=3, column=0, sticky="ew", pady=(10, 0))
+        actions_outer = self._section_card(
+            builder,
+            title="3. Run Actions",
+            description="Primary actions execute the custom run and open the comparison workflow automatically.",
+            fg_color=SOFT_CARD_BG,
+            border_color="#e1e8f0",
+        )
+        actions_outer.grid(row=4, column=0, sticky="ew", padx=16, pady=(0, 16))
+        actions_card = self._card_content(actions_outer, padding=(14, 0, 14, 14))
         actions_card.columnconfigure(0, weight=1)
 
         primary_actions = ttk.Frame(actions_card, style="Root.TFrame")
@@ -5240,21 +5324,24 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.custom_action_buttons.extend([run_show, compare_show, run_only, load_left, load_right])
 
     def _build_multi_custom_builder(self, parent: ttk.Frame) -> None:
-        builder = ttk.LabelFrame(parent, text="Multi-Fault Scenario Builder", padding=14)
+        builder = self._section_card(
+            parent,
+            title="Multi-Fault Scenario Builder",
+            description="Build an ordered fault sequence, inspect the live timeline, then run the staged scenario.",
+        )
         builder.grid(row=0, column=0, sticky="nsew")
         builder.columnconfigure(0, weight=1)
-        builder.rowconfigure(2, weight=1)
+        builder.rowconfigure(3, weight=1)
 
-        ttk.Label(
+        editor_card = self._section_card(
             builder,
-            text="Define events, build the ordered list, then inspect the timeline before you run the scenario.",
-            style="Hint.TLabel",
-            wraplength=760,
-            justify="left",
-        ).grid(row=0, column=0, sticky="w", pady=(0, 8))
-
-        editor = ttk.LabelFrame(builder, text="1. Event Editor", padding=12)
-        editor.grid(row=1, column=0, sticky="ew")
+            title="1. Event Editor",
+            description="Define one event at a time, then add or update it in the ordered scenario list.",
+            fg_color=SOFT_CARD_BG,
+            border_color="#e1e8f0",
+        )
+        editor_card.grid(row=2, column=0, sticky="ew", padx=16, pady=(0, 10))
+        editor = self._card_content(editor_card, padding=(14, 0, 14, 14))
         editor.columnconfigure(1, weight=1)
         editor.columnconfigure(3, weight=1)
         editor.columnconfigure(4, weight=1)
@@ -5311,13 +5398,20 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         ttk.Button(event_actions, text="Clear Scenario", command=self.clear_multi_events).grid(row=0, column=5, sticky="w", padx=(8, 0))
 
         middle = ttk.Frame(builder, style="Root.TFrame")
-        middle.grid(row=2, column=0, sticky="nsew", pady=(10, 0))
+        middle.grid(row=3, column=0, sticky="nsew", padx=16, pady=(0, 10))
         middle.columnconfigure(0, weight=1)
         middle.rowconfigure(0, weight=0, minsize=220)
         middle.rowconfigure(1, weight=1, minsize=410)
 
-        list_frame = ttk.LabelFrame(middle, text="2. Scenario Event List", padding=10)
-        list_frame.grid(row=0, column=0, sticky="nsew", pady=(0, 10))
+        list_card = self._section_card(
+            middle,
+            title="2. Scenario Event List",
+            description="The ordered list is the execution order used by the simulator command and timeline.",
+            fg_color=SOFT_CARD_BG,
+            border_color="#e1e8f0",
+        )
+        list_card.grid(row=0, column=0, sticky="nsew", pady=(0, 10))
+        list_frame = self._card_content(list_card, padding=(14, 0, 14, 14))
         list_frame.columnconfigure(0, weight=1)
         list_frame.rowconfigure(0, weight=1)
         list_frame.rowconfigure(1, weight=0)
@@ -5346,8 +5440,15 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             justify="left",
         ).grid(row=1, column=0, columnspan=2, sticky="w", pady=(8, 0))
 
-        timeline_frame = ttk.LabelFrame(middle, text="3. Scenario Timeline", padding=10)
-        timeline_frame.grid(row=1, column=0, sticky="nsew")
+        timeline_card = self._section_card(
+            middle,
+            title="3. Scenario Timeline",
+            description="A live visual check for sequencing, overlap, and thesis/demo storytelling.",
+            fg_color=SOFT_CARD_BG,
+            border_color="#e1e8f0",
+        )
+        timeline_card.grid(row=1, column=0, sticky="nsew")
+        timeline_frame = self._card_content(timeline_card, padding=(14, 0, 14, 14))
         timeline_frame.columnconfigure(0, weight=1)
         timeline_frame.rowconfigure(0, weight=1)
         self.multi_timeline_view = ScenarioTimelineView(timeline_frame)
@@ -5361,8 +5462,15 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             justify="left",
         ).grid(row=1, column=0, sticky="w", pady=(8, 0))
 
-        presets = ttk.LabelFrame(builder, text="4. Scenario Presets", padding=12)
-        presets.grid(row=3, column=0, sticky="ew", pady=(10, 0))
+        presets_card = self._section_card(
+            builder,
+            title="4. Scenario Presets",
+            description="Store the full ordered event list in the same lightweight JSON preset format.",
+            fg_color=SOFT_CARD_BG,
+            border_color="#e1e8f0",
+        )
+        presets_card.grid(row=4, column=0, sticky="ew", padx=16, pady=(0, 10))
+        presets = self._card_content(presets_card, padding=(14, 0, 14, 14))
         presets.columnconfigure(1, weight=1)
         presets.columnconfigure(3, weight=1)
 
@@ -5395,8 +5503,15 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         ttk.Button(preset_actions, text="Load Scenario Preset", command=self.load_selected_multi_preset).grid(row=0, column=1, sticky="w", padx=(8, 0))
         ttk.Button(preset_actions, text="Delete Scenario Preset", command=self.delete_selected_multi_preset).grid(row=0, column=2, sticky="w", padx=(8, 0))
 
-        actions_card = ttk.LabelFrame(builder, text="5. Run Actions", padding=12)
-        actions_card.grid(row=4, column=0, sticky="ew", pady=(10, 0))
+        actions_outer = self._section_card(
+            builder,
+            title="5. Run Actions",
+            description="Run the staged scenario alone or compare it against a baseline/reference campaign.",
+            fg_color=SOFT_CARD_BG,
+            border_color="#e1e8f0",
+        )
+        actions_outer.grid(row=5, column=0, sticky="ew", padx=16, pady=(0, 16))
+        actions_card = self._card_content(actions_outer, padding=(14, 0, 14, 14))
         actions_card.columnconfigure(0, weight=1)
 
         primary_actions = ttk.Frame(actions_card, style="Root.TFrame")
@@ -5465,11 +5580,11 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         *,
         wraplength: int = 280,
     ) -> None:
-        ttk.Label(parent, text=title, style="MetricLabel.TLabel").grid(row=row, column=0, sticky="nw", padx=(0, 12), pady=4)
+        ttk.Label(parent, text=title, style="CardFieldName.TLabel").grid(row=row, column=0, sticky="nw", padx=(0, 12), pady=4)
         ttk.Label(
             parent,
             textvariable=variable,
-            style="FieldValue.TLabel",
+            style="CardHint.TLabel",
             wraplength=wraplength,
             justify="left",
         ).grid(row=row, column=1, sticky="w", pady=4)
@@ -5491,19 +5606,31 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         diagram_area.columnconfigure(1, weight=1)
         diagram_area.rowconfigure(0, weight=1)
 
-        left_frame = tk.Frame(diagram_area, bg="#ffffff", bd=1, relief="solid", highlightthickness=0)
-        left_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
+        left_card = self._section_card(
+            diagram_area,
+            title="Left Fault Path",
+            description="Reference or selected left-side run mapped onto the ECU signal/control/actuation path.",
+        )
+        left_card.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
+        left_card.rowconfigure(2, weight=1)
+        left_frame = self._card_content(left_card, padding=(10, 0, 10, 10))
         left_frame.grid_columnconfigure(0, weight=1)
         left_frame.grid_rowconfigure(0, weight=1)
         self.left_fault_path_diagram = FaultPathDiagram(left_frame, "Left", LEFT_COLOR)
-        self.left_fault_path_diagram.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+        self.left_fault_path_diagram.grid(row=0, column=0, sticky="nsew")
 
-        right_frame = tk.Frame(diagram_area, bg="#ffffff", bd=1, relief="solid", highlightthickness=0)
-        right_frame.grid(row=0, column=1, sticky="nsew", padx=(8, 0))
+        right_card = self._section_card(
+            diagram_area,
+            title="Right Fault Path",
+            description="Fault-case path highlighting affected subsystems, propagated blocks, and safety outcome.",
+        )
+        right_card.grid(row=0, column=1, sticky="nsew", padx=(8, 0))
+        right_card.rowconfigure(2, weight=1)
+        right_frame = self._card_content(right_card, padding=(10, 0, 10, 10))
         right_frame.grid_columnconfigure(0, weight=1)
         right_frame.grid_rowconfigure(0, weight=1)
         self.right_fault_path_diagram = FaultPathDiagram(right_frame, "Right", RIGHT_COLOR)
-        self.right_fault_path_diagram.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+        self.right_fault_path_diagram.grid(row=0, column=0, sticky="nsew")
         self._refresh_fault_path_diagrams()
 
     def _build_batch_tab(self, parent: ttk.Frame) -> None:
@@ -5517,11 +5644,16 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             ),
         )
 
-        controls = ttk.LabelFrame(parent, text="Batch Aggregate Summary", padding=14)
-        controls.grid(row=1, column=0, sticky="ew", padx=12, pady=(0, 12))
+        controls_card = self._section_card(
+            parent,
+            title="Batch Aggregate Summary",
+            description="Load an aggregate sweep CSV and inspect high-level fault-type trends without changing the batch schema.",
+        )
+        controls_card.grid(row=1, column=0, sticky="ew", padx=12, pady=(0, 12))
+        controls = self._card_content(controls_card)
         controls.columnconfigure(1, weight=1)
 
-        ttk.Label(controls, text="Aggregate CSV", style="FieldName.TLabel").grid(row=0, column=0, sticky="w")
+        ttk.Label(controls, text="Aggregate CSV", style="CardFieldName.TLabel").grid(row=0, column=0, sticky="w")
         path_entry = ttk.Entry(controls, textvariable=self.batch_csv_path)
         path_entry.grid(row=0, column=1, sticky="ew", padx=(10, 10))
         ttk.Button(controls, text="Browse", command=self.browse_batch_results).grid(row=0, column=2, sticky="e")
@@ -5532,11 +5664,11 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         ttk.Label(
             controls,
             text="This tab is a lightweight viewing layer for aggregate sweep results. Use the analysis scripts for publication tables and figures.",
-            style="Hint.TLabel",
+            style="CardHint.TLabel",
             wraplength=940,
             justify="left",
         ).grid(row=1, column=0, columnspan=4, sticky="w", pady=(8, 4))
-        ttk.Label(controls, textvariable=self.batch_status_text, style="Hint.TLabel", wraplength=940, justify="left").grid(
+        ttk.Label(controls, textvariable=self.batch_status_text, style="CardHint.TLabel", wraplength=940, justify="left").grid(
             row=2, column=0, columnspan=4, sticky="w"
         )
 
@@ -5550,8 +5682,13 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self._build_batch_stat_card(overview, 1, "Fault Classes Present", self.batch_fault_classes_var)
         self._build_batch_stat_card(overview, 2, "Fault Types Present", self.batch_fault_types_var)
 
-        findings_frame = ttk.LabelFrame(parent, text="Batch Findings / Interpretation", padding=14)
-        findings_frame.grid(row=3, column=0, sticky="ew", padx=12, pady=(0, 12))
+        findings_card = self._section_card(
+            parent,
+            title="Batch Findings",
+            description="Automatic aggregate interpretation for sweep-level behavior and paper-writing notes.",
+        )
+        findings_card.grid(row=3, column=0, sticky="ew", padx=12, pady=(0, 12))
+        findings_frame = self._card_content(findings_card)
         findings_frame.columnconfigure(0, weight=1)
         self._build_findings_cards(
             findings_frame,
@@ -5566,8 +5703,13 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         content.columnconfigure(1, weight=4)
         content.rowconfigure(0, weight=1)
 
-        table_frame = ttk.LabelFrame(content, text="Per-Fault-Type Averages", padding=10)
-        table_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+        table_card = self._section_card(
+            content,
+            title="Per-Fault-Type Averages",
+            description="A compact table of observability, thermal severity, and final safety outcomes.",
+        )
+        table_card.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+        table_frame = self._card_content(table_card)
         table_frame.columnconfigure(0, weight=1)
         table_frame.rowconfigure(0, weight=1)
 
@@ -5623,16 +5765,21 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.batch_table.grid(row=0, column=0, sticky="nsew")
         scroll.grid(row=0, column=1, sticky="ns")
 
-        plot_frame = ttk.LabelFrame(content, text="Batch Comparison View", padding=10)
-        plot_frame.grid(row=0, column=1, sticky="nsew")
+        plot_card = self._section_card(
+            content,
+            title="Batch Comparison View",
+            description="Switch between latency, temperature, duration, and final safe-state distribution views.",
+        )
+        plot_card.grid(row=0, column=1, sticky="nsew")
+        plot_frame = self._card_content(plot_card)
         plot_frame.columnconfigure(0, weight=1)
         plot_frame.rowconfigure(2, weight=1, minsize=320)
 
-        plot_header = ttk.Frame(plot_frame, style="Root.TFrame")
+        plot_header = ttk.Frame(plot_frame, style="Card.TFrame")
         plot_header.grid(row=0, column=0, sticky="ew", pady=(0, 8))
         plot_header.columnconfigure(2, weight=1)
 
-        ttk.Label(plot_header, text="Batch Plot", style="FieldName.TLabel").grid(row=0, column=0, sticky="w")
+        ttk.Label(plot_header, text="Batch Plot", style="CardFieldName.TLabel").grid(row=0, column=0, sticky="w")
         selector = ttk.Combobox(
             plot_header,
             textvariable=self.batch_plot_choice,
@@ -5646,7 +5793,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         ttk.Label(
             plot_frame,
             text="Use the selector to switch between observability, thermal severity, and safe-state outcome views from the currently loaded aggregate summary.",
-            style="Hint.TLabel",
+            style="CardHint.TLabel",
             wraplength=360,
             justify="left",
         ).grid(row=1, column=0, sticky="w", pady=(0, 8))
@@ -5676,13 +5823,18 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         description_var: tk.StringVar,
         callback,
     ) -> None:
-        card = ttk.Frame(parent, padding=(0, 0, 16 if column == 0 else 0, 0), style="Root.TFrame")
+        card = self._section_card(
+            parent,
+            title=title,
+            description="Select the campaign and review its research context before running.",
+        )
         card.grid(row=0, column=column, sticky="ew")
-        card.columnconfigure(1, weight=1)
+        content = self._card_content(card)
+        content.columnconfigure(1, weight=1)
 
-        ttk.Label(card, text=title, style="FieldName.TLabel").grid(row=0, column=0, sticky="w")
+        ttk.Label(content, text="Campaign", style="CardFieldName.TLabel").grid(row=0, column=0, sticky="w")
         box = ttk.Combobox(
-            card,
+            content,
             textvariable=variable,
             values=[campaign_id for campaign_id, _label in CAMPAIGNS],
             state="readonly",
@@ -5692,38 +5844,34 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         box.bind("<<ComboboxSelected>>", callback)
 
         ttk.Label(
-            card,
+            content,
             textvariable=description_var,
-            style="Hint.TLabel",
+            style="CardHint.TLabel",
             wraplength=420,
             justify="left",
         ).grid(row=1, column=1, sticky="w", pady=(6, 0))
 
     def _build_batch_stat_card(self, parent: ttk.Frame, column: int, title: str, variable: tk.StringVar) -> None:
-        card = tk.Frame(parent, bg="#ffffff", bd=1, relief="solid", highlightthickness=0)
+        card = self._modern_frame(parent, fg_color=CARD_BG, corner_radius=16, border_color="#dce6f1")
         card.grid(row=0, column=column, sticky="nsew", padx=(0, 10 if column < 2 else 0))
-        tk.Label(
+        self._modern_label(
             card,
             text=title,
-            bg="#ffffff",
-            fg="#22313f",
-            font=("TkDefaultFont", 10, "bold"),
+            fg_color=CARD_BG,
+            text_color=TEXT_MUTED,
+            font=(UI_FONT, 10, "bold"),
             anchor="w",
-            padx=12,
-            pady=0,
-        ).pack(fill="x", pady=(10, 2))
-        tk.Label(
+        ).pack(fill="x", padx=14, pady=(12, 2))
+        self._modern_label(
             card,
             textvariable=variable,
-            bg="#ffffff",
-            fg="#1f2e3b",
-            font=("TkDefaultFont", 10, "bold"),
+            fg_color=CARD_BG,
+            text_color=TEXT_DARK,
+            font=(UI_FONT, 12, "bold"),
             justify="left",
             wraplength=300,
             anchor="w",
-            padx=12,
-            pady=10,
-        ).pack(fill="x")
+        ).pack(fill="x", padx=14, pady=(0, 14))
 
     def _set_custom_controls_enabled(self, enabled: bool) -> None:
         state = ["!disabled"] if enabled else ["disabled"]
@@ -6927,31 +7075,27 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         body_font: Tuple[str, int] | Tuple[str, int, str],
         body_fg: str,
     ) -> None:
-        card = tk.Frame(parent, bg="#ffffff", bd=1, relief="solid", highlightthickness=0)
+        card = self._modern_frame(parent, fg_color=CARD_BG, corner_radius=14, border_color="#dce6f1")
         card.grid(row=0, column=column, sticky="nsew", padx=(0, 10 if column == 0 else 0))
 
-        tk.Label(
+        self._modern_label(
             card,
             text=title,
-            bg="#ffffff",
-            fg="#1d3448",
-            font=("TkDefaultFont", 10, "bold"),
+            fg_color=CARD_BG,
+            text_color=TEXT_DARK,
+            font=(UI_FONT, 11, "bold"),
             anchor="w",
-            padx=14,
-            pady=0,
-        ).pack(fill="x", pady=(12, 4))
-        tk.Label(
+        ).pack(fill="x", padx=14, pady=(12, 4))
+        self._modern_label(
             card,
             textvariable=variable,
-            bg="#ffffff",
-            fg=body_fg,
-            font=body_font,
+            fg_color=CARD_BG,
+            text_color=body_fg,
+            font=(UI_FONT, body_font[1], body_font[2]) if len(body_font) > 2 else (UI_FONT, body_font[1]),
             justify="left",
             wraplength=wraplength,
             anchor="w",
-            padx=14,
-            pady=12,
-        ).pack(fill="x")
+        ).pack(fill="x", padx=14, pady=(0, 14))
 
     def _build_quick_start_panel(self, parent: ttk.Frame) -> None:
         panel = ttk.LabelFrame(parent, text="Quick Start / Guided Use", padding=12)
