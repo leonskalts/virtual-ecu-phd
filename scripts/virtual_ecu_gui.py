@@ -4006,18 +4006,18 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.comparison_plot_choice = tk.StringVar(value=self.COMPARISON_PLOT_OPTIONS[0])
         self.batch_plot_choice = tk.StringVar(value=self.BATCH_PLOT_OPTIONS[0])
         self.status_text = tk.StringVar(
-            value="Fast start: load a Showcase preset, or click Run Built-In Comparison for the selected campaigns."
+            value="New here? Start on the Dashboard: open the recommended demo or run the default baseline-vs-fault comparison."
         )
-        self.batch_status_text = tk.StringVar(value="Ready to load the default batch summary for sweep-level trends.")
+        self.batch_status_text = tk.StringVar(value="Ready. Load the default batch summary to see sweep-level trends across fault types.")
         self.custom_status_text = tk.StringVar(
-            value="Choose a single fault or multi-fault scenario, then use the main run actions to open figures immediately."
+            value="Start simple: choose Single Fault, keep the defaults, then run or compare against baseline."
         )
         self.summary_resources_expanded = tk.BooleanVar(value=False)
-        self.comparison_verdict_var = tk.StringVar(value="Run a comparison to generate a compact verdict.")
+        self.comparison_verdict_var = tk.StringVar(value="No comparison yet. Run or load two results to generate a compact verdict.")
         self.comparison_takeaway_var = tk.StringVar(value="-")
-        self.comparison_findings_var = tk.StringVar(value="Run a comparison to generate automatic findings.")
+        self.comparison_findings_var = tk.StringVar(value="No comparison yet. Findings will appear here after a left-versus-right run.")
         self.comparison_interpretation_var = tk.StringVar(value="-")
-        self.batch_findings_var = tk.StringVar(value="Load a batch aggregate summary CSV to generate automatic findings.")
+        self.batch_findings_var = tk.StringVar(value="No batch data loaded yet. Load an aggregate CSV to generate automatic findings.")
         self.batch_interpretation_var = tk.StringVar(value="-")
         self.left_description_var = tk.StringVar(value="-")
         self.right_description_var = tk.StringVar(value="-")
@@ -4031,7 +4031,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.showcase_presets: List[Dict[str, str]] = []
         self.showcase_preset_catalog: Dict[str, Dict[str, str]] = {}
         self.showcase_preset_choice = tk.StringVar(value="")
-        self.showcase_description_var = tk.StringVar(value="Load a showcase preset to open a saved thesis/demo comparison.")
+        self.showcase_description_var = tk.StringVar(value="Recommended for first-time users: open a saved thesis/demo comparison with no rerun.")
         self.recent_results: List[Dict[str, str]] = []
         self.favorite_comparisons: List[Dict[str, str]] = []
         self.favorite_choice = tk.StringVar(value="")
@@ -4049,11 +4049,11 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.comparison_plot_help_var = tk.StringVar(
             value="Use the propagation view to read top-to-bottom from hardware-origin fault to ECU manifestation, diagnostics, and safe-state/system effect."
         )
-        self.dashboard_comparison_var = tk.StringVar(value="No comparison loaded")
-        self.dashboard_export_var = tk.StringVar(value="Run a left-versus-right comparison to enable exports")
-        self.dashboard_batch_var = tk.StringVar(value="No batch aggregate loaded")
-        self.dashboard_custom_var = tk.StringVar(value="No custom run yet")
-        self.dashboard_runtime_var = tk.StringVar(value="Simulator executable detected" if self.executable else "Build the simulator before running campaigns")
+        self.dashboard_comparison_var = tk.StringVar(value="Start with the recommended demo")
+        self.dashboard_export_var = tk.StringVar(value="Exports unlock after a comparison is loaded")
+        self.dashboard_batch_var = tk.StringVar(value="Batch dashboard is ready to load data")
+        self.dashboard_custom_var = tk.StringVar(value="Try a single-fault demo when ready")
+        self.dashboard_runtime_var = tk.StringVar(value="Simulator ready" if self.executable else "Build the simulator before running campaigns")
         self.batch_csv_path = tk.StringVar(value=str(DEFAULT_BATCH_AGGREGATE_CSV))
         self.batch_run_count_var = tk.StringVar(value="-")
         self.batch_fault_classes_var = tk.StringVar(value="-")
@@ -4631,8 +4631,52 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self._dashboard_card(metrics, row=0, column=2, title="Batch Results", value_var=self.dashboard_batch_var, accent=ACCENT_AMBER)
         self._dashboard_card(metrics, row=0, column=3, title="Custom Builder", value_var=self.dashboard_custom_var, accent=LEFT_COLOR, padx=(0, 0))
 
+        quick_start = self._modern_frame(shell, fg_color="#f7fbff", corner_radius=18, border_color="#cfe0f4")
+        quick_start.grid(row=2, column=0, sticky="ew", pady=(4, 14))
+        quick_start.columnconfigure(0, weight=3)
+        quick_start.columnconfigure(1, weight=2)
+        self._modern_label(
+            quick_start,
+            text="Quick Start: Recommended Demo",
+            font=(UI_FONT, 17, "bold"),
+            text_color=TEXT_DARK,
+            fg_color="#f7fbff",
+        ).grid(row=0, column=0, sticky="ew", padx=20, pady=(18, 4))
+        self._modern_label(
+            quick_start,
+            text=(
+                "If this is your first session, use a saved Baseline vs Fan Hot Stress comparison. "
+                "It immediately populates metrics, figures, propagation evidence, fault path diagrams, and exports."
+            ),
+            font=(UI_FONT, 10),
+            text_color=TEXT_MUTED,
+            fg_color="#f7fbff",
+            wraplength=720,
+        ).grid(row=1, column=0, sticky="ew", padx=20, pady=(0, 18))
+
+        quick_actions = ttk.Frame(quick_start, style="SoftCard.TFrame")
+        quick_actions.grid(row=0, column=1, rowspan=2, sticky="nsew", padx=(0, 20), pady=18)
+        quick_actions.columnconfigure(0, weight=1)
+        self._modern_button(
+            quick_actions,
+            "Open Recommended Demo",
+            self.load_selected_showcase_preset,
+            color=SIDEBAR_ACTIVE,
+        ).grid(row=0, column=0, sticky="ew", pady=(0, 8))
+        self._modern_button(
+            quick_actions,
+            "Run Default Comparison",
+            self.run_comparison,
+            color=ACCENT_GREEN,
+        ).grid(row=1, column=0, sticky="ew", pady=(0, 8))
+        ttk.Button(
+            quick_actions,
+            text="Go to Guided Setup",
+            command=lambda: self._navigate_to_page("summary"),
+        ).grid(row=2, column=0, sticky="ew")
+
         workflow = self._modern_frame(shell, fg_color=CARD_BG, corner_radius=18, border_color="#dce6f1")
-        workflow.grid(row=2, column=0, sticky="ew", pady=(4, 14))
+        workflow.grid(row=3, column=0, sticky="ew", pady=(4, 14))
         workflow.columnconfigure(0, weight=1)
         self._modern_label(
             workflow,
@@ -4693,15 +4737,15 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             )
 
         actions = ttk.Frame(shell, style="Root.TFrame")
-        actions.grid(row=3, column=0, sticky="ew")
+        actions.grid(row=4, column=0, sticky="ew")
         actions.columnconfigure(0, weight=1)
         actions.columnconfigure(1, weight=1)
         actions.columnconfigure(2, weight=1)
 
         action_defs = (
-            ("Showcase Comparison", "Load the selected saved thesis/demo pair without rerunning the simulator.", self.load_selected_showcase_preset),
-            ("Custom Fault Builder", "Create a single custom fault or staged multi-fault scenario.", lambda: self._navigate_to_page("custom")),
-            ("Export Reports", "Open the export page for snapshots, full reports, and presentation bundles.", lambda: self._navigate_to_page("exports")),
+            ("Load Saved Demo", "Open the selected showcase pair without rerunning the simulator.", self.load_selected_showcase_preset),
+            ("Build a Custom Fault", "Create a single fault first; multi-fault scenarios are there when you need them.", lambda: self._navigate_to_page("custom")),
+            ("Prepare Exports", "Open snapshots, full reports, and presentation bundles once a comparison is loaded.", lambda: self._navigate_to_page("exports")),
         )
         for column, (title, body, command) in enumerate(action_defs):
             card = self._modern_frame(actions, fg_color=CARD_BG, corner_radius=16, border_color="#dce6f1")
@@ -4730,8 +4774,8 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             row=0,
             title="Export Reports",
             description=(
-                "Exports are generated from the currently loaded left-versus-right comparison. "
-                "Run or load a comparison first, then create the report bundle that matches your paper or demo need."
+                "Create report artifacts from the current comparison. If the buttons are disabled, go to Run / Load first "
+                "and open or run a left-versus-right result pair."
             ),
         )
 
@@ -4962,8 +5006,8 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             row=0,
             title="Comparison Figures",
             description=(
-                "Use this tab after loading or running a comparison. Keep the selector focused on one figure at a time "
-                "for cleaner screenshots and easier narration."
+                "This is the visual analysis page. After a comparison is loaded, choose one figure at a time and use the "
+                "evidence table to explain what happened."
             ),
         )
 
@@ -5017,7 +5061,9 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             canvas_height=560,
         )
         self.comparison_plot.grid(row=0, column=0, sticky="nsew")
-        self.comparison_plot.show_message("Run a comparison from the Comparison Summary page to display the selected plot here.")
+        self.comparison_plot.show_message(
+            "No comparison loaded yet.\n\nStart with the Dashboard recommended demo or run a built-in comparison from Run / Load."
+        )
         self._build_propagation_evidence_panel(plots)
 
     def _build_propagation_evidence_panel(self, parent: ttk.Frame) -> None:
@@ -5103,8 +5149,8 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             row=0,
             title="Custom Experiment",
             description=(
-                "Build a single fault or staged scenario, use the main run actions first, and keep presets or advanced "
-                "placement for the cases where you need a more specific comparison layout."
+                "Start with the Single Fault tab if you are new. Multi-fault scenarios and advanced placement are optional "
+                "tools for more specific thesis/demo stories."
             ),
         )
 
@@ -5295,18 +5341,18 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         advanced = ttk.Frame(actions_card, style="Root.TFrame")
         advanced.grid(row=2, column=0, sticky="w")
 
-        ttk.Label(advanced, text="Advanced placement:", style="FieldName.TLabel").grid(row=0, column=0, sticky="w")
-        run_only = ttk.Button(advanced, text="Run to Left Only", command=self.run_custom_only)
+        ttk.Label(advanced, text="Optional placement:", style="FieldName.TLabel").grid(row=0, column=0, sticky="w")
+        run_only = ttk.Button(advanced, text="Run and Inspect Only", command=self.run_custom_only)
         run_only.grid(row=0, column=1, sticky="w", padx=(8, 0))
-        load_left = ttk.Button(advanced, text="Load as Left", command=self.load_custom_as_left)
+        load_left = ttk.Button(advanced, text="Use as Left Side", command=self.load_custom_as_left)
         load_left.grid(row=0, column=2, sticky="w", padx=(8, 0))
-        load_right = ttk.Button(advanced, text="Load as Right", command=self.load_custom_as_right)
+        load_right = ttk.Button(advanced, text="Use as Right Side", command=self.load_custom_as_right)
         load_right.grid(row=0, column=3, sticky="w", padx=(8, 0))
 
         ttk.Label(
             actions_card,
             text=(
-                "Advanced actions reuse the currently selected built-in campaign on the other side when baseline is not the comparison you want."
+                "Use these only when you want this custom fault on a specific side of a comparison. The main Compare vs Baseline button is the simplest path."
             ),
             style="Hint.TLabel",
             wraplength=720,
@@ -5544,17 +5590,17 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
 
         actions = ttk.Frame(actions_card, style="Root.TFrame")
         actions.grid(row=2, column=0, sticky="w")
-        ttk.Label(actions, text="Advanced placement:", style="FieldName.TLabel").grid(row=0, column=0, sticky="w")
-        run_only = ttk.Button(actions, text="Run to Left Only", command=self.run_multi_only)
+        ttk.Label(actions, text="Optional placement:", style="FieldName.TLabel").grid(row=0, column=0, sticky="w")
+        run_only = ttk.Button(actions, text="Run and Inspect Only", command=self.run_multi_only)
         run_only.grid(row=0, column=1, sticky="w", padx=(8, 0))
-        load_left = ttk.Button(actions, text="Load as Left", command=self.load_multi_as_left)
+        load_left = ttk.Button(actions, text="Use as Left Side", command=self.load_multi_as_left)
         load_left.grid(row=0, column=2, sticky="w", padx=(8, 0))
-        load_right = ttk.Button(actions, text="Load as Right", command=self.load_multi_as_right)
+        load_right = ttk.Button(actions, text="Use as Right Side", command=self.load_multi_as_right)
         load_right.grid(row=0, column=3, sticky="w", padx=(8, 0))
 
         ttk.Label(
             actions_card,
-            text="Advanced placement keeps the main run path clean when you need a specific left/right setup.",
+            text="Use optional placement only when a scenario needs a specific left/right comparison setup.",
             style="Hint.TLabel",
             wraplength=760,
             justify="left",
@@ -5595,8 +5641,8 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             row=0,
             title="Fault Path",
             description=(
-                "Read the ECU fault story from left to right: sensing, timing/link, control/memory, actuation, and "
-                "final plant outcome. The reference side stays quiet so the fault case is easier to scan."
+                "Use this page to explain the fault story visually. Read each card from sensing and timing through ECU "
+                "control, actuation, plant response, diagnostics, and safety outcome."
             ),
         )
 
@@ -5639,8 +5685,8 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             row=0,
             title="Batch Results",
             description=(
-                "Use this tab as a compact viewing layer for aggregate sweeps. Keep it focused on quick comparison and "
-                "use the analysis scripts when you need publication-grade tables or figures."
+                "Use this page when you want sweep-level intuition instead of one run. Load an aggregate CSV, then scan "
+                "the metric cards, findings, table, and plot."
             ),
         )
 
@@ -5799,7 +5845,9 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         ).grid(row=1, column=0, sticky="w", pady=(0, 8))
         self.batch_plot = PlotCanvas(plot_frame, self.batch_plot_choice.get(), canvas_height=300)
         self.batch_plot.grid(row=2, column=0, sticky="nsew")
-        self.batch_plot.show_message("Load a batch aggregate summary CSV to view the sweep-level comparison.")
+        self.batch_plot.show_message(
+            "No batch data loaded yet.\n\nClick Load Aggregate CSV to view sweep-level comparison plots."
+        )
 
     def _build_tab_header(self, parent: ttk.Frame, *, row: int, title: str, description: str) -> None:
         header = ttk.Frame(parent, padding=(12, 8, 12, 10), style="Root.TFrame")
@@ -5886,9 +5934,9 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
     def _clear_custom_result_summary(self) -> None:
         for variable in self.custom_summary_vars.values():
             variable.set("-")
-        self.custom_saved_paths_var.set("-")
-        self.custom_last_run_var.set("-")
-        self.custom_loaded_slot_var.set("-")
+        self.custom_saved_paths_var.set("No files yet. Run a custom experiment to generate CSV outputs.")
+        self.custom_last_run_var.set("No custom run loaded yet.")
+        self.custom_loaded_slot_var.set("Not loaded")
         self.last_custom_result = None
         self._refresh_dashboard_state()
 
@@ -5903,19 +5951,19 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             self.dashboard_comparison_var.set(f"Single run loaded: {left_name}")
             self.dashboard_export_var.set("Load or run a right-side result to enable comparison exports.")
         else:
-            self.dashboard_comparison_var.set("No comparison loaded")
-            self.dashboard_export_var.set("Run a left-versus-right comparison to enable exports.")
+            self.dashboard_comparison_var.set("Start with the recommended demo")
+            self.dashboard_export_var.set("Exports unlock after a comparison is loaded.")
 
         if self.batch_rows:
             self.dashboard_batch_var.set(f"{len(self.batch_rows)} aggregate rows loaded")
         else:
-            self.dashboard_batch_var.set("No batch aggregate loaded")
+            self.dashboard_batch_var.set("Batch dashboard is ready to load data")
 
         custom_name = self.custom_summary_vars["Campaign Name"].get()
         if custom_name and custom_name != "-":
             self.dashboard_custom_var.set(custom_name)
         else:
-            self.dashboard_custom_var.set("No custom run yet")
+            self.dashboard_custom_var.set("Try a single-fault demo when ready")
 
     def _refresh_showcase_presets(self) -> None:
         try:
@@ -7181,10 +7229,10 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
 
         tk.Label(
             panel,
-            text="Start a Comparison",
+            text="Guided Experiment Setup",
             bg="#ffffff",
             fg="#1d3448",
-            font=("TkDefaultFont", 12, "bold"),
+            font=(UI_FONT, 14, "bold"),
             anchor="w",
             padx=16,
             pady=0,
@@ -7192,10 +7240,13 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
 
         tk.Label(
             panel,
-            text="Choose the left and right campaigns below, then run the comparison or load saved CSV results into the two sides.",
+            text=(
+                "Choose two campaigns for a baseline-vs-fault comparison, or load saved CSV logs into the left/right slots. "
+                "The rest of the app updates from the loaded result pair."
+            ),
             bg="#ffffff",
             fg="#4d5c69",
-            font=("TkDefaultFont", 10),
+            font=(UI_FONT, 10),
             justify="left",
             wraplength=980,
             anchor="w",
@@ -7209,9 +7260,9 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             steps.columnconfigure(column, weight=1)
 
         step_cards = (
-            ("1", "Choose Left / Right", "Use the two campaign selectors just below."),
-            ("2", "Run or Load", "Use the action buttons on the right to run or load results."),
-            ("3", "Need a Demo Start?", "Open Saved Resources below for the showcase comparison."),
+            ("1", "Pick the Story", "Baseline on the left, fault or stress case on the right is the clearest first comparison."),
+            ("2", "Run or Load Results", "Run the built-in pair, or load existing raw CSV logs if you already have results."),
+            ("3", "Inspect and Export", "Figures, fault path, evidence, and exports become available after results are loaded."),
         )
         for index, (number, title, text) in enumerate(step_cards):
             card = tk.Frame(steps, bg="#f8fafc", bd=1, relief="solid", highlightthickness=0)
@@ -7696,10 +7747,10 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             "end",
             values=(
                 "-",
-                "Run comparison",
+                "Waiting for comparison",
                 "n/a",
                 "-",
-                "Run a campaign comparison to populate propagation evidence.",
+                "Run or load a left-versus-right comparison; this table will then show the evidence chain.",
             ),
             tags=("evidence_empty",),
         )
@@ -7771,8 +7822,8 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.batch_run_count_var.set("-")
         self.batch_fault_classes_var.set("-")
         self.batch_fault_types_var.set("-")
-        self.batch_findings_var.set("Load the default aggregate CSV, or browse to another batch summary.")
-        self.batch_interpretation_var.set("-")
+        self.batch_findings_var.set("No batch data loaded yet. Use Load Aggregate CSV to populate sweep findings.")
+        self.batch_interpretation_var.set("The default path is already filled in; click Load Aggregate CSV when you are ready.")
 
         if self.batch_table is not None:
             for item_id in self.batch_table.get_children():
@@ -7780,7 +7831,9 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
 
         if self.batch_plot is not None:
             self.batch_plot.set_title(self.batch_plot_choice.get())
-            self.batch_plot.show_message("Load a batch aggregate CSV, then use the plot selector to inspect trends.")
+            self.batch_plot.show_message(
+                "No batch data loaded yet.\n\nClick Load Aggregate CSV to populate this dashboard, then use the plot selector to explore trends."
+            )
         self._refresh_dashboard_state()
 
     def _apply_batch_results(self, csv_path: Path, rows: Sequence[Dict[str, str]]) -> None:
@@ -7858,7 +7911,9 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.batch_plot.set_title(self.batch_plot_choice.get())
 
         if not self.batch_rows:
-            self.batch_plot.show_message("Load a batch aggregate CSV, then use the plot selector to inspect trends.")
+            self.batch_plot.show_message(
+                "No batch data loaded yet.\n\nClick Load Aggregate CSV to populate this view, then choose a metric from the selector."
+            )
             return
 
         fault_types = self._ordered_fault_types(self.batch_rows)
@@ -8053,10 +8108,10 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.export_button.state(["disabled"])
         if self.presentation_bundle_button is not None:
             self.presentation_bundle_button.state(["disabled"])
-        self.comparison_verdict_var.set("Run a comparison to generate a compact verdict.")
+        self.comparison_verdict_var.set("No comparison yet. Run the recommended demo or load two saved results to generate a verdict.")
         self.comparison_takeaway_var.set("-")
-        self.comparison_findings_var.set("Run a comparison to generate automatic findings.")
-        self.comparison_interpretation_var.set("-")
+        self.comparison_findings_var.set("No comparison yet. Findings will appear here after a left-versus-right run.")
+        self.comparison_interpretation_var.set("Tip: start with Baseline vs Fan Hot Stress if you want an immediately visible safety response.")
         self._update_comparison_plot_help()
         for slot in ("left", "right"):
             for metric_name in self.METRIC_NAMES:
@@ -8064,7 +8119,9 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self._refresh_metric_cells()
         if self.comparison_plot is not None:
             self.comparison_plot.set_title(self.comparison_plot_choice.get())
-            self.comparison_plot.show_message("Run a comparison from the Comparison Summary page to display the selected plot here.")
+            self.comparison_plot.show_message(
+                "No comparison loaded yet.\n\nOpen the recommended demo from the Dashboard or run a built-in comparison from Run / Load."
+            )
         self._clear_propagation_evidence()
         self._refresh_fault_path_diagrams()
         self._refresh_dashboard_state()
@@ -8704,7 +8761,9 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.comparison_plot.set_title(selected_plot)
 
         if self.current_plot_results is None:
-            self.comparison_plot.show_message("Run a comparison from the Comparison Summary page to display the selected plot here.")
+            self.comparison_plot.show_message(
+                "No comparison loaded yet.\n\nOpen the recommended demo from the Dashboard or run a built-in comparison from Run / Load."
+            )
             return
 
         left_result = self.current_plot_results["left"]  # type: ignore[index]
