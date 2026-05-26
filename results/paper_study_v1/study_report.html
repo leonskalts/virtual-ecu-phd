@@ -1,0 +1,481 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Virtual ECU Paper Study v1</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5f7fa;
+      --panel: #ffffff;
+      --ink: #1c2530;
+      --muted: #5b6674;
+      --line: #d9e0e8;
+      --accent: #2d5d7b;
+      --accent-soft: #e8f1f5;
+      --warn: #7c4a03;
+      --warn-bg: #fff7e6;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+    .page {
+      max-width: 1160px;
+      margin: 0 auto;
+      padding: 28px 24px 44px;
+    }
+    header {
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 18px;
+      margin-bottom: 20px;
+    }
+    h1 {
+      margin: 0;
+      font-size: 30px;
+      letter-spacing: 0;
+    }
+    .subtitle {
+      margin: 6px 0 0;
+      color: var(--accent);
+      font-size: 16px;
+      font-weight: 650;
+    }
+    section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      margin: 16px 0;
+      box-shadow: 0 1px 2px rgba(22, 34, 51, 0.04);
+    }
+    h2 {
+      margin: 0 0 12px;
+      font-size: 18px;
+      letter-spacing: 0;
+    }
+    p { margin: 0 0 10px; }
+    .goal {
+      background: transparent;
+      border: 0;
+      box-shadow: none;
+      padding: 0;
+      color: var(--muted);
+      font-size: 15px;
+    }
+    .pipeline {
+      color: var(--ink);
+      font-weight: 650;
+    }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 12px;
+      margin: 16px 0;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      min-height: 92px;
+    }
+    .card .label {
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .card .value {
+      margin-top: 8px;
+      font-size: 22px;
+      font-weight: 700;
+    }
+    .card .detail {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .wide-card { grid-column: span 2; }
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      font-size: 12px;
+    }
+    th, td {
+      padding: 8px 9px;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+      text-align: left;
+    }
+    th {
+      background: #eef3f7;
+      color: #263445;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    tbody tr:last-child td { border-bottom: 0; }
+    tbody tr:nth-child(even) td { background: #fafbfd; }
+    .figure-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      align-items: start;
+    }
+    figure {
+      margin: 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      padding: 10px;
+    }
+    img {
+      display: block;
+      width: 100%;
+      height: auto;
+      max-height: 520px;
+      object-fit: contain;
+    }
+    figcaption {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .single-figure {
+      max-width: 860px;
+    }
+    .claims {
+      margin: 0;
+      padding-left: 20px;
+    }
+    .claims li { margin: 7px 0; }
+    .limits {
+      border-left: 4px solid #d69b2d;
+      background: var(--warn-bg);
+      color: var(--warn);
+    }
+    pre {
+      margin: 0;
+      padding: 12px;
+      border-radius: 6px;
+      background: #17202a;
+      color: #eef3f7;
+      overflow-x: auto;
+      font-size: 13px;
+    }
+    .note {
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .missing {
+      border: 1px dashed var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      color: var(--muted);
+      background: #fff;
+    }
+    @media (max-width: 900px) {
+      .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .wide-card { grid-column: span 2; }
+      .figure-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 620px) {
+      .page { padding: 20px 14px 32px; }
+      .cards { grid-template-columns: 1fr; }
+      .wide-card { grid-column: span 1; }
+      h1 { font-size: 24px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header>
+      <h1>Virtual ECU Paper Study v1</h1>
+      <p class="subtitle">Cross-Layer Fault Propagation Evidence Package</p>
+    </header>
+
+    <section class="goal">
+      <p>This compact report summarizes a reproducible virtual ECU study package for research discussion. The evidence path is <span class="pipeline">fault origin &rarr; ECU-visible disturbance &rarr; diagnostic evidence / DTC &rarr; safe-state response &rarr; thermal outcome</span>. The intent is to support paper framing and research discussion without relying on the GUI.</p>
+    </section>
+
+    <div class="cards">
+      <div class="card">
+        <div class="label">Scenarios</div>
+        <div class="value">7</div>
+        <div class="detail">representative runs</div>
+      </div>
+      <div class="card">
+        <div class="label">Non-baseline</div>
+        <div class="value">6</div>
+        <div class="detail">fault scenarios</div>
+      </div>
+      <div class="card">
+        <div class="label">Fault classes</div>
+        <div class="value">6</div>
+        <div class="detail">baseline + 4 fault paths + mixed</div>
+      </div>
+      <div class="card">
+        <div class="label">Representative case</div>
+        <div class="value">Baseline vs Fan</div>
+        <div class="detail">hot-stress actuation path</div>
+      </div>
+      <div class="card wide-card">
+        <div class="label">Key outcome</div>
+        <div class="value" style="font-size: 16px;">fan_stuck_off -&gt; fan_tracking_fault -&gt; limp_home -&gt; +18.57 C peak coolant</div>
+        <div class="detail">deterministic representative run</div>
+      </div>
+    </div>
+
+    <section>
+      <h2>Fault Taxonomy</h2>
+      <div class="table-wrap">
+        <table>
+<thead><tr>
+<th>Fault class</th>
+<th>Fault type</th>
+<th>Fault origin</th>
+<th>ECU-visible disturbance</th>
+<th>Diagnostic evidence</th>
+<th>Safe-state response</th>
+<th>Thermal outcome</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>baseline</td>
+<td>none</td>
+<td>no injected hardware-origin fault</td>
+<td>nominal sensor and actuator signals</td>
+<td>none observed in selected representative run(s)</td>
+<td>normal only in selected representative run(s)</td>
+<td>max coolant 96.00 C</td>
+</tr>
+<tr>
+<td>sensing-path fault</td>
+<td>sensor_bias</td>
+<td>ADC/reference/front-end offset</td>
+<td>biased coolant temperature measurement</td>
+<td>coolant_sensor_rationality</td>
+<td>normal only in selected representative run(s)</td>
+<td>max coolant 96.00 C</td>
+</tr>
+<tr>
+<td>timing/communication-path fault</td>
+<td>stale_sensor_data</td>
+<td>delayed sampled-data coolant transfer</td>
+<td>older coolant sample reused by control and diagnostics</td>
+<td>coolant_sensor_rationality<br>cooling_performance_low</td>
+<td>precautionary_cooling<br>limp_home</td>
+<td>max coolant 142.40 C</td>
+</tr>
+<tr>
+<td>actuation-path fault</td>
+<td>pump_degraded</td>
+<td>weak driver, aging pump, or supply droop</td>
+<td>reduced pump authority relative to command</td>
+<td>pump_tracking_fault</td>
+<td>precautionary_cooling<br>limp_home</td>
+<td>max coolant 96.00 C</td>
+</tr>
+<tr>
+<td>actuation-path fault</td>
+<td>fan_stuck_off</td>
+<td>gate-driver, PWM-output, or power-stage stuck-off fault</td>
+<td>commanded fan does not produce expected airflow</td>
+<td>fan_tracking_fault</td>
+<td>precautionary_cooling<br>limp_home</td>
+<td>max coolant 114.57 C</td>
+</tr>
+<tr>
+<td>computation/memory-path fault</td>
+<td>calibration_memory_corruption</td>
+<td>corrupted coolant-control calibration memory</td>
+<td>altered control threshold or target behavior</td>
+<td>cooling_performance_low</td>
+<td>precautionary_cooling<br>limp_home</td>
+<td>max coolant 108.17 C</td>
+</tr>
+</tbody></table>
+      </div>
+    </section>
+
+    <section>
+      <h2>Representative Comparison: Baseline vs Fan Hot Stress</h2>
+      <div class="table-wrap">
+        <table>
+<thead><tr>
+<th>Scenario</th>
+<th>Fault type</th>
+<th>Max coolant [C]</th>
+<th>Final coolant [C]</th>
+<th>First DTC</th>
+<th>Final primary DTC</th>
+<th>Final safe state</th>
+<th>Detection [s]</th>
+<th>Safe-state duration [s]</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>baseline</td>
+<td>none</td>
+<td>96.00</td>
+<td>96.00</td>
+<td>none</td>
+<td>none</td>
+<td>normal</td>
+<td>n/a</td>
+<td>0.000</td>
+</tr>
+<tr>
+<td>fan_stuck_hot_stress</td>
+<td>fan_stuck_off</td>
+<td>114.57</td>
+<td>114.57</td>
+<td>fan_tracking_fault</td>
+<td>fan_tracking_fault</td>
+<td>limp_home</td>
+<td>0.400</td>
+<td>41.600</td>
+</tr>
+</tbody></table>
+      </div>
+      <p class="note">In this deterministic representative run, `fan_stuck_hot_stress` reaches a peak coolant temperature 18.57 C above the baseline and records `fan_tracking_fault` as DTC evidence. The final safe state is `limp_home`, compared with `normal` for the baseline.</p>
+      <div class="single-figure">
+        <figure><img src="figures/baseline_vs_fan_hot_stress.png" alt="Baseline vs Fan Hot Stress"><figcaption>Baseline vs Fan Hot Stress</figcaption></figure>
+      </div>
+    </section>
+
+    <section>
+      <h2>Aggregate Results</h2>
+      <div class="table-wrap">
+        <table>
+<thead><tr>
+<th>Scenario</th>
+<th>Fault class</th>
+<th>Fault type</th>
+<th>First DTC</th>
+<th>Final safe state</th>
+<th>Detection [s]</th>
+<th>Safe-state duration [s]</th>
+<th>Max coolant [C]</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>baseline</td>
+<td>baseline</td>
+<td>none</td>
+<td>none</td>
+<td>normal</td>
+<td>n/a</td>
+<td>0.000</td>
+<td>96.00</td>
+</tr>
+<tr>
+<td>fan_stuck_hot_stress</td>
+<td>actuation-path fault</td>
+<td>fan_stuck_off</td>
+<td>fan_tracking_fault</td>
+<td>limp_home</td>
+<td>0.400</td>
+<td>41.600</td>
+<td>114.57</td>
+</tr>
+<tr>
+<td>pump_degraded_only</td>
+<td>actuation-path fault</td>
+<td>pump_degraded</td>
+<td>pump_tracking_fault</td>
+<td>normal</td>
+<td>1.000</td>
+<td>26.500</td>
+<td>96.00</td>
+</tr>
+<tr>
+<td>stale_sensor_data_hot_stress</td>
+<td>timing/communication-path fault</td>
+<td>stale_sensor_data</td>
+<td>coolant_sensor_rationality</td>
+<td>normal</td>
+<td>27.000</td>
+<td>17.500</td>
+<td>142.40</td>
+</tr>
+<tr>
+<td>sensor_bias_only</td>
+<td>sensing-path fault</td>
+<td>sensor_bias</td>
+<td>coolant_sensor_rationality</td>
+<td>normal</td>
+<td>0.000</td>
+<td>0.000</td>
+<td>96.00</td>
+</tr>
+<tr>
+<td>calibration_memory_corruption</td>
+<td>computation/memory-path fault</td>
+<td>calibration_memory_corruption</td>
+<td>cooling_performance_low</td>
+<td>limp_home</td>
+<td>39.500</td>
+<td>13.600</td>
+<td>108.17</td>
+</tr>
+<tr>
+<td>paper_default_multi_fault</td>
+<td>mixed hardware-origin faults</td>
+<td>sensor_bias+pump_degraded+fan_stuck_off</td>
+<td>coolant_sensor_rationality</td>
+<td>limp_home</td>
+<td>0.000</td>
+<td>50.100</td>
+<td>92.54</td>
+</tr>
+</tbody></table>
+      </div>
+    </section>
+
+    <section>
+      <h2>Aggregate Figures</h2>
+      <div class="figure-grid">
+        <figure><img src="figures/max_coolant_by_scenario.png" alt="Thermal Severity: Maximum Coolant Temperature by Scenario"><figcaption>Thermal Severity: Maximum Coolant Temperature by Scenario</figcaption></figure>
+<figure><img src="figures/safe_state_duration_by_scenario.png" alt="Safety Response: Safe-State Duration by Scenario"><figcaption>Safety Response: Safe-State Duration by Scenario</figcaption></figure>
+<figure><img src="figures/detection_latency_by_scenario.png" alt="Detection Latency by Scenario"><figcaption>Detection Latency by Scenario</figcaption></figure>
+      </div>
+    </section>
+
+    <section>
+      <h2>Cautious Claim Candidates</h2>
+      <ul class="claims">
+        <li>The tool produces reproducible, CSV-backed traces for 7 representative virtual ECU scenarios without requiring GUI interaction.</li>
+<li>The raw CSV schema links configured fault events to ECU-visible labels, diagnostics, safe-state labels, actuator/sensor residuals, and thermal state in the same trace.</li>
+<li>In this representative set, 6 of 6 non-baseline scenarios show at least one non-none diagnostic/DTC evidence label during the run.</li>
+<li>In this representative set, 5 of 6 non-baseline scenarios enter or finish in a non-normal safe-state response.</li>
+<li>The fan hot-stress representative run demonstrates a clear actuation-path propagation case: `fan_stuck_off` leads to `fan_tracking_fault`, `limp_home`, and a peak coolant temperature 18.57 C above baseline.</li>
+<li>The included multi-event scenario demonstrates that the framework can represent staged fault narratives across more than one hardware-origin path.</li>
+      </ul>
+    </section>
+
+    <section class="limits">
+      <h2>Limitations / Non-Claims</h2>
+      <p>This package is not circuit-level validation, not production ECU certification, not real-vehicle calibration validation, and not statistical reliability estimation. It is a compact reproducible evidence package for a research prototype.</p>
+    </section>
+
+    <section>
+      <h2>Reproduction Command</h2>
+      <pre><code>make
+python3 scripts/generate_paper_study_v1.py</code></pre>
+    </section>
+  </main>
+</body>
+</html>
