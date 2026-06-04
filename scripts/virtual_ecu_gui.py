@@ -134,6 +134,32 @@ CUSTOM_DEFAULT_PARAMETERS = {
     "fan_stuck_off": "0.0",
     "calibration_memory_corruption": "16.0",
 }
+CUSTOM_PARAMETER_HELP = {
+    "sensor_bias": (
+        "Parameter meaning: coolant sensor offset in °C. Example: 6.0 means the ECU sees the coolant temperature "
+        "shifted by about 6 °C."
+    ),
+    "sensor_interface_intermittent": (
+        "Parameter meaning: intermittent sensor corruption amplitude in °C. Example: 8.0 creates a stronger "
+        "intermittent disturbance in the sensor path."
+    ),
+    "stale_sensor_data": (
+        "Parameter meaning: stale sensor hold time in milliseconds. Example: 15000 means the ECU may reuse a "
+        "coolant sample that is 15 seconds old."
+    ),
+    "pump_degraded": (
+        "Parameter meaning: pump effectiveness scale. Example: 0.45 means the actual pump response is about 45% "
+        "of the ECU command."
+    ),
+    "fan_stuck_off": (
+        "Parameter meaning: not used for this binary fault. The fan actual output is forced off while the fault "
+        "is active. Recommended value: 0.0."
+    ),
+    "calibration_memory_corruption": (
+        "Parameter meaning: coolant-control calibration offset in °C. Example: 16.0 shifts the internal control "
+        "target/threshold behavior by about 16 °C."
+    ),
+}
 BUILTIN_CUSTOM_PRESETS = {
     "sensor_bias_demo": {
         "preset_kind": "single",
@@ -295,6 +321,11 @@ FAULT_TYPE_DISPLAY = {
     "pump_degraded": "Pump Degraded",
     "fan_stuck_off": "Fan Stuck Off",
     "calibration_memory_corruption": "Calibration Memory Corruption",
+}
+BATCH_PLOT_FAULT_TYPE_DISPLAY = {
+    "sensor_interface_intermittent": "Sensor Interface\nIntermittent",
+    "stale_sensor_data": "Stale Sensor\nData",
+    "calibration_memory_corruption": "Calibration Memory\nCorruption",
 }
 SCENARIO_TIMELINE_COLORS = {
     "sensor_bias": "#c4473a",
@@ -2414,6 +2445,8 @@ class PlotCanvas(ttk.Frame):
             return ("TkDefaultFont", 11 if presentation else 10, "bold" if presentation else "normal")
         if role == "tick":
             return ("TkDefaultFont", 10 if presentation else 9)
+        if role == "category_tick":
+            return ("TkDefaultFont", 9 if presentation else 8)
         if role == "legend":
             return ("TkDefaultFont", 10 if presentation else 9)
         if role == "threshold":
@@ -2469,6 +2502,8 @@ class PlotCanvas(ttk.Frame):
         right_margin: int = 34,
         bottom_margin: int = 54,
         extra_left_margin: int = 0,
+        x_label_offset: int | None = None,
+        y_label_offset: int | None = None,
     ) -> Tuple[int, int, int, int]:
         resolved_left_margin = left_margin if left_margin is not None else self._axis_left_margin(
             y_label,
@@ -2485,13 +2520,13 @@ class PlotCanvas(ttk.Frame):
         self.canvas.create_line(left, bottom, left, top, fill="#4a5560", width=self._line_width())
         self.canvas.create_text(
             (left + right) / 2,
-            bottom + (30 if self.presentation_mode else 26),
+            bottom + (x_label_offset if x_label_offset is not None else (30 if self.presentation_mode else 26)),
             text=x_label,
             fill="#33404d",
             font=self._font("axis_label"),
         )
         self.canvas.create_text(
-            max(18, left - (58 if self.presentation_mode else 52)),
+            max(18, left - (y_label_offset if y_label_offset is not None else (58 if self.presentation_mode else 52))),
             (top + bottom) / 2,
             text=y_label,
             fill="#33404d",
@@ -2565,12 +2600,14 @@ class PlotCanvas(ttk.Frame):
     def _bottom_margin_for_categories(self, categories: Sequence[str]) -> int:
         if not categories:
             return 64 if self.presentation_mode else 56
-        longest = max(len(category) for category in categories)
-        if longest > 22:
-            return 104 if self.presentation_mode else 92
-        if longest > 14:
-            return 88 if self.presentation_mode else 76
-        return 70 if self.presentation_mode else 60
+        longest_line = max(len(line) for category in categories for line in category.splitlines())
+        max_lines = max(category.count("\n") + 1 for category in categories)
+        line_space = (18 if self.presentation_mode else 16) * max(0, max_lines - 1)
+        if longest_line > 16:
+            return (104 if self.presentation_mode else 94) + line_space
+        if longest_line > 10:
+            return (92 if self.presentation_mode else 82) + line_space
+        return (78 if self.presentation_mode else 70) + line_space
 
     def _draw_message(self, payload: object) -> None:
         width, height = self._canvas_size()
@@ -2815,6 +2852,9 @@ class PlotCanvas(ttk.Frame):
             x_label="Fault Type",
             y_tick_labels=y_tick_labels,
             bottom_margin=bottom_margin,
+            extra_left_margin=20,
+            x_label_offset=max(46, bottom_margin - 24),
+            y_label_offset=68 if self.presentation_mode else 62,
         )
 
         def map_y(value: float) -> float:
@@ -2847,7 +2887,7 @@ class PlotCanvas(ttk.Frame):
                 text=category,
                 anchor="n",
                 fill="#506070",
-                font=self._font("tick"),
+                font=self._font("category_tick"),
                 width=slot_width * 0.9,
             )
 
@@ -2878,6 +2918,9 @@ class PlotCanvas(ttk.Frame):
             y_tick_labels=y_tick_labels,
             top_margin=18 + legend_height,
             bottom_margin=bottom_margin,
+            extra_left_margin=20,
+            x_label_offset=max(46, bottom_margin - 24),
+            y_label_offset=68 if self.presentation_mode else 62,
         )
 
         def map_y(value: float) -> float:
@@ -2921,7 +2964,7 @@ class PlotCanvas(ttk.Frame):
                 text=category,
                 anchor="n",
                 fill="#506070",
-                font=self._font("tick"),
+                font=self._font("category_tick"),
                 width=slot_width * 0.9,
             )
 
@@ -3187,7 +3230,7 @@ class FaultPathDiagram(ttk.Frame):
         self.columnconfigure(0, weight=1)
         self.rowconfigure(2, weight=1)
 
-        self.title_var = tk.StringVar(value=side_label)
+        self.title_var = tk.StringVar(value="Baseline Reference")
         ttk.Label(self, textvariable=self.title_var, style="Section.TLabel").grid(
             row=0,
             column=0,
@@ -3287,6 +3330,11 @@ class FaultPathDiagram(ttk.Frame):
         if "thermal_plant" in self.affected_blocks:
             return f"Fault begins in {primary_label} and propagates across the chain to the plant outcome."
         return f"Fault begins in {primary_label} and remains most visible before the final plant stage."
+
+    def _case_title(self) -> str:
+        if not self.affected_blocks and self.campaign_label.lower() == "baseline":
+            return "Baseline Reference"
+        return self.campaign_label
 
     def _outcome_level(self) -> Tuple[str, str, str]:
         if self.summary_row is None:
@@ -3493,10 +3541,7 @@ class FaultPathDiagram(ttk.Frame):
         self.subsystem_var.set(self._primary_subsystem_summary())
         self.outcome_var.set(self._outcome_summary(story))
         self.note_var.set(self._footer_sentence(story))
-        if self.affected_blocks:
-            self.title_var.set(f"{self.side_label} Fault Path")
-        else:
-            self.title_var.set(f"{self.side_label} Reference Path")
+        self.title_var.set(self._case_title())
         self.redraw()
 
     def redraw(self) -> None:
@@ -3514,18 +3559,9 @@ class FaultPathDiagram(ttk.Frame):
         has_fault = bool(self.affected_blocks)
         flow_y = top + 50
         heading_color = self.accent_color if has_fault else "#7c8a96"
-        subtitle = self.campaign_label if has_fault else "Baseline reference"
         subtitle_bg = "#eef4fd" if has_fault else "#f4f6f8"
         subtitle_outline = self.accent_color if has_fault else "#d9e0e6"
 
-        self.canvas.create_text(
-            margin_x,
-            14,
-            anchor="w",
-            text=subtitle,
-            fill=heading_color,
-            font=("TkDefaultFont", 9, "bold"),
-        )
         self.canvas.create_rectangle(
             width - margin_x - 138,
             6,
@@ -3538,7 +3574,7 @@ class FaultPathDiagram(ttk.Frame):
         self.canvas.create_text(
             width - margin_x - 69,
             14,
-            text="5-stage left to right flow",
+            text="5-stage ECU flow",
             fill=heading_color,
             font=("TkDefaultFont", 8),
         )
@@ -4026,6 +4062,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.custom_start_ms = tk.StringVar(value="20000")
         self.custom_duration_ms = tk.StringVar(value="10000")
         self.custom_parameter = tk.StringVar(value=CUSTOM_DEFAULT_PARAMETERS[CUSTOM_FAULT_TYPES[0][0]])
+        self.custom_parameter_help = tk.StringVar(value=self._parameter_help_text(self.custom_fault_type.get()))
         self.custom_preset_name = tk.StringVar(value="sensor_bias_demo_copy")
         self.custom_preset_choice = tk.StringVar(value="")
         self.showcase_presets: List[Dict[str, str]] = []
@@ -4042,6 +4079,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.multi_start_ms = tk.StringVar(value="20000")
         self.multi_duration_ms = tk.StringVar(value="10000")
         self.multi_parameter = tk.StringVar(value=CUSTOM_DEFAULT_PARAMETERS[CUSTOM_FAULT_TYPES[0][0]])
+        self.multi_parameter_help = tk.StringVar(value=self._parameter_help_text(self.multi_fault_type.get()))
         self.multi_preset_name = tk.StringVar(value="sensor_bias_then_fan_loss_demo_copy")
         self.multi_preset_choice = tk.StringVar(value="")
         self.custom_saved_paths_var = tk.StringVar(value="-")
@@ -4115,6 +4153,8 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             default_custom_event("sensor_bias", "transient", 20000, 10000, 8.0),
             default_custom_event("fan_stuck_off", "permanent", 65000, 0, 0.0),
         ]
+        self.custom_fault_type.trace_add("write", self._on_custom_fault_type_var_changed)
+        self.multi_fault_type.trace_add("write", self._on_multi_fault_type_var_changed)
 
         self._refresh_showcase_presets()
         self._refresh_recent_results()
@@ -5246,6 +5286,13 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
 
         ttk.Label(setup, text="Fault Parameter", style="FieldName.TLabel").grid(row=2, column=0, sticky="w")
         ttk.Entry(setup, textvariable=self.custom_parameter, width=18).grid(row=2, column=1, sticky="w", padx=(10, 18))
+        ttk.Label(
+            setup,
+            textvariable=self.custom_parameter_help,
+            style="Hint.TLabel",
+            wraplength=430,
+            justify="left",
+        ).grid(row=2, column=2, columnspan=2, sticky="ew")
 
         ttk.Label(
             setup,
@@ -5416,6 +5463,13 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
 
         ttk.Label(editor, text="Fault Parameter", style="FieldName.TLabel").grid(row=0, column=4, sticky="w")
         ttk.Entry(editor, textvariable=self.multi_parameter, width=16).grid(row=0, column=4, sticky="e", pady=(0, 8))
+        ttk.Label(
+            editor,
+            textvariable=self.multi_parameter_help,
+            style="Hint.TLabel",
+            wraplength=260,
+            justify="left",
+        ).grid(row=1, column=4, sticky="new", pady=(0, 8))
 
         ttk.Label(editor, text="Fault Start [ms]", style="FieldName.TLabel").grid(row=1, column=0, sticky="w")
         ttk.Entry(editor, textvariable=self.multi_start_ms, width=18).grid(row=1, column=1, sticky="w", padx=(10, 18), pady=(0, 8))
@@ -5641,8 +5695,8 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             row=0,
             title="Fault Path",
             description=(
-                "Use this page to explain the fault story visually. Read each card from sensing and timing through ECU "
-                "control, actuation, plant response, diagnostics, and safety outcome."
+                "Compare a nominal or selected reference case against the selected fault case across the ECU "
+                "signal, control, actuation, and plant path."
             ),
         )
 
@@ -5654,8 +5708,8 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
 
         left_card = self._section_card(
             diagram_area,
-            title="Left Fault Path",
-            description="Reference or selected left-side run mapped onto the ECU signal/control/actuation path.",
+            title="Reference Case",
+            description="Nominal or selected reference run mapped across the ECU signal/control path.",
         )
         left_card.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
         left_card.rowconfigure(2, weight=1)
@@ -5667,8 +5721,8 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
 
         right_card = self._section_card(
             diagram_area,
-            title="Right Fault Path",
-            description="Fault-case path highlighting affected subsystems, propagated blocks, and safety outcome.",
+            title="Fault Case",
+            description="Fault case highlighting the main origin and the dominant plant outcome.",
         )
         right_card.grid(row=0, column=1, sticky="nsew", padx=(8, 0))
         right_card.rowconfigure(2, weight=1)
@@ -7608,6 +7662,19 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
 
         self.metric_cells[slot][metric_name] = {"frame": frame, "value": value}
 
+    @staticmethod
+    def _parameter_help_text(fault_type: str) -> str:
+        return CUSTOM_PARAMETER_HELP.get(
+            fault_type,
+            "Parameter meaning: select a fault type to see how this value is interpreted.",
+        )
+
+    def _on_custom_fault_type_var_changed(self, *_args: object) -> None:
+        self.custom_parameter_help.set(self._parameter_help_text(self.custom_fault_type.get()))
+
+    def _on_multi_fault_type_var_changed(self, *_args: object) -> None:
+        self.multi_parameter_help.set(self._parameter_help_text(self.multi_fault_type.get()))
+
     def _on_campaign_changed(self, _event: tk.Event[tk.Misc] | None = None) -> None:
         self._refresh_campaign_context()
         self._reset_summary_values()
@@ -7941,6 +8008,13 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
 
         return values
 
+    @staticmethod
+    def _batch_plot_fault_type_label(fault_type: str) -> str:
+        return BATCH_PLOT_FAULT_TYPE_DISPLAY.get(
+            fault_type,
+            FAULT_TYPE_DISPLAY.get(fault_type, fault_type),
+        )
+
     def _update_batch_plot(self, rows: Sequence[Dict[str, str]], fault_types: Sequence[str]) -> None:
         if self.batch_plot is None:
             return
@@ -7991,7 +8065,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             mean_value = mean_or_none(metric_values)
             if fault_type == "none" and mean_value is None and skip_baseline_without_values:
                 continue
-            categories.append(FAULT_TYPE_DISPLAY.get(fault_type, fault_type))
+            categories.append(self._batch_plot_fault_type_label(fault_type))
             values.append(mean_value)
 
         if not categories:
@@ -8031,7 +8105,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             if not type_rows:
                 continue
 
-            categories.append(FAULT_TYPE_DISPLAY.get(fault_type, fault_type))
+            categories.append(self._batch_plot_fault_type_label(fault_type))
             total_runs = float(len(type_rows))
             normalized_states = [normalize_safe_state_label(row.get("final_safe_state", "unknown")) for row in type_rows]
             for state in ordered_states:

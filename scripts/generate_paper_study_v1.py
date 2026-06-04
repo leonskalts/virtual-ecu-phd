@@ -66,7 +66,6 @@ TAXONOMY_COLUMNS = [
 
 REPORT_AGGREGATE_COLUMNS = [
     "scenario_id",
-    "fault_class",
     "fault_type",
     "first_dtc_label",
     "final_safe_state_label",
@@ -529,11 +528,17 @@ def html_value(value: str) -> str:
     return html.escape(value).replace("|", "<br>")
 
 
-def html_table(rows: Sequence[Dict[str, str]], columns: Sequence[str], class_name: str = "") -> str:
+def html_table(
+    rows: Sequence[Dict[str, str]],
+    columns: Sequence[str],
+    class_name: str = "",
+    label_overrides: Dict[str, str] | None = None,
+) -> str:
     class_attr = f' class="{html.escape(class_name)}"' if class_name else ""
     lines = [f"<table{class_attr}>", "<thead><tr>"]
     for column in columns:
-        lines.append(f"<th>{html.escape(display_label(column))}</th>")
+        label = label_overrides.get(column, display_label(column)) if label_overrides else display_label(column)
+        lines.append(f"<th>{html.escape(label)}</th>")
     lines.append("</tr></thead>")
     lines.append("<tbody>")
     for row in rows:
@@ -789,6 +794,9 @@ def write_html_report(output_dir: Path) -> Path:
       border: 1px solid var(--line);
       border-radius: 6px;
     }}
+    .aggregate-table-wrap {{
+      overflow-x: visible;
+    }}
     table {{
       width: 100%;
       border-collapse: collapse;
@@ -809,6 +817,33 @@ def write_html_report(output_dir: Path) -> Path:
     }}
     tbody tr:last-child td {{ border-bottom: 0; }}
     tbody tr:nth-child(even) td {{ background: #fafbfd; }}
+    .aggregate-results {{
+      table-layout: fixed;
+      font-size: 11.5px;
+    }}
+    .aggregate-results th,
+    .aggregate-results td {{
+      padding: 6px 7px;
+      overflow-wrap: anywhere;
+      word-break: normal;
+    }}
+    .aggregate-results th {{
+      white-space: normal;
+    }}
+    .aggregate-results th:nth-child(1),
+    .aggregate-results td:nth-child(1) {{ width: 19%; }}
+    .aggregate-results th:nth-child(2),
+    .aggregate-results td:nth-child(2) {{ width: 18%; }}
+    .aggregate-results th:nth-child(3),
+    .aggregate-results td:nth-child(3) {{ width: 13%; }}
+    .aggregate-results th:nth-child(4),
+    .aggregate-results td:nth-child(4) {{ width: 15%; }}
+    .aggregate-results th:nth-child(5),
+    .aggregate-results td:nth-child(5) {{ width: 12%; }}
+    .aggregate-results th:nth-child(6),
+    .aggregate-results td:nth-child(6) {{ width: 12%; }}
+    .aggregate-results th:nth-child(7),
+    .aggregate-results td:nth-child(7) {{ width: 11%; }}
     .figure-grid {{
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -939,8 +974,13 @@ def write_html_report(output_dir: Path) -> Path:
 
     <section>
       <h2>Aggregate Results</h2>
-      <div class="table-wrap">
-        {html_table(aggregate_rows, REPORT_AGGREGATE_COLUMNS)}
+      <div class="table-wrap aggregate-table-wrap">
+        {html_table(
+          aggregate_rows,
+          REPORT_AGGREGATE_COLUMNS,
+          "aggregate-results",
+          {"safe_state_duration_s": "Safe-state [s]"},
+        )}
       </div>
     </section>
 
