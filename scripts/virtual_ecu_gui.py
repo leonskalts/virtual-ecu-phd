@@ -7,6 +7,7 @@ import csv
 import json
 import os
 import subprocess
+import sys
 import threading
 import textwrap
 from pathlib import Path
@@ -41,6 +42,16 @@ from propagation_report import (
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PYTHON_PACKAGE_ROOT = PROJECT_ROOT / "python"
+if str(PYTHON_PACKAGE_ROOT) not in sys.path:
+    sys.path.insert(0, str(PYTHON_PACKAGE_ROOT))
+
+from virtual_ecu.detection_algorithms import (
+    SUPPORTED_ALGORITHMS,
+    evaluate_detection,
+)
+
+
 LOGS_DIR = PROJECT_ROOT / "logs"
 CUSTOM_LOGS_DIR = LOGS_DIR / "gui_custom"
 CUSTOM_PRESETS_DIR = PROJECT_ROOT / "presets" / "gui_custom"
@@ -69,6 +80,40 @@ TEXT_DARK = "#172033"
 TEXT_MUTED = "#526173"
 ACCENT_GREEN = "#2d9c6f"
 ACCENT_AMBER = "#d89020"
+DETECTION_ALGORITHM_OPTIONS: Sequence[Tuple[str, str, str]] = (
+    (
+        "Built-in ECU diagnostics",
+        "builtin_ecu",
+        "Uses the ECU's existing DTC/safe-state logic.",
+    ),
+    (
+        "Threshold residual detector",
+        "threshold",
+        "Detects when residual signals exceed fixed thresholds.",
+    ),
+    (
+        "EWMA residual detector",
+        "ewma",
+        "Smooths residual evidence over time before detection.",
+    ),
+    (
+        "CUSUM detector",
+        "cusum",
+        "Detects persistent accumulated deviations.",
+    ),
+)
+DETECTION_ALGORITHM_NAMES = {
+    display_name: algorithm_name
+    for display_name, algorithm_name, _help_text in DETECTION_ALGORITHM_OPTIONS
+}
+DETECTION_ALGORITHM_DISPLAY = {
+    algorithm_name: display_name
+    for display_name, algorithm_name, _help_text in DETECTION_ALGORITHM_OPTIONS
+}
+DETECTION_ALGORITHM_HELP = {
+    display_name: help_text
+    for display_name, _algorithm_name, help_text in DETECTION_ALGORITHM_OPTIONS
+}
 REQUIRED_RESULT_RAW_COLUMNS = {
     "experiment_id",
     "campaign_id",
@@ -4048,6 +4093,29 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.custom_status_text = tk.StringVar(
             value="Start simple: choose Single Fault, keep the defaults, then run or compare against baseline."
         )
+        default_detection_display = DETECTION_ALGORITHM_OPTIONS[0][0]
+        self.detection_algorithm_choice = tk.StringVar(
+            value=default_detection_display
+        )
+        self.detection_algorithm_help = tk.StringVar(
+            value=DETECTION_ALGORITHM_HELP[default_detection_display]
+        )
+        self.detection_comparison_status = tk.StringVar(
+            value="Run a custom experiment, then compare all algorithms on its CSV."
+        )
+        self.detection_result_vars = {
+            name: tk.StringVar(value="-")
+            for name in (
+                "Algorithm",
+                "Detected",
+                "First Detection",
+                "Detection Latency",
+                "ECU First DTC",
+                "ECU DTC Latency",
+                "Missed Detection",
+                "False Positives",
+            )
+        }
         self.summary_resources_expanded = tk.BooleanVar(value=False)
         self.comparison_verdict_var = tk.StringVar(value="No comparison yet. Run or load two results to generate a compact verdict.")
         self.comparison_takeaway_var = tk.StringVar(value="-")
@@ -4147,6 +4215,11 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.custom_preset_selector: ttk.Combobox | None = None
         self.multi_preset_catalog: Dict[str, Dict[str, object]] = {}
         self.multi_preset_selector: ttk.Combobox | None = None
+        self.detection_algorithm_selector: ttk.Combobox | None = None
+        self.compare_all_algorithms_button: ttk.Button | None = None
+        self.detection_comparison_frame: ttk.Frame | None = None
+        self.detection_comparison_table: ttk.Treeview | None = None
+        self.detection_comparison_visible = False
         self.multi_event_listbox: tk.Listbox | None = None
         self.custom_action_buttons: List[ttk.Button] = []
         self.multi_events: List[Dict[str, object]] = [
@@ -4209,6 +4282,8 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         style.configure("Secondary.TButton", padding=(10, 6))
         style.configure("Batch.Treeview", rowheight=26, font=(UI_FONT, 9))
         style.configure("Batch.Treeview.Heading", font=(UI_FONT, 9, "bold"))
+        style.configure("Detection.Treeview", rowheight=26, font=(UI_FONT, 9))
+        style.configure("Detection.Treeview.Heading", font=(UI_FONT, 9, "bold"))
         style.configure("Evidence.Treeview", rowheight=52, font=(UI_FONT, 9))
         style.configure("Evidence.Treeview.Heading", font=(UI_FONT, 9, "bold"))
         style.configure("Sidebar.TNotebook", background=APP_BG, borderwidth=0)
@@ -5198,10 +5273,73 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         content.grid(row=1, column=0, sticky="nsew")
         content.columnconfigure(0, weight=8)
         content.columnconfigure(1, weight=3)
-        content.rowconfigure(0, weight=1)
+        content.rowconfigure(1, weight=1)
+
+        detection_card = self._section_card(
+            content,
+            title="Detection Algorithm",
+            description="Choose the post-processing detector applied to the custom CSV after the simulator run completes.",
+        )
+        detection_card.grid(
+            row=0,
+            column=0,
+            columnspan=2,
+            sticky="ew",
+            pady=(0, 10),
+        )
+        detection_controls = self._card_content(
+            detection_card,
+            padding=(16, 0, 16, 12),
+        )
+        detection_controls.columnconfigure(2, weight=1)
+        ttk.Label(
+            detection_controls,
+            text="Algorithm",
+            style="CardFieldName.TLabel",
+        ).grid(row=0, column=0, sticky="w")
+        self.detection_algorithm_selector = ttk.Combobox(
+            detection_controls,
+            textvariable=self.detection_algorithm_choice,
+            values=[
+                display_name
+                for display_name, _algorithm_name, _help_text
+                in DETECTION_ALGORITHM_OPTIONS
+            ],
+            state="readonly",
+            width=31,
+        )
+        self.detection_algorithm_selector.grid(
+            row=0,
+            column=1,
+            sticky="w",
+            padx=(10, 16),
+        )
+        self.detection_algorithm_selector.bind(
+            "<<ComboboxSelected>>",
+            self._on_detection_algorithm_changed,
+        )
+        ttk.Label(
+            detection_controls,
+            textvariable=self.detection_algorithm_help,
+            style="CardHint.TLabel",
+            wraplength=520,
+            justify="left",
+        ).grid(row=0, column=2, sticky="w")
+        self.compare_all_algorithms_button = ttk.Button(
+            detection_controls,
+            text="Compare All Algorithms",
+            command=self.compare_all_detection_algorithms,
+            style="Secondary.TButton",
+        )
+        self.compare_all_algorithms_button.grid(
+            row=0,
+            column=3,
+            sticky="e",
+            padx=(12, 0),
+        )
 
         builder_notebook = ttk.Notebook(content)
-        builder_notebook.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
+        builder_notebook.grid(row=1, column=0, sticky="nsew", padx=(0, 6))
         self.custom_builder_notebook = builder_notebook
 
         single_tab = ttk.Frame(builder_notebook, style="Root.TFrame")
@@ -5215,12 +5353,53 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self._build_single_custom_builder(single_tab)
         self._build_multi_custom_builder(multi_tab)
 
+        results_column = ttk.Frame(content, style="Root.TFrame")
+        results_column.grid(row=1, column=1, sticky="nsew")
+        results_column.columnconfigure(0, weight=1)
+
+        quick_detection_card = self._section_card(
+            results_column,
+            title="Detection Result at a Glance",
+            description="Key post-processing result for the latest custom run.",
+        )
+        quick_detection_card.grid(row=0, column=0, sticky="ew")
+        quick_detection = self._card_content(quick_detection_card)
+        quick_detection.columnconfigure(0, weight=1)
+        quick_detection.columnconfigure(1, weight=1)
+        quick_metrics = (
+            ("Algorithm", "Algorithm"),
+            ("Detected", "Detected"),
+            ("Detection Latency", "Detection Latency"),
+            ("ECU DTC Latency", "ECU DTC Latency"),
+        )
+        for index, (title, variable_name) in enumerate(quick_metrics):
+            metric = ttk.Frame(quick_detection, style="Card.TFrame")
+            metric.grid(
+                row=index // 2,
+                column=index % 2,
+                sticky="ew",
+                padx=(0, 10 if index % 2 == 0 else 0),
+                pady=(0, 8),
+            )
+            ttk.Label(
+                metric,
+                text=title,
+                style="CardFieldName.TLabel",
+            ).pack(anchor="w")
+            ttk.Label(
+                metric,
+                textvariable=self.detection_result_vars[variable_name],
+                style="CardHint.TLabel",
+                wraplength=145,
+                justify="left",
+            ).pack(anchor="w", pady=(2, 0))
+
         summary_card = self._section_card(
-            content,
+            results_column,
             title="Last Custom Run",
             description="Confirm what ran, where it was loaded, and which result files were generated.",
         )
-        summary_card.grid(row=0, column=1, sticky="nsew")
+        summary_card.grid(row=1, column=0, sticky="ew", pady=(10, 0))
         summary = self._card_content(summary_card)
         summary.columnconfigure(1, weight=1)
 
@@ -5234,6 +5413,126 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self._build_custom_metric_row(summary, 8, "Safe-State Latency", self.custom_summary_vars["Safe-State Latency"])
         self._build_custom_metric_row(summary, 9, "Saved Files", self.custom_saved_paths_var, wraplength=300)
         self._build_custom_metric_row(summary, 10, "Last Loaded Mode", self.custom_last_run_var, wraplength=300)
+
+        detection_result_card = self._section_card(
+            results_column,
+            title="Detection Result",
+            description="Post-run result for the algorithm selected above, with the ECU DTC retained as comparison evidence.",
+        )
+        detection_result_card.grid(
+            row=2,
+            column=0,
+            sticky="ew",
+            pady=(10, 0),
+        )
+        detection_result = self._card_content(detection_result_card)
+        detection_result.columnconfigure(1, weight=1)
+        detection_rows = (
+            "Algorithm",
+            "Detected",
+            "First Detection",
+            "Detection Latency",
+            "ECU First DTC",
+            "ECU DTC Latency",
+            "Missed Detection",
+            "False Positives",
+        )
+        for row_index, metric_name in enumerate(detection_rows, start=1):
+            self._build_custom_metric_row(
+                detection_result,
+                row_index,
+                metric_name,
+                self.detection_result_vars[metric_name],
+                wraplength=300,
+            )
+
+        self.detection_comparison_frame = ttk.Frame(
+            results_column,
+            style="Root.TFrame",
+        )
+        self.detection_comparison_frame.grid(
+            row=3,
+            column=0,
+            sticky="ew",
+            pady=(10, 0),
+        )
+        self.detection_comparison_frame.columnconfigure(0, weight=1)
+
+        comparison_card = self._section_card(
+            self.detection_comparison_frame,
+            title="Algorithm Comparison",
+            description="All supported detectors evaluated on the latest custom-run CSV.",
+        )
+        comparison_card.grid(row=0, column=0, sticky="ew")
+        comparison_content = self._card_content(comparison_card)
+        comparison_content.columnconfigure(0, weight=1)
+
+        ttk.Label(
+            comparison_content,
+            textvariable=self.detection_comparison_status,
+            style="CardHint.TLabel",
+            wraplength=300,
+            justify="left",
+        ).grid(row=0, column=0, sticky="w", pady=(0, 6))
+
+        comparison_columns = (
+            "algorithm",
+            "detected",
+            "first_detection",
+            "detection_latency",
+            "ecu_dtc_latency",
+            "missed_detection",
+            "false_positives",
+        )
+        self.detection_comparison_table = ttk.Treeview(
+            comparison_content,
+            columns=comparison_columns,
+            show="headings",
+            height=len(SUPPORTED_ALGORITHMS),
+            style="Detection.Treeview",
+        )
+        comparison_headings = {
+            "algorithm": "Algorithm",
+            "detected": "Detected",
+            "first_detection": "First Detect.",
+            "detection_latency": "Detect Latency",
+            "ecu_dtc_latency": "ECU Latency",
+            "missed_detection": "Missed",
+            "false_positives": "FP",
+        }
+        comparison_widths = {
+            "algorithm": 205,
+            "detected": 78,
+            "first_detection": 105,
+            "detection_latency": 105,
+            "ecu_dtc_latency": 95,
+            "missed_detection": 75,
+            "false_positives": 55,
+        }
+        for column_id in comparison_columns:
+            self.detection_comparison_table.heading(
+                column_id,
+                text=comparison_headings[column_id],
+            )
+            self.detection_comparison_table.column(
+                column_id,
+                width=comparison_widths[column_id],
+                minwidth=45,
+                anchor=tk.W if column_id == "algorithm" else tk.CENTER,
+                stretch=False,
+            )
+
+        comparison_scroll = ttk.Scrollbar(
+            comparison_content,
+            orient="horizontal",
+            command=self.detection_comparison_table.xview,
+        )
+        self.detection_comparison_table.configure(
+            xscrollcommand=comparison_scroll.set
+        )
+        self.detection_comparison_table.grid(row=1, column=0, sticky="ew")
+        comparison_scroll.grid(row=2, column=0, sticky="ew", pady=(6, 0))
+        self.detection_comparison_frame.grid_remove()
 
     def _build_single_custom_builder(self, parent: ttk.Frame) -> None:
         builder = self._section_card(
@@ -5979,6 +6278,184 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         state = ["!disabled"] if enabled else ["disabled"]
         for button in self.custom_action_buttons:
             button.state(state)
+        if self.detection_algorithm_selector is not None:
+            self.detection_algorithm_selector.configure(
+                state="readonly" if enabled else "disabled"
+            )
+        if self.compare_all_algorithms_button is not None:
+            self.compare_all_algorithms_button.state(
+                ["!disabled"] if enabled else ["disabled"]
+            )
+
+    def _selected_detection_algorithm_name(self) -> str:
+        display_name = self.detection_algorithm_choice.get()
+        return DETECTION_ALGORITHM_NAMES.get(display_name, "builtin_ecu")
+
+    def _on_detection_algorithm_changed(
+        self,
+        _event: tk.Event[tk.Misc] | None = None,
+    ) -> None:
+        display_name = self.detection_algorithm_choice.get()
+        self.detection_algorithm_help.set(
+            DETECTION_ALGORITHM_HELP.get(
+                display_name,
+                DETECTION_ALGORITHM_HELP[DETECTION_ALGORITHM_OPTIONS[0][0]],
+            )
+        )
+
+    @staticmethod
+    def _format_detection_seconds(value: object) -> str:
+        return "n/a" if value is None else f"{float(value):.3f} s"
+
+    def _set_detection_comparison_visible(self, visible: bool) -> None:
+        self.detection_comparison_visible = visible
+        if self.detection_comparison_frame is not None:
+            if visible:
+                self.detection_comparison_frame.grid()
+            else:
+                self.detection_comparison_frame.grid_remove()
+        if self.compare_all_algorithms_button is not None:
+            self.compare_all_algorithms_button.configure(
+                text=(
+                    "Hide Algorithm Comparison"
+                    if visible
+                    else "Compare All Algorithms"
+                )
+            )
+
+    def _clear_detection_comparison(self, *, hide: bool = True) -> None:
+        if self.detection_comparison_table is not None:
+            for item_id in self.detection_comparison_table.get_children():
+                self.detection_comparison_table.delete(item_id)
+        self.detection_comparison_status.set(
+            "Run Compare All Algorithms to evaluate the latest custom CSV."
+        )
+        if hide:
+            self._set_detection_comparison_visible(False)
+
+    def compare_all_detection_algorithms(self) -> None:
+        if self.detection_comparison_visible:
+            self._set_detection_comparison_visible(False)
+            return
+
+        if self.last_custom_result is None:
+            messagebox.showinfo(
+                "No Custom Run",
+                "Run a custom experiment first, then compare algorithms.",
+            )
+            return
+
+        log_path_value = self.last_custom_result.get("log_path")
+        if log_path_value is None:
+            messagebox.showerror(
+                "Comparison Unavailable",
+                "The latest custom result does not include a raw CSV path.",
+            )
+            return
+
+        log_path = Path(log_path_value)
+        try:
+            results = [
+                evaluate_detection(log_path, algorithm_name)
+                for algorithm_name in SUPPORTED_ALGORITHMS
+            ]
+        except (OSError, ValueError, csv.Error) as exc:
+            messagebox.showerror("Algorithm Comparison Failed", str(exc))
+            return
+
+        self._clear_detection_comparison(hide=False)
+        if self.detection_comparison_table is None:
+            return
+
+        for result in results:
+            algorithm_name = str(result["algorithm"])
+            fault_present = str(result.get("fault_type", "none")) != "none"
+            missed = (
+                "Yes"
+                if bool(result.get("missed_detection", False))
+                else ("No" if fault_present else "n/a")
+            )
+            self.detection_comparison_table.insert(
+                "",
+                tk.END,
+                values=(
+                    DETECTION_ALGORITHM_DISPLAY.get(
+                        algorithm_name,
+                        algorithm_name,
+                    ),
+                    "Yes" if bool(result.get("detected", False)) else "No",
+                    self._format_detection_seconds(
+                        result.get("first_detection_s")
+                    ),
+                    self._format_detection_seconds(
+                        result.get("detection_latency_s")
+                    ),
+                    self._format_detection_seconds(
+                        result.get("ecu_dtc_latency_s")
+                    ),
+                    missed,
+                    str(int(result.get("false_positive_count", 0))),
+                ),
+            )
+
+        self.detection_comparison_status.set(
+            f"Compared {len(results)} algorithms on {log_path.name}."
+        )
+        self._set_detection_comparison_visible(True)
+
+    def _update_custom_detection_result(self, result: Dict[str, object]) -> None:
+        detection = result.get("detection_result")
+        algorithm_name = str(
+            result.get(
+                "detection_algorithm",
+                self._selected_detection_algorithm_name(),
+            )
+        )
+        self.detection_result_vars["Algorithm"].set(
+            DETECTION_ALGORITHM_DISPLAY.get(algorithm_name, algorithm_name)
+        )
+
+        if not isinstance(detection, dict):
+            error = str(result.get("detection_error", "Detection evaluation unavailable."))
+            self.detection_result_vars["Detected"].set("Unavailable")
+            self.detection_result_vars["First Detection"].set(error)
+            for metric_name in (
+                "Detection Latency",
+                "ECU First DTC",
+                "ECU DTC Latency",
+                "Missed Detection",
+                "False Positives",
+            ):
+                self.detection_result_vars[metric_name].set("n/a")
+            return
+
+        detected = bool(detection.get("detected", False))
+        self.detection_result_vars["Detected"].set("Yes" if detected else "No")
+        self.detection_result_vars["First Detection"].set(
+            self._format_detection_seconds(detection.get("first_detection_s"))
+        )
+        self.detection_result_vars["Detection Latency"].set(
+            self._format_detection_seconds(detection.get("detection_latency_s"))
+        )
+
+        ecu_label = str(detection.get("first_ecu_dtc_label", "none"))
+        ecu_time = detection.get("first_ecu_dtc_s")
+        if ecu_label not in {"", "none"} and ecu_time is not None:
+            ecu_label = f"{ecu_label} at {float(ecu_time):.3f} s"
+        self.detection_result_vars["ECU First DTC"].set(ecu_label or "none")
+        self.detection_result_vars["ECU DTC Latency"].set(
+            self._format_detection_seconds(detection.get("ecu_dtc_latency_s"))
+        )
+
+        fault_present = str(detection.get("fault_type", "none")) != "none"
+        self.detection_result_vars["Missed Detection"].set(
+            "Yes"
+            if bool(detection.get("missed_detection", False))
+            else ("No" if fault_present else "n/a")
+        )
+        self.detection_result_vars["False Positives"].set(
+            str(int(detection.get("false_positive_count", 0)))
+        )
 
     def _open_comparison_figures_tab(self) -> None:
         if self.notebook is not None and self.comparison_figures_tab is not None:
@@ -5988,10 +6465,13 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
     def _clear_custom_result_summary(self) -> None:
         for variable in self.custom_summary_vars.values():
             variable.set("-")
+        for variable in self.detection_result_vars.values():
+            variable.set("-")
         self.custom_saved_paths_var.set("No files yet. Run a custom experiment to generate CSV outputs.")
         self.custom_last_run_var.set("No custom run loaded yet.")
         self.custom_loaded_slot_var.set("Not loaded")
         self.last_custom_result = None
+        self._clear_detection_comparison()
         self._refresh_dashboard_state()
 
     def _refresh_dashboard_state(self) -> None:
@@ -7129,7 +7609,9 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             f"{Path(result['log_path']).relative_to(PROJECT_ROOT)}\n{Path(result['summary_path']).relative_to(PROJECT_ROOT)}"
         )
         self.custom_last_run_var.set(loaded_mode)
+        self._update_custom_detection_result(result)
         self.last_custom_result = result
+        self._clear_detection_comparison()
         self._refresh_dashboard_state()
 
     def _build_findings_cards(
@@ -8326,6 +8808,8 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             return
 
         CUSTOM_LOGS_DIR.mkdir(parents=True, exist_ok=True)
+        detection_algorithm = self._selected_detection_algorithm_name()
+        detection_display = DETECTION_ALGORITHM_DISPLAY[detection_algorithm]
         run_noun = "custom multi-fault scenario" if str(config.get("kind", "single")) == "multi" else "custom experiment"
         mode_text = {
             "only": f"Running {run_noun}...",
@@ -8335,7 +8819,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         }.get(mode, f"Running {run_noun}...")
         self.status_text.set(mode_text)
         self.custom_status_text.set(
-            f"Executing {custom_campaign_label(config)} via the simulator custom CLI path and loading the generated CSV outputs."
+            f"Executing {custom_campaign_label(config)} via the simulator custom CLI path, then evaluating {detection_display}."
         )
         self.run_compare_button.state(["disabled"])
         self.run_left_button.state(["disabled"])
@@ -8347,7 +8831,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
 
         worker = threading.Thread(
             target=self._run_custom_experiment_worker,
-            args=(mode, config),
+            args=(mode, config, detection_algorithm),
             daemon=True,
         )
         worker.start()
@@ -8465,7 +8949,11 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.showcase_description_var.set(preset["description"])
         self.status_text.set(f"Loaded showcase preset: {preset['title']}. Comparison Figures are ready.")
 
-    def _run_custom_campaign(self, config: Dict[str, object]) -> Dict[str, object]:
+    def _run_custom_campaign(
+        self,
+        config: Dict[str, object],
+        detection_algorithm: str,
+    ) -> Dict[str, object]:
         log_path = custom_log_path(config)
         if str(config.get("kind", "single")) == "multi":
             command = [str(self.executable), str(log_path), "custom_multi", str(len(custom_events(config)))]
@@ -8506,6 +8994,14 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         summary["campaign_label"] = custom_campaign_label(config)
         result["summary_row"] = summary
         result["custom_config"] = dict(config)
+        result["detection_algorithm"] = detection_algorithm
+        try:
+            result["detection_result"] = evaluate_detection(
+                log_path,
+                detection_algorithm,
+            )
+        except (OSError, ValueError, csv.Error) as exc:
+            result["detection_error"] = str(exc)
         return result
 
     def _run_campaigns_worker(self, include_right: bool) -> None:
@@ -8523,9 +9019,14 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
 
         self.after(0, lambda: self._apply_results(left_result, right_result))
 
-    def _run_custom_experiment_worker(self, mode: str, config: Dict[str, object]) -> None:
+    def _run_custom_experiment_worker(
+        self,
+        mode: str,
+        config: Dict[str, object],
+        detection_algorithm: str,
+    ) -> None:
         try:
-            custom_result = self._run_custom_campaign(config)
+            custom_result = self._run_custom_campaign(config, detection_algorithm)
             left_campaign_id = self.left_campaign.get()
             right_campaign_id = self.right_campaign.get()
             item_label = "Custom scenario" if str(config.get("kind", "single")) == "multi" else "Custom run"

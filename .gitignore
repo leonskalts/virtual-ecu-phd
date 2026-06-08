@@ -1,6 +1,6 @@
 *.o
 *.d
-virtual_ecu
+/virtual_ecu
 logs/*.csv
 results/*.csv
 results/*.png
