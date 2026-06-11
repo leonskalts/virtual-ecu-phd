@@ -10,6 +10,7 @@ import subprocess
 import sys
 import threading
 import textwrap
+import webbrowser
 from pathlib import Path
 from typing import Dict, Iterable, List, Sequence, Tuple
 
@@ -65,6 +66,32 @@ EXPORT_ROOT = PROJECT_ROOT / "results" / "gui_comparison_reports"
 SNAPSHOT_ROOT = PROJECT_ROOT / "results" / "gui_snapshots"
 PRESENTATION_BUNDLE_ROOT = PROJECT_ROOT / "results" / "gui_presentation_bundles"
 DEFAULT_BATCH_AGGREGATE_CSV = PROJECT_ROOT / "results" / "batch" / "paper_quick" / "aggregate_summary.csv"
+RUNTIME_STUDY_DIR = PROJECT_ROOT / "results" / "runtime_intervention_study_v1"
+RUNTIME_STUDY_COMPARISON_CSV = RUNTIME_STUDY_DIR / "runtime_intervention_comparison.csv"
+RUNTIME_STUDY_REPORT_HTML = RUNTIME_STUDY_DIR / "runtime_intervention_report.html"
+RUNTIME_STUDY_SCRIPT = PROJECT_ROOT / "scripts" / "run_runtime_intervention_study.py"
+RUNTIME_STUDY_FIGURES: Sequence[Tuple[str, str]] = (
+    ("Detection Latency by Detector and Scenario", "detection_latency_by_detector_scenario.png"),
+    ("Maximum Coolant by Detector, Action, and Scenario", "max_coolant_by_detector_action_scenario.png"),
+    ("Final Safe-State Distribution by Action", "final_safe_state_distribution_by_action.png"),
+    ("Action Time by Detector and Action", "action_time_by_detector_action.png"),
+    ("Missed Detections by Detector", "missed_detections_by_detector.png"),
+)
+RUNTIME_STUDY_TABLE_SPECS: Sequence[Tuple[str, str, int]] = (
+    ("scenario_name", "Scenario", 180),
+    ("detector", "Detector", 105),
+    ("detector_action", "Detector Action", 165),
+    ("runtime_detection_detected", "Detected", 80),
+    ("runtime_detection_latency_ms", "Runtime Latency [ms]", 125),
+    ("runtime_detection_action_requested", "Action Requested", 115),
+    ("runtime_detection_requested_safe_state", "Requested Safe State", 155),
+    ("runtime_detection_action_time_ms", "Action Time [ms]", 115),
+    ("first_ecu_dtc_label", "First ECU DTC", 155),
+    ("first_ecu_dtc_latency_ms", "ECU DTC Latency [ms]", 135),
+    ("final_safe_state", "Final Safe State", 145),
+    ("max_coolant_temp_c", "Max Coolant [C]", 115),
+    ("shutdown_requested", "Shutdown", 85),
+)
 MAX_CUSTOM_SCENARIO_EVENTS = 4
 MAX_RECENT_RESULTS = 6
 MAX_FAVORITES = 8
@@ -4120,6 +4147,23 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             value="New here? Start on the Dashboard: open the recommended demo or run the default baseline-vs-fault comparison."
         )
         self.batch_status_text = tk.StringVar(value="Ready. Load the default batch summary to see sweep-level trends across fault types.")
+        self.runtime_study_status_text = tk.StringVar(
+            value="Checking for runtime intervention study results..."
+        )
+        self.runtime_study_findings_var = tk.StringVar(
+            value="Generate or load the study to view detector and intervention findings."
+        )
+        self.runtime_study_summary_vars = {
+            name: tk.StringVar(value="-")
+            for name in (
+                "Scenarios",
+                "Detectors",
+                "Actions",
+                "Fastest Detector",
+                "Lowest Mean Max Coolant",
+                "Missed Detections",
+            )
+        }
         self.custom_status_text = tk.StringVar(
             value="Start simple: choose Single Fault, keep the defaults, then run or compare against baseline."
         )
@@ -4233,7 +4277,12 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.loaded_result_slots: Dict[str, Dict[str, object] | None] = {"left": None, "right": None}
         self.last_custom_result: Dict[str, object] | None = None
         self.batch_rows: List[Dict[str, str]] = []
+        self.runtime_study_rows: List[Dict[str, str]] = []
         self.batch_table: ttk.Treeview | None = None
+        self.runtime_study_table: ttk.Treeview | None = None
+        self.runtime_study_run_button: ttk.Button | None = None
+        self.runtime_study_report_button: ttk.Button | None = None
+        self.runtime_study_figure_buttons: Dict[Path, ttk.Button] = {}
         self.batch_plot: PlotCanvas | None = None
         self.comparison_plot: PlotCanvas | None = None
         self.presentation_bundle_button: ttk.Button | None = None
@@ -4283,6 +4332,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self._refresh_custom_preset_catalog()
         self._refresh_multi_preset_catalog()
         self._clear_batch_results()
+        self.load_runtime_intervention_study(show_error=False)
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
         if self.executable is None:
@@ -4324,6 +4374,8 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         style.configure("Secondary.TButton", padding=(10, 6))
         style.configure("Batch.Treeview", rowheight=26, font=(UI_FONT, 9))
         style.configure("Batch.Treeview.Heading", font=(UI_FONT, 9, "bold"))
+        style.configure("RuntimeStudy.Treeview", rowheight=26, font=(UI_FONT, 9))
+        style.configure("RuntimeStudy.Treeview.Heading", font=(UI_FONT, 9, "bold"))
         style.configure("Detection.Treeview", rowheight=26, font=(UI_FONT, 9))
         style.configure("Detection.Treeview.Heading", font=(UI_FONT, 9, "bold"))
         style.configure("Evidence.Treeview", rowheight=52, font=(UI_FONT, 9))
@@ -4419,6 +4471,15 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         notebook.add(batch_tab, text="Batch Results")
         self._register_page("batch", "Batch Results", batch_tab)
 
+        runtime_study_tab = ScrollableTabFrame(notebook)
+        runtime_study_tab.content.columnconfigure(0, weight=1)
+        notebook.add(runtime_study_tab, text="Runtime Intervention Study")
+        self._register_page(
+            "runtime_study",
+            "Runtime Intervention Study",
+            runtime_study_tab,
+        )
+
         exports_tab = ScrollableTabFrame(notebook)
         exports_tab.content.columnconfigure(0, weight=1)
         notebook.add(exports_tab, text="Export Reports")
@@ -4430,6 +4491,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self._build_custom_experiment_tab(custom_tab.content)
         self._build_fault_path_tab(fault_path_tab.content)
         self._build_batch_tab(batch_tab.content)
+        self._build_runtime_study_tab(runtime_study_tab.content)
         self._build_exports_tab(exports_tab.content)
         self._set_active_nav("dashboard")
 
@@ -4481,7 +4543,8 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             ("figures", "2. Compare"),
             ("fault_path", "3. Fault Path"),
             ("batch", "4. Batch Results"),
-            ("exports", "5. Exports"),
+            ("runtime_study", "5. Runtime Study"),
+            ("exports", "6. Exports"),
             ("custom", "Custom Faults"),
         )
         for row, (page_key, label) in enumerate(nav_items, start=2):
@@ -6284,6 +6347,216 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.batch_plot.show_message(
             "No batch data loaded yet.\n\nClick Load Aggregate CSV to view sweep-level comparison plots."
         )
+
+    def _build_runtime_study_tab(self, parent: ttk.Frame) -> None:
+        self._build_tab_header(
+            parent,
+            row=0,
+            title="Runtime Detector Intervention Study",
+            description=(
+                "Compare runtime detection algorithms and detector-driven safety "
+                "interventions across reproducible fault scenarios."
+            ),
+        )
+
+        status_card = self._section_card(
+            parent,
+            title="Study Files",
+            description=(
+                "Load the generated comparison CSV, regenerate all study artifacts, "
+                "or open the compact HTML report."
+            ),
+        )
+        status_card.grid(row=1, column=0, sticky="ew", padx=12, pady=(0, 12))
+        status_content = self._card_content(status_card)
+        status_content.columnconfigure(0, weight=1)
+
+        ttk.Label(
+            status_content,
+            text=str(RUNTIME_STUDY_COMPARISON_CSV.relative_to(PROJECT_ROOT)),
+            style="CardFieldName.TLabel",
+        ).grid(row=0, column=0, sticky="w")
+        ttk.Label(
+            status_content,
+            textvariable=self.runtime_study_status_text,
+            style="CardHint.TLabel",
+            wraplength=850,
+            justify="left",
+        ).grid(row=1, column=0, sticky="w", pady=(6, 10))
+
+        actions = ttk.Frame(status_content, style="Card.TFrame")
+        actions.grid(row=0, column=1, rowspan=2, sticky="e", padx=(16, 0))
+        self.runtime_study_run_button = ttk.Button(
+            actions,
+            text="Run Runtime Intervention Study",
+            command=self.run_runtime_intervention_study,
+            style="Primary.TButton",
+        )
+        self.runtime_study_run_button.grid(row=0, column=0, sticky="e")
+        self.runtime_study_report_button = ttk.Button(
+            actions,
+            text="Open HTML Report",
+            command=self.open_runtime_intervention_report,
+            style="Secondary.TButton",
+        )
+        self.runtime_study_report_button.grid(
+            row=0,
+            column=1,
+            sticky="e",
+            padx=(8, 0),
+        )
+        ttk.Button(
+            actions,
+            text="Reload Results",
+            command=self.load_runtime_intervention_study,
+        ).grid(row=0, column=2, sticky="e", padx=(8, 0))
+
+        summary_shell = ttk.Frame(
+            parent,
+            padding=(12, 0, 12, 12),
+            style="Root.TFrame",
+        )
+        summary_shell.grid(row=2, column=0, sticky="ew")
+        summary_shell.columnconfigure(0, weight=1)
+
+        summary_top = ttk.Frame(summary_shell, style="Root.TFrame")
+        summary_top.grid(row=0, column=0, sticky="ew", pady=(0, 10))
+        summary_bottom = ttk.Frame(summary_shell, style="Root.TFrame")
+        summary_bottom.grid(row=1, column=0, sticky="ew")
+        for frame in (summary_top, summary_bottom):
+            for column in range(3):
+                frame.columnconfigure(column, weight=1)
+
+        self._build_batch_stat_card(
+            summary_top, 0, "Scenarios", self.runtime_study_summary_vars["Scenarios"]
+        )
+        self._build_batch_stat_card(
+            summary_top, 1, "Detectors", self.runtime_study_summary_vars["Detectors"]
+        )
+        self._build_batch_stat_card(
+            summary_top, 2, "Actions", self.runtime_study_summary_vars["Actions"]
+        )
+        self._build_batch_stat_card(
+            summary_bottom,
+            0,
+            "Fastest Detector",
+            self.runtime_study_summary_vars["Fastest Detector"],
+        )
+        self._build_batch_stat_card(
+            summary_bottom,
+            1,
+            "Lowest Mean Max Coolant",
+            self.runtime_study_summary_vars["Lowest Mean Max Coolant"],
+        )
+        self._build_batch_stat_card(
+            summary_bottom,
+            2,
+            "Missed Detections",
+            self.runtime_study_summary_vars["Missed Detections"],
+        )
+
+        findings_card = self._section_card(
+            parent,
+            title="Key Findings",
+            description="Compact interpretation calculated from the currently loaded comparison CSV.",
+        )
+        findings_card.grid(row=3, column=0, sticky="ew", padx=12, pady=(0, 12))
+        findings_content = self._card_content(findings_card)
+        ttk.Label(
+            findings_content,
+            textvariable=self.runtime_study_findings_var,
+            style="CardHint.TLabel",
+            wraplength=1040,
+            justify="left",
+        ).grid(row=0, column=0, sticky="ew")
+
+        table_card = self._section_card(
+            parent,
+            title="Runtime Intervention Results",
+            description=(
+                "One row per scenario, detector, and detector action. Use the "
+                "horizontal scrollbar for timing and outcome columns."
+            ),
+        )
+        table_card.grid(row=4, column=0, sticky="ew", padx=12, pady=(0, 12))
+        table_frame = self._card_content(table_card)
+        table_frame.columnconfigure(0, weight=1)
+        table_frame.rowconfigure(0, weight=1)
+
+        initial_columns = [column for column, _label, _width in RUNTIME_STUDY_TABLE_SPECS]
+        self.runtime_study_table = ttk.Treeview(
+            table_frame,
+            columns=initial_columns,
+            show="headings",
+            height=14,
+            style="RuntimeStudy.Treeview",
+            selectmode="browse",
+        )
+        for column, label, width in RUNTIME_STUDY_TABLE_SPECS:
+            self.runtime_study_table.heading(column, text=label)
+            self.runtime_study_table.column(
+                column,
+                width=width,
+                minwidth=70,
+                anchor=tk.W if column in {
+                    "scenario_name",
+                    "detector_action",
+                    "runtime_detection_requested_safe_state",
+                    "first_ecu_dtc_label",
+                    "final_safe_state",
+                } else tk.CENTER,
+                stretch=False,
+            )
+
+        y_scroll = ttk.Scrollbar(
+            table_frame,
+            orient="vertical",
+            command=self.runtime_study_table.yview,
+        )
+        x_scroll = ttk.Scrollbar(
+            table_frame,
+            orient="horizontal",
+            command=self.runtime_study_table.xview,
+        )
+        self.runtime_study_table.configure(
+            yscrollcommand=y_scroll.set,
+            xscrollcommand=x_scroll.set,
+        )
+        self.runtime_study_table.grid(row=0, column=0, sticky="nsew")
+        y_scroll.grid(row=0, column=1, sticky="ns")
+        x_scroll.grid(row=1, column=0, sticky="ew")
+
+        figures_card = self._section_card(
+            parent,
+            title="Study Figures",
+            description=(
+                "Open generated Matplotlib figures in the system image viewer. "
+                "Missing figures remain disabled until the study is generated."
+            ),
+        )
+        figures_card.grid(row=5, column=0, sticky="ew", padx=12, pady=(0, 12))
+        figures_content = self._card_content(figures_card)
+        figures_content.columnconfigure(0, weight=1)
+        figures_content.columnconfigure(1, weight=0)
+
+        self.runtime_study_figure_buttons.clear()
+        for row_index, (label, filename) in enumerate(RUNTIME_STUDY_FIGURES):
+            figure_path = RUNTIME_STUDY_DIR / "figures" / filename
+            ttk.Label(
+                figures_content,
+                text=label,
+                style="CardHint.TLabel",
+            ).grid(row=row_index, column=0, sticky="w", pady=3)
+            button = ttk.Button(
+                figures_content,
+                text="Open Figure",
+                command=lambda path=figure_path: self.open_runtime_study_artifact(
+                    path,
+                    "Runtime Study Figure",
+                ),
+            )
+            button.grid(row=row_index, column=1, sticky="e", pady=3)
+            self.runtime_study_figure_buttons[figure_path] = button
 
     def _build_tab_header(self, parent: ttk.Frame, *, row: int, title: str, description: str) -> None:
         header = ttk.Frame(parent, padding=(12, 8, 12, 10), style="Root.TFrame")
@@ -8439,6 +8712,369 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         )
         if selected:
             self.batch_csv_path.set(selected)
+
+    def _set_runtime_study_artifact_states(self) -> None:
+        if self.runtime_study_report_button is not None:
+            self.runtime_study_report_button.state(
+                ["!disabled"] if RUNTIME_STUDY_REPORT_HTML.is_file() else ["disabled"]
+            )
+        for path, button in self.runtime_study_figure_buttons.items():
+            button.state(["!disabled"] if path.is_file() else ["disabled"])
+
+    def _clear_runtime_study_results(self, status: str) -> None:
+        self.runtime_study_rows = []
+        for variable in self.runtime_study_summary_vars.values():
+            variable.set("-")
+        self.runtime_study_findings_var.set(
+            "No runtime intervention study data is loaded."
+        )
+        self.runtime_study_status_text.set(status)
+        if self.runtime_study_table is not None:
+            for item_id in self.runtime_study_table.get_children():
+                self.runtime_study_table.delete(item_id)
+        self._set_runtime_study_artifact_states()
+
+    @staticmethod
+    def _runtime_study_detected(row: Dict[str, str]) -> bool:
+        return (int_or_none(row.get("runtime_detection_detected", "")) or 0) != 0
+
+    def _runtime_study_detector_means(
+        self,
+        rows: Sequence[Dict[str, str]],
+    ) -> Dict[str, float]:
+        values: Dict[str, List[float]] = {}
+        for row in rows:
+            if not self._runtime_study_detected(row):
+                continue
+            latency = int_or_none(row.get("runtime_detection_latency_ms", ""))
+            detector = row.get("detector", "").strip()
+            if latency is None or not detector:
+                continue
+            values.setdefault(detector, []).append(float(latency))
+        return {
+            detector: float(mean_or_none(latencies) or 0.0)
+            for detector, latencies in values.items()
+        }
+
+    @staticmethod
+    def _runtime_study_action_means(
+        rows: Sequence[Dict[str, str]],
+    ) -> Dict[str, float]:
+        values: Dict[str, List[float]] = {}
+        for row in rows:
+            action = row.get("detector_action", "").strip()
+            temperature = float_or_none(row.get("max_coolant_temp_c", ""))
+            if not action or temperature is None:
+                continue
+            values.setdefault(action, []).append(temperature)
+        return {
+            action: float(mean_or_none(temperatures) or 0.0)
+            for action, temperatures in values.items()
+        }
+
+    def _runtime_study_misses_by_detector(
+        self,
+        rows: Sequence[Dict[str, str]],
+    ) -> Dict[str, int]:
+        counts: Dict[str, int] = {}
+        for row in rows:
+            detector = row.get("detector", "").strip()
+            if detector and not self._runtime_study_detected(row):
+                counts[detector] = counts.get(detector, 0) + 1
+        return counts
+
+    def _update_runtime_study_summary(
+        self,
+        rows: Sequence[Dict[str, str]],
+    ) -> None:
+        scenario_key = "scenario_id" if "scenario_id" in rows[0] else "scenario_name"
+        scenarios = {
+            row.get(scenario_key, "").strip()
+            for row in rows
+            if row.get(scenario_key, "").strip()
+        }
+        detectors = {
+            row.get("detector", "").strip()
+            for row in rows
+            if row.get("detector", "").strip()
+        }
+        actions = {
+            row.get("detector_action", "").strip()
+            for row in rows
+            if row.get("detector_action", "").strip()
+        }
+        detector_means = self._runtime_study_detector_means(rows)
+        action_means = self._runtime_study_action_means(rows)
+        misses = self._runtime_study_misses_by_detector(rows)
+
+        self.runtime_study_summary_vars["Scenarios"].set(str(len(scenarios)))
+        self.runtime_study_summary_vars["Detectors"].set(str(len(detectors)))
+        self.runtime_study_summary_vars["Actions"].set(str(len(actions)))
+
+        if detector_means:
+            fastest_value = min(detector_means.values())
+            fastest = sorted(
+                detector
+                for detector, value in detector_means.items()
+                if abs(value - fastest_value) < 0.5
+            )
+            self.runtime_study_summary_vars["Fastest Detector"].set(
+                f"{' / '.join(fastest)} ({fastest_value / 1000.0:.3f} s)"
+            )
+        else:
+            self.runtime_study_summary_vars["Fastest Detector"].set("n/a")
+
+        if action_means:
+            lowest_value = min(action_means.values())
+            lowest_actions = sorted(
+                action
+                for action, value in action_means.items()
+                if abs(value - lowest_value) < 0.005
+            )
+            self.runtime_study_summary_vars["Lowest Mean Max Coolant"].set(
+                f"{' / '.join(lowest_actions)} ({lowest_value:.2f} C)"
+            )
+        else:
+            self.runtime_study_summary_vars["Lowest Mean Max Coolant"].set("n/a")
+
+        missed_total = sum(misses.values())
+        missed_detail = ", ".join(
+            f"{detector}: {count}" for detector, count in sorted(misses.items())
+        )
+        self.runtime_study_summary_vars["Missed Detections"].set(
+            f"{missed_total} total"
+            + (f" ({missed_detail})" if missed_detail else "")
+        )
+
+        findings: List[str] = []
+        if detector_means:
+            fastest_value = min(detector_means.values())
+            fastest = sorted(
+                detector
+                for detector, value in detector_means.items()
+                if abs(value - fastest_value) < 0.5
+            )
+            findings.append(
+                f"Fastest mean runtime detection: {' / '.join(fastest)} "
+                f"at {fastest_value / 1000.0:.3f} s."
+            )
+        if action_means:
+            lowest_value = min(action_means.values())
+            lowest_actions = sorted(
+                action
+                for action, value in action_means.items()
+                if abs(value - lowest_value) < 0.005
+            )
+            findings.append(
+                f"Lowest descriptive mean maximum coolant: "
+                f"{' / '.join(lowest_actions)} at {lowest_value:.2f} C."
+            )
+        if misses:
+            findings.append(
+                "Missed detections: "
+                + ", ".join(
+                    f"{detector}={count}"
+                    for detector, count in sorted(misses.items())
+                )
+                + "."
+            )
+
+        calibration_rows = [
+            row
+            for row in rows
+            if row.get("scenario_id") == "calibration_memory_corruption"
+        ]
+        residual_misses = sorted(
+            {
+                row.get("detector", "")
+                for row in calibration_rows
+                if row.get("detector") in {"threshold", "ewma", "cusum"}
+                and not self._runtime_study_detected(row)
+            }
+        )
+        if residual_misses:
+            findings.append(
+                "Calibration-memory corruption was missed by the residual "
+                f"detectors: {', '.join(residual_misses)}."
+            )
+        findings.append(
+            "Observe-only is the non-intervention reference and preserves "
+            "built-in simulator safety behavior."
+        )
+        self.runtime_study_findings_var.set(
+            "\n".join(f"- {finding}" for finding in findings)
+        )
+
+    @staticmethod
+    def _runtime_study_table_value(column: str, row: Dict[str, str]) -> str:
+        value = row.get(column, "")
+        if column == "scenario_name" and not value:
+            value = row.get("scenario_id", "")
+        if column in {
+            "runtime_detection_detected",
+            "runtime_detection_action_requested",
+            "shutdown_requested",
+        }:
+            parsed = int_or_none(value)
+            return "Yes" if parsed not in {None, 0} else "No"
+        if column in {
+            "runtime_detection_latency_ms",
+            "runtime_detection_action_time_ms",
+            "first_ecu_dtc_latency_ms",
+        }:
+            parsed = int_or_none(value)
+            return "n/a" if parsed is None else str(parsed)
+        if column == "max_coolant_temp_c":
+            parsed_float = float_or_none(value)
+            return "n/a" if parsed_float is None else f"{parsed_float:.2f}"
+        if column in {
+            "detector_action",
+            "runtime_detection_requested_safe_state",
+            "final_safe_state",
+        }:
+            return humanize_label(value)
+        return value or "n/a"
+
+    def _populate_runtime_study_table(
+        self,
+        rows: Sequence[Dict[str, str]],
+    ) -> None:
+        if self.runtime_study_table is None:
+            return
+        for item_id in self.runtime_study_table.get_children():
+            self.runtime_study_table.delete(item_id)
+
+        available_columns = [
+            column
+            for column, _label, _width in RUNTIME_STUDY_TABLE_SPECS
+            if column in rows[0] or column == "scenario_name"
+        ]
+        self.runtime_study_table.configure(displaycolumns=available_columns)
+        all_columns = [
+            column for column, _label, _width in RUNTIME_STUDY_TABLE_SPECS
+        ]
+        for row in rows:
+            self.runtime_study_table.insert(
+                "",
+                "end",
+                values=[
+                    self._runtime_study_table_value(column, row)
+                    for column in all_columns
+                ],
+            )
+
+    def load_runtime_intervention_study(self, *, show_error: bool = True) -> None:
+        if not RUNTIME_STUDY_COMPARISON_CSV.is_file():
+            self._clear_runtime_study_results(
+                "No runtime intervention study results found. "
+                "Run scripts/run_runtime_intervention_study.py first."
+            )
+            return
+        try:
+            rows = read_csv_rows(RUNTIME_STUDY_COMPARISON_CSV)
+        except (OSError, csv.Error, RuntimeError) as exc:
+            self._clear_runtime_study_results(
+                f"Failed to load runtime intervention study results: {exc}"
+            )
+            if show_error:
+                messagebox.showerror("Runtime Study Load Failed", str(exc))
+            return
+        if not rows:
+            self._clear_runtime_study_results(
+                f"Runtime intervention comparison CSV is empty: "
+                f"{RUNTIME_STUDY_COMPARISON_CSV}"
+            )
+            return
+
+        self.runtime_study_rows = list(rows)
+        self._update_runtime_study_summary(rows)
+        self._populate_runtime_study_table(rows)
+        self.runtime_study_status_text.set(
+            f"Loaded {len(rows)} study runs from "
+            f"{RUNTIME_STUDY_COMPARISON_CSV.relative_to(PROJECT_ROOT)}."
+        )
+        self._set_runtime_study_artifact_states()
+
+    def run_runtime_intervention_study(self) -> None:
+        if self.runtime_study_run_button is not None:
+            self.runtime_study_run_button.state(["disabled"])
+        self.runtime_study_status_text.set(
+            "Running the 60-run runtime intervention study..."
+        )
+        self.status_text.set("Running runtime detector intervention study...")
+        threading.Thread(
+            target=self._run_runtime_intervention_study_worker,
+            daemon=True,
+        ).start()
+
+    def _run_runtime_intervention_study_worker(self) -> None:
+        completed = subprocess.run(
+            [sys.executable, str(RUNTIME_STUDY_SCRIPT)],
+            cwd=PROJECT_ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        message = completed.stderr.strip() or completed.stdout.strip()
+        self.after(
+            0,
+            lambda: self._finish_runtime_intervention_study(
+                completed.returncode,
+                message,
+            ),
+        )
+
+    def _finish_runtime_intervention_study(
+        self,
+        returncode: int,
+        message: str,
+    ) -> None:
+        if self.runtime_study_run_button is not None:
+            self.runtime_study_run_button.state(["!disabled"])
+        if returncode != 0:
+            self.runtime_study_status_text.set(
+                "Runtime intervention study failed. Review the error dialog."
+            )
+            self.status_text.set("Runtime intervention study failed.")
+            messagebox.showerror(
+                "Runtime Intervention Study Failed",
+                message or "Unknown study runner failure.",
+            )
+            return
+        self.load_runtime_intervention_study(show_error=True)
+        self.status_text.set(
+            "Runtime intervention study complete. Results and report reloaded."
+        )
+
+    def open_runtime_study_artifact(self, path: Path, title: str) -> None:
+        if not path.is_file():
+            messagebox.showinfo(
+                f"{title} Unavailable",
+                f"File not found:\n{path}\n\nRun the runtime intervention study first.",
+            )
+            return
+        try:
+            resolved = path.resolve()
+            if os.name == "nt":
+                os.startfile(resolved)  # type: ignore[attr-defined]
+            elif os.environ.get("WSL_DISTRO_NAME"):
+                converted = subprocess.run(
+                    ["wslpath", "-w", str(resolved)],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                ).stdout.strip()
+                subprocess.Popen(["explorer.exe", converted])
+            elif not webbrowser.open(resolved.as_uri()):
+                raise OSError("No system browser or file viewer accepted the path.")
+        except (OSError, subprocess.SubprocessError) as exc:
+            messagebox.showerror(f"Open {title} Failed", str(exc))
+
+    def open_runtime_intervention_report(self) -> None:
+        self.open_runtime_study_artifact(
+            RUNTIME_STUDY_REPORT_HTML,
+            "Runtime Intervention Report",
+        )
 
     def _clear_propagation_evidence(self) -> None:
         if self.propagation_evidence_table is None:
