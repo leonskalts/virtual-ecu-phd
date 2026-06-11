@@ -27,9 +27,34 @@ The runtime module supports:
   alarms when a normalized EWMA score reaches 1.0.
 - `cusum`: accumulates sustained absolute residual evidence and alarms when a
   normalized CUSUM score reaches 1.0.
+- `thermal_observer`: compares observed coolant-temperature evolution with a
+  lightweight one-step healthy thermal model and accumulates sustained excess
+  heating relative to that model.
 
-The residuals are fan tracking error, pump tracking error, and coolant sensor
-residual. Constants match the Python offline detector configuration.
+The three direct residual detectors use fan tracking error, pump tracking
+error, and coolant sensor residual. Constants match the Python offline detector
+configuration.
+
+## Thermal Observer Detector
+
+The thermal observer complements the direct command-versus-actual residual
+detectors. At each 100 ms simulator step it predicts the next coolant
+temperature change using the nominal 92 C cooling target, engine load, vehicle
+speed, ambient temperature, and expected healthy pump/fan demand. It compares
+that prediction with the observed coolant-temperature change and accumulates
+positive mismatch after a small allowance.
+
+This makes indirect thermal/control faults more observable. For example,
+calibration-memory corruption can delay cooling demand while pump and fan
+commands still match their actuator feedback, leaving the direct residuals
+near zero. The healthy-model prediction still expects the nominal cooling
+policy, so sustained extra heating can raise
+`thermal_observer_mismatch`.
+
+The implementation is intentionally a deterministic research-grade heuristic.
+It is not a Kalman filter, a calibrated production observer, or an ECU safety
+mechanism. Its behavior depends on the simplified virtual plant, nominal
+controller model, allowance, and decision threshold.
 
 ## Terminal Use
 
@@ -45,9 +70,11 @@ Select a runtime detector by appending `--detector`:
 ./virtual_ecu logs/cusum.csv paper_default --detector cusum
 ./virtual_ecu logs/threshold.csv custom fan_stuck_off 75000 0 permanent 0.0 --detector threshold
 ./virtual_ecu logs/ewma.csv custom sensor_bias 30000 15000 transient 6.0 --detector ewma
+./virtual_ecu logs/thermal_observer.csv custom calibration_memory_corruption 52000 0 permanent 16.0 --detector thermal_observer
 ```
 
-Valid values are `builtin_ecu`, `threshold`, `ewma`, and `cusum`.
+Valid values are `builtin_ecu`, `threshold`, `ewma`, `cusum`, and
+`thermal_observer`.
 
 ## Detector Actions
 
@@ -138,8 +165,8 @@ make
 python3 scripts/run_runtime_intervention_study.py
 ```
 
-The study runs five custom single-fault scenarios across all four runtime
-detectors and all three detector actions. Its 60 simulator runs are written to:
+The study runs five custom single-fault scenarios across all five runtime
+detectors and all three detector actions. Its 75 simulator runs are written to:
 
 ```text
 results/runtime_intervention_study_v1/
@@ -165,12 +192,12 @@ are descriptive rather than evidence of statistical significance.
 ### Latest Custom Scenario Matrix
 
 The GUI **Runtime Study** page can also run the latest custom scenario through
-the complete four-detector by three-action matrix. Choose **Latest custom
+the complete five-detector by three-action matrix. Choose **Latest custom
 scenario matrix**, then click **Run Matrix for Latest Custom Scenario**.
 
 The GUI prefers the configuration from the most recently completed custom run.
 If no custom run is loaded, it uses the currently active Single Fault or
-Multi-Fault builder configuration. The 12 simulator runs and generated
+Multi-Fault builder configuration. The 15 simulator runs and generated
 artifacts are replaced on each invocation under:
 
 ```text

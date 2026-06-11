@@ -12,8 +12,18 @@ from pathlib import Path
 from typing import Dict, List, Sequence
 
 
-SUPPORTED_ALGORITHMS = ("builtin_ecu", "threshold", "ewma", "cusum")
-OFFLINE_RESIDUAL_ALGORITHMS = ("threshold", "ewma", "cusum")
+SUPPORTED_ALGORITHMS = (
+    "builtin_ecu",
+    "threshold",
+    "ewma",
+    "cusum",
+    "thermal_observer",
+)
+OFFLINE_RESIDUAL_ALGORITHMS = (
+    "threshold",
+    "ewma",
+    "cusum",
+)
 
 RESIDUAL_SIGNALS = (
     "fan_tracking_error",
@@ -48,6 +58,14 @@ CUSUM_DECISION_LIMITS = {
     "pump_tracking_error": 0.80,
     "coolant_sensor_residual_c": 8.00,
 }
+
+# The thermal observer predicts one 100 ms coolant step from the nominal
+# controller target and a compact healthy thermal model. Sustained positive
+# observed-minus-expected heating is accumulated after this allowance.
+THERMAL_OBSERVER_TARGET_COOLANT_C = 92.0
+THERMAL_OBSERVER_DT_S = 0.1
+THERMAL_OBSERVER_MISMATCH_ALLOWANCE_C = 0.015
+THERMAL_OBSERVER_DECISION_LIMIT_C = 1.50
 
 
 @dataclass(frozen=True)
@@ -105,6 +123,42 @@ def normalized_threshold_score(row: Dict[str, str], signals: Sequence[str]) -> f
     )
 
 
+def clamp_unit(value: float) -> float:
+    return max(0.0, min(1.0, value))
+
+
+def thermal_observer_expected_delta(row: Dict[str, str]) -> float:
+    coolant_temp_c = parse_float(row, "coolant_temp_meas_c")
+    engine_load = parse_float(row, "engine_load")
+    vehicle_speed_kph = parse_float(row, "vehicle_speed_kph")
+    ambient_temp_c = parse_float(row, "ambient_temp_c")
+    temp_error_c = coolant_temp_c - THERMAL_OBSERVER_TARGET_COOLANT_C
+    nominal_pump = clamp_unit(
+        0.30 + (0.025 * temp_error_c) + (0.35 * engine_load)
+    )
+    nominal_fan = clamp_unit(
+        0.25
+        + (0.065 * temp_error_c)
+        - (0.10 * (vehicle_speed_kph / 200.0))
+    )
+    heat_generation = 2.2 + (9.5 * engine_load)
+    if (
+        row.get("phase_label", "") == "hot_idle"
+        or parse_int(row, "phase_id", -1) == 3
+    ):
+        heat_generation += 2.0
+    heat_generation += parse_float(row, "campaign_heat_generation_bias")
+    ram_air_scale = parse_float(row, "campaign_ram_air_scale", 1.0)
+    expected_rate_c_per_s = (
+        heat_generation
+        - (7.5 * nominal_pump)
+        - (6.0 * nominal_fan)
+        - ((vehicle_speed_kph / 40.0) * ram_air_scale)
+        - (0.08 * (coolant_temp_c - ambient_temp_c))
+    )
+    return expected_rate_c_per_s * THERMAL_OBSERVER_DT_S
+
+
 def detector_alarms(rows: Sequence[Dict[str, str]], algorithm_name: str) -> List[bool]:
     signals = available_residuals(rows)
     alarms: List[bool] = []
@@ -141,7 +195,33 @@ def detector_alarms(rows: Sequence[Dict[str, str]], algorithm_name: str) -> List
             alarms.append(max(scores, default=0.0) >= 1.0)
         return alarms
 
-    raise ValueError(f"Unknown residual detector: {algorithm_name}")
+    if algorithm_name == "thermal_observer":
+        accumulated_mismatch_c = 0.0
+        previous_coolant_temp_c = parse_float(rows[0], "coolant_temp_meas_c")
+        expected_delta_c = thermal_observer_expected_delta(rows[0])
+        alarms.append(False)
+        for row in rows[1:]:
+            current_coolant_temp_c = parse_float(row, "coolant_temp_meas_c")
+            observed_delta_c = (
+                current_coolant_temp_c - previous_coolant_temp_c
+            )
+            accumulated_mismatch_c = max(
+                0.0,
+                accumulated_mismatch_c
+                + observed_delta_c
+                - expected_delta_c
+                - THERMAL_OBSERVER_MISMATCH_ALLOWANCE_C,
+            )
+            alarms.append(
+                accumulated_mismatch_c
+                / THERMAL_OBSERVER_DECISION_LIMIT_C
+                >= 1.0
+            )
+            previous_coolant_temp_c = current_coolant_temp_c
+            expected_delta_c = thermal_observer_expected_delta(row)
+        return alarms
+
+    raise ValueError(f"Unknown offline detector: {algorithm_name}")
 
 
 def count_alarm_episodes(

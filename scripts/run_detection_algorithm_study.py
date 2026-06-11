@@ -28,6 +28,8 @@ from virtual_ecu.detection_algorithms import (  # noqa: E402
     CUSUM_DECISION_LIMITS,
     EWMA_ALPHA,
     EWMA_LIMITS,
+    THERMAL_OBSERVER_DECISION_LIMIT_C,
+    THERMAL_OBSERVER_MISMATCH_ALLOWANCE_C,
     THRESHOLD_LIMITS,
     evaluate_detection,
 )
@@ -46,7 +48,7 @@ SCENARIO_IDS = [
     "paper_default_multi_fault",
 ]
 
-ALGORITHM_ORDER = ["threshold", "ewma", "cusum"]
+ALGORITHM_ORDER = ["threshold", "ewma", "cusum", "thermal_observer"]
 OUTPUT_COLUMNS = [
     "scenario_id",
     "algorithm",
@@ -66,7 +68,9 @@ OUTPUT_COLUMNS = [
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Compare offline threshold, EWMA, and CUSUM detectors."
+        description=(
+            "Compare offline threshold, EWMA, CUSUM, and thermal-observer detectors."
+        )
     )
     parser.add_argument(
         "--input-dir",
@@ -127,7 +131,11 @@ def run_study(input_dir: Path) -> List[Dict[str, object]]:
 
 def write_comparison_csv(path: Path, results: Sequence[Dict[str, object]]) -> None:
     with path.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=OUTPUT_COLUMNS)
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=OUTPUT_COLUMNS,
+            lineterminator="\n",
+        )
         writer.writeheader()
         writer.writerows(as_output_row(result) for result in results)
 
@@ -202,10 +210,15 @@ def write_summary(path: Path, results: Sequence[Dict[str, object]]) -> None:
             f"- EWMA smoothing factor: `{EWMA_ALPHA:.2f}`; limits: `{EWMA_LIMITS}`.",
             f"- CUSUM allowances: `{CUSUM_ALLOWANCES}`.",
             f"- CUSUM decision limits: `{CUSUM_DECISION_LIMITS}`.",
+            "- Thermal observer mismatch allowance: "
+            f"`{THERMAL_OBSERVER_MISMATCH_ALLOWANCE_C:.3f} C/step`; "
+            f"decision limit: `{THERMAL_OBSERVER_DECISION_LIMIT_C:.2f} C`.",
             "",
-            "All detectors operate on absolute residual magnitudes. A scenario is "
-            "detected at the first alarm sample at or after its earliest configured "
-            "campaign event. The baseline has no detection target.",
+            "The direct detectors operate on absolute residual magnitudes. The "
+            "thermal observer instead accumulates positive coolant-trajectory "
+            "mismatch. A scenario is detected at the first alarm sample at or "
+            "after its earliest configured campaign event. The baseline has no "
+            "detection target.",
             "",
             "## Metric Notes",
             "",
@@ -216,8 +229,8 @@ def write_summary(path: Path, results: Sequence[Dict[str, object]]) -> None:
             "- ECU DTC latency is extracted independently from the first non-`none` "
             "DTC at or after the same fault start.",
             "- Calibration-memory corruption is not directly represented by the "
-            "three residual inputs, so a miss is an informative limitation of this "
-            "initial detector set.",
+            "three command-versus-actual residuals. The thermal observer adds a "
+            "nominal healthy-trajectory check for that indirect fault path.",
             "",
             "## Scenario Results",
             "",
@@ -255,6 +268,7 @@ def plot_figures(output_dir: Path, results: Sequence[Dict[str, object]]) -> List
         "threshold": "#4c78a8",
         "ewma": "#e6a141",
         "cusum": "#4c9f70",
+        "thermal_observer": "#a855f7",
     }
     fault_scenarios = [item for item in SCENARIO_IDS if item != "baseline"]
     short_labels = [
@@ -267,8 +281,11 @@ def plot_figures(output_dir: Path, results: Sequence[Dict[str, object]]) -> List
     ]
 
     fig, ax = plt.subplots(figsize=(10.0, 5.2), constrained_layout=True)
-    width = 0.24
-    offsets = [-width, 0.0, width]
+    width = 0.19
+    offsets = [
+        (index - ((len(ALGORITHM_ORDER) - 1) / 2.0)) * width
+        for index in range(len(ALGORITHM_ORDER))
+    ]
     by_key = {
         (str(row["scenario_id"]), str(row["algorithm"])): row for row in results
     }
@@ -305,7 +322,7 @@ def plot_figures(output_dir: Path, results: Sequence[Dict[str, object]]) -> List
         color=[colors[name] for name in ALGORITHM_ORDER],
         width=0.62,
     )
-    ax.set_ylim(0.0, 105.0)
+    ax.set_ylim(0.0, 112.0)
     ax.set_ylabel("Fault scenarios detected [%]")
     ax.set_title("Offline Detection Rate by Algorithm")
     ax.grid(axis="y", linestyle=":", linewidth=0.7, alpha=0.8)

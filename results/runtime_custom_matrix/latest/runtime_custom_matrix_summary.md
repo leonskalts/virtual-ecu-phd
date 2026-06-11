@@ -2,18 +2,18 @@
 
 This matrix uses the virtual ECU research simulator. Runtime detectors run inside the C simulation loop, and detector actions are optional research interventions. `observe_only` preserves baseline simulator behavior.
 
-- Scenario: Custom Fan Stuck Off (permanent, 50000 ms onward, p=0) (`custom_fan_stuck_off_permanent_start50000_dur0_param0`)
+- Scenario: Custom Calibration Test (`custom_calibration_test`)
 - Fault events: 1
-- Runtime detectors: 4
+- Runtime detectors: 5
 - Detector actions: 3
-- Simulator runs: 12
+- Simulator runs: 15
 
 ## Key Findings
 
-- Fastest detected runtime response: cusum at 14800.0 ms.
-- Lowest descriptive mean maximum coolant: precautionary_cooling / limp_home at 91.79 C (-0.46 C versus observe_only).
-- Missed observe-only detection: none.
-- Active detector actions changed the final safe-state outcome in 0 of 8 intervention runs.
+- Fastest detected runtime response: thermal_observer at 700.0 ms.
+- Lowest descriptive mean maximum coolant: precautionary_cooling / limp_home at 104.10 C (-4.07 C versus observe_only).
+- Missed observe-only detection: threshold, ewma, cusum.
+- Active detector actions changed the final safe-state outcome in 2 of 10 intervention runs.
 - Observe-only preserves the virtual ECU simulator's built-in safety behavior.
 
 ## Limitations
@@ -24,4 +24,4 @@ This matrix uses the virtual ECU research simulator. Runtime detectors run insid
 
 ## Reproduction
 
-Use the Runtime Study page's **Run Matrix for Latest Custom Scenario** button to reproduce this exact 4 x 3 comparison from the latest custom configuration.
+Use the Runtime Study page's **Run Matrix for Latest Custom Scenario** button to reproduce this exact 5 x 3 comparison from the latest custom configuration.

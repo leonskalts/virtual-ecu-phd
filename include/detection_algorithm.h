@@ -7,7 +7,8 @@ typedef enum {
     DETECTION_ALGORITHM_BUILTIN_ECU = 0,
     DETECTION_ALGORITHM_THRESHOLD,
     DETECTION_ALGORITHM_EWMA,
-    DETECTION_ALGORITHM_CUSUM
+    DETECTION_ALGORITHM_CUSUM,
+    DETECTION_ALGORITHM_THERMAL_OBSERVER
 } detection_algorithm_t;
 
 typedef enum {
@@ -25,6 +26,10 @@ typedef struct {
     float cusum_fan_tracking_error;
     float cusum_pump_tracking_error;
     float cusum_coolant_sensor_residual_c;
+    float thermal_observer_previous_coolant_temp_c;
+    float thermal_observer_expected_delta_c;
+    float thermal_observer_accumulated_mismatch_c;
+    bool thermal_observer_initialized;
     float current_score;
     bool alarm_active;
     bool detected;

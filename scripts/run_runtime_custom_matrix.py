@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run a 12-run runtime detector/action matrix for one custom scenario."""
+"""Run a 15-run runtime detector/action matrix for one custom scenario."""
 
 from __future__ import annotations
 
@@ -42,7 +42,7 @@ class Event:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Run all four runtime detectors and three detector actions for one "
+            "Run all five runtime detectors and three detector actions for one "
             "custom scenario in the virtual ECU research simulator."
         )
     )
@@ -359,6 +359,9 @@ def plot_figures(
         )
     ax.set_ylabel("Runtime detection latency [s]")
     ax.set_title("Detection Latency by Detector (Observe Only)")
+    ax.tick_params(axis="x", labelrotation=15)
+    for label in ax.get_xticklabels():
+        label.set_horizontalalignment("right")
     ax.grid(axis="y", linestyle=":", alpha=0.7)
     path = figure_dir / FIGURE_SPECS[0][0]
     fig.savefig(path, dpi=190)
@@ -379,7 +382,9 @@ def plot_figures(
             color=study.ACTION_COLORS[action],
             label=action,
         )
-    ax.set_xticks(range(len(study.DETECTORS)), study.DETECTORS)
+    ax.set_xticks(
+        range(len(study.DETECTORS)), study.DETECTORS, rotation=15, ha="right"
+    )
     ax.set_ylabel("Maximum coolant [C]")
     ax.set_title("Maximum Coolant Temperature by Detector and Action")
     ax.grid(axis="y", linestyle=":", alpha=0.7)
@@ -408,7 +413,9 @@ def plot_figures(
             color=study.ACTION_COLORS[action],
             label=action,
         )
-    ax.set_xticks(range(len(study.DETECTORS)), study.DETECTORS)
+    ax.set_xticks(
+        range(len(study.DETECTORS)), study.DETECTORS, rotation=15, ha="right"
+    )
     ax.set_ylabel("Absolute action time [s]")
     ax.set_title("Action Time by Detector and Action")
     ax.grid(axis="y", linestyle=":", alpha=0.7)
@@ -429,6 +436,9 @@ def plot_figures(
     ax.set_yticks((0, 1))
     ax.set_ylabel("Missed scenarios")
     ax.set_title("Missed Detections by Detector (Observe Only)")
+    ax.tick_params(axis="x", labelrotation=15)
+    for label in ax.get_xticklabels():
+        label.set_horizontalalignment("right")
     ax.grid(axis="y", linestyle=":", alpha=0.7)
     for bar, value in zip(bars, misses):
         ax.text(bar.get_x() + bar.get_width() / 2, value + 0.06, str(value), ha="center")
@@ -472,7 +482,7 @@ def write_markdown(
         "## Reproduction",
         "",
         "Use the Runtime Study page's **Run Matrix for Latest Custom Scenario** "
-        "button to reproduce this exact 4 x 3 comparison from the latest custom configuration.",
+        "button to reproduce this exact 5 x 3 comparison from the latest custom configuration.",
     ]
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -573,7 +583,7 @@ code{{background:#e8eef6;padding:2px 5px;border-radius:4px}}
 </style></head><body><main>
 <section class="hero"><h1>Runtime Custom Scenario Matrix</h1>
 <p>This virtual ECU research simulator study evaluates one custom scenario across
-four runtime detectors and three detector actions. Runtime detectors run inside
+five runtime detectors and three detector actions. Runtime detectors run inside
 the C simulation loop. Detector actions are optional research interventions;
 <code>observe_only</code> preserves baseline behavior.</p>
 <div class="cards">{cards_html}</div></section>

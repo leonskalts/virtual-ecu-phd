@@ -3,9 +3,9 @@
 This study uses the virtual ECU research simulator. Runtime detectors run inside the C simulation loop, while detector actions are optional research interventions. Observe-only preserves the built-in ECU behavior.
 
 - Scenarios: 5
-- Detectors: 4
+- Detectors: 5
 - Detector actions: 3
-- Total simulator runs: 60
+- Total simulator runs: 75
 
 ## Detector Summary
 
@@ -15,21 +15,22 @@ This study uses the virtual ECU research simulator. Runtime detectors run inside
 | threshold | 4/5 | 1 | 4025.0 | 0 |
 | ewma | 4/5 | 1 | 4425.0 | 0 |
 | cusum | 4/5 | 1 | 1275.0 | 0 |
+| thermal_observer | 5/5 | 0 | 3680.0 | 0 |
 
 ## Action Summary
 
 | Action | Runs | Actions requested | Mean max coolant [C] | Mean safe-state latency [ms] | Shutdown runs |
 |---|---:|---:|---:|---:|---:|
-| observe_only | 20 | 0 | 101.28 | 14833.3 | 0 |
-| precautionary_cooling | 20 | 17 | 93.54 | 11045.0 | 0 |
-| limp_home | 20 | 17 | 93.54 | 11045.0 | 0 |
+| observe_only | 25 | 0 | 101.28 | 14833.3 | 0 |
+| precautionary_cooling | 25 | 22 | 92.73 | 9572.0 | 0 |
+| limp_home | 25 | 22 | 92.73 | 9572.0 | 0 |
 
 ## Key Findings
 
 - cusum had the lowest mean runtime detection latency among detected observe-only scenarios (1275.0 ms; 4/5 scenarios detected).
-- precautionary_cooling and limp_home produced the lowest descriptive mean maximum coolant temperature (93.54 C), a -7.74 C difference from observe_only.
-- Missed detections across the five observe-only scenario traces were builtin_ecu: 0, threshold: 1, ewma: 1, cusum: 1.
-- Controlled shutdown was requested in 0 of 60 runs.
+- precautionary_cooling and limp_home produced the lowest descriptive mean maximum coolant temperature (92.73 C), a -8.55 C difference from observe_only.
+- Missed detections across the five observe-only scenario traces were builtin_ecu: 0, threshold: 1, ewma: 1, cusum: 1, thermal_observer: 0.
+- Controlled shutdown was requested in 0 of 75 runs.
 - Observe-only runs retain the simulator's built-in diagnostic and safe-state behavior; intervention comparisons add only the selected detector request.
 
 ## Outputs

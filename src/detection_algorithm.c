@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "config.h"
 #include "diagnostics.h"
 #include "ecu_types.h"
 
@@ -19,6 +20,14 @@
 #define CUSUM_LIMIT_PUMP_TRACKING_ERROR 0.80f
 #define CUSUM_LIMIT_COOLANT_SENSOR_RESIDUAL_C 8.00f
 
+/* Lightweight healthy-thermal observer. It predicts one coolant-temperature
+ * step using the nominal 92 C controller target and ideal healthy actuator
+ * response. Positive observed-minus-expected heating is accumulated after a
+ * small per-step allowance. This is a deterministic research heuristic, not a
+ * production state estimator or Kalman filter. */
+#define THERMAL_OBSERVER_MISMATCH_ALLOWANCE_C 0.015f
+#define THERMAL_OBSERVER_DECISION_LIMIT_C 1.50f
+
 static float abs_float(float value)
 {
     return (value < 0.0f) ? -value : value;
@@ -27,6 +36,51 @@ static float abs_float(float value)
 static float max_zero(float value)
 {
     return (value > 0.0f) ? value : 0.0f;
+}
+
+static float clamp_unit(float value)
+{
+    if (value < 0.0f) {
+        return 0.0f;
+    }
+    if (value > 1.0f) {
+        return 1.0f;
+    }
+    return value;
+}
+
+static float thermal_observer_expected_delta(const ecu_state_t *state)
+{
+    const float dt_s = (float)ECU_DT_MS / 1000.0f;
+    const float coolant_temp_c = state->sensors.coolant_temp_meas_c;
+    const float engine_load = state->plant.engine_load;
+    const float vehicle_speed_kph = state->sensors.vehicle_speed_meas_kph;
+    const float ambient_temp_c = state->sensors.ambient_temp_meas_c;
+    const float temp_error_c = coolant_temp_c - ECU_TARGET_COOLANT_TEMP_C;
+    const float load_term = 0.35f * engine_load;
+    const float speed_term = vehicle_speed_kph / 200.0f;
+    const float nominal_pump = clamp_unit(
+        0.30f + (0.025f * temp_error_c) + load_term
+    );
+    const float nominal_fan = clamp_unit(
+        0.25f + (0.065f * temp_error_c) - (0.10f * speed_term)
+    );
+    float heat_generation = 2.2f + (9.5f * engine_load);
+    float expected_rate_c_per_s;
+
+    if (state->plant.scenario_phase == SCENARIO_PHASE_HOT_IDLE) {
+        heat_generation += 2.0f;
+    }
+    heat_generation += state->experiment.heat_generation_bias;
+
+    expected_rate_c_per_s =
+        heat_generation -
+        (7.5f * nominal_pump) -
+        (6.0f * nominal_fan) -
+        ((vehicle_speed_kph / 40.0f) * state->experiment.ram_air_scale) -
+        (0.08f * (coolant_temp_c - ambient_temp_c));
+
+    return expected_rate_c_per_s * dt_s;
 }
 
 static void set_score_and_label(
@@ -136,6 +190,43 @@ void detection_algorithm_step(struct ecu_state *state)
         detector->alarm_active = detector->current_score >= 1.0f;
         break;
 
+    case DETECTION_ALGORITHM_THERMAL_OBSERVER:
+        snprintf(
+            detector->runtime_label,
+            sizeof(detector->runtime_label),
+            "%s",
+            "thermal_observer_mismatch"
+        );
+        if (!detector->thermal_observer_initialized) {
+            detector->thermal_observer_previous_coolant_temp_c =
+                state->sensors.coolant_temp_meas_c;
+            detector->thermal_observer_expected_delta_c =
+                thermal_observer_expected_delta(state);
+            detector->thermal_observer_accumulated_mismatch_c = 0.0f;
+            detector->thermal_observer_initialized = true;
+            detector->current_score = 0.0f;
+            detector->alarm_active = false;
+            break;
+        }
+        detector->thermal_observer_accumulated_mismatch_c = max_zero(
+            detector->thermal_observer_accumulated_mismatch_c +
+            (
+                state->sensors.coolant_temp_meas_c -
+                detector->thermal_observer_previous_coolant_temp_c
+            ) -
+            detector->thermal_observer_expected_delta_c -
+            THERMAL_OBSERVER_MISMATCH_ALLOWANCE_C
+        );
+        detector->current_score =
+            detector->thermal_observer_accumulated_mismatch_c /
+            THERMAL_OBSERVER_DECISION_LIMIT_C;
+        detector->alarm_active = detector->current_score >= 1.0f;
+        detector->thermal_observer_previous_coolant_temp_c =
+            state->sensors.coolant_temp_meas_c;
+        detector->thermal_observer_expected_delta_c =
+            thermal_observer_expected_delta(state);
+        break;
+
     case DETECTION_ALGORITHM_BUILTIN_ECU:
     default:
         detector->alarm_active = state->diagnostics.primary_dtc != DTC_ID_NONE;
@@ -188,6 +279,9 @@ detection_algorithm_t detection_algorithm_from_string(const char *text)
     if (strcmp(text, "cusum") == 0) {
         return DETECTION_ALGORITHM_CUSUM;
     }
+    if (strcmp(text, "thermal_observer") == 0) {
+        return DETECTION_ALGORITHM_THERMAL_OBSERVER;
+    }
 
     return DETECTION_ALGORITHM_BUILTIN_ECU;
 }
@@ -201,6 +295,8 @@ const char *detection_algorithm_name(detection_algorithm_t algorithm)
         return "ewma";
     case DETECTION_ALGORITHM_CUSUM:
         return "cusum";
+    case DETECTION_ALGORITHM_THERMAL_OBSERVER:
+        return "thermal_observer";
     case DETECTION_ALGORITHM_BUILTIN_ECU:
     default:
         return "builtin_ecu";

@@ -36,10 +36,12 @@ static int parse_runtime_detection_options(
             if (strcmp(value, "builtin_ecu") != 0 &&
                 strcmp(value, "threshold") != 0 &&
                 strcmp(value, "ewma") != 0 &&
-                strcmp(value, "cusum") != 0) {
+                strcmp(value, "cusum") != 0 &&
+                strcmp(value, "thermal_observer") != 0) {
                 fprintf(
                     stderr,
-                    "Unknown detector '%s'. Expected builtin_ecu, threshold, ewma, or cusum.\n",
+                    "Unknown detector '%s'. Expected builtin_ecu, threshold, ewma, "
+                    "cusum, or thermal_observer.\n",
                     value
                 );
                 return -1;

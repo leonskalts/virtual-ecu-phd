@@ -79,7 +79,7 @@ RUNTIME_CUSTOM_MATRIX_REPORT_HTML = (
 )
 RUNTIME_CUSTOM_MATRIX_SCRIPT = PROJECT_ROOT / "scripts" / "run_runtime_custom_matrix.py"
 RUNTIME_STUDY_SOURCE_OPTIONS = (
-    "Predefined 60-run study",
+    "Predefined 75-run study",
     "Latest custom scenario matrix",
 )
 RUNTIME_STUDY_FIGURES: Sequence[Tuple[str, str]] = (
@@ -149,6 +149,11 @@ DETECTION_ALGORITHM_OPTIONS: Sequence[Tuple[str, str, str]] = (
         "CUSUM detector",
         "cusum",
         "Detects persistent accumulated deviations.",
+    ),
+    (
+        "Thermal observer detector",
+        "thermal_observer",
+        "Detects thermal-model mismatch between expected and observed coolant behavior.",
     ),
 )
 DETECTION_ALGORITHM_NAMES = {
@@ -6395,7 +6400,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             title="Study Files",
             description=(
                 "Switch between the predefined reproducible study and the latest "
-                "custom scenario's 4 detector x 3 action matrix."
+                "custom scenario's 5 detector x 3 action matrix."
             ),
         )
         status_card.grid(row=1, column=0, sticky="ew", padx=12, pady=(0, 12))
@@ -6439,7 +6444,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         actions.grid(row=0, column=1, rowspan=3, sticky="e", padx=(16, 0))
         self.runtime_study_run_button = ttk.Button(
             actions,
-            text="Run Predefined 60-Run Study",
+            text="Run Predefined 75-Run Study",
             command=self.run_runtime_intervention_study,
             style="Primary.TButton",
         )
@@ -9161,7 +9166,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         if self.runtime_study_run_button is not None:
             self.runtime_study_run_button.state(["disabled"])
         self.runtime_study_status_text.set(
-            "Running the 60-run runtime intervention study..."
+            "Running the 75-run runtime intervention study..."
         )
         self.status_text.set("Running runtime detector intervention study...")
         threading.Thread(
@@ -9361,7 +9366,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self._refresh_runtime_study_figure_buttons()
         self.load_runtime_study_source(show_error=True)
         self.status_text.set(
-            "Runtime custom scenario matrix complete. The 12-run result is loaded."
+            "Runtime custom scenario matrix complete. The 15-run result is loaded."
         )
 
     def open_runtime_study_artifact(self, path: Path, title: str) -> None:

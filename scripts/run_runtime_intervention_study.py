@@ -19,7 +19,13 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "results" / "runtime_intervention_study_v1"
 DEFAULT_EXECUTABLE = PROJECT_ROOT / "virtual_ecu"
 
-DETECTORS = ("builtin_ecu", "threshold", "ewma", "cusum")
+DETECTORS = (
+    "builtin_ecu",
+    "threshold",
+    "ewma",
+    "cusum",
+    "thermal_observer",
+)
 ACTIONS = ("observe_only", "precautionary_cooling", "limp_home")
 
 DETECTOR_COLORS = {
@@ -27,6 +33,7 @@ DETECTOR_COLORS = {
     "threshold": "#3b82f6",
     "ewma": "#f59e0b",
     "cusum": "#10b981",
+    "thermal_observer": "#a855f7",
 }
 ACTION_COLORS = {
     "observe_only": "#64748b",
@@ -369,7 +376,11 @@ def write_comparison_csv(
     path: Path, results: Sequence[Dict[str, object]]
 ) -> None:
     with path.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=OUTPUT_COLUMNS)
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=OUTPUT_COLUMNS,
+            lineterminator="\n",
+        )
         writer.writeheader()
         writer.writerows(results)
 
@@ -531,8 +542,11 @@ def plot_figures(
     }
 
     fig, ax = plt.subplots(figsize=(11.5, 5.5), constrained_layout=True)
-    width = 0.19
-    offsets = [-1.5 * width, -0.5 * width, 0.5 * width, 1.5 * width]
+    width = 0.16
+    offsets = [
+        (index - ((len(DETECTORS) - 1) / 2.0)) * width
+        for index in range(len(DETECTORS))
+    ]
     for detector, offset in zip(DETECTORS, offsets):
         positions = []
         values = []
@@ -552,7 +566,7 @@ def plot_figures(
     ax.set_ylabel("Runtime detection latency [s]")
     ax.set_title("Detection Latency by Detector and Scenario (Observe Only)")
     ax.grid(axis="y", linestyle=":", linewidth=0.7, alpha=0.7)
-    ax.legend(frameon=False, ncol=4)
+    ax.legend(frameon=False, ncol=5)
     path = figures_dir / FIGURE_SPECS[0][0]
     fig.savefig(path, dpi=190)
     plt.close(fig)
@@ -649,7 +663,7 @@ def plot_figures(
             color=ACTION_COLORS[action],
             label=action,
         )
-    ax.set_xticks(range(len(DETECTORS)), DETECTORS)
+    ax.set_xticks(range(len(DETECTORS)), DETECTORS, rotation=15, ha="right")
     ax.set_ylabel("Mean absolute action time [s]")
     ax.set_title("Action Time by Detector and Action")
     ax.grid(axis="y", linestyle=":", linewidth=0.7, alpha=0.7)
@@ -678,6 +692,9 @@ def plot_figures(
     ax.set_ylim(0, len(SCENARIOS) + 0.7)
     ax.set_ylabel("Missed scenarios")
     ax.set_title("Missed Detections by Detector (Observe Only)")
+    ax.tick_params(axis="x", labelrotation=15)
+    for label in ax.get_xticklabels():
+        label.set_horizontalalignment("right")
     ax.grid(axis="y", linestyle=":", linewidth=0.7, alpha=0.7)
     for bar, value in zip(bars, misses):
         ax.text(
@@ -935,7 +952,7 @@ def write_html_report(
 
   <h2>Study Design</h2>
   <p>
-    Five custom single-fault scenarios are crossed with four runtime detectors
+    Five custom single-fault scenarios are crossed with five runtime detectors
     and three action modes, producing {len(results)} deterministic simulator
     runs. A detector identifies an anomaly; an action optionally requests
     precautionary cooling or limp-home through the existing maximum-severity
