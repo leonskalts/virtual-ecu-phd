@@ -129,6 +129,39 @@ evidence as unavailable.
 offline on the same saved trace. This keeps the existing comparison study
 methodology separate from the selected detector that ran inside the simulator.
 
+## Runtime Intervention Study
+
+Run the reproducible detector/action comparison from the repository root:
+
+```bash
+make
+python3 scripts/run_runtime_intervention_study.py
+```
+
+The study runs five custom single-fault scenarios across all four runtime
+detectors and all three detector actions. Its 60 simulator runs are written to:
+
+```text
+results/runtime_intervention_study_v1/
+```
+
+The output includes raw and summary CSV files for every run, an aggregate
+comparison CSV, five Matplotlib figures, a Markdown summary, and the compact
+browser report:
+
+```text
+results/runtime_intervention_study_v1/runtime_intervention_report.html
+```
+
+The report compares runtime detection latency, action timing, missed
+detections, final safe states, maximum coolant temperature, ECU DTC timing,
+and shutdown requests. `observe_only` is the non-intervention reference and
+preserves the simulator's built-in safe-state behavior.
+
+The results are deterministic virtual ECU research simulations. They are not
+production ECU validation or real-vehicle validation, and thermal averages
+are descriptive rather than evidence of statistical significance.
+
 ## Research Limitation
 
 Detector intervention is a research abstraction for repeatable virtual ECU

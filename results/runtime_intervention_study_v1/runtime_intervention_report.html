@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Runtime Detector Intervention Study v1</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #172033;
+      --muted: #526173;
+      --line: #dbe3ec;
+      --panel: #ffffff;
+      --accent: #2563eb;
+      --bg: #f3f6fa;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+      line-height: 1.5;
+    }
+    main { max-width: 1240px; margin: 0 auto; padding: 36px 24px 64px; }
+    h1 { margin: 0 0 8px; font-size: 32px; }
+    h2 { margin-top: 34px; font-size: 22px; }
+    p { color: var(--muted); }
+    .hero, .card, figure, .table-wrap {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
+    }
+    .hero { padding: 26px; border-top: 5px solid var(--accent); }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 14px;
+      margin-top: 18px;
+    }
+    .card { padding: 17px; }
+    .card .label { color: var(--muted); font-size: 13px; }
+    .card .value { margin-top: 4px; font-size: 22px; font-weight: 700; }
+    .figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 18px; }
+    figure { margin: 0; padding: 14px; }
+    figure img { display: block; width: 100%; height: auto; }
+    figcaption { margin-top: 9px; color: var(--muted); font-size: 14px; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { padding: 9px 10px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+    th { position: sticky; top: 0; background: #eef4ff; }
+    tbody tr:nth-child(even) { background: #f8fafc; }
+    code { background: #e8eef6; padding: 2px 5px; border-radius: 4px; }
+    .note { padding: 16px 18px; background: #fff8e6; border-left: 4px solid #f59e0b; }
+  </style>
+</head>
+<body>
+<main>
+  <section class="hero">
+    <h1>Runtime Detector Intervention Study v1</h1>
+    <p>
+      This reproducible study uses a virtual ECU research simulator to examine
+      whether earlier runtime detection and optional detector-driven safety
+      requests change simulated safety and thermal outcomes. Runtime detectors
+      execute inside the C simulation loop. Detector actions are optional research interventions;
+      <code>observe_only</code> preserves baseline built-in ECU behavior.
+    </p>
+    <div class="cards">
+      <div class="card"><div class="label">Scenarios</div><div class="value">5</div></div>
+      <div class="card"><div class="label">Detectors</div><div class="value">4</div></div>
+      <div class="card"><div class="label">Action modes</div><div class="value">3</div></div>
+      <div class="card"><div class="label">Fastest average detector</div><div class="value">cusum</div><div class="label">1275.0 ms</div></div>
+      <div class="card"><div class="label">Lowest mean max coolant</div><div class="value">precautionary_cooling / limp_home</div><div class="label">93.54 C</div></div>
+    </div>
+  </section>
+
+  <h2>Study Design</h2>
+  <p>
+    Five custom single-fault scenarios are crossed with four runtime detectors
+    and three action modes, producing 60 deterministic simulator
+    runs. A detector identifies an anomaly; an action optionally requests
+    precautionary cooling or limp-home through the existing maximum-severity
+    safety arbitration.
+  </p>
+
+  <h2>Key Findings</h2>
+  <ul><li>cusum had the lowest mean runtime detection latency among detected observe-only scenarios (1275.0 ms; 4/5 scenarios detected).</li><li>precautionary_cooling and limp_home produced the lowest descriptive mean maximum coolant temperature (93.54 C), a -7.74 C difference from observe_only.</li><li>Missed detections across the five observe-only scenario traces were builtin_ecu: 0, threshold: 1, ewma: 1, cusum: 1.</li><li>Controlled shutdown was requested in 0 of 60 runs.</li><li>Observe-only runs retain the simulator&#x27;s built-in diagnostic and safe-state behavior; intervention comparisons add only the selected detector request.</li></ul>
+
+  <h2>Figures</h2>
+  <div class="figures"><figure><img src="figures/detection_latency_by_detector_scenario.png" alt="Detection latency by detector and scenario"><figcaption>Detection latency by detector and scenario</figcaption></figure><figure><img src="figures/max_coolant_by_detector_action_scenario.png" alt="Maximum coolant temperature by detector, action, and scenario"><figcaption>Maximum coolant temperature by detector, action, and scenario</figcaption></figure><figure><img src="figures/final_safe_state_distribution_by_action.png" alt="Final safe-state distribution by detector action"><figcaption>Final safe-state distribution by detector action</figcaption></figure><figure><img src="figures/action_time_by_detector_action.png" alt="Mean action time by detector and action"><figcaption>Mean action time by detector and action</figcaption></figure><figure><img src="figures/missed_detections_by_detector.png" alt="Missed detections by detector"><figcaption>Missed detections by detector</figcaption></figure></div>
+
+  <h2>Main Comparison Table</h2>
+  <div class="table-wrap"><table><thead><tr><th>Scenario</th><th>Detector</th><th>Action</th><th>Detected</th><th>Runtime latency [ms]</th><th>Action request</th><th>Action time [ms]</th><th>First ECU DTC</th><th>ECU latency [ms]</th><th>Final state</th><th>Max coolant [C]</th><th>Shutdown</th></tr></thead><tbody><tr><td>Fan stuck off</td><td>builtin_ecu</td><td>observe_only</td><td>1</td><td>4000</td><td>none</td><td>n/a</td><td>fan_tracking_fault</td><td>4000</td><td>limp_home</td><td>92.25</td><td>0</td></tr><tr><td>Fan stuck off</td><td>builtin_ecu</td><td>precautionary_cooling</td><td>1</td><td>4000</td><td>precautionary_cooling</td><td>79000</td><td>fan_tracking_fault</td><td>4000</td><td>limp_home</td><td>92.25</td><td>0</td></tr><tr><td>Fan stuck off</td><td>builtin_ecu</td><td>limp_home</td><td>1</td><td>4000</td><td>limp_home</td><td>79000</td><td>fan_tracking_fault</td><td>4000</td><td>limp_home</td><td>92.25</td><td>0</td></tr><tr><td>Fan stuck off</td><td>threshold</td><td>observe_only</td><td>1</td><td>3600</td><td>none</td><td>n/a</td><td>fan_tracking_fault</td><td>4000</td><td>limp_home</td><td>92.25</td><td>0</td></tr><tr><td>Fan stuck off</td><td>threshold</td><td>precautionary_cooling</td><td>1</td><td>3600</td><td>precautionary_cooling</td><td>78600</td><td>fan_tracking_fault</td><td>4000</td><td>limp_home</td><td>92.13</td><td>0</td></tr><tr><td>Fan stuck off</td><td>threshold</td><td>limp_home</td><td>1</td><td>3600</td><td>limp_home</td><td>78600</td><td>fan_tracking_fault</td><td>4000</td><td>limp_home</td><td>92.13</td><td>0</td></tr><tr><td>Fan stuck off</td><td>ewma</td><td>observe_only</td><td>1</td><td>4000</td><td>none</td><td>n/a</td><td>fan_tracking_fault</td><td>4000</td><td>limp_home</td><td>92.25</td><td>0</td></tr><tr><td>Fan stuck off</td><td>ewma</td><td>precautionary_cooling</td><td>1</td><td>4000</td><td>precautionary_cooling</td><td>79000</td><td>fan_tracking_fault</td><td>4000</td><td>limp_home</td><td>92.25</td><td>0</td></tr><tr><td>Fan stuck off</td><td>ewma</td><td>limp_home</td><td>1</td><td>4000</td><td>limp_home</td><td>79000</td><td>fan_tracking_fault</td><td>4000</td><td>limp_home</td><td>92.25</td><td>0</td></tr><tr><td>Fan stuck off</td><td>cusum</td><td>observe_only</td><td>1</td><td>800</td><td>none</td><td>n/a</td><td>fan_tracking_fault</td><td>4000</td><td>limp_home</td><td>92.25</td><td>0</td></tr><tr><td>Fan stuck off</td><td>cusum</td><td>precautionary_cooling</td><td>1</td><td>800</td><td>precautionary_cooling</td><td>75800</td><td>fan_tracking_fault</td><td>1000</td><td>limp_home</td><td>90.87</td><td>0</td></tr><tr><td>Fan stuck off</td><td>cusum</td><td>limp_home</td><td>1</td><td>800</td><td>limp_home</td><td>75800</td><td>fan_tracking_fault</td><td>1000</td><td>limp_home</td><td>90.87</td><td>0</td></tr><tr><td>Pump degraded</td><td>builtin_ecu</td><td>observe_only</td><td>1</td><td>1000</td><td>none</td><td>n/a</td><td>pump_tracking_fault</td><td>1000</td><td>normal</td><td>96.00</td><td>0</td></tr><tr><td>Pump degraded</td><td>builtin_ecu</td><td>precautionary_cooling</td><td>1</td><td>1000</td><td>precautionary_cooling</td><td>61000</td><td>pump_tracking_fault</td><td>1000</td><td>precautionary_cooling</td><td>88.00</td><td>0</td></tr><tr><td>Pump degraded</td><td>builtin_ecu</td><td>limp_home</td><td>1</td><td>1000</td><td>limp_home</td><td>61000</td><td>pump_tracking_fault</td><td>1000</td><td>limp_home</td><td>88.00</td><td>0</td></tr><tr><td>Pump degraded</td><td>threshold</td><td>observe_only</td><td>1</td><td>100</td><td>none</td><td>n/a</td><td>pump_tracking_fault</td><td>1000</td><td>normal</td><td>96.00</td><td>0</td></tr><tr><td>Pump degraded</td><td>threshold</td><td>precautionary_cooling</td><td>1</td><td>100</td><td>precautionary_cooling</td><td>60100</td><td>pump_tracking_fault</td><td>500</td><td>precautionary_cooling</td><td>88.00</td><td>0</td></tr><tr><td>Pump degraded</td><td>threshold</td><td>limp_home</td><td>1</td><td>100</td><td>limp_home</td><td>60100</td><td>pump_tracking_fault</td><td>500</td><td>limp_home</td><td>88.00</td><td>0</td></tr><tr><td>Pump degraded</td><td>ewma</td><td>observe_only</td><td>1</td><td>800</td><td>none</td><td>n/a</td><td>pump_tracking_fault</td><td>1000</td><td>normal</td><td>96.00</td><td>0</td></tr><tr><td>Pump degraded</td><td>ewma</td><td>precautionary_cooling</td><td>1</td><td>800</td><td>precautionary_cooling</td><td>60800</td><td>pump_tracking_fault</td><td>1000</td><td>precautionary_cooling</td><td>88.00</td><td>0</td></tr><tr><td>Pump degraded</td><td>ewma</td><td>limp_home</td><td>1</td><td>800</td><td>limp_home</td><td>60800</td><td>pump_tracking_fault</td><td>1000</td><td>limp_home</td><td>88.00</td><td>0</td></tr><tr><td>Pump degraded</td><td>cusum</td><td>observe_only</td><td>1</td><td>500</td><td>none</td><td>n/a</td><td>pump_tracking_fault</td><td>1000</td><td>normal</td><td>96.00</td><td>0</td></tr><tr><td>Pump degraded</td><td>cusum</td><td>precautionary_cooling</td><td>1</td><td>500</td><td>precautionary_cooling</td><td>60500</td><td>pump_tracking_fault</td><td>500</td><td>precautionary_cooling</td><td>88.00</td><td>0</td></tr><tr><td>Pump degraded</td><td>cusum</td><td>limp_home</td><td>1</td><td>500</td><td>limp_home</td><td>60500</td><td>pump_tracking_fault</td><td>500</td><td>limp_home</td><td>88.00</td><td>0</td></tr><tr><td>Coolant sensor bias</td><td>builtin_ecu</td><td>observe_only</td><td>1</td><td>0</td><td>none</td><td>n/a</td><td>coolant_sensor_rationality</td><td>0</td><td>normal</td><td>96.00</td><td>0</td></tr><tr><td>Coolant sensor bias</td><td>builtin_ecu</td><td>precautionary_cooling</td><td>1</td><td>0</td><td>precautionary_cooling</td><td>30000</td><td>coolant_sensor_rationality</td><td>0</td><td>precautionary_cooling</td><td>88.00</td><td>0</td></tr><tr><td>Coolant sensor bias</td><td>builtin_ecu</td><td>limp_home</td><td>1</td><td>0</td><td>limp_home</td><td>30000</td><td>coolant_sensor_rationality</td><td>0</td><td>limp_home</td><td>88.00</td><td>0</td></tr><tr><td>Coolant sensor bias</td><td>threshold</td><td>observe_only</td><td>1</td><td>0</td><td>none</td><td>n/a</td><td>coolant_sensor_rationality</td><td>0</td><td>normal</td><td>96.00</td><td>0</td></tr><tr><td>Coolant sensor bias</td><td>threshold</td><td>precautionary_cooling</td><td>1</td><td>0</td><td>precautionary_cooling</td><td>30000</td><td>coolant_sensor_rationality</td><td>0</td><td>precautionary_cooling</td><td>88.00</td><td>0</td></tr><tr><td>Coolant sensor bias</td><td>threshold</td><td>limp_home</td><td>1</td><td>0</td><td>limp_home</td><td>30000</td><td>coolant_sensor_rationality</td><td>0</td><td>limp_home</td><td>88.00</td><td>0</td></tr><tr><td>Coolant sensor bias</td><td>ewma</td><td>observe_only</td><td>1</td><td>100</td><td>none</td><td>n/a</td><td>coolant_sensor_rationality</td><td>0</td><td>normal</td><td>96.00</td><td>0</td></tr><tr><td>Coolant sensor bias</td><td>ewma</td><td>precautionary_cooling</td><td>1</td><td>100</td><td>precautionary_cooling</td><td>30100</td><td>coolant_sensor_rationality</td><td>0</td><td>precautionary_cooling</td><td>88.00</td><td>0</td></tr><tr><td>Coolant sensor bias</td><td>ewma</td><td>limp_home</td><td>1</td><td>100</td><td>limp_home</td><td>30100</td><td>coolant_sensor_rationality</td><td>0</td><td>limp_home</td><td>88.00</td><td>0</td></tr><tr><td>Coolant sensor bias</td><td>cusum</td><td>observe_only</td><td>1</td><td>100</td><td>none</td><td>n/a</td><td>coolant_sensor_rationality</td><td>0</td><td>normal</td><td>96.00</td><td>0</td></tr><tr><td>Coolant sensor bias</td><td>cusum</td><td>precautionary_cooling</td><td>1</td><td>100</td><td>precautionary_cooling</td><td>30100</td><td>coolant_sensor_rationality</td><td>0</td><td>precautionary_cooling</td><td>88.00</td><td>0</td></tr><tr><td>Coolant sensor bias</td><td>cusum</td><td>limp_home</td><td>1</td><td>100</td><td>limp_home</td><td>30100</td><td>coolant_sensor_rationality</td><td>0</td><td>limp_home</td><td>88.00</td><td>0</td></tr><tr><td>Stale sensor data</td><td>builtin_ecu</td><td>observe_only</td><td>1</td><td>19000</td><td>none</td><td>n/a</td><td>coolant_sensor_rationality</td><td>19000</td><td>normal</td><td>113.99</td><td>0</td></tr><tr><td>Stale sensor data</td><td>builtin_ecu</td><td>precautionary_cooling</td><td>1</td><td>19000</td><td>precautionary_cooling</td><td>84000</td><td>coolant_sensor_rationality</td><td>19000</td><td>precautionary_cooling</td><td>92.14</td><td>0</td></tr><tr><td>Stale sensor data</td><td>builtin_ecu</td><td>limp_home</td><td>1</td><td>19000</td><td>limp_home</td><td>84000</td><td>coolant_sensor_rationality</td><td>19000</td><td>limp_home</td><td>92.14</td><td>0</td></tr><tr><td>Stale sensor data</td><td>threshold</td><td>observe_only</td><td>1</td><td>12400</td><td>none</td><td>n/a</td><td>coolant_sensor_rationality</td><td>19000</td><td>normal</td><td>113.99</td><td>0</td></tr><tr><td>Stale sensor data</td><td>threshold</td><td>precautionary_cooling</td><td>1</td><td>12400</td><td>precautionary_cooling</td><td>77400</td><td>coolant_sensor_rationality</td><td>13500</td><td>precautionary_cooling</td><td>91.91</td><td>0</td></tr><tr><td>Stale sensor data</td><td>threshold</td><td>limp_home</td><td>1</td><td>12400</td><td>limp_home</td><td>77400</td><td>coolant_sensor_rationality</td><td>13000</td><td>limp_home</td><td>91.91</td><td>0</td></tr><tr><td>Stale sensor data</td><td>ewma</td><td>observe_only</td><td>1</td><td>12800</td><td>none</td><td>n/a</td><td>coolant_sensor_rationality</td><td>19000</td><td>normal</td><td>113.99</td><td>0</td></tr><tr><td>Stale sensor data</td><td>ewma</td><td>precautionary_cooling</td><td>1</td><td>12800</td><td>precautionary_cooling</td><td>77800</td><td>coolant_sensor_rationality</td><td>14000</td><td>precautionary_cooling</td><td>91.95</td><td>0</td></tr><tr><td>Stale sensor data</td><td>ewma</td><td>limp_home</td><td>1</td><td>12800</td><td>limp_home</td><td>77800</td><td>coolant_sensor_rationality</td><td>13500</td><td>limp_home</td><td>91.95</td><td>0</td></tr><tr><td>Stale sensor data</td><td>cusum</td><td>observe_only</td><td>1</td><td>3700</td><td>none</td><td>n/a</td><td>coolant_sensor_rationality</td><td>19000</td><td>normal</td><td>113.99</td><td>0</td></tr><tr><td>Stale sensor data</td><td>cusum</td><td>precautionary_cooling</td><td>1</td><td>3700</td><td>precautionary_cooling</td><td>68700</td><td>coolant_sensor_rationality</td><td>4500</td><td>precautionary_cooling</td><td>90.72</td><td>0</td></tr><tr><td>Stale sensor data</td><td>cusum</td><td>limp_home</td><td>1</td><td>3700</td><td>limp_home</td><td>68700</td><td>coolant_sensor_rationality</td><td>4500</td><td>limp_home</td><td>90.72</td><td>0</td></tr><tr><td>Calibration memory corruption</td><td>builtin_ecu</td><td>observe_only</td><td>1</td><td>39500</td><td>none</td><td>n/a</td><td>cooling_performance_low</td><td>39500</td><td>limp_home</td><td>108.17</td><td>0</td></tr><tr><td>Calibration memory corruption</td><td>builtin_ecu</td><td>precautionary_cooling</td><td>1</td><td>39500</td><td>precautionary_cooling</td><td>91500</td><td>cooling_performance_low</td><td>39500</td><td>precautionary_cooling</td><td>108.01</td><td>0</td></tr><tr><td>Calibration memory corruption</td><td>builtin_ecu</td><td>limp_home</td><td>1</td><td>39500</td><td>limp_home</td><td>91500</td><td>cooling_performance_low</td><td>39500</td><td>limp_home</td><td>108.01</td><td>0</td></tr><tr><td>Calibration memory corruption</td><td>threshold</td><td>observe_only</td><td>0</td><td>n/a</td><td>none</td><td>n/a</td><td>cooling_performance_low</td><td>39500</td><td>limp_home</td><td>108.17</td><td>0</td></tr><tr><td>Calibration memory corruption</td><td>threshold</td><td>precautionary_cooling</td><td>0</td><td>n/a</td><td>none</td><td>n/a</td><td>cooling_performance_low</td><td>39500</td><td>limp_home</td><td>108.17</td><td>0</td></tr><tr><td>Calibration memory corruption</td><td>threshold</td><td>limp_home</td><td>0</td><td>n/a</td><td>none</td><td>n/a</td><td>cooling_performance_low</td><td>39500</td><td>limp_home</td><td>108.17</td><td>0</td></tr><tr><td>Calibration memory corruption</td><td>ewma</td><td>observe_only</td><td>0</td><td>n/a</td><td>none</td><td>n/a</td><td>cooling_performance_low</td><td>39500</td><td>limp_home</td><td>108.17</td><td>0</td></tr><tr><td>Calibration memory corruption</td><td>ewma</td><td>precautionary_cooling</td><td>0</td><td>n/a</td><td>none</td><td>n/a</td><td>cooling_performance_low</td><td>39500</td><td>limp_home</td><td>108.17</td><td>0</td></tr><tr><td>Calibration memory corruption</td><td>ewma</td><td>limp_home</td><td>0</td><td>n/a</td><td>none</td><td>n/a</td><td>cooling_performance_low</td><td>39500</td><td>limp_home</td><td>108.17</td><td>0</td></tr><tr><td>Calibration memory corruption</td><td>cusum</td><td>observe_only</td><td>0</td><td>n/a</td><td>none</td><td>n/a</td><td>cooling_performance_low</td><td>39500</td><td>limp_home</td><td>108.17</td><td>0</td></tr><tr><td>Calibration memory corruption</td><td>cusum</td><td>precautionary_cooling</td><td>0</td><td>n/a</td><td>none</td><td>n/a</td><td>cooling_performance_low</td><td>39500</td><td>limp_home</td><td>108.17</td><td>0</td></tr><tr><td>Calibration memory corruption</td><td>cusum</td><td>limp_home</td><td>0</td><td>n/a</td><td>none</td><td>n/a</td><td>cooling_performance_low</td><td>39500</td><td>limp_home</td><td>108.17</td><td>0</td></tr></tbody></table></div>
+
+  <h2>Limitations</h2>
+  <div class="note">
+    These are deterministic outcomes from a virtual ECU research simulator.
+    The study is not production ECU validation. It is not real-vehicle validation.
+    Detector calibrations, simplified plant dynamics, selected faults, and direct
+    residual observability limit generalization. Thermal averages are descriptive
+    and do not establish statistical significance.
+  </div>
+
+  <h2>Reproduction</h2>
+  <p>From the repository root:</p>
+  <pre><code>make
+python3 scripts/run_runtime_intervention_study.py</code></pre>
+</main>
+</body>
+</html>
