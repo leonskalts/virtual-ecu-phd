@@ -2,6 +2,7 @@
 #define ECU_TYPES_H
 
 #include "config.h"
+#include "detection_algorithm.h"
 
 #include <stdbool.h>
 #include <stdio.h>
@@ -185,7 +186,7 @@ typedef struct {
     unsigned int time_ms;
 } scheduler_time_t;
 
-typedef struct {
+typedef struct ecu_state {
     scheduler_time_t time;
     plant_state_t plant;
     sensor_data_t sensors;
@@ -196,6 +197,7 @@ typedef struct {
     experiment_config_t experiment;
     fault_state_t faults;
     experiment_metrics_t metrics;
+    detection_algorithm_state_t detection;
     FILE *log_file;
 } ecu_state_t;
 

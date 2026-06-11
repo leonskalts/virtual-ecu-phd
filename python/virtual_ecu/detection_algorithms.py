@@ -1,8 +1,7 @@
-"""Reusable offline detection algorithms for virtual ECU CSV traces.
+"""Reusable detection reporting for virtual ECU CSV traces.
 
-The functions in this module are post-processing helpers. They read simulator
-CSV logs, extract campaign-event timing, and evaluate either the ECU's own DTC
-timing or one of the residual-based offline detectors.
+The module keeps the offline same-trace evaluators and can also report matching
+runtime detector results recorded by the C simulator.
 """
 
 from __future__ import annotations
@@ -198,6 +197,95 @@ def first_post_fault_dtc(
     return "none", None, None
 
 
+def runtime_detection_available(
+    rows: Sequence[Dict[str, str]], algorithm_name: str
+) -> bool:
+    required_columns = {
+        "runtime_detection_algorithm",
+        "runtime_detection_alarm",
+        "runtime_detection_detected",
+        "runtime_detection_first_detection_ms",
+        "runtime_detection_latency_ms",
+    }
+    return required_columns.issubset(rows[0]) and all(
+        row.get("runtime_detection_algorithm", "") == algorithm_name for row in rows
+    )
+
+
+def evaluate_runtime_detection(
+    csv_path: Path | str, algorithm_name: str
+) -> Dict[str, object]:
+    """Report detector results recorded by the C simulator at runtime."""
+    if algorithm_name not in SUPPORTED_ALGORITHMS:
+        raise ValueError(
+            f"Unsupported detection algorithm '{algorithm_name}'. "
+            f"Expected one of: {', '.join(SUPPORTED_ALGORITHMS)}"
+        )
+
+    path = Path(csv_path)
+    rows = read_csv_rows(path)
+    if not runtime_detection_available(rows, algorithm_name):
+        raise ValueError(
+            f"Runtime results for '{algorithm_name}' are not present in {path}"
+        )
+
+    first_row = rows[0]
+    final_row = rows[-1]
+    events = fault_events(first_row)
+    fault_start_ms = min((event.start_ms for event in events), default=None)
+    fault_type = "+".join(event.fault_type for event in events) if events else "none"
+    first_ecu_dtc_label, first_ecu_dtc_s, ecu_dtc_latency_s = first_post_fault_dtc(
+        rows, fault_start_ms
+    )
+    first_detection_ms = parse_int(
+        final_row, "runtime_detection_first_detection_ms", -1
+    )
+    detection_latency_ms = parse_int(
+        final_row, "runtime_detection_latency_ms", -1
+    )
+    detected = parse_int(final_row, "runtime_detection_detected") != 0
+    alarms = [
+        parse_int(row, "runtime_detection_alarm") != 0
+        for row in rows
+    ]
+    false_positive_count = parse_int(
+        final_row,
+        "runtime_detection_false_positive_count",
+        count_alarm_episodes(rows, alarms, end_before_ms=fault_start_ms),
+    )
+    campaign_id = first_row.get("campaign_id", path.stem)
+    scenario_id = first_row.get("scenario_id", "") or campaign_id or path.stem
+
+    return {
+        "algorithm": algorithm_name,
+        "detection_source": "runtime",
+        "scenario_id": scenario_id,
+        "campaign_id": campaign_id,
+        "fault_type": fault_type,
+        "fault_start_s": fault_start_ms / 1000.0 if fault_start_ms is not None else None,
+        "detected": detected,
+        "first_detection_s": first_detection_ms / 1000.0 if first_detection_ms >= 0 else None,
+        "detection_latency_s": (
+            detection_latency_ms / 1000.0 if detection_latency_ms >= 0 else None
+        ),
+        "false_positive_count": false_positive_count,
+        "missed_detection": bool(events) and not detected,
+        "first_ecu_dtc_label": first_ecu_dtc_label,
+        "first_ecu_dtc_s": first_ecu_dtc_s,
+        "ecu_dtc_latency_s": ecu_dtc_latency_s,
+        "final_safe_state": final_row.get("safe_state_label", "unknown"),
+        "max_coolant_temp_c": max(
+            parse_float(row, "coolant_temp_true_c") for row in rows
+        ),
+        "runtime_detection_label": final_row.get(
+            "runtime_detection_label", "none"
+        ),
+        "runtime_detection_score": parse_float(
+            final_row, "runtime_detection_score"
+        ),
+    }
+
+
 def evaluate_detection(csv_path: Path | str, algorithm_name: str) -> Dict[str, object]:
     """Evaluate one detection algorithm against a simulator raw CSV trace."""
     if algorithm_name not in SUPPORTED_ALGORITHMS:
@@ -237,6 +325,7 @@ def evaluate_detection(csv_path: Path | str, algorithm_name: str) -> Dict[str, o
 
     return {
         "algorithm": algorithm_name,
+        "detection_source": "offline",
         "scenario_id": scenario_id,
         "campaign_id": campaign_id,
         "fault_type": fault_type,
@@ -263,5 +352,8 @@ def evaluate_detection(csv_path: Path | str, algorithm_name: str) -> Dict[str, o
 
 
 def run_detection_algorithm(csv_path: Path | str, algorithm_name: str) -> Dict[str, object]:
-    """Alias kept for callers that prefer an imperative function name."""
+    """Prefer matching runtime results, then fall back to offline evaluation."""
+    rows = read_csv_rows(csv_path)
+    if runtime_detection_available(rows, algorithm_name):
+        return evaluate_runtime_detection(csv_path, algorithm_name)
     return evaluate_detection(csv_path, algorithm_name)

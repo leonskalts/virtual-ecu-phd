@@ -49,6 +49,7 @@ if str(PYTHON_PACKAGE_ROOT) not in sys.path:
 from virtual_ecu.detection_algorithms import (
     SUPPORTED_ALGORITHMS,
     evaluate_detection,
+    run_detection_algorithm,
 )
 
 
@@ -84,7 +85,7 @@ DETECTION_ALGORITHM_OPTIONS: Sequence[Tuple[str, str, str]] = (
     (
         "Built-in ECU diagnostics",
         "builtin_ecu",
-        "Uses the ECU's existing DTC/safe-state logic.",
+        "Observes the ECU's existing primary DTC without changing safety behavior.",
     ),
     (
         "Threshold residual detector",
@@ -5278,7 +5279,10 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         detection_card = self._section_card(
             content,
             title="Detection Algorithm",
-            description="Choose the post-processing detector applied to the custom CSV after the simulator run completes.",
+            description=(
+                "Choose the detector that runs inside the C simulator. "
+                "Older CSV files fall back to Python post-processing."
+            ),
         )
         detection_card.grid(
             row=0,
@@ -6411,9 +6415,17 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                 self._selected_detection_algorithm_name(),
             )
         )
-        self.detection_result_vars["Algorithm"].set(
-            DETECTION_ALGORITHM_DISPLAY.get(algorithm_name, algorithm_name)
+        algorithm_display = DETECTION_ALGORITHM_DISPLAY.get(
+            algorithm_name, algorithm_name
         )
+        if isinstance(detection, dict):
+            source = str(detection.get("detection_source", "offline"))
+            algorithm_display = (
+                f"{algorithm_display} (runtime)"
+                if source == "runtime"
+                else f"{algorithm_display} (offline fallback)"
+            )
+        self.detection_result_vars["Algorithm"].set(algorithm_display)
 
         if not isinstance(detection, dict):
             error = str(result.get("detection_error", "Detection evaluation unavailable."))
@@ -8819,7 +8831,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         }.get(mode, f"Running {run_noun}...")
         self.status_text.set(mode_text)
         self.custom_status_text.set(
-            f"Executing {custom_campaign_label(config)} via the simulator custom CLI path, then evaluating {detection_display}."
+            f"Executing {custom_campaign_label(config)} with {detection_display} active in the simulator loop."
         )
         self.run_compare_button.state(["disabled"])
         self.run_left_button.state(["disabled"])
@@ -8979,6 +8991,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                 f"{float(config['parameter']):g}",
             ]
 
+        command.extend(["--detector", detection_algorithm])
         completed = subprocess.run(
             command,
             cwd=PROJECT_ROOT,
@@ -8996,7 +9009,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         result["custom_config"] = dict(config)
         result["detection_algorithm"] = detection_algorithm
         try:
-            result["detection_result"] = evaluate_detection(
+            result["detection_result"] = run_detection_algorithm(
                 log_path,
                 detection_algorithm,
             )
