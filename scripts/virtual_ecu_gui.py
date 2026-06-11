@@ -115,6 +115,35 @@ DETECTION_ALGORITHM_HELP = {
     display_name: help_text
     for display_name, _algorithm_name, help_text in DETECTION_ALGORITHM_OPTIONS
 }
+DETECTION_ACTION_OPTIONS: Sequence[Tuple[str, str, str]] = (
+    (
+        "Observe only",
+        "observe_only",
+        "Log detector results without requesting a safe-state change.",
+    ),
+    (
+        "Request precautionary cooling",
+        "precautionary_cooling",
+        "Request max cooling while preserving any more severe ECU request.",
+    ),
+    (
+        "Request limp home",
+        "limp_home",
+        "Request limp-home operation while preserving any shutdown request.",
+    ),
+)
+DETECTION_ACTION_NAMES = {
+    display_name: action_name
+    for display_name, action_name, _help_text in DETECTION_ACTION_OPTIONS
+}
+DETECTION_ACTION_DISPLAY = {
+    action_name: display_name
+    for display_name, action_name, _help_text in DETECTION_ACTION_OPTIONS
+}
+DETECTION_ACTION_HELP = {
+    display_name: help_text
+    for display_name, _action_name, help_text in DETECTION_ACTION_OPTIONS
+}
 REQUIRED_RESULT_RAW_COLUMNS = {
     "experiment_id",
     "campaign_id",
@@ -4101,6 +4130,13 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.detection_algorithm_help = tk.StringVar(
             value=DETECTION_ALGORITHM_HELP[default_detection_display]
         )
+        default_detection_action_display = DETECTION_ACTION_OPTIONS[0][0]
+        self.detection_action_choice = tk.StringVar(
+            value=default_detection_action_display
+        )
+        self.detection_action_help = tk.StringVar(
+            value=DETECTION_ACTION_HELP[default_detection_action_display]
+        )
         self.detection_comparison_status = tk.StringVar(
             value="Run a custom experiment, then compare all algorithms on its CSV."
         )
@@ -4111,6 +4147,10 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                 "Detected",
                 "First Detection",
                 "Detection Latency",
+                "Action Mode",
+                "Action Requested",
+                "Requested Safe State",
+                "Action Time",
                 "ECU First DTC",
                 "ECU DTC Latency",
                 "Missed Detection",
@@ -4217,6 +4257,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.multi_preset_catalog: Dict[str, Dict[str, object]] = {}
         self.multi_preset_selector: ttk.Combobox | None = None
         self.detection_algorithm_selector: ttk.Combobox | None = None
+        self.detection_action_selector: ttk.Combobox | None = None
         self.compare_all_algorithms_button: ttk.Button | None = None
         self.detection_comparison_frame: ttk.Frame | None = None
         self.detection_comparison_table: ttk.Treeview | None = None
@@ -5341,6 +5382,40 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             sticky="e",
             padx=(12, 0),
         )
+        ttk.Label(
+            detection_controls,
+            text="Detector Action",
+            style="CardFieldName.TLabel",
+        ).grid(row=1, column=0, sticky="w", pady=(10, 0))
+        self.detection_action_selector = ttk.Combobox(
+            detection_controls,
+            textvariable=self.detection_action_choice,
+            values=[
+                display_name
+                for display_name, _action_name, _help_text
+                in DETECTION_ACTION_OPTIONS
+            ],
+            state="readonly",
+            width=31,
+        )
+        self.detection_action_selector.grid(
+            row=1,
+            column=1,
+            sticky="w",
+            padx=(10, 16),
+            pady=(10, 0),
+        )
+        self.detection_action_selector.bind(
+            "<<ComboboxSelected>>",
+            self._on_detection_action_changed,
+        )
+        ttk.Label(
+            detection_controls,
+            textvariable=self.detection_action_help,
+            style="CardHint.TLabel",
+            wraplength=520,
+            justify="left",
+        ).grid(row=1, column=2, sticky="w", pady=(10, 0))
 
         builder_notebook = ttk.Notebook(content)
         builder_notebook.grid(row=1, column=0, sticky="nsew", padx=(0, 6))
@@ -5421,7 +5496,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         detection_result_card = self._section_card(
             results_column,
             title="Detection Result",
-            description="Post-run result for the algorithm selected above, with the ECU DTC retained as comparison evidence.",
+            description="Runtime detector and optional intervention result, with the ECU DTC retained as comparison evidence.",
         )
         detection_result_card.grid(
             row=2,
@@ -5436,6 +5511,10 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             "Detected",
             "First Detection",
             "Detection Latency",
+            "Action Mode",
+            "Action Requested",
+            "Requested Safe State",
+            "Action Time",
             "ECU First DTC",
             "ECU DTC Latency",
             "Missed Detection",
@@ -6286,6 +6365,10 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             self.detection_algorithm_selector.configure(
                 state="readonly" if enabled else "disabled"
             )
+        if self.detection_action_selector is not None:
+            self.detection_action_selector.configure(
+                state="readonly" if enabled else "disabled"
+            )
         if self.compare_all_algorithms_button is not None:
             self.compare_all_algorithms_button.state(
                 ["!disabled"] if enabled else ["disabled"]
@@ -6294,6 +6377,10 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
     def _selected_detection_algorithm_name(self) -> str:
         display_name = self.detection_algorithm_choice.get()
         return DETECTION_ALGORITHM_NAMES.get(display_name, "builtin_ecu")
+
+    def _selected_detection_action_name(self) -> str:
+        display_name = self.detection_action_choice.get()
+        return DETECTION_ACTION_NAMES.get(display_name, "observe_only")
 
     def _on_detection_algorithm_changed(
         self,
@@ -6304,6 +6391,18 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             DETECTION_ALGORITHM_HELP.get(
                 display_name,
                 DETECTION_ALGORITHM_HELP[DETECTION_ALGORITHM_OPTIONS[0][0]],
+            )
+        )
+
+    def _on_detection_action_changed(
+        self,
+        _event: tk.Event[tk.Misc] | None = None,
+    ) -> None:
+        display_name = self.detection_action_choice.get()
+        self.detection_action_help.set(
+            DETECTION_ACTION_HELP.get(
+                display_name,
+                DETECTION_ACTION_HELP[DETECTION_ACTION_OPTIONS[0][0]],
             )
         )
 
@@ -6418,6 +6517,20 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         algorithm_display = DETECTION_ALGORITHM_DISPLAY.get(
             algorithm_name, algorithm_name
         )
+        action_name = str(
+            detection.get(
+                "runtime_detection_action",
+                result.get(
+                    "detection_action",
+                    self._selected_detection_action_name(),
+                ),
+            )
+            if isinstance(detection, dict)
+            else result.get(
+                "detection_action",
+                self._selected_detection_action_name(),
+            )
+        )
         if isinstance(detection, dict):
             source = str(detection.get("detection_source", "offline"))
             algorithm_display = (
@@ -6426,6 +6539,9 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                 else f"{algorithm_display} (offline fallback)"
             )
         self.detection_result_vars["Algorithm"].set(algorithm_display)
+        self.detection_result_vars["Action Mode"].set(
+            DETECTION_ACTION_DISPLAY.get(action_name, action_name)
+        )
 
         if not isinstance(detection, dict):
             error = str(result.get("detection_error", "Detection evaluation unavailable."))
@@ -6433,6 +6549,9 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             self.detection_result_vars["First Detection"].set(error)
             for metric_name in (
                 "Detection Latency",
+                "Action Requested",
+                "Requested Safe State",
+                "Action Time",
                 "ECU First DTC",
                 "ECU DTC Latency",
                 "Missed Detection",
@@ -6449,6 +6568,31 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.detection_result_vars["Detection Latency"].set(
             self._format_detection_seconds(detection.get("detection_latency_s"))
         )
+        if str(detection.get("detection_source", "offline")) == "runtime":
+            self.detection_result_vars["Action Requested"].set(
+                "Yes"
+                if bool(detection.get("runtime_detection_action_requested", False))
+                else "No"
+            )
+            self.detection_result_vars["Requested Safe State"].set(
+                str(
+                    detection.get(
+                        "runtime_detection_requested_safe_state",
+                        "none",
+                    )
+                )
+            )
+            self.detection_result_vars["Action Time"].set(
+                self._format_detection_seconds(
+                    detection.get("runtime_detection_action_time_s")
+                )
+            )
+        else:
+            self.detection_result_vars["Action Requested"].set(
+                "Unavailable in older CSV"
+            )
+            self.detection_result_vars["Requested Safe State"].set("n/a")
+            self.detection_result_vars["Action Time"].set("n/a")
 
         ecu_label = str(detection.get("first_ecu_dtc_label", "none"))
         ecu_time = detection.get("first_ecu_dtc_s")
@@ -8821,7 +8965,9 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
 
         CUSTOM_LOGS_DIR.mkdir(parents=True, exist_ok=True)
         detection_algorithm = self._selected_detection_algorithm_name()
+        detection_action = self._selected_detection_action_name()
         detection_display = DETECTION_ALGORITHM_DISPLAY[detection_algorithm]
+        action_display = DETECTION_ACTION_DISPLAY[detection_action]
         run_noun = "custom multi-fault scenario" if str(config.get("kind", "single")) == "multi" else "custom experiment"
         mode_text = {
             "only": f"Running {run_noun}...",
@@ -8831,7 +8977,8 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         }.get(mode, f"Running {run_noun}...")
         self.status_text.set(mode_text)
         self.custom_status_text.set(
-            f"Executing {custom_campaign_label(config)} with {detection_display} active in the simulator loop."
+            f"Executing {custom_campaign_label(config)} with {detection_display} "
+            f"and detector action {action_display}."
         )
         self.run_compare_button.state(["disabled"])
         self.run_left_button.state(["disabled"])
@@ -8843,7 +8990,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
 
         worker = threading.Thread(
             target=self._run_custom_experiment_worker,
-            args=(mode, config, detection_algorithm),
+            args=(mode, config, detection_algorithm, detection_action),
             daemon=True,
         )
         worker.start()
@@ -8965,6 +9112,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self,
         config: Dict[str, object],
         detection_algorithm: str,
+        detection_action: str,
     ) -> Dict[str, object]:
         log_path = custom_log_path(config)
         if str(config.get("kind", "single")) == "multi":
@@ -8991,7 +9139,14 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                 f"{float(config['parameter']):g}",
             ]
 
-        command.extend(["--detector", detection_algorithm])
+        command.extend(
+            [
+                "--detector",
+                detection_algorithm,
+                "--detector-action",
+                detection_action,
+            ]
+        )
         completed = subprocess.run(
             command,
             cwd=PROJECT_ROOT,
@@ -9008,6 +9163,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         result["summary_row"] = summary
         result["custom_config"] = dict(config)
         result["detection_algorithm"] = detection_algorithm
+        result["detection_action"] = detection_action
         try:
             result["detection_result"] = run_detection_algorithm(
                 log_path,
@@ -9037,9 +9193,14 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         mode: str,
         config: Dict[str, object],
         detection_algorithm: str,
+        detection_action: str,
     ) -> None:
         try:
-            custom_result = self._run_custom_campaign(config, detection_algorithm)
+            custom_result = self._run_custom_campaign(
+                config,
+                detection_algorithm,
+                detection_action,
+            )
             left_campaign_id = self.left_campaign.get()
             right_campaign_id = self.right_campaign.get()
             item_label = "Custom scenario" if str(config.get("kind", "single")) == "multi" else "Custom run"

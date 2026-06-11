@@ -5,16 +5,17 @@
 The project now has two complementary detection paths:
 
 - Runtime detection executes in the C simulator once per 100 ms timestep. It
-  observes the final residuals and ECU DTC state for that timestep and writes
-  its score, alarm, and timing results into the raw CSV.
+  observes the residuals and ECU DTC state after the normal safety-monitor
+  pass, then any enabled detector action is included in the final safe-state
+  request before metrics and logging.
 - Offline detection remains in
   `python/virtual_ecu/detection_algorithms.py`. It evaluates saved CSV traces
   after a run and is still used by `scripts/run_detection_algorithm_study.py`
   for fair same-trace comparisons.
 
-The runtime detector is currently an observer only. It does not set or clear
-ECU DTCs, request a safe state, change actuator commands, or alter the existing
-safety-monitor behavior.
+Runtime intervention is optional. The default `observe_only` action does not
+set or clear ECU DTCs, request a safe state, change actuator commands, or alter
+the existing safety-monitor behavior.
 
 ## Supported Algorithms
 
@@ -48,6 +49,37 @@ Select a runtime detector by appending `--detector`:
 
 Valid values are `builtin_ecu`, `threshold`, `ewma`, and `cusum`.
 
+## Detector Actions
+
+The optional `--detector-action` argument controls whether the selected
+runtime detector can request a safety response:
+
+- `observe_only`: log detection results without intervention. This is the
+  default and preserves the original simulator behavior.
+- `precautionary_cooling`: after first detection, request precautionary
+  cooling and max-cooling behavior.
+- `limp_home`: after first detection, request limp-home operation.
+
+The detector request is combined with the existing diagnostic request using
+the maximum safe-state severity. It can raise the request but never lower or
+bypass an ECU request. Neither action can suppress an existing controlled
+shutdown request, and this milestone does not provide a detector shutdown
+action.
+
+```bash
+./virtual_ecu logs/test_observe.csv custom fan_stuck_off 75000 0 permanent 0.0 \
+  --detector cusum --detector-action observe_only
+
+./virtual_ecu logs/test_precautionary.csv custom fan_stuck_off 75000 0 permanent 0.0 \
+  --detector cusum --detector-action precautionary_cooling
+
+./virtual_ecu logs/test_limp.csv custom fan_stuck_off 75000 0 permanent 0.0 \
+  --detector cusum --detector-action limp_home
+```
+
+Omitting `--detector-action` is equivalent to
+`--detector-action observe_only`.
+
 ## CSV Outputs
 
 The raw CSV appends these columns after all existing columns:
@@ -60,31 +92,46 @@ The raw CSV appends these columns after all existing columns:
 - `runtime_detection_latency_ms`
 - `runtime_detection_false_positive_count`
 - `runtime_detection_label`
+- `runtime_detection_action`
+- `runtime_detection_action_requested`
+- `runtime_detection_requested_safe_state`
+- `runtime_detection_action_time_ms`
+- `runtime_detection_action_reason`
 
 `runtime_detection_alarm` is the current timestep alarm. Detection is latched
 in `runtime_detection_detected`; for fault campaigns, first detection is the
 first alarm at or after the earliest configured fault start. A value of `-1`
 means that a detection time or latency is unavailable.
 
-The summary CSV also appends the selected algorithm, first detection time,
-detection latency, and detected flag.
+The summary CSV also appends detector timing and the detector-action fields.
+The raw requested-safe-state field records the final maximum-severity request
+after detector and built-in diagnostic requests are combined.
 
 ## GUI Use
 
 In the **Custom Experiment** tab:
 
 1. Choose an item in **Detection Algorithm**.
-2. Configure a single-fault or multi-fault scenario.
-3. Run the custom experiment.
-4. Review the **Detection Result** card for detection time, latency, ECU DTC
-   timing, missed detection, and false positives.
-5. Open the generated raw CSV or plot the run to inspect behavior around the
-   reported detection time.
+2. Choose **Detector Action**. Keep **Observe only** for non-intervention runs.
+3. Configure a single-fault or multi-fault scenario.
+4. Run the custom experiment.
+5. Review the **Detection Result** card for detection and action timing,
+   requested safe state, ECU DTC timing, missed detection, and false positives.
+6. Open the generated raw CSV or plot the run to inspect behavior around the
+   reported detection and action time.
 
-The GUI passes the selected value to the simulator with `--detector`. It reads
-the runtime columns after the run. When an older CSV lacks those columns, it
-falls back to the Python offline evaluator.
+The GUI passes the selections with `--detector` and `--detector-action`. It
+reads the runtime columns after the run. When an older CSV lacks those
+columns, it falls back to the Python offline evaluator and marks action
+evidence as unavailable.
 
 **Compare All Algorithms** intentionally continues to evaluate all algorithms
 offline on the same saved trace. This keeps the existing comparison study
 methodology separate from the selected detector that ran inside the simulator.
+
+## Research Limitation
+
+Detector intervention is a research abstraction for repeatable virtual ECU
+experiments. It is not production ECU safety validation, a certified safety
+mechanism, or evidence of compliance with an automotive functional-safety
+standard.

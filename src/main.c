@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "config.h"
+#include "detection_algorithm.h"
 #include "experiment.h"
 #include "logger.h"
 #include "metrics.h"
@@ -15,6 +16,62 @@ static int looks_like_csv_path(const char *text)
     size_t len = strlen(text);
 
     return (len >= 4U) && (strcmp(text + len - 4U, ".csv") == 0);
+}
+
+static int parse_runtime_detection_options(
+    int *argc,
+    char **argv,
+    detection_algorithm_t *selected_algorithm,
+    detection_action_t *selected_action
+)
+{
+    *selected_algorithm = DETECTION_ALGORITHM_BUILTIN_ECU;
+    *selected_action = DETECTION_ACTION_OBSERVE_ONLY;
+
+    while (*argc >= 3) {
+        const char *option = argv[*argc - 2];
+        const char *value = argv[*argc - 1];
+
+        if (strcmp(option, "--detector") == 0) {
+            if (strcmp(value, "builtin_ecu") != 0 &&
+                strcmp(value, "threshold") != 0 &&
+                strcmp(value, "ewma") != 0 &&
+                strcmp(value, "cusum") != 0) {
+                fprintf(
+                    stderr,
+                    "Unknown detector '%s'. Expected builtin_ecu, threshold, ewma, or cusum.\n",
+                    value
+                );
+                return -1;
+            }
+
+            *selected_algorithm = detection_algorithm_from_string(value);
+            *argc -= 2;
+            continue;
+        }
+
+        if (strcmp(option, "--detector-action") == 0) {
+            if (strcmp(value, "observe_only") != 0 &&
+                strcmp(value, "precautionary_cooling") != 0 &&
+                strcmp(value, "limp_home") != 0) {
+                fprintf(
+                    stderr,
+                    "Unknown detector action '%s'. Expected observe_only, "
+                    "precautionary_cooling, or limp_home.\n",
+                    value
+                );
+                return -1;
+            }
+
+            *selected_action = detection_action_from_string(value);
+            *argc -= 2;
+            continue;
+        }
+
+        break;
+    }
+
+    return 0;
 }
 
 static int configure_experiment_from_args(ecu_state_t *state, int argc, char **argv, const char **log_path)
@@ -145,15 +202,27 @@ int main(int argc, char **argv)
 {
     ecu_state_t state;
     const char *log_path = ECU_DEFAULT_LOG_PATH;
+    detection_algorithm_t selected_algorithm;
+    detection_action_t selected_action;
     int config_status;
     char summary_path[ECU_PATH_BUFFER_SIZE];
 
     memset(&state, 0, sizeof(state));
+    if (parse_runtime_detection_options(
+            &argc,
+            argv,
+            &selected_algorithm,
+            &selected_action
+        ) != 0) {
+        return 1;
+    }
     config_status = configure_experiment_from_args(&state, argc, argv, &log_path);
     if (config_status != 0) {
         return (config_status > 0) ? 0 : 1;
     }
 
+    state.detection.selected_algorithm = selected_algorithm;
+    state.detection.selected_action = selected_action;
     scheduler_init(&state);
 
     if (logger_open(&state, log_path) != 0) {
@@ -170,6 +239,8 @@ int main(int argc, char **argv)
     printf("Summary metrics written to %s\n", summary_path);
     printf("Experiment ID: %s\n", state.experiment.experiment_id);
     printf("Campaign: %s\n", state.experiment.campaign_id);
+    printf("Runtime detector: %s\n", detection_algorithm_name(state.detection.selected_algorithm));
+    printf("Runtime detector action: %s\n", detection_action_name(state.detection.selected_action));
     printf("Final coolant temperature: %.2f C\n", state.plant.coolant_temp_true_c);
     printf("Final safe state: %d\n", (int)state.safety.current_state);
     printf("Primary DTC at end of run: %d\n", (int)state.diagnostics.primary_dtc);

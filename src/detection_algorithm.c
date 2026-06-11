@@ -57,13 +57,17 @@ static void set_score_and_label(
 
 void detection_algorithm_init(
     detection_algorithm_state_t *detector,
-    detection_algorithm_t selected_algorithm
+    detection_algorithm_t selected_algorithm,
+    detection_action_t selected_action
 )
 {
     memset(detector, 0, sizeof(*detector));
     detector->selected_algorithm = selected_algorithm;
+    detector->selected_action = selected_action;
     detector->first_detection_time_ms = -1;
+    detector->action_time_ms = -1;
     snprintf(detector->runtime_label, sizeof(detector->runtime_label), "%s", "none");
+    snprintf(detector->action_reason, sizeof(detector->action_reason), "%s", "none");
 }
 
 void detection_algorithm_step(struct ecu_state *state)
@@ -153,6 +157,18 @@ void detection_algorithm_step(struct ecu_state *state)
     if (detector->alarm_active && !detector->detected && !before_fault) {
         detector->detected = true;
         detector->first_detection_time_ms = (int)state->time.time_ms;
+
+        if (detector->selected_action != DETECTION_ACTION_OBSERVE_ONLY) {
+            detector->action_requested = true;
+            detector->action_time_ms = (int)state->time.time_ms;
+            snprintf(
+                detector->action_reason,
+                sizeof(detector->action_reason),
+                "%s:%s",
+                detection_algorithm_name(detector->selected_algorithm),
+                detector->runtime_label
+            );
+        }
     }
 
     detector->previous_alarm_active = detector->alarm_active;
@@ -188,5 +204,33 @@ const char *detection_algorithm_name(detection_algorithm_t algorithm)
     case DETECTION_ALGORITHM_BUILTIN_ECU:
     default:
         return "builtin_ecu";
+    }
+}
+
+detection_action_t detection_action_from_string(const char *text)
+{
+    if (text == NULL || strcmp(text, "observe_only") == 0) {
+        return DETECTION_ACTION_OBSERVE_ONLY;
+    }
+    if (strcmp(text, "precautionary_cooling") == 0) {
+        return DETECTION_ACTION_PRECAUTIONARY_COOLING;
+    }
+    if (strcmp(text, "limp_home") == 0) {
+        return DETECTION_ACTION_LIMP_HOME;
+    }
+
+    return DETECTION_ACTION_OBSERVE_ONLY;
+}
+
+const char *detection_action_name(detection_action_t action)
+{
+    switch (action) {
+    case DETECTION_ACTION_PRECAUTIONARY_COOLING:
+        return "precautionary_cooling";
+    case DETECTION_ACTION_LIMP_HOME:
+        return "limp_home";
+    case DETECTION_ACTION_OBSERVE_ONLY:
+    default:
+        return "observe_only";
     }
 }

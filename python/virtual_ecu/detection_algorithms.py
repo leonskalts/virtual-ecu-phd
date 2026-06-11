@@ -253,6 +253,20 @@ def evaluate_runtime_detection(
         "runtime_detection_false_positive_count",
         count_alarm_episodes(rows, alarms, end_before_ms=fault_start_ms),
     )
+    action_requested = (
+        parse_int(final_row, "runtime_detection_action_requested") != 0
+    )
+    action_time_ms = parse_int(
+        final_row, "runtime_detection_action_time_ms", -1
+    )
+    first_action_row = next(
+        (
+            row
+            for row in rows
+            if parse_int(row, "runtime_detection_action_requested") != 0
+        ),
+        None,
+    )
     campaign_id = first_row.get("campaign_id", path.stem)
     scenario_id = first_row.get("scenario_id", "") or campaign_id or path.stem
 
@@ -282,6 +296,21 @@ def evaluate_runtime_detection(
         ),
         "runtime_detection_score": parse_float(
             final_row, "runtime_detection_score"
+        ),
+        "runtime_detection_action": final_row.get(
+            "runtime_detection_action", "observe_only"
+        ),
+        "runtime_detection_action_requested": action_requested,
+        "runtime_detection_requested_safe_state": (
+            first_action_row.get("runtime_detection_requested_safe_state", "none")
+            if first_action_row is not None
+            else "none"
+        ),
+        "runtime_detection_action_time_s": (
+            action_time_ms / 1000.0 if action_time_ms >= 0 else None
+        ),
+        "runtime_detection_action_reason": final_row.get(
+            "runtime_detection_action_reason", "none"
         ),
     }
 

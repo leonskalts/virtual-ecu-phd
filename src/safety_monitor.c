@@ -45,6 +45,23 @@ static safe_state_t requested_state_from_diagnostics(const ecu_state_t *state)
     return requested;
 }
 
+static safe_state_t requested_state_from_detector(const ecu_state_t *state)
+{
+    if (!state->detection.action_requested) {
+        return SAFE_STATE_NORMAL;
+    }
+
+    switch (state->detection.selected_action) {
+    case DETECTION_ACTION_PRECAUTIONARY_COOLING:
+        return SAFE_STATE_PRECAUTIONARY_COOLING;
+    case DETECTION_ACTION_LIMP_HOME:
+        return SAFE_STATE_LIMP_HOME;
+    case DETECTION_ACTION_OBSERVE_ONLY:
+    default:
+        return SAFE_STATE_NORMAL;
+    }
+}
+
 const char *safety_monitor_state_label(safe_state_t state)
 {
     switch (state) {
@@ -72,10 +89,8 @@ void safety_monitor_init(ecu_state_t *state)
     state->safety.load_limit_scale = 1.0f;
 }
 
-void safety_monitor_step(ecu_state_t *state)
+static void apply_requested_state(ecu_state_t *state, safe_state_t requested)
 {
-    safe_state_t requested = requested_state_from_diagnostics(state);
-
     state->safety.requested_state = requested;
 
     if (requested > state->safety.current_state) {
@@ -124,4 +139,24 @@ void safety_monitor_step(ecu_state_t *state)
         state->control.pump_command = 1.0f;
         state->control.fan_command = 1.0f;
     }
+}
+
+void safety_monitor_step(ecu_state_t *state)
+{
+    apply_requested_state(state, requested_state_from_diagnostics(state));
+}
+
+bool safety_monitor_apply_detector_request(ecu_state_t *state)
+{
+    safe_state_t detector_requested;
+    safe_state_t combined_requested;
+
+    if (!state->detection.action_requested) {
+        return false;
+    }
+
+    detector_requested = requested_state_from_detector(state);
+    combined_requested = max_state(state->safety.requested_state, detector_requested);
+    apply_requested_state(state, combined_requested);
+    return true;
 }

@@ -10,8 +10,15 @@ typedef enum {
     DETECTION_ALGORITHM_CUSUM
 } detection_algorithm_t;
 
+typedef enum {
+    DETECTION_ACTION_OBSERVE_ONLY = 0,
+    DETECTION_ACTION_PRECAUTIONARY_COOLING,
+    DETECTION_ACTION_LIMP_HOME
+} detection_action_t;
+
 typedef struct {
     detection_algorithm_t selected_algorithm;
+    detection_action_t selected_action;
     float ewma_fan_tracking_error;
     float ewma_pump_tracking_error;
     float ewma_coolant_sensor_residual_c;
@@ -24,17 +31,23 @@ typedef struct {
     int first_detection_time_ms;
     unsigned int false_positive_count;
     bool previous_alarm_active;
+    bool action_requested;
+    int action_time_ms;
     char runtime_label[64];
+    char action_reason[96];
 } detection_algorithm_state_t;
 
 struct ecu_state;
 
 void detection_algorithm_init(
     detection_algorithm_state_t *detector,
-    detection_algorithm_t selected_algorithm
+    detection_algorithm_t selected_algorithm,
+    detection_action_t selected_action
 );
 void detection_algorithm_step(struct ecu_state *state);
 detection_algorithm_t detection_algorithm_from_string(const char *text);
 const char *detection_algorithm_name(detection_algorithm_t algorithm);
+detection_action_t detection_action_from_string(const char *text);
+const char *detection_action_name(detection_action_t action);
 
 #endif

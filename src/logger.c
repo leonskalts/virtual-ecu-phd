@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "diagnostics.h"
+#include "detection_algorithm.h"
 #include "fault_injection.h"
 #include "safety_monitor.h"
 #include "thermal_plant.h"
@@ -114,7 +115,16 @@ int logger_open(ecu_state_t *state, const char *path)
         );
     }
 
-    fprintf(state->log_file, "\n");
+    fprintf(
+        state->log_file,
+        ",runtime_detection_algorithm,runtime_detection_score,"
+        "runtime_detection_alarm,runtime_detection_detected,"
+        "runtime_detection_first_detection_ms,runtime_detection_latency_ms,"
+        "runtime_detection_false_positive_count,runtime_detection_label,"
+        "runtime_detection_action,runtime_detection_action_requested,"
+        "runtime_detection_requested_safe_state,runtime_detection_action_time_ms,"
+        "runtime_detection_action_reason\n"
+    );
     return 0;
 }
 
@@ -214,6 +224,46 @@ void logger_write(ecu_state_t *state)
     write_campaign_event(state->log_file, event_or_null(state, 1U));
     write_campaign_event(state->log_file, event_or_null(state, 2U));
     write_campaign_event(state->log_file, event_or_null(state, 3U));
+    fputc(',', state->log_file);
+    csv_write_text(
+        state->log_file,
+        detection_algorithm_name(state->detection.selected_algorithm)
+    );
+    fprintf(
+        state->log_file,
+        ",%.6f,%d,%d,%d,%d,%u,",
+        state->detection.current_score,
+        state->detection.alarm_active ? 1 : 0,
+        state->detection.detected ? 1 : 0,
+        state->detection.first_detection_time_ms,
+        (
+            state->detection.first_detection_time_ms >= 0 &&
+            state->metrics.fault_present_in_campaign
+        ) ?
+            state->detection.first_detection_time_ms -
+                (int)state->metrics.first_fault_start_ms :
+            -1,
+        state->detection.false_positive_count
+    );
+    csv_write_text(state->log_file, state->detection.runtime_label);
+    fputc(',', state->log_file);
+    csv_write_text(
+        state->log_file,
+        detection_action_name(state->detection.selected_action)
+    );
+    fprintf(
+        state->log_file,
+        ",%d,",
+        state->detection.action_requested ? 1 : 0
+    );
+    csv_write_text(
+        state->log_file,
+        state->detection.action_requested ?
+            safety_monitor_state_label(state->safety.requested_state) :
+            "none"
+    );
+    fprintf(state->log_file, ",%d,", state->detection.action_time_ms);
+    csv_write_text(state->log_file, state->detection.action_reason);
     fprintf(state->log_file, "\n");
 }
 

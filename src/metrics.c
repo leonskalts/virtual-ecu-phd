@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "diagnostics.h"
+#include "detection_algorithm.h"
 #include "safety_monitor.h"
 
 /* Metrics module: accumulates paper-oriented run metrics so campaign
@@ -334,7 +335,12 @@ int metrics_write_summary(const ecu_state_t *state, const char *log_path, char *
         "pump_tracking_error_mean_abs,pump_tracking_error_max_abs,"
         "fan_tracking_error_mean_abs,fan_tracking_error_max_abs,"
         "final_coolant_temp_c,final_safe_state_id,final_safe_state_label,"
-        "final_primary_dtc_id,final_primary_dtc_label\n"
+        "final_primary_dtc_id,final_primary_dtc_label,"
+        "runtime_detection_algorithm,runtime_detection_first_detection_ms,"
+        "runtime_detection_latency_ms,runtime_detection_detected,"
+        "runtime_detection_action,runtime_detection_action_requested,"
+        "runtime_detection_requested_safe_state,runtime_detection_action_time_ms,"
+        "runtime_detection_action_reason\n"
     );
 
     csv_write_text(summary_file, state->experiment.experiment_id);
@@ -382,6 +388,42 @@ int metrics_write_summary(const ecu_state_t *state, const char *log_path, char *
     fprintf(summary_file, ",%d", (int)state->diagnostics.primary_dtc);
     fputc(',', summary_file);
     csv_write_text(summary_file, diagnostics_dtc_label(state->diagnostics.primary_dtc));
+    fputc(',', summary_file);
+    csv_write_text(
+        summary_file,
+        detection_algorithm_name(state->detection.selected_algorithm)
+    );
+    fprintf(summary_file, ",%d", state->detection.first_detection_time_ms);
+    fprintf(
+        summary_file,
+        ",%d",
+        (
+            state->detection.first_detection_time_ms >= 0 &&
+            state->metrics.fault_present_in_campaign
+        ) ?
+            state->detection.first_detection_time_ms -
+                (int)state->metrics.first_fault_start_ms :
+            -1
+    );
+    fprintf(summary_file, ",%d", state->detection.detected ? 1 : 0);
+    fputc(',', summary_file);
+    csv_write_text(
+        summary_file,
+        detection_action_name(state->detection.selected_action)
+    );
+    fprintf(
+        summary_file,
+        ",%d,",
+        state->detection.action_requested ? 1 : 0
+    );
+    csv_write_text(
+        summary_file,
+        state->detection.action_requested ?
+            safety_monitor_state_label(state->safety.requested_state) :
+            "none"
+    );
+    fprintf(summary_file, ",%d,", state->detection.action_time_ms);
+    csv_write_text(summary_file, state->detection.action_reason);
     fputc('\n', summary_file);
 
     fclose(summary_file);

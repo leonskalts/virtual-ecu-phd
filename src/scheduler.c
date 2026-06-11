@@ -34,7 +34,11 @@ void scheduler_init(ecu_state_t *state)
     fault_injection_init(state);
     safety_monitor_init(state);
     metrics_init(state);
-    detection_algorithm_init(&state->detection, state->detection.selected_algorithm);
+    detection_algorithm_init(
+        &state->detection,
+        state->detection.selected_algorithm,
+        state->detection.selected_action
+    );
 }
 
 void scheduler_run(ecu_state_t *state)
@@ -74,6 +78,15 @@ void scheduler_run(ecu_state_t *state)
         }
 
         detection_algorithm_step(state);
+
+        if (safety_monitor_apply_detector_request(state)) {
+            actuators_step(state);
+
+            if (scheduler_task_due(state->time.time_ms, ECU_DIAGNOSTIC_PERIOD_MS)) {
+                diagnostics_step(state);
+            }
+        }
+
         metrics_step(state);
 
         if (scheduler_task_due(state->time.time_ms, ECU_LOG_PERIOD_MS)) {
