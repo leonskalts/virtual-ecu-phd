@@ -162,6 +162,33 @@ The results are deterministic virtual ECU research simulations. They are not
 production ECU validation or real-vehicle validation, and thermal averages
 are descriptive rather than evidence of statistical significance.
 
+### Latest Custom Scenario Matrix
+
+The GUI **Runtime Study** page can also run the latest custom scenario through
+the complete four-detector by three-action matrix. Choose **Latest custom
+scenario matrix**, then click **Run Matrix for Latest Custom Scenario**.
+
+The GUI prefers the configuration from the most recently completed custom run.
+If no custom run is loaded, it uses the currently active Single Fault or
+Multi-Fault builder configuration. The 12 simulator runs and generated
+artifacts are replaced on each invocation under:
+
+```text
+results/runtime_custom_matrix/latest/
+```
+
+The output includes raw and summary CSVs, the aggregate
+`runtime_custom_matrix_comparison.csv`, four Matplotlib figures, a Markdown
+summary, and `runtime_custom_matrix_report.html`. The report compares runtime
+detection latency, maximum coolant temperature, detector action timing, missed
+detections, and final safe-state outcomes for that exact custom scenario.
+
+This matrix is a deterministic virtual ECU research simulation. It is not
+production ECU validation or real-vehicle validation. It evaluates only one
+configured scenario at a time, and descriptive thermal differences do not
+establish statistical significance. `observe_only` remains the
+non-intervention reference and preserves built-in simulator behavior.
+
 ## Research Limitation
 
 Detector intervention is a research abstraction for repeatable virtual ECU

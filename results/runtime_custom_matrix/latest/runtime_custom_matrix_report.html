@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Runtime Custom Scenario Matrix</title>
+<style>
+body{margin:0;font-family:Arial,sans-serif;color:#172033;background:#f3f6fa;line-height:1.5}
+main{max-width:1180px;margin:auto;padding:32px 22px 56px}h1{margin:0 0 8px}
+h2{margin-top:30px}p,figcaption,.card span{color:#526173}
+.hero,.card,figure,.table-wrap,.note{background:#fff;border:1px solid #dbe3ec;border-radius:12px}
+.hero{padding:24px;border-top:5px solid #2563eb}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:12px;margin-top:18px}
+.card{padding:14px}.card span,.card strong{display:block}.card strong{margin-top:5px;font-size:18px}
+.figures{display:grid;grid-template-columns:repeat(auto-fit,minmax(400px,1fr));gap:16px}
+figure{margin:0;padding:12px}figure img{width:100%}.table-wrap{overflow:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:8px 9px;border-bottom:1px solid #dbe3ec;text-align:left;white-space:nowrap}
+th{background:#eef4ff}.note{padding:15px;border-left:4px solid #f59e0b}
+code{background:#e8eef6;padding:2px 5px;border-radius:4px}
+</style></head><body><main>
+<section class="hero"><h1>Runtime Custom Scenario Matrix</h1>
+<p>This virtual ECU research simulator study evaluates one custom scenario across
+four runtime detectors and three detector actions. Runtime detectors run inside
+the C simulation loop. Detector actions are optional research interventions;
+<code>observe_only</code> preserves baseline behavior.</p>
+<div class="cards"><div class="card"><span>Scenario</span><strong>Custom Fan Stuck Off (permanent, 50000 ms onward, p=0)</strong></div><div class="card"><span>Runs</span><strong>12</strong></div><div class="card"><span>Detectors</span><strong>4</strong></div><div class="card"><span>Action modes</span><strong>3</strong></div><div class="card"><span>Fastest detector</span><strong>cusum (14800.0 ms)</strong></div><div class="card"><span>Lowest mean max coolant</span><strong>precautionary_cooling / limp_home (91.79 C)</strong></div></div></section>
+<h2>Scenario</h2><p><strong>Custom Fan Stuck Off (permanent, 50000 ms onward, p=0)</strong>
+(<code>custom_fan_stuck_off_permanent_start50000_dur0_param0</code>)</p>
+<div class="table-wrap"><table><thead><tr><th>#</th><th>Fault</th><th>Start [ms]</th>
+<th>Duration [ms]</th><th>Behavior</th><th>Parameter</th></tr></thead>
+<tbody><tr><td>1</td><td>fan_stuck_off</td><td>50000</td><td>0</td><td>permanent</td><td>0</td></tr></tbody></table></div>
+<h2>Key Findings</h2><ul><li>Fastest detected runtime response: cusum at 14800.0 ms.</li><li>Lowest descriptive mean maximum coolant: precautionary_cooling / limp_home at 91.79 C (-0.46 C versus observe_only).</li><li>Missed observe-only detection: none.</li><li>Active detector actions changed the final safe-state outcome in 0 of 8 intervention runs.</li><li>Observe-only preserves the virtual ECU simulator&#x27;s built-in safety behavior.</li></ul>
+<h2>Figures</h2><div class="figures"><figure><img src="figures/detection_latency_by_detector.png" alt="Detection latency by detector"><figcaption>Detection latency by detector</figcaption></figure><figure><img src="figures/max_coolant_by_detector_action.png" alt="Maximum coolant temperature by detector and action"><figcaption>Maximum coolant temperature by detector and action</figcaption></figure><figure><img src="figures/action_time_by_detector_action.png" alt="Action time by detector and action"><figcaption>Action time by detector and action</figcaption></figure><figure><img src="figures/missed_detections_by_detector.png" alt="Missed detections by detector"><figcaption>Missed detections by detector</figcaption></figure></div>
+<h2>Main Comparison Table</h2><div class="table-wrap"><table><thead><tr><th>Scenario</th><th>Detector</th><th>Action</th><th>Detected</th><th>Runtime latency [ms]</th><th>Action request</th><th>Action time [ms]</th><th>First ECU DTC</th><th>ECU latency [ms]</th><th>Final state</th><th>Max coolant [C]</th><th>Shutdown</th></tr></thead><tbody><tr><td>Custom Fan Stuck Off (permanent, 50000 ms onward, p=0)</td><td>builtin_ecu</td><td>observe_only</td><td>1</td><td>18500</td><td>none</td><td>n/a</td><td>fan_tracking_fault</td><td>18500</td><td>limp_home</td><td>92.25</td><td>0</td></tr><tr><td>Custom Fan Stuck Off (permanent, 50000 ms onward, p=0)</td><td>builtin_ecu</td><td>precautionary_cooling</td><td>1</td><td>18500</td><td>precautionary_cooling</td><td>68500</td><td>fan_tracking_fault</td><td>18500</td><td>limp_home</td><td>92.25</td><td>0</td></tr><tr><td>Custom Fan Stuck Off (permanent, 50000 ms onward, p=0)</td><td>builtin_ecu</td><td>limp_home</td><td>1</td><td>18500</td><td>limp_home</td><td>68500</td><td>fan_tracking_fault</td><td>18500</td><td>limp_home</td><td>92.25</td><td>0</td></tr><tr><td>Custom Fan Stuck Off (permanent, 50000 ms onward, p=0)</td><td>threshold</td><td>observe_only</td><td>1</td><td>18100</td><td>none</td><td>n/a</td><td>fan_tracking_fault</td><td>18500</td><td>limp_home</td><td>92.25</td><td>0</td></tr><tr><td>Custom Fan Stuck Off (permanent, 50000 ms onward, p=0)</td><td>threshold</td><td>precautionary_cooling</td><td>1</td><td>18100</td><td>precautionary_cooling</td><td>68100</td><td>fan_tracking_fault</td><td>18500</td><td>limp_home</td><td>92.13</td><td>0</td></tr><tr><td>Custom Fan Stuck Off (permanent, 50000 ms onward, p=0)</td><td>threshold</td><td>limp_home</td><td>1</td><td>18100</td><td>limp_home</td><td>68100</td><td>fan_tracking_fault</td><td>18500</td><td>limp_home</td><td>92.13</td><td>0</td></tr><tr><td>Custom Fan Stuck Off (permanent, 50000 ms onward, p=0)</td><td>ewma</td><td>observe_only</td><td>1</td><td>18500</td><td>none</td><td>n/a</td><td>fan_tracking_fault</td><td>18500</td><td>limp_home</td><td>92.25</td><td>0</td></tr><tr><td>Custom Fan Stuck Off (permanent, 50000 ms onward, p=0)</td><td>ewma</td><td>precautionary_cooling</td><td>1</td><td>18500</td><td>precautionary_cooling</td><td>68500</td><td>fan_tracking_fault</td><td>18500</td><td>limp_home</td><td>92.25</td><td>0</td></tr><tr><td>Custom Fan Stuck Off (permanent, 50000 ms onward, p=0)</td><td>ewma</td><td>limp_home</td><td>1</td><td>18500</td><td>limp_home</td><td>68500</td><td>fan_tracking_fault</td><td>18500</td><td>limp_home</td><td>92.25</td><td>0</td></tr><tr><td>Custom Fan Stuck Off (permanent, 50000 ms onward, p=0)</td><td>cusum</td><td>observe_only</td><td>1</td><td>14800</td><td>none</td><td>n/a</td><td>fan_tracking_fault</td><td>18500</td><td>limp_home</td><td>92.25</td><td>0</td></tr><tr><td>Custom Fan Stuck Off (permanent, 50000 ms onward, p=0)</td><td>cusum</td><td>precautionary_cooling</td><td>1</td><td>14800</td><td>precautionary_cooling</td><td>64800</td><td>fan_tracking_fault</td><td>15000</td><td>limp_home</td><td>90.53</td><td>0</td></tr><tr><td>Custom Fan Stuck Off (permanent, 50000 ms onward, p=0)</td><td>cusum</td><td>limp_home</td><td>1</td><td>14800</td><td>limp_home</td><td>64800</td><td>fan_tracking_fault</td><td>15000</td><td>limp_home</td><td>90.53</td><td>0</td></tr></tbody></table></div>
+<h2>Limitations</h2><div class="note">These are deterministic outcomes from a
+virtual ECU research simulator for one configured scenario. This is not production
+ECU validation or real-vehicle validation. Simplified plant dynamics, detector
+calibration, and scenario selection limit generalization.</div>
+<h2>Reproduction</h2><p>Use <strong>Run Matrix for Latest Custom Scenario</strong>
+on the GUI Runtime Study page. The command is assembled from the latest normalized
+custom scenario configuration.</p>
+</main></body></html>

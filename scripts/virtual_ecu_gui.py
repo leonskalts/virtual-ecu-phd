@@ -70,10 +70,31 @@ RUNTIME_STUDY_DIR = PROJECT_ROOT / "results" / "runtime_intervention_study_v1"
 RUNTIME_STUDY_COMPARISON_CSV = RUNTIME_STUDY_DIR / "runtime_intervention_comparison.csv"
 RUNTIME_STUDY_REPORT_HTML = RUNTIME_STUDY_DIR / "runtime_intervention_report.html"
 RUNTIME_STUDY_SCRIPT = PROJECT_ROOT / "scripts" / "run_runtime_intervention_study.py"
+RUNTIME_CUSTOM_MATRIX_DIR = PROJECT_ROOT / "results" / "runtime_custom_matrix" / "latest"
+RUNTIME_CUSTOM_MATRIX_COMPARISON_CSV = (
+    RUNTIME_CUSTOM_MATRIX_DIR / "runtime_custom_matrix_comparison.csv"
+)
+RUNTIME_CUSTOM_MATRIX_REPORT_HTML = (
+    RUNTIME_CUSTOM_MATRIX_DIR / "runtime_custom_matrix_report.html"
+)
+RUNTIME_CUSTOM_MATRIX_SCRIPT = PROJECT_ROOT / "scripts" / "run_runtime_custom_matrix.py"
+RUNTIME_STUDY_SOURCE_OPTIONS = (
+    "Predefined 60-run study",
+    "Latest custom scenario matrix",
+)
 RUNTIME_STUDY_FIGURES: Sequence[Tuple[str, str]] = (
     ("Detection Latency by Detector and Scenario", "detection_latency_by_detector_scenario.png"),
     ("Maximum Coolant by Detector, Action, and Scenario", "max_coolant_by_detector_action_scenario.png"),
     ("Final Safe-State Distribution by Action", "final_safe_state_distribution_by_action.png"),
+    ("Action Time by Detector and Action", "action_time_by_detector_action.png"),
+    ("Missed Detections by Detector", "missed_detections_by_detector.png"),
+)
+RUNTIME_CUSTOM_MATRIX_FIGURES: Sequence[Tuple[str, str]] = (
+    ("Detection Latency by Detector", "detection_latency_by_detector.png"),
+    (
+        "Maximum Coolant by Detector and Action",
+        "max_coolant_by_detector_action.png",
+    ),
     ("Action Time by Detector and Action", "action_time_by_detector_action.png"),
     ("Missed Detections by Detector", "missed_detections_by_detector.png"),
 )
@@ -4150,6 +4171,12 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.runtime_study_status_text = tk.StringVar(
             value="Checking for runtime intervention study results..."
         )
+        self.runtime_study_source_choice = tk.StringVar(
+            value=RUNTIME_STUDY_SOURCE_OPTIONS[0]
+        )
+        self.runtime_study_path_text = tk.StringVar(
+            value=str(RUNTIME_STUDY_COMPARISON_CSV.relative_to(PROJECT_ROOT))
+        )
         self.runtime_study_findings_var = tk.StringVar(
             value="Generate or load the study to view detector and intervention findings."
         )
@@ -4157,6 +4184,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             name: tk.StringVar(value="-")
             for name in (
                 "Scenarios",
+                "Runs",
                 "Detectors",
                 "Actions",
                 "Fastest Detector",
@@ -4281,7 +4309,10 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.batch_table: ttk.Treeview | None = None
         self.runtime_study_table: ttk.Treeview | None = None
         self.runtime_study_run_button: ttk.Button | None = None
+        self.runtime_custom_matrix_run_button: ttk.Button | None = None
         self.runtime_study_report_button: ttk.Button | None = None
+        self.runtime_study_folder_button: ttk.Button | None = None
+        self.runtime_study_figures_content: ttk.Frame | None = None
         self.runtime_study_figure_buttons: Dict[Path, ttk.Button] = {}
         self.batch_plot: PlotCanvas | None = None
         self.comparison_plot: PlotCanvas | None = None
@@ -4332,7 +4363,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self._refresh_custom_preset_catalog()
         self._refresh_multi_preset_catalog()
         self._clear_batch_results()
-        self.load_runtime_intervention_study(show_error=False)
+        self.load_runtime_study_source(show_error=False)
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
         if self.executable is None:
@@ -6363,40 +6394,69 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             parent,
             title="Study Files",
             description=(
-                "Load the generated comparison CSV, regenerate all study artifacts, "
-                "or open the compact HTML report."
+                "Switch between the predefined reproducible study and the latest "
+                "custom scenario's 4 detector x 3 action matrix."
             ),
         )
         status_card.grid(row=1, column=0, sticky="ew", padx=12, pady=(0, 12))
         status_content = self._card_content(status_card)
         status_content.columnconfigure(0, weight=1)
 
+        source_row = ttk.Frame(status_content, style="Card.TFrame")
+        source_row.grid(row=0, column=0, sticky="w")
         ttk.Label(
-            status_content,
-            text=str(RUNTIME_STUDY_COMPARISON_CSV.relative_to(PROJECT_ROOT)),
+            source_row,
+            text="Study source",
             style="CardFieldName.TLabel",
         ).grid(row=0, column=0, sticky="w")
+        source_selector = ttk.Combobox(
+            source_row,
+            textvariable=self.runtime_study_source_choice,
+            values=RUNTIME_STUDY_SOURCE_OPTIONS,
+            state="readonly",
+            width=31,
+        )
+        source_selector.grid(row=0, column=1, sticky="w", padx=(10, 0))
+        source_selector.bind(
+            "<<ComboboxSelected>>",
+            lambda _event: self._on_runtime_study_source_changed(),
+        )
+
+        ttk.Label(
+            status_content,
+            textvariable=self.runtime_study_path_text,
+            style="CardHint.TLabel",
+        ).grid(row=1, column=0, sticky="w", pady=(6, 0))
         ttk.Label(
             status_content,
             textvariable=self.runtime_study_status_text,
             style="CardHint.TLabel",
             wraplength=850,
             justify="left",
-        ).grid(row=1, column=0, sticky="w", pady=(6, 10))
+        ).grid(row=2, column=0, sticky="w", pady=(4, 10))
 
         actions = ttk.Frame(status_content, style="Card.TFrame")
-        actions.grid(row=0, column=1, rowspan=2, sticky="e", padx=(16, 0))
+        actions.grid(row=0, column=1, rowspan=3, sticky="e", padx=(16, 0))
         self.runtime_study_run_button = ttk.Button(
             actions,
-            text="Run Runtime Intervention Study",
+            text="Run Predefined 60-Run Study",
             command=self.run_runtime_intervention_study,
             style="Primary.TButton",
         )
         self.runtime_study_run_button.grid(row=0, column=0, sticky="e")
+        self.runtime_custom_matrix_run_button = ttk.Button(
+            actions,
+            text="Run Matrix for Latest Custom Scenario",
+            command=self.run_runtime_custom_matrix,
+            style="Primary.TButton",
+        )
+        self.runtime_custom_matrix_run_button.grid(
+            row=1, column=0, sticky="e", pady=(8, 0)
+        )
         self.runtime_study_report_button = ttk.Button(
             actions,
             text="Open HTML Report",
-            command=self.open_runtime_intervention_report,
+            command=self.open_runtime_study_report,
             style="Secondary.TButton",
         )
         self.runtime_study_report_button.grid(
@@ -6405,11 +6465,20 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             sticky="e",
             padx=(8, 0),
         )
+        self.runtime_study_folder_button = ttk.Button(
+            actions,
+            text="Open Output Folder",
+            command=self.open_runtime_study_output_folder,
+            style="Secondary.TButton",
+        )
+        self.runtime_study_folder_button.grid(
+            row=1, column=1, sticky="e", padx=(8, 0), pady=(8, 0)
+        )
         ttk.Button(
             actions,
             text="Reload Results",
-            command=self.load_runtime_intervention_study,
-        ).grid(row=0, column=2, sticky="e", padx=(8, 0))
+            command=self.load_runtime_study_source,
+        ).grid(row=0, column=2, rowspan=2, sticky="e", padx=(8, 0))
 
         summary_shell = ttk.Frame(
             parent,
@@ -6423,18 +6492,22 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         summary_top.grid(row=0, column=0, sticky="ew", pady=(0, 10))
         summary_bottom = ttk.Frame(summary_shell, style="Root.TFrame")
         summary_bottom.grid(row=1, column=0, sticky="ew")
-        for frame in (summary_top, summary_bottom):
-            for column in range(3):
-                frame.columnconfigure(column, weight=1)
+        for column in range(4):
+            summary_top.columnconfigure(column, weight=1)
+        for column in range(3):
+            summary_bottom.columnconfigure(column, weight=1)
 
         self._build_batch_stat_card(
             summary_top, 0, "Scenarios", self.runtime_study_summary_vars["Scenarios"]
         )
         self._build_batch_stat_card(
-            summary_top, 1, "Detectors", self.runtime_study_summary_vars["Detectors"]
+            summary_top, 1, "Runs", self.runtime_study_summary_vars["Runs"]
         )
         self._build_batch_stat_card(
-            summary_top, 2, "Actions", self.runtime_study_summary_vars["Actions"]
+            summary_top, 2, "Detectors", self.runtime_study_summary_vars["Detectors"]
+        )
+        self._build_batch_stat_card(
+            summary_top, 3, "Actions", self.runtime_study_summary_vars["Actions"]
         )
         self._build_batch_stat_card(
             summary_bottom,
@@ -6535,28 +6608,10 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             ),
         )
         figures_card.grid(row=5, column=0, sticky="ew", padx=12, pady=(0, 12))
-        figures_content = self._card_content(figures_card)
-        figures_content.columnconfigure(0, weight=1)
-        figures_content.columnconfigure(1, weight=0)
-
-        self.runtime_study_figure_buttons.clear()
-        for row_index, (label, filename) in enumerate(RUNTIME_STUDY_FIGURES):
-            figure_path = RUNTIME_STUDY_DIR / "figures" / filename
-            ttk.Label(
-                figures_content,
-                text=label,
-                style="CardHint.TLabel",
-            ).grid(row=row_index, column=0, sticky="w", pady=3)
-            button = ttk.Button(
-                figures_content,
-                text="Open Figure",
-                command=lambda path=figure_path: self.open_runtime_study_artifact(
-                    path,
-                    "Runtime Study Figure",
-                ),
-            )
-            button.grid(row=row_index, column=1, sticky="e", pady=3)
-            self.runtime_study_figure_buttons[figure_path] = button
+        self.runtime_study_figures_content = self._card_content(figures_card)
+        self.runtime_study_figures_content.columnconfigure(0, weight=1)
+        self.runtime_study_figures_content.columnconfigure(1, weight=0)
+        self._refresh_runtime_study_figure_buttons()
 
     def _build_tab_header(self, parent: ttk.Frame, *, row: int, title: str, description: str) -> None:
         header = ttk.Frame(parent, padding=(12, 8, 12, 10), style="Root.TFrame")
@@ -8713,10 +8768,72 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         if selected:
             self.batch_csv_path.set(selected)
 
+    def _runtime_study_source_paths(
+        self,
+    ) -> Tuple[Path, Path, Path, Sequence[Tuple[str, str]]]:
+        if self.runtime_study_source_choice.get() == RUNTIME_STUDY_SOURCE_OPTIONS[1]:
+            return (
+                RUNTIME_CUSTOM_MATRIX_DIR,
+                RUNTIME_CUSTOM_MATRIX_COMPARISON_CSV,
+                RUNTIME_CUSTOM_MATRIX_REPORT_HTML,
+                RUNTIME_CUSTOM_MATRIX_FIGURES,
+            )
+        return (
+            RUNTIME_STUDY_DIR,
+            RUNTIME_STUDY_COMPARISON_CSV,
+            RUNTIME_STUDY_REPORT_HTML,
+            RUNTIME_STUDY_FIGURES,
+        )
+
+    def _on_runtime_study_source_changed(self) -> None:
+        _output_dir, comparison_path, _report_path, _figures = (
+            self._runtime_study_source_paths()
+        )
+        self.runtime_study_path_text.set(
+            str(comparison_path.relative_to(PROJECT_ROOT))
+        )
+        self._refresh_runtime_study_figure_buttons()
+        self.load_runtime_study_source(show_error=False)
+
+    def _refresh_runtime_study_figure_buttons(self) -> None:
+        if self.runtime_study_figures_content is None:
+            return
+        for child in self.runtime_study_figures_content.winfo_children():
+            child.destroy()
+        self.runtime_study_figure_buttons.clear()
+        output_dir, _comparison_path, _report_path, figures = (
+            self._runtime_study_source_paths()
+        )
+        for row_index, (label, filename) in enumerate(figures):
+            figure_path = output_dir / "figures" / filename
+            ttk.Label(
+                self.runtime_study_figures_content,
+                text=label,
+                style="CardHint.TLabel",
+            ).grid(row=row_index, column=0, sticky="w", pady=3)
+            button = ttk.Button(
+                self.runtime_study_figures_content,
+                text="Open Figure",
+                command=lambda path=figure_path: self.open_runtime_study_artifact(
+                    path,
+                    "Runtime Study Figure",
+                ),
+            )
+            button.grid(row=row_index, column=1, sticky="e", pady=3)
+            self.runtime_study_figure_buttons[figure_path] = button
+        self._set_runtime_study_artifact_states()
+
     def _set_runtime_study_artifact_states(self) -> None:
+        output_dir, _comparison_path, report_path, _figures = (
+            self._runtime_study_source_paths()
+        )
         if self.runtime_study_report_button is not None:
             self.runtime_study_report_button.state(
-                ["!disabled"] if RUNTIME_STUDY_REPORT_HTML.is_file() else ["disabled"]
+                ["!disabled"] if report_path.is_file() else ["disabled"]
+            )
+        if self.runtime_study_folder_button is not None:
+            self.runtime_study_folder_button.state(
+                ["!disabled"] if output_dir.is_dir() else ["disabled"]
             )
         for path, button in self.runtime_study_figure_buttons.items():
             button.state(["!disabled"] if path.is_file() else ["disabled"])
@@ -8742,8 +8859,12 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self,
         rows: Sequence[Dict[str, str]],
     ) -> Dict[str, float]:
+        observed = [
+            row for row in rows if row.get("detector_action") == "observe_only"
+        ]
+        source_rows = observed or list(rows)
         values: Dict[str, List[float]] = {}
-        for row in rows:
+        for row in source_rows:
             if not self._runtime_study_detected(row):
                 continue
             latency = int_or_none(row.get("runtime_detection_latency_ms", ""))
@@ -8807,7 +8928,20 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         action_means = self._runtime_study_action_means(rows)
         misses = self._runtime_study_misses_by_detector(rows)
 
-        self.runtime_study_summary_vars["Scenarios"].set(str(len(scenarios)))
+        scenario_names = sorted(
+            {
+                row.get("scenario_name", "").strip()
+                or row.get("scenario_id", "").strip()
+                for row in rows
+                if row.get("scenario_name", "").strip()
+                or row.get("scenario_id", "").strip()
+            }
+        )
+        scenario_summary = (
+            scenario_names[0] if len(scenario_names) == 1 else str(len(scenarios))
+        )
+        self.runtime_study_summary_vars["Scenarios"].set(scenario_summary)
+        self.runtime_study_summary_vars["Runs"].set(str(len(rows)))
         self.runtime_study_summary_vars["Detectors"].set(str(len(detectors)))
         self.runtime_study_summary_vars["Actions"].set(str(len(actions)))
 
@@ -8897,6 +9031,24 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                 "Calibration-memory corruption was missed by the residual "
                 f"detectors: {', '.join(residual_misses)}."
             )
+        observe_states = {
+            row.get("detector", ""): row.get("final_safe_state", "")
+            for row in rows
+            if row.get("detector_action") == "observe_only"
+        }
+        changed_states = sum(
+            1
+            for row in rows
+            if row.get("detector_action") != "observe_only"
+            and row.get("detector", "") in observe_states
+            and row.get("final_safe_state", "")
+            != observe_states[row.get("detector", "")]
+        )
+        findings.append(
+            f"Detector intervention changed the final safe-state outcome in "
+            f"{changed_states} run comparisons relative to the same detector's "
+            "observe-only result."
+        )
         findings.append(
             "Observe-only is the non-intervention reference and preserves "
             "built-in simulator safety behavior."
@@ -8963,26 +9115,32 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                 ],
             )
 
-    def load_runtime_intervention_study(self, *, show_error: bool = True) -> None:
-        if not RUNTIME_STUDY_COMPARISON_CSV.is_file():
+    def load_runtime_study_source(self, *, show_error: bool = True) -> None:
+        _output_dir, comparison_path, _report_path, _figures = (
+            self._runtime_study_source_paths()
+        )
+        source_name = self.runtime_study_source_choice.get()
+        self.runtime_study_path_text.set(
+            str(comparison_path.relative_to(PROJECT_ROOT))
+        )
+        if not comparison_path.is_file():
             self._clear_runtime_study_results(
-                "No runtime intervention study results found. "
-                "Run scripts/run_runtime_intervention_study.py first."
+                f"No results found for {source_name}. Run the corresponding study "
+                "from this page first."
             )
             return
         try:
-            rows = read_csv_rows(RUNTIME_STUDY_COMPARISON_CSV)
+            rows = read_csv_rows(comparison_path)
         except (OSError, csv.Error, RuntimeError) as exc:
             self._clear_runtime_study_results(
-                f"Failed to load runtime intervention study results: {exc}"
+                f"Failed to load {source_name}: {exc}"
             )
             if show_error:
                 messagebox.showerror("Runtime Study Load Failed", str(exc))
             return
         if not rows:
             self._clear_runtime_study_results(
-                f"Runtime intervention comparison CSV is empty: "
-                f"{RUNTIME_STUDY_COMPARISON_CSV}"
+                f"Runtime study comparison CSV is empty: {comparison_path}"
             )
             return
 
@@ -8990,10 +9148,14 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self._update_runtime_study_summary(rows)
         self._populate_runtime_study_table(rows)
         self.runtime_study_status_text.set(
-            f"Loaded {len(rows)} study runs from "
-            f"{RUNTIME_STUDY_COMPARISON_CSV.relative_to(PROJECT_ROOT)}."
+            f"Loaded {len(rows)} runs for {source_name} from "
+            f"{comparison_path.relative_to(PROJECT_ROOT)}."
         )
         self._set_runtime_study_artifact_states()
+
+    def load_runtime_intervention_study(self, *, show_error: bool = True) -> None:
+        self.runtime_study_source_choice.set(RUNTIME_STUDY_SOURCE_OPTIONS[0])
+        self.load_runtime_study_source(show_error=show_error)
 
     def run_runtime_intervention_study(self) -> None:
         if self.runtime_study_run_button is not None:
@@ -9046,11 +9208,167 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             "Runtime intervention study complete. Results and report reloaded."
         )
 
+    @staticmethod
+    def _custom_config_from_result_metadata(
+        result: Dict[str, object],
+    ) -> Dict[str, object] | None:
+        raw_rows = result.get("raw_rows")
+        if not isinstance(raw_rows, list) or not raw_rows:
+            return None
+        first_row = raw_rows[0]
+        if not isinstance(first_row, dict):
+            return None
+        event_count = int_or_none(first_row.get("campaign_event_count", "")) or 0
+        if not 1 <= event_count <= MAX_CUSTOM_SCENARIO_EVENTS:
+            return None
+
+        events: List[Dict[str, object]] = []
+        for index in range(1, event_count + 1):
+            fault_type = str(
+                first_row.get(f"campaign_event_{index}_mode_label", "")
+            ).strip()
+            behavior = str(
+                first_row.get(f"campaign_event_{index}_behavior_label", "")
+            ).strip()
+            start_ms = int_or_none(
+                first_row.get(f"campaign_event_{index}_start_ms", "")
+            )
+            duration_ms = int_or_none(
+                first_row.get(f"campaign_event_{index}_duration_ms", "")
+            )
+            parameter = float_or_none(
+                first_row.get(f"campaign_event_{index}_parameter", "")
+            )
+            if (
+                not fault_type
+                or fault_type == "none"
+                or behavior not in {"transient", "permanent"}
+                or start_ms is None
+                or duration_ms is None
+                or parameter is None
+            ):
+                return None
+            events.append(
+                {
+                    "fault_type": fault_type,
+                    "fault_behavior": behavior,
+                    "start_ms": start_ms,
+                    "duration_ms": duration_ms,
+                    "parameter": parameter,
+                }
+            )
+
+        if len(events) == 1:
+            return {"kind": "single", **events[0]}
+        return {"kind": "multi", "events": events}
+
+    def _latest_custom_matrix_config(self) -> Dict[str, object] | None:
+        if self.last_custom_result is not None:
+            saved = self.last_custom_result.get("custom_config")
+            if isinstance(saved, dict):
+                return dict(saved)
+            restored = self._custom_config_from_result_metadata(
+                self.last_custom_result
+            )
+            if restored is not None:
+                return restored
+
+        selected_tab = self._selected_notebook_index(self.custom_builder_notebook)
+        if selected_tab == 1:
+            return self._validate_multi_scenario_config()
+        return self._validate_custom_config()
+
+    def run_runtime_custom_matrix(self) -> None:
+        if self.executable is None:
+            messagebox.showerror(
+                "Executable Not Found",
+                "The compiled virtual ECU executable was not found. Build it first with 'make'.",
+            )
+            return
+        config = self._latest_custom_matrix_config()
+        if config is None:
+            messagebox.showinfo(
+                "Custom Scenario Required",
+                "Run or configure a custom scenario first.",
+            )
+            return
+
+        command = [
+            sys.executable,
+            str(RUNTIME_CUSTOM_MATRIX_SCRIPT),
+            "--scenario-id",
+            custom_campaign_id(config),
+            "--scenario-name",
+            custom_campaign_label(config),
+            "--executable",
+            str(self.executable),
+        ]
+        for event in custom_events(config):
+            command.extend(
+                [
+                    "--event",
+                    str(event["fault_type"]),
+                    str(event["start_ms"]),
+                    str(event["duration_ms"]),
+                    str(event["fault_behavior"]),
+                    f"{float(event['parameter']):g}",
+                ]
+            )
+
+        if self.runtime_custom_matrix_run_button is not None:
+            self.runtime_custom_matrix_run_button.state(["disabled"])
+        self.runtime_study_status_text.set(
+            f"Running 12 combinations for {custom_campaign_label(config)}..."
+        )
+        self.status_text.set("Running the latest custom runtime detector matrix...")
+        threading.Thread(
+            target=self._run_runtime_custom_matrix_worker,
+            args=(command,),
+            daemon=True,
+        ).start()
+
+    def _run_runtime_custom_matrix_worker(self, command: Sequence[str]) -> None:
+        completed = subprocess.run(
+            list(command),
+            cwd=PROJECT_ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        message = completed.stderr.strip() or completed.stdout.strip()
+        self.after(
+            0,
+            lambda: self._finish_runtime_custom_matrix(
+                completed.returncode,
+                message,
+            ),
+        )
+
+    def _finish_runtime_custom_matrix(self, returncode: int, message: str) -> None:
+        if self.runtime_custom_matrix_run_button is not None:
+            self.runtime_custom_matrix_run_button.state(["!disabled"])
+        if returncode != 0:
+            self.runtime_study_status_text.set(
+                "Latest custom scenario matrix failed. Review the error dialog."
+            )
+            self.status_text.set("Runtime custom scenario matrix failed.")
+            messagebox.showerror(
+                "Runtime Custom Matrix Failed",
+                message or "Unknown custom matrix runner failure.",
+            )
+            return
+        self.runtime_study_source_choice.set(RUNTIME_STUDY_SOURCE_OPTIONS[1])
+        self._refresh_runtime_study_figure_buttons()
+        self.load_runtime_study_source(show_error=True)
+        self.status_text.set(
+            "Runtime custom scenario matrix complete. The 12-run result is loaded."
+        )
+
     def open_runtime_study_artifact(self, path: Path, title: str) -> None:
-        if not path.is_file():
+        if not path.exists():
             messagebox.showinfo(
                 f"{title} Unavailable",
-                f"File not found:\n{path}\n\nRun the runtime intervention study first.",
+                f"File or folder not found:\n{path}\n\nRun the selected runtime study first.",
             )
             return
         try:
@@ -9065,16 +9383,31 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                     text=True,
                 ).stdout.strip()
                 subprocess.Popen(["explorer.exe", converted])
+            elif path.is_dir():
+                subprocess.Popen(["xdg-open", str(resolved)])
             elif not webbrowser.open(resolved.as_uri()):
                 raise OSError("No system browser or file viewer accepted the path.")
         except (OSError, subprocess.SubprocessError) as exc:
             messagebox.showerror(f"Open {title} Failed", str(exc))
 
-    def open_runtime_intervention_report(self) -> None:
-        self.open_runtime_study_artifact(
-            RUNTIME_STUDY_REPORT_HTML,
-            "Runtime Intervention Report",
+    def open_runtime_study_report(self) -> None:
+        _output_dir, _comparison_path, report_path, _figures = (
+            self._runtime_study_source_paths()
         )
+        self.open_runtime_study_artifact(
+            report_path,
+            "Runtime Study Report",
+        )
+
+    def open_runtime_study_output_folder(self) -> None:
+        output_dir, _comparison_path, _report_path, _figures = (
+            self._runtime_study_source_paths()
+        )
+        self.open_runtime_study_artifact(output_dir, "Runtime Study Output")
+
+    def open_runtime_intervention_report(self) -> None:
+        self.runtime_study_source_choice.set(RUNTIME_STUDY_SOURCE_OPTIONS[0])
+        self.open_runtime_study_report()
 
     def _clear_propagation_evidence(self) -> None:
         if self.propagation_evidence_table is None:
