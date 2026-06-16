@@ -28,6 +28,12 @@ from virtual_ecu.detection_algorithms import (  # noqa: E402
     CUSUM_DECISION_LIMITS,
     EWMA_ALPHA,
     EWMA_LIMITS,
+    KALMAN_FILTER_ACCUMULATION_ALLOWANCE,
+    KALMAN_FILTER_ACCUMULATION_LIMIT,
+    KALMAN_FILTER_ACCUMULATION_LEAK,
+    KALMAN_FILTER_INNOVATION_THRESHOLD,
+    KALMAN_FILTER_MEASUREMENT_NOISE_R,
+    KALMAN_FILTER_PROCESS_NOISE_Q,
     THERMAL_OBSERVER_DECISION_LIMIT_C,
     THERMAL_OBSERVER_MISMATCH_ALLOWANCE_C,
     THRESHOLD_LIMITS,
@@ -48,7 +54,7 @@ SCENARIO_IDS = [
     "paper_default_multi_fault",
 ]
 
-ALGORITHM_ORDER = ["threshold", "ewma", "cusum", "thermal_observer"]
+ALGORITHM_ORDER = ["threshold", "ewma", "cusum", "thermal_observer", "kalman_filter"]
 OUTPUT_COLUMNS = [
     "scenario_id",
     "algorithm",
@@ -69,7 +75,7 @@ OUTPUT_COLUMNS = [
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Compare offline threshold, EWMA, CUSUM, and thermal-observer detectors."
+            "Compare offline threshold, EWMA, CUSUM, thermal-observer, and Kalman-style detectors."
         )
     )
     parser.add_argument(
@@ -213,12 +219,20 @@ def write_summary(path: Path, results: Sequence[Dict[str, object]]) -> None:
             "- Thermal observer mismatch allowance: "
             f"`{THERMAL_OBSERVER_MISMATCH_ALLOWANCE_C:.3f} C/step`; "
             f"decision limit: `{THERMAL_OBSERVER_DECISION_LIMIT_C:.2f} C`.",
+            "- Kalman filter observer: "
+            f"`Q={KALMAN_FILTER_PROCESS_NOISE_Q:.3f}`, "
+            f"`R={KALMAN_FILTER_MEASUREMENT_NOISE_R:.3f}`, "
+            f"innovation threshold `{KALMAN_FILTER_INNOVATION_THRESHOLD:.2f}`, "
+            f"accumulation allowance `{KALMAN_FILTER_ACCUMULATION_ALLOWANCE:.3f}`, "
+            f"leak `{KALMAN_FILTER_ACCUMULATION_LEAK:.3f}`, "
+            f"limit `{KALMAN_FILTER_ACCUMULATION_LIMIT:.2f}`.",
             "",
             "The direct detectors operate on absolute residual magnitudes. The "
-            "thermal observer instead accumulates positive coolant-trajectory "
-            "mismatch. A scenario is detected at the first alarm sample at or "
-            "after its earliest configured campaign event. The baseline has no "
-            "detection target.",
+            "thermal observer accumulates positive coolant-trajectory mismatch, "
+            "and the Kalman-style observer accumulates normalized innovation. "
+            "A scenario is detected at the first alarm sample at or after its "
+            "earliest configured campaign event. The baseline has no detection "
+            "target.",
             "",
             "## Metric Notes",
             "",
@@ -269,6 +283,7 @@ def plot_figures(output_dir: Path, results: Sequence[Dict[str, object]]) -> List
         "ewma": "#e6a141",
         "cusum": "#4c9f70",
         "thermal_observer": "#a855f7",
+        "kalman_filter": "#dc2626",
     }
     fault_scenarios = [item for item in SCENARIO_IDS if item != "baseline"]
     short_labels = [

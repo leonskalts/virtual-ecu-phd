@@ -28,6 +28,18 @@
 #define THERMAL_OBSERVER_MISMATCH_ALLOWANCE_C 0.015f
 #define THERMAL_OBSERVER_DECISION_LIMIT_C 1.50f
 
+/* Scalar Kalman-style coolant observer. The prediction uses a compact healthy
+ * thermal model and the update uses the measured coolant temperature. The
+ * accumulated normalized innovation is a research detector score, not a
+ * production automotive Kalman-filter calibration. */
+#define KALMAN_FILTER_PROCESS_NOISE_Q 0.020f
+#define KALMAN_FILTER_MEASUREMENT_NOISE_R 4.000f
+#define KALMAN_FILTER_INITIAL_COVARIANCE 1.000f
+#define KALMAN_FILTER_INNOVATION_THRESHOLD 3.000f
+#define KALMAN_FILTER_ACCUMULATION_ALLOWANCE 0.060f
+#define KALMAN_FILTER_ACCUMULATION_LEAK 0.985f
+#define KALMAN_FILTER_ACCUMULATION_LIMIT 3.000f
+
 static float abs_float(float value)
 {
     return (value < 0.0f) ? -value : value;
@@ -36,6 +48,23 @@ static float abs_float(float value)
 static float max_zero(float value)
 {
     return (value > 0.0f) ? value : 0.0f;
+}
+
+static float sqrt_float(float value)
+{
+    float estimate;
+    unsigned int i;
+
+    if (value <= 0.0f) {
+        return 0.0f;
+    }
+
+    estimate = (value >= 1.0f) ? value : 1.0f;
+    for (i = 0U; i < 8U; i++) {
+        estimate = 0.5f * (estimate + (value / estimate));
+    }
+
+    return estimate;
 }
 
 static float clamp_unit(float value)
@@ -83,6 +112,42 @@ static float thermal_observer_expected_delta(const ecu_state_t *state)
     return expected_rate_c_per_s * dt_s;
 }
 
+static float kalman_filter_expected_delta(const ecu_state_t *state, float coolant_temp_c)
+{
+    const float dt_s = (float)ECU_DT_MS / 1000.0f;
+    const float engine_load = state->plant.engine_load;
+    const float vehicle_speed_kph = state->sensors.vehicle_speed_meas_kph;
+    const float ambient_temp_c = state->sensors.ambient_temp_meas_c;
+    const float temp_error_c = coolant_temp_c - ECU_TARGET_COOLANT_TEMP_C;
+    const float speed_term = vehicle_speed_kph / 200.0f;
+    const float nominal_pump = clamp_unit(
+        0.30f + (0.025f * temp_error_c) + (0.35f * engine_load)
+    );
+    const float nominal_fan = clamp_unit(
+        0.25f + (0.065f * temp_error_c) - (0.10f * speed_term)
+    );
+    const float pump_cooling = (state->control.pump_command > nominal_pump) ?
+        state->control.pump_command : nominal_pump;
+    const float fan_cooling = (state->control.fan_command > nominal_fan) ?
+        state->control.fan_command : nominal_fan;
+    float heat_generation = 2.2f + (9.5f * engine_load);
+    float expected_rate_c_per_s;
+
+    if (state->plant.scenario_phase == SCENARIO_PHASE_HOT_IDLE) {
+        heat_generation += 2.0f;
+    }
+    heat_generation += state->experiment.heat_generation_bias;
+
+    expected_rate_c_per_s =
+        heat_generation -
+        (7.5f * clamp_unit(pump_cooling)) -
+        (6.0f * clamp_unit(fan_cooling)) -
+        ((vehicle_speed_kph / 40.0f) * state->experiment.ram_air_scale) -
+        (0.08f * (coolant_temp_c - ambient_temp_c));
+
+    return expected_rate_c_per_s * dt_s;
+}
+
 static void set_score_and_label(
     detection_algorithm_state_t *detector,
     float fan_score,
@@ -120,6 +185,8 @@ void detection_algorithm_init(
     detector->selected_action = selected_action;
     detector->first_detection_time_ms = -1;
     detector->action_time_ms = -1;
+    detector->kalman_filter_process_noise_q = KALMAN_FILTER_PROCESS_NOISE_Q;
+    detector->kalman_filter_measurement_noise_r = KALMAN_FILTER_MEASUREMENT_NOISE_R;
     snprintf(detector->runtime_label, sizeof(detector->runtime_label), "%s", "none");
     snprintf(detector->action_reason, sizeof(detector->action_reason), "%s", "none");
 }
@@ -227,6 +294,82 @@ void detection_algorithm_step(struct ecu_state *state)
             thermal_observer_expected_delta(state);
         break;
 
+    case DETECTION_ALGORITHM_KALMAN_FILTER:
+        snprintf(
+            detector->runtime_label,
+            sizeof(detector->runtime_label),
+            "%s",
+            "kalman_filter_innovation"
+        );
+        if (!detector->kalman_filter_initialized) {
+            detector->kalman_filter_estimated_coolant_temp_c =
+                state->sensors.coolant_temp_meas_c;
+            detector->kalman_filter_estimate_covariance =
+                KALMAN_FILTER_INITIAL_COVARIANCE;
+            detector->kalman_filter_process_noise_q =
+                KALMAN_FILTER_PROCESS_NOISE_Q;
+            detector->kalman_filter_measurement_noise_r =
+                KALMAN_FILTER_MEASUREMENT_NOISE_R;
+            detector->kalman_filter_expected_delta_c =
+                kalman_filter_expected_delta(
+                    state,
+                    detector->kalman_filter_estimated_coolant_temp_c
+                );
+            detector->kalman_filter_innovation_c = 0.0f;
+            detector->kalman_filter_accumulated_innovation = 0.0f;
+            detector->kalman_filter_initialized = true;
+            detector->current_score = 0.0f;
+            detector->alarm_active = false;
+            break;
+        }
+        {
+            const float predicted_coolant_temp_c =
+                detector->kalman_filter_estimated_coolant_temp_c +
+                detector->kalman_filter_expected_delta_c;
+            const float predicted_covariance =
+                detector->kalman_filter_estimate_covariance +
+                detector->kalman_filter_process_noise_q;
+            const float innovation =
+                state->sensors.coolant_temp_meas_c - predicted_coolant_temp_c;
+            const float innovation_variance =
+                predicted_covariance + detector->kalman_filter_measurement_noise_r;
+            const float normalized_innovation =
+                abs_float(innovation) / sqrt_float(innovation_variance);
+            const float kalman_gain = predicted_covariance / innovation_variance;
+            float accumulated_score;
+            float instantaneous_score;
+
+            detector->kalman_filter_estimated_coolant_temp_c =
+                predicted_coolant_temp_c + (kalman_gain * innovation);
+            detector->kalman_filter_estimate_covariance =
+                (1.0f - kalman_gain) * predicted_covariance;
+            detector->kalman_filter_innovation_c = innovation;
+            detector->kalman_filter_accumulated_innovation = max_zero(
+                (KALMAN_FILTER_ACCUMULATION_LEAK *
+                    detector->kalman_filter_accumulated_innovation) +
+                normalized_innovation -
+                KALMAN_FILTER_ACCUMULATION_ALLOWANCE
+            );
+            detector->kalman_filter_expected_delta_c =
+                kalman_filter_expected_delta(
+                    state,
+                    detector->kalman_filter_estimated_coolant_temp_c
+                );
+
+            instantaneous_score =
+                normalized_innovation / KALMAN_FILTER_INNOVATION_THRESHOLD;
+            accumulated_score =
+                detector->kalman_filter_accumulated_innovation /
+                KALMAN_FILTER_ACCUMULATION_LIMIT;
+            detector->current_score = (instantaneous_score > accumulated_score) ?
+                instantaneous_score : accumulated_score;
+            detector->alarm_active =
+                normalized_innovation >= KALMAN_FILTER_INNOVATION_THRESHOLD ||
+                detector->kalman_filter_accumulated_innovation >=
+                    KALMAN_FILTER_ACCUMULATION_LIMIT;
+        }
+        break;
+
     case DETECTION_ALGORITHM_BUILTIN_ECU:
     default:
         detector->alarm_active = state->diagnostics.primary_dtc != DTC_ID_NONE;
@@ -282,6 +425,9 @@ detection_algorithm_t detection_algorithm_from_string(const char *text)
     if (strcmp(text, "thermal_observer") == 0) {
         return DETECTION_ALGORITHM_THERMAL_OBSERVER;
     }
+    if (strcmp(text, "kalman_filter") == 0) {
+        return DETECTION_ALGORITHM_KALMAN_FILTER;
+    }
 
     return DETECTION_ALGORITHM_BUILTIN_ECU;
 }
@@ -297,6 +443,8 @@ const char *detection_algorithm_name(detection_algorithm_t algorithm)
         return "cusum";
     case DETECTION_ALGORITHM_THERMAL_OBSERVER:
         return "thermal_observer";
+    case DETECTION_ALGORITHM_KALMAN_FILTER:
+        return "kalman_filter";
     case DETECTION_ALGORITHM_BUILTIN_ECU:
     default:
         return "builtin_ecu";

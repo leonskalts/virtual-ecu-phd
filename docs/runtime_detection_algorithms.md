@@ -30,6 +30,8 @@ The runtime module supports:
 - `thermal_observer`: compares observed coolant-temperature evolution with a
   lightweight one-step healthy thermal model and accumulates sustained excess
   heating relative to that model.
+- `kalman_filter`: estimates coolant temperature with a lightweight scalar
+  Kalman-style observer and alarms on abnormal normalized innovation.
 
 The three direct residual detectors use fan tracking error, pump tracking
 error, and coolant sensor residual. Constants match the Python offline detector
@@ -56,6 +58,41 @@ It is not a Kalman filter, a calibrated production observer, or an ECU safety
 mechanism. Its behavior depends on the simplified virtual plant, nominal
 controller model, allowance, and decision threshold.
 
+## Kalman Filter Observer
+
+The Kalman filter observer estimates the expected coolant temperature state
+with a one-dimensional thermal model. At each simulator timestep it predicts
+the next coolant temperature from engine load, vehicle speed, ambient
+temperature, campaign thermal metadata, and a healthy cooling expectation
+derived from pump and fan demand. It then compares this prediction with the
+observed coolant-temperature measurement.
+
+The prediction residual is the innovation:
+
+```text
+innovation = observed coolant temperature - predicted coolant temperature
+```
+
+The detector normalizes the innovation by the scalar innovation variance,
+updates the temperature estimate with a scalar Kalman gain, and accumulates
+sustained innovation evidence with a small leak. The runtime label is
+`kalman_filter_innovation`.
+
+This differs from `threshold`, `ewma`, and `cusum`, which operate directly on
+fan tracking, pump tracking, and coolant sensor residuals. It also differs
+from `thermal_observer`: the thermal observer is a deterministic mismatch
+accumulator over observed temperature deltas, while `kalman_filter` maintains
+an explicit coolant-temperature estimate, covariance, process noise, and
+measurement noise.
+
+The Kalman-style observer can help expose faults where direct residuals are
+weak or delayed, including coolant sensor spoofing, stale/replay behavior,
+calibration-memory corruption, and indirect thermal anomalies. It is still a
+simplified research detector. The model is scalar and heuristic, the constants
+are tuned for conservative virtual-ECU experiments, and the implementation is
+not production ECU validation, real-vehicle validation, or a certified safety
+mechanism.
+
 ## Terminal Use
 
 The default remains `builtin_ecu`, so existing commands continue to work:
@@ -71,10 +108,11 @@ Select a runtime detector by appending `--detector`:
 ./virtual_ecu logs/threshold.csv custom fan_stuck_off 75000 0 permanent 0.0 --detector threshold
 ./virtual_ecu logs/ewma.csv custom sensor_bias 30000 15000 transient 6.0 --detector ewma
 ./virtual_ecu logs/thermal_observer.csv custom calibration_memory_corruption 52000 0 permanent 16.0 --detector thermal_observer
+./virtual_ecu logs/kalman_filter.csv custom calibration_memory_corruption 52000 0 permanent 16.0 --detector kalman_filter
 ```
 
-Valid values are `builtin_ecu`, `threshold`, `ewma`, `cusum`, and
-`thermal_observer`.
+Valid values are `builtin_ecu`, `threshold`, `ewma`, `cusum`,
+`thermal_observer`, and `kalman_filter`.
 
 ## Detector Actions
 
@@ -165,8 +203,8 @@ make
 python3 scripts/run_runtime_intervention_study.py
 ```
 
-The study runs five custom single-fault scenarios across all five runtime
-detectors and all three detector actions. Its 75 simulator runs are written to:
+The study runs five custom single-fault scenarios across all six runtime
+detectors and all three detector actions. Its 90 simulator runs are written to:
 
 ```text
 results/runtime_intervention_study_v1/
@@ -192,12 +230,12 @@ are descriptive rather than evidence of statistical significance.
 ### Latest Custom Scenario Matrix
 
 The GUI **Runtime Study** page can also run the latest custom scenario through
-the complete five-detector by three-action matrix. Choose **Latest custom
+the complete six-detector by three-action matrix. Choose **Latest custom
 scenario matrix**, then click **Run Matrix for Latest Custom Scenario**.
 
 The GUI prefers the configuration from the most recently completed custom run.
 If no custom run is loaded, it uses the currently active Single Fault or
-Multi-Fault builder configuration. The 15 simulator runs and generated
+Multi-Fault builder configuration. The 18 simulator runs and generated
 artifacts are replaced on each invocation under:
 
 ```text

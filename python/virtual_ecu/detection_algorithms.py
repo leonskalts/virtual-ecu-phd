@@ -7,6 +7,7 @@ runtime detector results recorded by the C simulator.
 from __future__ import annotations
 
 import csv
+import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Sequence
@@ -18,6 +19,7 @@ SUPPORTED_ALGORITHMS = (
     "ewma",
     "cusum",
     "thermal_observer",
+    "kalman_filter",
 )
 OFFLINE_RESIDUAL_ALGORITHMS = (
     "threshold",
@@ -66,6 +68,17 @@ THERMAL_OBSERVER_TARGET_COOLANT_C = 92.0
 THERMAL_OBSERVER_DT_S = 0.1
 THERMAL_OBSERVER_MISMATCH_ALLOWANCE_C = 0.015
 THERMAL_OBSERVER_DECISION_LIMIT_C = 1.50
+
+# Lightweight scalar Kalman-style observer constants. The prediction mirrors
+# the C runtime detector and uses safe defaults when older CSVs lack newer
+# campaign metadata columns.
+KALMAN_FILTER_PROCESS_NOISE_Q = 0.020
+KALMAN_FILTER_MEASUREMENT_NOISE_R = 4.000
+KALMAN_FILTER_INITIAL_COVARIANCE = 1.000
+KALMAN_FILTER_INNOVATION_THRESHOLD = 3.000
+KALMAN_FILTER_ACCUMULATION_ALLOWANCE = 0.060
+KALMAN_FILTER_ACCUMULATION_LEAK = 0.985
+KALMAN_FILTER_ACCUMULATION_LIMIT = 3.000
 
 
 @dataclass(frozen=True)
@@ -159,6 +172,46 @@ def thermal_observer_expected_delta(row: Dict[str, str]) -> float:
     return expected_rate_c_per_s * THERMAL_OBSERVER_DT_S
 
 
+def kalman_filter_expected_delta(
+    row: Dict[str, str],
+    coolant_temp_c: float,
+) -> float:
+    engine_load = parse_float(row, "engine_load")
+    vehicle_speed_kph = parse_float(row, "vehicle_speed_kph")
+    ambient_temp_c = parse_float(row, "ambient_temp_c")
+    temp_error_c = coolant_temp_c - THERMAL_OBSERVER_TARGET_COOLANT_C
+    nominal_pump = clamp_unit(
+        0.30 + (0.025 * temp_error_c) + (0.35 * engine_load)
+    )
+    nominal_fan = clamp_unit(
+        0.25
+        + (0.065 * temp_error_c)
+        - (0.10 * (vehicle_speed_kph / 200.0))
+    )
+    # Older traces may not have command columns; default to the nominal healthy
+    # demand so the observer remains usable as a same-trace offline fallback.
+    pump_command = parse_float(row, "pump_command", nominal_pump)
+    fan_command = parse_float(row, "fan_command", nominal_fan)
+    pump_cooling = max(nominal_pump, pump_command)
+    fan_cooling = max(nominal_fan, fan_command)
+    heat_generation = 2.2 + (9.5 * engine_load)
+    if (
+        row.get("phase_label", "") == "hot_idle"
+        or parse_int(row, "phase_id", -1) == 3
+    ):
+        heat_generation += 2.0
+    heat_generation += parse_float(row, "campaign_heat_generation_bias")
+    ram_air_scale = parse_float(row, "campaign_ram_air_scale", 1.0)
+    expected_rate_c_per_s = (
+        heat_generation
+        - (7.5 * clamp_unit(pump_cooling))
+        - (6.0 * clamp_unit(fan_cooling))
+        - ((vehicle_speed_kph / 40.0) * ram_air_scale)
+        - (0.08 * (coolant_temp_c - ambient_temp_c))
+    )
+    return expected_rate_c_per_s * THERMAL_OBSERVER_DT_S
+
+
 def detector_alarms(rows: Sequence[Dict[str, str]], algorithm_name: str) -> List[bool]:
     signals = available_residuals(rows)
     alarms: List[bool] = []
@@ -219,6 +272,38 @@ def detector_alarms(rows: Sequence[Dict[str, str]], algorithm_name: str) -> List
             )
             previous_coolant_temp_c = current_coolant_temp_c
             expected_delta_c = thermal_observer_expected_delta(row)
+        return alarms
+
+    if algorithm_name == "kalman_filter":
+        estimate_c = parse_float(rows[0], "coolant_temp_meas_c")
+        covariance = KALMAN_FILTER_INITIAL_COVARIANCE
+        expected_delta_c = kalman_filter_expected_delta(rows[0], estimate_c)
+        accumulated_innovation = 0.0
+        alarms.append(False)
+        for row in rows[1:]:
+            predicted_c = estimate_c + expected_delta_c
+            predicted_covariance = covariance + KALMAN_FILTER_PROCESS_NOISE_Q
+            innovation = parse_float(row, "coolant_temp_meas_c") - predicted_c
+            innovation_variance = (
+                predicted_covariance + KALMAN_FILTER_MEASUREMENT_NOISE_R
+            )
+            normalized_innovation = abs(innovation) / math.sqrt(
+                innovation_variance
+            )
+            kalman_gain = predicted_covariance / innovation_variance
+            estimate_c = predicted_c + (kalman_gain * innovation)
+            covariance = (1.0 - kalman_gain) * predicted_covariance
+            accumulated_innovation = max(
+                0.0,
+                (KALMAN_FILTER_ACCUMULATION_LEAK * accumulated_innovation)
+                + normalized_innovation
+                - KALMAN_FILTER_ACCUMULATION_ALLOWANCE,
+            )
+            expected_delta_c = kalman_filter_expected_delta(row, estimate_c)
+            alarms.append(
+                normalized_innovation >= KALMAN_FILTER_INNOVATION_THRESHOLD
+                or accumulated_innovation >= KALMAN_FILTER_ACCUMULATION_LIMIT
+            )
         return alarms
 
     raise ValueError(f"Unknown offline detector: {algorithm_name}")
