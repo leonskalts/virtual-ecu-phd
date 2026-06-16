@@ -117,18 +117,91 @@ MAX_CUSTOM_SCENARIO_EVENTS = 4
 MAX_RECENT_RESULTS = 6
 MAX_FAVORITES = 8
 CTK_AVAILABLE = ctk is not None
-UI_FONT = "DejaVu Sans"
-APP_BG = "#edf2f7"
-CARD_BG = "#ffffff"
-SOFT_CARD_BG = "#f8fafc"
-SIDEBAR_BG = "#14213d"
-SIDEBAR_ACTIVE = "#2f80ed"
-SIDEBAR_HOVER = "#1f3f70"
-SIDEBAR_TEXT = "#f8fafc"
-TEXT_DARK = "#172033"
-TEXT_MUTED = "#526173"
-ACCENT_GREEN = "#2d9c6f"
-ACCENT_AMBER = "#d89020"
+THEME_COLORS = {
+    "app_bg": "#F4F7FB",
+    "card_bg": "#FFFFFF",
+    "soft_card_bg": "#F8FAFC",
+    "primary": "#2563EB",
+    "primary_hover": "#1D4ED8",
+    "secondary": "#6B7280",
+    "secondary_hover": "#4B5563",
+    "border": "#E5E7EB",
+    "text_primary": "#111827",
+    "text_secondary": "#6B7280",
+    "success": "#16A34A",
+    "success_hover": "#15803D",
+    "warning": "#F59E0B",
+    "warning_hover": "#D97706",
+    "danger": "#DC2626",
+    "danger_hover": "#B91C1C",
+    "info": "#0284C7",
+    "info_hover": "#0369A1",
+    "hero_bg": "#10233F",
+    "hero_text": "#FFFFFF",
+    "hero_muted": "#D7E2F2",
+    "sidebar_bg": "#111827",
+    "sidebar_hover": "#1F2937",
+    "sidebar_text": "#F9FAFB",
+    "table_alt": "#F9FAFB",
+    "table_selected": "#DBEAFE",
+    "badge_gray_bg": "#F3F4F6",
+    "badge_blue_bg": "#E0F2FE",
+    "badge_green_bg": "#DCFCE7",
+    "badge_orange_bg": "#FEF3C7",
+    "badge_red_bg": "#FEE2E2",
+}
+THEME_FONTS = {
+    "main": ("Segoe UI", 10),
+    "small": ("Segoe UI", 9),
+    "section_title": ("Segoe UI Semibold", 12),
+    "page_title": ("Segoe UI Semibold", 16),
+    "table_header": ("Segoe UI Semibold", 10),
+    "button": ("Segoe UI Semibold", 10),
+}
+THEME_SPACING = {
+    "page_pad": (18, 0, 18, 18),
+    "card_pad": (16, 0, 16, 16),
+    "card_gap": 12,
+    "button_pad": (14, 8),
+}
+BUTTON_STYLES = {
+    "primary": {
+        "style": "Primary.TButton",
+        "bg": THEME_COLORS["primary"],
+        "hover": THEME_COLORS["primary_hover"],
+        "fg": "#FFFFFF",
+    },
+    "secondary": {
+        "style": "Secondary.TButton",
+        "bg": THEME_COLORS["secondary"],
+        "hover": THEME_COLORS["secondary_hover"],
+        "fg": "#FFFFFF",
+    },
+    "success": {
+        "style": "Success.TButton",
+        "bg": THEME_COLORS["success"],
+        "hover": THEME_COLORS["success_hover"],
+        "fg": "#FFFFFF",
+    },
+    "danger": {
+        "style": "Danger.TButton",
+        "bg": THEME_COLORS["danger"],
+        "hover": THEME_COLORS["danger_hover"],
+        "fg": "#FFFFFF",
+    },
+}
+UI_FONT = "Segoe UI"
+APP_BG = THEME_COLORS["app_bg"]
+CARD_BG = THEME_COLORS["card_bg"]
+SOFT_CARD_BG = THEME_COLORS["soft_card_bg"]
+SIDEBAR_BG = THEME_COLORS["sidebar_bg"]
+SIDEBAR_ACTIVE = THEME_COLORS["primary"]
+SIDEBAR_HOVER = THEME_COLORS["sidebar_hover"]
+SIDEBAR_TEXT = THEME_COLORS["sidebar_text"]
+TEXT_DARK = THEME_COLORS["text_primary"]
+TEXT_MUTED = THEME_COLORS["text_secondary"]
+ACCENT_GREEN = THEME_COLORS["success"]
+ACCENT_AMBER = THEME_COLORS["warning"]
 DETECTION_ALGORITHM_OPTIONS: Sequence[Tuple[str, str, str]] = (
     (
         "Built-in ECU diagnostics",
@@ -4394,33 +4467,97 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
 
     def _configure_style(self) -> None:
         style = ttk.Style(self)
+        try:
+            style.theme_use("clam")
+        except tk.TclError:
+            pass
+        self.option_add("*Font", THEME_FONTS["main"])
+        self.option_add("*Background", APP_BG)
+        self.option_add("*Foreground", TEXT_DARK)
         style.configure("Root.TFrame", background=APP_BG)
-        style.configure("Panel.TFrame", background="#eef3f7")
+        style.configure("Panel.TFrame", background=APP_BG)
         style.configure("Card.TFrame", background=CARD_BG)
         style.configure("SoftCard.TFrame", background=SOFT_CARD_BG)
-        style.configure("Header.TLabel", font=(UI_FONT, 20, "bold"), foreground=TEXT_DARK, background=APP_BG)
-        style.configure("Subheader.TLabel", font=(UI_FONT, 10), foreground=TEXT_MUTED, background=APP_BG)
-        style.configure("Section.TLabel", font=(UI_FONT, 13, "bold"), foreground=TEXT_DARK, background=APP_BG)
-        style.configure("CardTitle.TLabel", font=(UI_FONT, 13, "bold"), foreground=TEXT_DARK, background=CARD_BG)
-        style.configure("CardHint.TLabel", font=(UI_FONT, 9), foreground=TEXT_MUTED, background=CARD_BG)
-        style.configure("CardFieldName.TLabel", font=(UI_FONT, 10, "bold"), foreground="#22313f", background=CARD_BG)
-        style.configure("SoftCardTitle.TLabel", font=(UI_FONT, 11, "bold"), foreground=TEXT_DARK, background=SOFT_CARD_BG)
-        style.configure("SoftCardHint.TLabel", font=(UI_FONT, 9), foreground=TEXT_MUTED, background=SOFT_CARD_BG)
-        style.configure("FieldName.TLabel", font=(UI_FONT, 10, "bold"), foreground="#22313f")
-        style.configure("FieldValue.TLabel", font=(UI_FONT, 10), foreground="#374553")
-        style.configure("Hint.TLabel", font=(UI_FONT, 9), foreground="#4d5c69")
-        style.configure("ColumnHeader.TLabel", font=(UI_FONT, 10, "bold"), foreground="#1d3448")
-        style.configure("MetricLabel.TLabel", font=(UI_FONT, 10, "bold"), foreground="#1f3040")
-        style.configure("Primary.TButton", padding=(12, 7), font=(UI_FONT, 10, "bold"))
-        style.configure("Secondary.TButton", padding=(10, 6))
-        style.configure("Batch.Treeview", rowheight=26, font=(UI_FONT, 9))
-        style.configure("Batch.Treeview.Heading", font=(UI_FONT, 9, "bold"))
-        style.configure("RuntimeStudy.Treeview", rowheight=26, font=(UI_FONT, 9))
-        style.configure("RuntimeStudy.Treeview.Heading", font=(UI_FONT, 9, "bold"))
-        style.configure("Detection.Treeview", rowheight=26, font=(UI_FONT, 9))
-        style.configure("Detection.Treeview.Heading", font=(UI_FONT, 9, "bold"))
-        style.configure("Evidence.Treeview", rowheight=52, font=(UI_FONT, 9))
-        style.configure("Evidence.Treeview.Heading", font=(UI_FONT, 9, "bold"))
+        style.configure("Header.TLabel", font=THEME_FONTS["page_title"], foreground=TEXT_DARK, background=APP_BG)
+        style.configure("Subheader.TLabel", font=THEME_FONTS["main"], foreground=TEXT_MUTED, background=APP_BG)
+        style.configure("Section.TLabel", font=THEME_FONTS["page_title"], foreground=TEXT_DARK, background=APP_BG)
+        style.configure("CardTitle.TLabel", font=THEME_FONTS["section_title"], foreground=TEXT_DARK, background=CARD_BG)
+        style.configure("CardHint.TLabel", font=THEME_FONTS["small"], foreground=TEXT_MUTED, background=CARD_BG)
+        style.configure("CardFieldName.TLabel", font=THEME_FONTS["button"], foreground=TEXT_DARK, background=CARD_BG)
+        style.configure("SoftCardTitle.TLabel", font=THEME_FONTS["button"], foreground=TEXT_DARK, background=SOFT_CARD_BG)
+        style.configure("SoftCardHint.TLabel", font=THEME_FONTS["small"], foreground=TEXT_MUTED, background=SOFT_CARD_BG)
+        style.configure("FieldName.TLabel", font=THEME_FONTS["button"], foreground=TEXT_DARK, background=CARD_BG)
+        style.configure("FieldValue.TLabel", font=THEME_FONTS["main"], foreground=TEXT_DARK, background=CARD_BG)
+        style.configure("Hint.TLabel", font=THEME_FONTS["small"], foreground=TEXT_MUTED, background=APP_BG)
+        style.configure("ColumnHeader.TLabel", font=THEME_FONTS["table_header"], foreground=TEXT_DARK, background=CARD_BG)
+        style.configure("MetricLabel.TLabel", font=THEME_FONTS["button"], foreground=TEXT_DARK, background=CARD_BG)
+        style.configure("TLabelframe", background=CARD_BG, bordercolor=THEME_COLORS["border"], relief="solid")
+        style.configure("TLabelframe.Label", font=THEME_FONTS["section_title"], foreground=TEXT_DARK, background=CARD_BG)
+        style.configure("TEntry", fieldbackground=CARD_BG, bordercolor=THEME_COLORS["border"], lightcolor=THEME_COLORS["border"], darkcolor=THEME_COLORS["border"])
+        style.configure("TCombobox", fieldbackground=CARD_BG, background=CARD_BG, bordercolor=THEME_COLORS["border"], arrowcolor=TEXT_MUTED)
+        style.configure(
+            "TButton",
+            padding=THEME_SPACING["button_pad"],
+            font=THEME_FONTS["button"],
+            borderwidth=0,
+            relief="flat",
+        )
+        for button_style in BUTTON_STYLES.values():
+            style.configure(
+                button_style["style"],
+                padding=THEME_SPACING["button_pad"],
+                font=THEME_FONTS["button"],
+                foreground=button_style["fg"],
+                background=button_style["bg"],
+                borderwidth=0,
+                focuscolor=button_style["bg"],
+                relief="flat",
+            )
+            style.map(
+                button_style["style"],
+                background=[
+                    ("disabled", THEME_COLORS["border"]),
+                    ("pressed", button_style["hover"]),
+                    ("active", button_style["hover"]),
+                ],
+                foreground=[("disabled", THEME_COLORS["text_secondary"])],
+            )
+        style.map(
+            "TButton",
+            background=[
+                ("disabled", THEME_COLORS["border"]),
+                ("pressed", THEME_COLORS["secondary_hover"]),
+                ("active", THEME_COLORS["secondary_hover"]),
+            ],
+        )
+        for tree_style in ("Batch", "RuntimeStudy", "Detection"):
+            style.configure(
+                f"{tree_style}.Treeview",
+                rowheight=30,
+                font=THEME_FONTS["small"],
+                background=CARD_BG,
+                fieldbackground=CARD_BG,
+                foreground=TEXT_DARK,
+                bordercolor=THEME_COLORS["border"],
+                lightcolor=THEME_COLORS["border"],
+                darkcolor=THEME_COLORS["border"],
+            )
+            style.configure(
+                f"{tree_style}.Treeview.Heading",
+                font=THEME_FONTS["table_header"],
+                background=SOFT_CARD_BG,
+                foreground=TEXT_DARK,
+                relief="flat",
+                bordercolor=THEME_COLORS["border"],
+            )
+            style.map(
+                f"{tree_style}.Treeview",
+                background=[("selected", THEME_COLORS["table_selected"])],
+                foreground=[("selected", TEXT_DARK)],
+            )
+        style.configure("Evidence.Treeview", rowheight=56, font=THEME_FONTS["small"], background=CARD_BG, fieldbackground=CARD_BG, foreground=TEXT_DARK)
+        style.configure("Evidence.Treeview.Heading", font=THEME_FONTS["table_header"], background=SOFT_CARD_BG, foreground=TEXT_DARK, relief="flat")
+        style.map("Evidence.Treeview", background=[("selected", THEME_COLORS["table_selected"])], foreground=[("selected", TEXT_DARK)])
         style.configure("Sidebar.TNotebook", background=APP_BG, borderwidth=0)
         style.configure("Sidebar.TNotebook.Tab", padding=0)
         try:
@@ -4699,7 +4836,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         *,
         fg_color: str = CARD_BG,
         corner_radius: int = 16,
-        border_color: str = "#d9e2ec",
+        border_color: str = THEME_COLORS["border"],
         border_width: int = 1,
     ) -> tk.Widget:
         if CTK_AVAILABLE:
@@ -4710,7 +4847,15 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                 border_color=border_color,
                 border_width=border_width,
             )
-        return tk.Frame(parent, bg=fg_color, bd=1 if border_width else 0, relief="solid", highlightthickness=0)
+        return tk.Frame(
+            parent,
+            bg=fg_color,
+            bd=0,
+            relief="flat",
+            highlightthickness=border_width,
+            highlightbackground=border_color,
+            highlightcolor=border_color,
+        )
 
     def _modern_label(
         self,
@@ -4756,33 +4901,79 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         command,
         *,
         color: str = SIDEBAR_ACTIVE,
+        hover_color: str | None = None,
     ) -> tk.Widget:
+        if hover_color is not None:
+            hover = hover_color
+        elif color == THEME_COLORS["success"]:
+            hover = THEME_COLORS["success_hover"]
+        elif color == THEME_COLORS["danger"]:
+            hover = THEME_COLORS["danger_hover"]
+        elif color == THEME_COLORS["secondary"]:
+            hover = THEME_COLORS["secondary_hover"]
+        else:
+            hover = THEME_COLORS["primary_hover"]
         if CTK_AVAILABLE:
             return ctk.CTkButton(
                 parent,
                 text=text,
                 command=command,
                 fg_color=color,
-                hover_color="#1c63b7",
+                hover_color=hover,
                 text_color="#ffffff",
                 height=38,
                 corner_radius=10,
-                font=(UI_FONT, 12, "bold"),
+                font=THEME_FONTS["button"],
             )
-        return tk.Button(
+        button = tk.Button(
             parent,
             text=text,
             command=command,
             bg=color,
             fg="#ffffff",
-            activebackground="#1c63b7",
+            activebackground=hover,
             activeforeground="#ffffff",
             relief="flat",
             borderwidth=0,
             padx=12,
             pady=8,
-            font=(UI_FONT, 11, "bold"),
+            font=THEME_FONTS["button"],
+            cursor="hand2",
         )
+        button.bind("<Enter>", lambda _event: button.configure(bg=hover))
+        button.bind("<Leave>", lambda _event: button.configure(bg=color))
+        return button
+
+    def _make_ttk_button(
+        self,
+        parent: tk.Misc,
+        text: str,
+        command,
+        *,
+        variant: str = "secondary",
+    ) -> ttk.Button:
+        return ttk.Button(
+            parent,
+            text=text,
+            command=command,
+            style=BUTTON_STYLES[variant]["style"],
+        )
+
+    def make_primary_button(self, parent: tk.Misc, text: str, command) -> ttk.Button:
+        return self._make_ttk_button(parent, text, command, variant="primary")
+
+    def make_secondary_button(self, parent: tk.Misc, text: str, command) -> ttk.Button:
+        return self._make_ttk_button(parent, text, command, variant="secondary")
+
+    def make_success_button(self, parent: tk.Misc, text: str, command) -> ttk.Button:
+        return self._make_ttk_button(parent, text, command, variant="success")
+
+    def make_danger_button(self, parent: tk.Misc, text: str, command) -> ttk.Button:
+        return self._make_ttk_button(parent, text, command, variant="danger")
+
+    def _configure_table_tags(self, table: ttk.Treeview) -> None:
+        table.tag_configure("odd", background=CARD_BG)
+        table.tag_configure("even", background=THEME_COLORS["table_alt"])
 
     def _section_card(
         self,
@@ -4791,7 +4982,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         title: str,
         description: str = "",
         fg_color: str = CARD_BG,
-        border_color: str = "#dce6f1",
+        border_color: str = THEME_COLORS["border"],
     ) -> tk.Widget:
         card = self._modern_frame(parent, fg_color=fg_color, corner_radius=16, border_color=border_color)
         card.columnconfigure(0, weight=1)
@@ -4831,7 +5022,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         accent: str,
         padx: Tuple[int, int] = (0, 10),
     ) -> None:
-        card = self._modern_frame(parent, fg_color=CARD_BG, border_color="#dce6f1")
+        card = self._modern_frame(parent, fg_color=CARD_BG, border_color=THEME_COLORS["border"])
         card.grid(row=row, column=column, sticky="nsew", padx=padx, pady=(0, 10))
         card.columnconfigure(0, weight=1)
         self._modern_label(
@@ -4857,7 +5048,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         shell.grid(row=0, column=0, sticky="nsew")
         shell.columnconfigure(0, weight=1)
 
-        hero = self._modern_frame(shell, fg_color="#10233f", corner_radius=20, border_width=0)
+        hero = self._modern_frame(shell, fg_color=THEME_COLORS["hero_bg"], corner_radius=20, border_width=0)
         hero.grid(row=0, column=0, sticky="ew", pady=(0, 14))
         hero.columnconfigure(0, weight=1)
         hero.columnconfigure(1, weight=0)
@@ -4865,8 +5056,8 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             hero,
             text="Virtual ECU Experiment Dashboard",
             font=(UI_FONT, 24, "bold"),
-            text_color="#ffffff",
-            fg_color="#10233f",
+            text_color=THEME_COLORS["hero_text"],
+            fg_color=THEME_COLORS["hero_bg"],
         ).grid(row=0, column=0, sticky="ew", padx=24, pady=(24, 4))
         self._modern_label(
             hero,
@@ -4875,8 +5066,8 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                 "review batch trends, and export publication-friendly bundles from one guided workspace."
             ),
             font=(UI_FONT, 12),
-            text_color="#d7e2f2",
-            fg_color="#10233f",
+            text_color=THEME_COLORS["hero_muted"],
+            fg_color=THEME_COLORS["hero_bg"],
             wraplength=820,
         ).grid(row=1, column=0, sticky="ew", padx=24, pady=(0, 24))
         self._modern_button(hero, "Run Default Comparison", self.run_comparison, color=ACCENT_GREEN).grid(
@@ -4930,7 +5121,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             self.run_comparison,
             color=ACCENT_GREEN,
         ).grid(row=1, column=0, sticky="ew", pady=(0, 8))
-        ttk.Button(
+        self.make_secondary_button(
             quick_actions,
             text="Go to Guided Setup",
             command=lambda: self._navigate_to_page("summary"),
@@ -5033,7 +5224,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self._build_tab_header(
             parent,
             row=0,
-            title="Export Reports",
+            title="Exports",
             description=(
                 "Create report artifacts from the current comparison. If the buttons are disabled, go to Run / Load first "
                 "and open or run a left-versus-right result pair."
@@ -5149,18 +5340,16 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         primary_actions = ttk.Frame(actions, style="Root.TFrame")
         primary_actions.grid(row=0, column=0, sticky="ew")
         primary_actions.columnconfigure(0, weight=1)
-        self.run_compare_button = ttk.Button(
+        self.run_compare_button = self.make_primary_button(
             primary_actions,
             text="Run Built-In Comparison",
             command=self.run_comparison,
-            style="Primary.TButton",
         )
         self.run_compare_button.grid(row=0, column=0, sticky="ew")
-        self.run_left_button = ttk.Button(
+        self.run_left_button = self.make_secondary_button(
             primary_actions,
             text="Run Left Only",
             command=self.run_left_only,
-            style="Secondary.TButton",
         )
         self.run_left_button.grid(row=1, column=0, sticky="ew", pady=(8, 0))
 
@@ -5168,10 +5357,10 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         load_actions.grid(row=1, column=0, sticky="ew", pady=(12, 0))
         load_actions.columnconfigure(0, weight=1)
         ttk.Label(load_actions, text="Load saved results", style="CardFieldName.TLabel").grid(row=0, column=0, sticky="w")
-        ttk.Button(load_actions, text="Load Result as Left", command=self.load_existing_as_left).grid(
+        self.make_secondary_button(load_actions, text="Load Result as Left", command=self.load_existing_as_left).grid(
             row=1, column=0, sticky="ew", pady=(6, 0)
         )
-        ttk.Button(load_actions, text="Load Result as Right", command=self.load_existing_as_right).grid(
+        self.make_secondary_button(load_actions, text="Load Result as Right", command=self.load_existing_as_right).grid(
             row=2, column=0, sticky="ew", pady=(8, 0)
         )
 
@@ -5179,13 +5368,13 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         export_actions.grid(row=2, column=0, sticky="ew", pady=(12, 0))
         export_actions.columnconfigure(0, weight=1)
         ttk.Label(export_actions, text="Export outputs", style="CardFieldName.TLabel").grid(row=0, column=0, sticky="w")
-        self.snapshot_button = ttk.Button(export_actions, text="Export Snapshot", command=self.export_results_snapshot)
+        self.snapshot_button = self.make_secondary_button(export_actions, text="Export Snapshot", command=self.export_results_snapshot)
         self.snapshot_button.grid(row=1, column=0, sticky="ew", pady=(6, 0))
         self.snapshot_button.state(["disabled"])
-        self.export_button = ttk.Button(export_actions, text="Export Full Report", command=self.export_current_comparison)
+        self.export_button = self.make_success_button(export_actions, text="Export Full Report", command=self.export_current_comparison)
         self.export_button.grid(row=2, column=0, sticky="ew", pady=(8, 0))
         self.export_button.state(["disabled"])
-        self.presentation_bundle_button = ttk.Button(
+        self.presentation_bundle_button = self.make_success_button(
             export_actions,
             text="Export Presentation Bundle",
             command=self.export_presentation_bundle,
@@ -5265,7 +5454,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self._build_tab_header(
             parent,
             row=0,
-            title="Comparison Figures",
+            title="Scenario Comparison",
             description=(
                 "This is the visual analysis page. After a comparison is loaded, choose one figure at a time and use the "
                 "evidence table to explain what happened."
@@ -5408,10 +5597,9 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self._build_tab_header(
             parent,
             row=0,
-            title="Custom Experiment",
+            title="Custom Scenario Builder",
             description=(
-                "Start with the Single Fault tab if you are new. Multi-fault scenarios and advanced placement are optional "
-                "tools for more specific thesis/demo stories."
+                "Create, run, and compare single-fault or multi-fault ECU experiments."
             ),
         )
 
@@ -5474,11 +5662,10 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             wraplength=520,
             justify="left",
         ).grid(row=0, column=2, sticky="w")
-        self.compare_all_algorithms_button = ttk.Button(
+        self.compare_all_algorithms_button = self.make_primary_button(
             detection_controls,
             text="Compare All Algorithms",
             command=self.compare_all_detection_algorithms,
-            style="Secondary.TButton",
         )
         self.compare_all_algorithms_button.grid(
             row=0,
@@ -5678,6 +5865,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             height=len(SUPPORTED_ALGORITHMS),
             style="Detection.Treeview",
         )
+        self._configure_table_tags(self.detection_comparison_table)
         comparison_headings = {
             "algorithm": "Algorithm",
             "detected": "Detected",
@@ -5817,9 +6005,9 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
 
         preset_actions = ttk.Frame(presets, style="Root.TFrame")
         preset_actions.grid(row=1, column=0, columnspan=4, sticky="w", pady=(0, 8))
-        ttk.Button(preset_actions, text="Save Preset", command=self.save_custom_preset).grid(row=0, column=0, sticky="w")
-        ttk.Button(preset_actions, text="Load Preset", command=self.load_selected_custom_preset).grid(row=0, column=1, sticky="w", padx=(8, 0))
-        ttk.Button(preset_actions, text="Delete Preset", command=self.delete_selected_custom_preset).grid(row=0, column=2, sticky="w", padx=(8, 0))
+        self.make_secondary_button(preset_actions, text="Save Preset", command=self.save_custom_preset).grid(row=0, column=0, sticky="w")
+        self.make_secondary_button(preset_actions, text="Load Preset", command=self.load_selected_custom_preset).grid(row=0, column=1, sticky="w", padx=(8, 0))
+        self.make_danger_button(preset_actions, text="Delete Preset", command=self.delete_selected_custom_preset).grid(row=0, column=2, sticky="w", padx=(8, 0))
 
         ttk.Label(
             presets,
@@ -5845,18 +6033,16 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
 
         primary_actions = ttk.Frame(actions_card, style="Root.TFrame")
         primary_actions.grid(row=0, column=0, sticky="w")
-        run_show = ttk.Button(
+        run_show = self.make_primary_button(
             primary_actions,
             text="Run Single Fault",
             command=self.run_custom_only,
-            style="Primary.TButton",
         )
         run_show.grid(row=0, column=0, sticky="w")
-        compare_show = ttk.Button(
+        compare_show = self.make_secondary_button(
             primary_actions,
             text="Compare vs Baseline",
             command=self.compare_custom_vs_baseline,
-            style="Secondary.TButton",
         )
         compare_show.grid(row=0, column=1, sticky="w", padx=(8, 0))
 
@@ -5875,11 +6061,11 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         advanced.grid(row=2, column=0, sticky="w")
 
         ttk.Label(advanced, text="Optional placement:", style="FieldName.TLabel").grid(row=0, column=0, sticky="w")
-        run_only = ttk.Button(advanced, text="Run and Inspect Only", command=self.run_custom_only)
+        run_only = self.make_secondary_button(advanced, text="Run and Inspect Only", command=self.run_custom_only)
         run_only.grid(row=0, column=1, sticky="w", padx=(8, 0))
-        load_left = ttk.Button(advanced, text="Use as Left Side", command=self.load_custom_as_left)
+        load_left = self.make_secondary_button(advanced, text="Use as Left Side", command=self.load_custom_as_left)
         load_left.grid(row=0, column=2, sticky="w", padx=(8, 0))
-        load_right = ttk.Button(advanced, text="Use as Right Side", command=self.load_custom_as_right)
+        load_right = self.make_secondary_button(advanced, text="Use as Right Side", command=self.load_custom_as_right)
         load_right.grid(row=0, column=3, sticky="w", padx=(8, 0))
 
         ttk.Label(
@@ -5976,12 +6162,12 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
 
         event_actions = ttk.Frame(editor, style="Root.TFrame")
         event_actions.grid(row=3, column=0, columnspan=5, sticky="w", pady=(10, 0))
-        ttk.Button(event_actions, text="Add Event", command=self.add_multi_event).grid(row=0, column=0, sticky="w")
-        ttk.Button(event_actions, text="Update Selected", command=self.update_multi_event).grid(row=0, column=1, sticky="w", padx=(8, 0))
-        ttk.Button(event_actions, text="Remove Selected", command=self.remove_multi_event).grid(row=0, column=2, sticky="w", padx=(8, 0))
-        ttk.Button(event_actions, text="Move Up", command=self.move_multi_event_up).grid(row=0, column=3, sticky="w", padx=(8, 0))
-        ttk.Button(event_actions, text="Move Down", command=self.move_multi_event_down).grid(row=0, column=4, sticky="w", padx=(8, 0))
-        ttk.Button(event_actions, text="Clear Scenario", command=self.clear_multi_events).grid(row=0, column=5, sticky="w", padx=(8, 0))
+        self.make_secondary_button(event_actions, text="Add Event", command=self.add_multi_event).grid(row=0, column=0, sticky="w")
+        self.make_secondary_button(event_actions, text="Update Selected", command=self.update_multi_event).grid(row=0, column=1, sticky="w", padx=(8, 0))
+        self.make_secondary_button(event_actions, text="Remove Selected", command=self.remove_multi_event).grid(row=0, column=2, sticky="w", padx=(8, 0))
+        self.make_secondary_button(event_actions, text="Move Up", command=self.move_multi_event_up).grid(row=0, column=3, sticky="w", padx=(8, 0))
+        self.make_secondary_button(event_actions, text="Move Down", command=self.move_multi_event_down).grid(row=0, column=4, sticky="w", padx=(8, 0))
+        self.make_danger_button(event_actions, text="Clear Scenario", command=self.clear_multi_events).grid(row=0, column=5, sticky="w", padx=(8, 0))
 
         middle = ttk.Frame(builder, style="Root.TFrame")
         middle.grid(row=3, column=0, sticky="nsew", padx=16, pady=(0, 10))
@@ -6085,9 +6271,9 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
 
         preset_actions = ttk.Frame(presets, style="Root.TFrame")
         preset_actions.grid(row=2, column=0, columnspan=4, sticky="w")
-        ttk.Button(preset_actions, text="Save Scenario Preset", command=self.save_multi_preset).grid(row=0, column=0, sticky="w")
-        ttk.Button(preset_actions, text="Load Scenario Preset", command=self.load_selected_multi_preset).grid(row=0, column=1, sticky="w", padx=(8, 0))
-        ttk.Button(preset_actions, text="Delete Scenario Preset", command=self.delete_selected_multi_preset).grid(row=0, column=2, sticky="w", padx=(8, 0))
+        self.make_secondary_button(preset_actions, text="Save Scenario Preset", command=self.save_multi_preset).grid(row=0, column=0, sticky="w")
+        self.make_secondary_button(preset_actions, text="Load Scenario Preset", command=self.load_selected_multi_preset).grid(row=0, column=1, sticky="w", padx=(8, 0))
+        self.make_danger_button(preset_actions, text="Delete Scenario Preset", command=self.delete_selected_multi_preset).grid(row=0, column=2, sticky="w", padx=(8, 0))
 
         actions_outer = self._section_card(
             builder,
@@ -6102,18 +6288,16 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
 
         primary_actions = ttk.Frame(actions_card, style="Root.TFrame")
         primary_actions.grid(row=0, column=0, sticky="w")
-        run_show = ttk.Button(
+        run_show = self.make_primary_button(
             primary_actions,
             text="Run Scenario",
             command=self.run_multi_only,
-            style="Primary.TButton",
         )
         run_show.grid(row=0, column=0, sticky="w")
-        compare_show = ttk.Button(
+        compare_show = self.make_secondary_button(
             primary_actions,
             text="Compare vs Baseline",
             command=self.compare_multi_vs_baseline,
-            style="Secondary.TButton",
         )
         compare_show.grid(row=0, column=1, sticky="w", padx=(8, 0))
 
@@ -6131,11 +6315,11 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         actions = ttk.Frame(actions_card, style="Root.TFrame")
         actions.grid(row=2, column=0, sticky="w")
         ttk.Label(actions, text="Optional placement:", style="FieldName.TLabel").grid(row=0, column=0, sticky="w")
-        run_only = ttk.Button(actions, text="Run and Inspect Only", command=self.run_multi_only)
+        run_only = self.make_secondary_button(actions, text="Run and Inspect Only", command=self.run_multi_only)
         run_only.grid(row=0, column=1, sticky="w", padx=(8, 0))
-        load_left = ttk.Button(actions, text="Use as Left Side", command=self.load_multi_as_left)
+        load_left = self.make_secondary_button(actions, text="Use as Left Side", command=self.load_multi_as_left)
         load_left.grid(row=0, column=2, sticky="w", padx=(8, 0))
-        load_right = ttk.Button(actions, text="Use as Right Side", command=self.load_multi_as_right)
+        load_right = self.make_secondary_button(actions, text="Use as Right Side", command=self.load_multi_as_right)
         load_right.grid(row=0, column=3, sticky="w", padx=(8, 0))
 
         ttk.Label(
@@ -6167,6 +6351,36 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         wraplength: int = 280,
     ) -> None:
         ttk.Label(parent, text=title, style="CardFieldName.TLabel").grid(row=row, column=0, sticky="nw", padx=(0, 12), pady=4)
+        if title in {
+            "Algorithm",
+            "Detected",
+            "Action Mode",
+            "Action Requested",
+            "Requested Safe State",
+            "Missed Detection",
+            "False Positives",
+        }:
+            label = tk.Label(
+                parent,
+                textvariable=variable,
+                font=THEME_FONTS["small"],
+                padx=8,
+                pady=3,
+                relief="flat",
+                anchor="w",
+                justify="left",
+                wraplength=wraplength,
+            )
+            label.grid(row=row, column=1, sticky="w", pady=4)
+
+            def refresh_badge(*_args: object) -> None:
+                bg, fg = self._status_badge_colors(title, variable.get())
+                label.configure(bg=bg, fg=fg)
+
+            variable.trace_add("write", refresh_badge)
+            refresh_badge()
+            return
+
         ttk.Label(
             parent,
             textvariable=variable,
@@ -6174,6 +6388,35 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             wraplength=wraplength,
             justify="left",
         ).grid(row=row, column=1, sticky="w", pady=4)
+
+    def _status_badge_colors(self, title: str, value: str) -> Tuple[str, str]:
+        text = value.strip().lower()
+        if text in {"", "-", "n/a", "none", "observe_only", "observe only"}:
+            return THEME_COLORS["badge_gray_bg"], THEME_COLORS["secondary"]
+        if title in {"Detected", "Action Requested"}:
+            if text in {"yes", "1", "true"}:
+                return THEME_COLORS["badge_green_bg"], THEME_COLORS["success"]
+            if text in {"no", "0", "false"}:
+                return THEME_COLORS["badge_gray_bg"], THEME_COLORS["secondary"]
+        if title == "Missed Detection":
+            if text in {"yes", "1", "true"}:
+                return THEME_COLORS["badge_red_bg"], THEME_COLORS["danger"]
+            if text in {"no", "0", "false"}:
+                return THEME_COLORS["badge_green_bg"], THEME_COLORS["success"]
+        if title == "False Positives":
+            try:
+                return (
+                    (THEME_COLORS["badge_green_bg"], THEME_COLORS["success"])
+                    if int(float(text)) == 0
+                    else (THEME_COLORS["badge_orange_bg"], THEME_COLORS["warning"])
+                )
+            except ValueError:
+                return THEME_COLORS["badge_gray_bg"], THEME_COLORS["secondary"]
+        if "limp" in text or "precautionary" in text or "requested" in text:
+            return THEME_COLORS["badge_orange_bg"], THEME_COLORS["warning"]
+        if "shutdown" in text or "critical" in text:
+            return THEME_COLORS["badge_red_bg"], THEME_COLORS["danger"]
+        return THEME_COLORS["badge_blue_bg"], THEME_COLORS["info"]
 
     def _build_fault_path_tab(self, parent: ttk.Frame) -> None:
         self._build_tab_header(
@@ -6242,8 +6485,8 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         ttk.Label(controls, text="Aggregate CSV", style="CardFieldName.TLabel").grid(row=0, column=0, sticky="w")
         path_entry = ttk.Entry(controls, textvariable=self.batch_csv_path)
         path_entry.grid(row=0, column=1, sticky="ew", padx=(10, 10))
-        ttk.Button(controls, text="Browse", command=self.browse_batch_results).grid(row=0, column=2, sticky="e")
-        ttk.Button(controls, text="Load Aggregate CSV", command=self.load_batch_results, style="Primary.TButton").grid(
+        self.make_secondary_button(controls, text="Browse", command=self.browse_batch_results).grid(row=0, column=2, sticky="e")
+        self.make_primary_button(controls, text="Load Aggregate CSV", command=self.load_batch_results).grid(
             row=0, column=3, sticky="e", padx=(8, 0)
         )
 
@@ -6295,6 +6538,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             description="A compact table of observability, thermal severity, and final safety outcomes.",
         )
         table_card.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+        table_card.rowconfigure(2, weight=1)
         table_frame = self._card_content(table_card)
         table_frame.columnconfigure(0, weight=1)
         table_frame.rowconfigure(0, weight=1)
@@ -6315,6 +6559,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             height=10,
             style="Batch.Treeview",
         )
+        self._configure_table_tags(self.batch_table)
         headings = {
             "fault_type": "Fault Type",
             "runs": "Runs",
@@ -6343,13 +6588,24 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             "dominant_safe_state": tk.CENTER,
         }
         for column_id in columns:
-            self.batch_table.heading(column_id, text=headings[column_id])
-            self.batch_table.column(column_id, width=widths[column_id], anchor=anchors[column_id], stretch=column_id == "fault_type")
+            self.batch_table.heading(column_id, text=headings[column_id], anchor=tk.CENTER)
+            self.batch_table.column(
+                column_id,
+                width=widths[column_id],
+                minwidth=widths[column_id],
+                anchor=anchors[column_id],
+                stretch=False,
+            )
 
-        scroll = ttk.Scrollbar(table_frame, orient="vertical", command=self.batch_table.yview)
-        self.batch_table.configure(yscrollcommand=scroll.set)
+        y_scroll = ttk.Scrollbar(table_frame, orient="vertical", command=self.batch_table.yview)
+        x_scroll = ttk.Scrollbar(table_frame, orient="horizontal", command=self.batch_table.xview)
+        self.batch_table.configure(
+            yscrollcommand=y_scroll.set,
+            xscrollcommand=x_scroll.set,
+        )
         self.batch_table.grid(row=0, column=0, sticky="nsew")
-        scroll.grid(row=0, column=1, sticky="ns")
+        y_scroll.grid(row=0, column=1, sticky="ns")
+        x_scroll.grid(row=1, column=0, sticky="ew", pady=(6, 0))
 
         plot_card = self._section_card(
             content,
@@ -6447,27 +6703,24 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
 
         actions = ttk.Frame(status_content, style="Card.TFrame")
         actions.grid(row=0, column=1, rowspan=3, sticky="e", padx=(16, 0))
-        self.runtime_study_run_button = ttk.Button(
+        self.runtime_study_run_button = self.make_primary_button(
             actions,
             text="Run Predefined Study",
             command=self.run_runtime_intervention_study,
-            style="Primary.TButton",
         )
         self.runtime_study_run_button.grid(row=0, column=0, sticky="e")
-        self.runtime_custom_matrix_run_button = ttk.Button(
+        self.runtime_custom_matrix_run_button = self.make_primary_button(
             actions,
             text="Run Matrix for Latest Custom Scenario",
             command=self.run_runtime_custom_matrix,
-            style="Primary.TButton",
         )
         self.runtime_custom_matrix_run_button.grid(
             row=1, column=0, sticky="e", pady=(8, 0)
         )
-        self.runtime_study_report_button = ttk.Button(
+        self.runtime_study_report_button = self.make_success_button(
             actions,
             text="Open HTML Report",
             command=self.open_runtime_study_report,
-            style="Secondary.TButton",
         )
         self.runtime_study_report_button.grid(
             row=0,
@@ -6475,16 +6728,15 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             sticky="e",
             padx=(8, 0),
         )
-        self.runtime_study_folder_button = ttk.Button(
+        self.runtime_study_folder_button = self.make_secondary_button(
             actions,
             text="Open Output Folder",
             command=self.open_runtime_study_output_folder,
-            style="Secondary.TButton",
         )
         self.runtime_study_folder_button.grid(
             row=1, column=1, sticky="e", padx=(8, 0), pady=(8, 0)
         )
-        ttk.Button(
+        self.make_secondary_button(
             actions,
             text="Reload Results",
             command=self.load_runtime_study_source,
@@ -6562,6 +6814,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             ),
         )
         table_card.grid(row=4, column=0, sticky="ew", padx=12, pady=(0, 12))
+        table_card.rowconfigure(2, weight=1)
         table_frame = self._card_content(table_card)
         table_frame.columnconfigure(0, weight=1)
         table_frame.rowconfigure(0, weight=1)
@@ -6575,21 +6828,17 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             style="RuntimeStudy.Treeview",
             selectmode="browse",
         )
+        self._configure_table_tags(self.runtime_study_table)
         for column, label, width in RUNTIME_STUDY_TABLE_SPECS:
-            self.runtime_study_table.heading(column, text=label)
+            self.runtime_study_table.heading(column, text=label, anchor=tk.CENTER)
             self.runtime_study_table.column(
                 column,
                 width=width,
                 minwidth=70,
-                anchor=tk.W if column in {
-                    "scenario_name",
-                    "detector_action",
-                    "runtime_detection_requested_safe_state",
-                    "first_ecu_dtc_label",
-                    "final_safe_state",
-                } else tk.CENTER,
+                anchor=tk.W if column == "scenario_name" else tk.CENTER,
                 stretch=False,
             )
+        self._apply_runtime_study_table_alignment()
 
         y_scroll = ttk.Scrollbar(
             table_frame,
@@ -6623,18 +6872,46 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.runtime_study_figures_content.columnconfigure(1, weight=0)
         self._refresh_runtime_study_figure_buttons()
 
+    def _apply_runtime_study_table_alignment(self) -> None:
+        if self.runtime_study_table is None:
+            return
+        for column, label, width in RUNTIME_STUDY_TABLE_SPECS:
+            self.runtime_study_table.heading(column, text=label, anchor=tk.CENTER)
+            self.runtime_study_table.column(
+                column,
+                width=width,
+                minwidth=70,
+                anchor=tk.W if column == "scenario_name" else tk.CENTER,
+                stretch=False,
+            )
+
     def _build_tab_header(self, parent: ttk.Frame, *, row: int, title: str, description: str) -> None:
-        header = ttk.Frame(parent, padding=(12, 8, 12, 10), style="Root.TFrame")
-        header.grid(row=row, column=0, sticky="ew")
+        header = self._modern_frame(
+            parent,
+            fg_color=THEME_COLORS["hero_bg"],
+            corner_radius=18,
+            border_width=0,
+        )
+        header.grid(row=row, column=0, sticky="ew", padx=12, pady=(8, 14))
         header.columnconfigure(0, weight=1)
-        ttk.Label(header, text=title, style="Section.TLabel").grid(row=0, column=0, sticky="w")
-        ttk.Label(
+        self._modern_label(
+            header,
+            text=title,
+            font=THEME_FONTS["page_title"],
+            text_color=THEME_COLORS["hero_text"],
+            fg_color=THEME_COLORS["hero_bg"],
+        ).grid(row=0, column=0, sticky="ew", padx=22, pady=(20, 4))
+        self._modern_label(
             header,
             text=description,
-            style="Hint.TLabel",
+            font=THEME_FONTS["main"],
+            text_color=THEME_COLORS["hero_muted"],
+            fg_color=THEME_COLORS["hero_bg"],
             wraplength=1050,
-            justify="left",
-        ).grid(row=1, column=0, sticky="w", pady=(4, 0))
+        ).grid(row=1, column=0, sticky="ew", padx=22, pady=(0, 20))
+
+    def create_page_header(self, parent: ttk.Frame, *, row: int, title: str, subtitle: str) -> None:
+        self._build_tab_header(parent, row=row, title=title, description=subtitle)
 
     def _build_selector_card(
         self,
@@ -6674,14 +6951,19 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         ).grid(row=1, column=1, sticky="w", pady=(6, 0))
 
     def _build_batch_stat_card(self, parent: ttk.Frame, column: int, title: str, variable: tk.StringVar) -> None:
-        card = self._modern_frame(parent, fg_color=CARD_BG, corner_radius=16, border_color="#dce6f1")
+        card = self._modern_frame(
+            parent,
+            fg_color=CARD_BG,
+            corner_radius=16,
+            border_color=THEME_COLORS["border"],
+        )
         card.grid(row=0, column=column, sticky="nsew", padx=(0, 10 if column < 2 else 0))
         self._modern_label(
             card,
             text=title,
             fg_color=CARD_BG,
             text_color=TEXT_MUTED,
-            font=(UI_FONT, 10, "bold"),
+            font=THEME_FONTS["button"],
             anchor="w",
         ).pack(fill="x", padx=14, pady=(12, 2))
         self._modern_label(
@@ -6689,7 +6971,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             textvariable=variable,
             fg_color=CARD_BG,
             text_color=TEXT_DARK,
-            font=(UI_FONT, 12, "bold"),
+            font=THEME_FONTS["section_title"],
             justify="left",
             wraplength=300,
             anchor="w",
@@ -6808,7 +7090,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         if self.detection_comparison_table is None:
             return
 
-        for result in results:
+        for index, result in enumerate(results):
             algorithm_name = str(result["algorithm"])
             fault_present = str(result.get("fault_type", "none")) != "none"
             missed = (
@@ -6819,6 +7101,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             self.detection_comparison_table.insert(
                 "",
                 tk.END,
+                tags=("even" if index % 2 else "odd",),
                 values=(
                     DETECTION_ALGORITHM_DISPLAY.get(
                         algorithm_name,
@@ -7102,7 +7385,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                     title = favorite["title"]
                     if len(title) > 38:
                         title = title[:35] + "..."
-                    ttk.Button(
+                    self.make_secondary_button(
                         self.favorites_frame,
                         text=title,
                         command=lambda favorite_item=dict(favorite): self.load_favorite_comparison(favorite_item),
@@ -7164,7 +7447,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             if len(title) > 38:
                 title = title[:35] + "..."
             button_text = f"{title}"
-            ttk.Button(
+            self.make_secondary_button(
                 self.recent_results_frame,
                 text=button_text,
                 command=lambda recent_item=dict(item): self.load_recent_result(recent_item),
@@ -8153,7 +8436,12 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         body_font: Tuple[str, int] | Tuple[str, int, str],
         body_fg: str,
     ) -> None:
-        card = self._modern_frame(parent, fg_color=CARD_BG, corner_radius=14, border_color="#dce6f1")
+        card = self._modern_frame(
+            parent,
+            fg_color=CARD_BG,
+            corner_radius=14,
+            border_color=THEME_COLORS["border"],
+        )
         card.grid(row=0, column=column, sticky="nsew", padx=(0, 10 if column == 0 else 0))
 
         self._modern_label(
@@ -8200,14 +8488,19 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         for index, (title, guidance) in enumerate(quick_paths):
             row = 1 + index // 3
             column = index % 3
-            card = tk.Frame(panel, bg="#ffffff", bd=1, relief="solid", highlightthickness=0)
+            card = self._modern_frame(
+                panel,
+                fg_color=CARD_BG,
+                corner_radius=12,
+                border_color=THEME_COLORS["border"],
+            )
             card.grid(row=row, column=column, sticky="nsew", padx=(0, 8 if column < 2 else 0), pady=4)
             tk.Label(
                 card,
                 text=title,
-                bg="#ffffff",
-                fg="#22313f",
-                font=("TkDefaultFont", 9, "bold"),
+                bg=CARD_BG,
+                fg=TEXT_DARK,
+                font=THEME_FONTS["small"] + ("bold",),
                 anchor="w",
                 padx=10,
                 pady=0,
@@ -8215,9 +8508,9 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             tk.Label(
                 card,
                 text=guidance,
-                bg="#ffffff",
-                fg="#4d5c69",
-                font=("TkDefaultFont", 9),
+                bg=CARD_BG,
+                fg=TEXT_MUTED,
+                font=THEME_FONTS["small"],
                 justify="left",
                 wraplength=315,
                 anchor="w",
@@ -8225,7 +8518,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                 pady=8,
             ).pack(fill="x")
 
-        session_actions = ttk.Frame(panel, style="Root.TFrame")
+        session_actions = ttk.Frame(panel, style="Card.TFrame")
         session_actions.grid(row=3, column=0, columnspan=3, sticky="ew", pady=(8, 0))
         session_actions.columnconfigure(0, weight=1)
 
@@ -8237,10 +8530,10 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             justify="left",
         ).grid(row=0, column=0, sticky="w")
 
-        action_buttons = ttk.Frame(session_actions, style="Root.TFrame")
+        action_buttons = ttk.Frame(session_actions, style="Card.TFrame")
         action_buttons.grid(row=0, column=1, sticky="e", padx=(12, 0))
-        ttk.Button(action_buttons, text="Save Session", command=self.save_session_state).grid(row=0, column=0, sticky="e")
-        ttk.Button(action_buttons, text="Restore Session", command=self.restore_session_state).grid(row=0, column=1, sticky="e", padx=(8, 0))
+        self.make_secondary_button(action_buttons, text="Save Session", command=self.save_session_state).grid(row=0, column=0, sticky="e")
+        self.make_secondary_button(action_buttons, text="Restore Session", command=self.restore_session_state).grid(row=0, column=1, sticky="e", padx=(8, 0))
         ttk.Checkbutton(
             action_buttons,
             text="Auto-Restore Last Session",
@@ -8253,39 +8546,40 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         outer.grid(row=0, column=0, sticky="ew")
         outer.columnconfigure(0, weight=1)
 
-        panel = tk.Frame(outer, bg="#ffffff", bd=1, relief="solid", highlightthickness=0)
+        panel = self._modern_frame(
+            outer,
+            fg_color=THEME_COLORS["hero_bg"],
+            corner_radius=18,
+            border_width=0,
+        )
         panel.grid(row=0, column=0, sticky="ew")
         panel.grid_columnconfigure(0, weight=1)
 
-        tk.Label(
+        self._modern_label(
             panel,
-            text="Guided Experiment Setup",
-            bg="#ffffff",
-            fg="#1d3448",
-            font=(UI_FONT, 14, "bold"),
+            text="Scenario Comparison",
+            fg_color=THEME_COLORS["hero_bg"],
+            text_color=THEME_COLORS["hero_text"],
+            font=THEME_FONTS["page_title"],
             anchor="w",
-            padx=16,
-            pady=0,
-        ).grid(row=0, column=0, sticky="ew", pady=(14, 2))
+        ).grid(row=0, column=0, sticky="ew", padx=22, pady=(20, 4))
 
-        tk.Label(
+        self._modern_label(
             panel,
             text=(
                 "Choose two campaigns for a baseline-vs-fault comparison, or load saved CSV logs into the left/right slots. "
                 "The rest of the app updates from the loaded result pair."
             ),
-            bg="#ffffff",
-            fg="#4d5c69",
-            font=(UI_FONT, 10),
+            fg_color=THEME_COLORS["hero_bg"],
+            text_color=THEME_COLORS["hero_muted"],
+            font=THEME_FONTS["main"],
             justify="left",
             wraplength=980,
             anchor="w",
-            padx=16,
-            pady=0,
-        ).grid(row=1, column=0, sticky="ew", pady=(0, 12))
+        ).grid(row=1, column=0, sticky="ew", padx=22, pady=(0, 12))
 
-        steps = ttk.Frame(panel, style="Root.TFrame")
-        steps.grid(row=2, column=0, sticky="ew", padx=12, pady=(0, 12))
+        steps = tk.Frame(panel, bg=THEME_COLORS["hero_bg"])
+        steps.grid(row=2, column=0, sticky="ew", padx=18, pady=(0, 20))
         for column in range(3):
             steps.columnconfigure(column, weight=1)
 
@@ -8295,14 +8589,19 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             ("3", "Inspect and Export", "Figures, fault path, evidence, and exports become available after results are loaded."),
         )
         for index, (number, title, text) in enumerate(step_cards):
-            card = tk.Frame(steps, bg="#f8fafc", bd=1, relief="solid", highlightthickness=0)
+            card = self._modern_frame(
+                steps,
+                fg_color=SOFT_CARD_BG,
+                corner_radius=14,
+                border_color=THEME_COLORS["border"],
+            )
             card.grid(row=0, column=index, sticky="ew", padx=(0, 8 if index < 2 else 0))
             tk.Label(
                 card,
                 text=number,
-                bg="#e8f0fb",
-                fg="#1c4d8c",
-                font=("TkDefaultFont", 9, "bold"),
+                bg=THEME_COLORS["badge_blue_bg"],
+                fg=THEME_COLORS["info"],
+                font=THEME_FONTS["small"] + ("bold",),
                 width=3,
                 anchor="center",
                 padx=0,
@@ -8311,9 +8610,9 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             tk.Label(
                 card,
                 text=title,
-                bg="#f8fafc",
-                fg="#22313f",
-                font=("TkDefaultFont", 9, "bold"),
+                bg=SOFT_CARD_BG,
+                fg=TEXT_DARK,
+                font=THEME_FONTS["small"] + ("bold",),
                 anchor="w",
                 justify="left",
                 padx=12,
@@ -8322,9 +8621,9 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             tk.Label(
                 card,
                 text=text,
-                bg="#f8fafc",
-                fg="#5a6977",
-                font=("TkDefaultFont", 9),
+                bg=SOFT_CARD_BG,
+                fg=TEXT_MUTED,
+                font=THEME_FONTS["small"],
                 justify="left",
                 wraplength=240,
                 anchor="w",
@@ -8355,15 +8654,15 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         ttk.Label(
             panel,
             text="Showcase presets, demo shortcuts, favorites, recent results, and session continuity live here when you need them.",
-            style="Hint.TLabel",
+            style="CardHint.TLabel",
             wraplength=860,
             justify="left",
         ).grid(row=0, column=0, sticky="w")
 
-        self.summary_resources_toggle_button = ttk.Button(panel, text="Show Saved Resources", command=self._toggle_summary_resources)
+        self.summary_resources_toggle_button = self.make_secondary_button(panel, text="Show Saved Resources", command=self._toggle_summary_resources)
         self.summary_resources_toggle_button.grid(row=0, column=1, sticky="e", padx=(10, 0))
 
-        body = ttk.Frame(panel, style="Root.TFrame")
+        body = ttk.Frame(panel, style="Card.TFrame")
         body.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(10, 0))
         body.columnconfigure(0, weight=1)
         self.summary_resources_body = body
@@ -8374,14 +8673,14 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         ttk.Label(
             session_row,
             text="Save the current GUI state, restore it later, or auto-restore the last saved session on startup.",
-            style="Hint.TLabel",
+            style="CardHint.TLabel",
             wraplength=860,
             justify="left",
         ).grid(row=0, column=0, sticky="w")
-        session_actions = ttk.Frame(session_row, style="Root.TFrame")
+        session_actions = ttk.Frame(session_row, style="Card.TFrame")
         session_actions.grid(row=0, column=1, sticky="e", padx=(12, 0))
-        ttk.Button(session_actions, text="Save Session", command=self.save_session_state).grid(row=0, column=0, sticky="e")
-        ttk.Button(session_actions, text="Restore Session", command=self.restore_session_state).grid(row=0, column=1, sticky="e", padx=(8, 0))
+        self.make_secondary_button(session_actions, text="Save Session", command=self.save_session_state).grid(row=0, column=0, sticky="e")
+        self.make_secondary_button(session_actions, text="Restore Session", command=self.restore_session_state).grid(row=0, column=1, sticky="e", padx=(8, 0))
         ttk.Checkbutton(
             session_actions,
             text="Auto-Restore Last Session",
@@ -8389,18 +8688,18 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             command=self._save_session_toggle_only,
         ).grid(row=0, column=2, sticky="e", padx=(10, 0))
 
-        resources_grid = ttk.Frame(body, style="Root.TFrame")
+        resources_grid = ttk.Frame(body, style="Card.TFrame")
         resources_grid.grid(row=1, column=0, sticky="ew")
         resources_grid.columnconfigure(0, weight=1)
         resources_grid.columnconfigure(1, weight=1)
 
-        left_resources = ttk.Frame(resources_grid, style="Root.TFrame")
+        left_resources = ttk.Frame(resources_grid, style="Card.TFrame")
         left_resources.grid(row=0, column=0, sticky="new", padx=(0, 8))
         left_resources.columnconfigure(0, weight=1)
         self._build_showcase_presets(left_resources)
         self._build_recommended_demo_shortcuts(left_resources)
 
-        right_resources = ttk.Frame(resources_grid, style="Root.TFrame")
+        right_resources = ttk.Frame(resources_grid, style="Card.TFrame")
         right_resources.grid(row=0, column=1, sticky="new", padx=(8, 0))
         right_resources.columnconfigure(0, weight=1)
         self._build_favorite_comparisons(right_resources)
@@ -8418,13 +8717,13 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         ttk.Label(
             shortcuts,
             text="One click runs a built-in left/right comparison and opens the figure workflow. Use Showcase presets below when you prefer saved results with no rerun.",
-            style="Hint.TLabel",
+            style="CardHint.TLabel",
             wraplength=980,
             justify="left",
         ).grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, 8))
 
         for index, (label, left_campaign, right_campaign) in enumerate(self.RECOMMENDED_DEMO_COMPARISONS):
-            ttk.Button(
+            self.make_secondary_button(
                 shortcuts,
                 text=label,
                 command=lambda left=left_campaign, right=right_campaign: self._run_demo_comparison(left, right),
@@ -8440,7 +8739,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         ttk.Label(
             showcase,
             text="Recommended first step for demos: choose Baseline vs Fan Hot Stress and open the saved comparison.",
-            style="Hint.TLabel",
+            style="CardHint.TLabel",
             wraplength=980,
             justify="left",
         ).grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, 8))
@@ -8455,13 +8754,13 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         )
         self.showcase_preset_selector.grid(row=1, column=1, sticky="ew", padx=(10, 10))
         self.showcase_preset_selector.bind("<<ComboboxSelected>>", self._on_showcase_preset_selected)
-        ttk.Button(showcase, text="Open Showcase Comparison", command=self.load_selected_showcase_preset).grid(
+        self.make_secondary_button(showcase, text="Open Showcase Comparison", command=self.load_selected_showcase_preset).grid(
             row=1, column=2, sticky="e"
         )
         ttk.Label(
             showcase,
             textvariable=self.showcase_description_var,
-            style="Hint.TLabel",
+            style="CardHint.TLabel",
             wraplength=980,
             justify="left",
         ).grid(row=2, column=0, columnspan=3, sticky="w", pady=(8, 0))
@@ -8476,12 +8775,12 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         ttk.Label(
             favorites,
             text="Keep stable thesis/demo comparison pairs here. Favorites are intentional saved pairs, separate from Recent Results.",
-            style="Hint.TLabel",
+            style="CardHint.TLabel",
             wraplength=980,
             justify="left",
         ).grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, 8))
 
-        self.favorites_frame = ttk.Frame(favorites, style="Root.TFrame")
+        self.favorites_frame = ttk.Frame(favorites, style="Card.TFrame")
         self.favorites_frame.grid(row=1, column=0, columnspan=3, sticky="ew")
         for column in range(3):
             self.favorites_frame.columnconfigure(column, weight=1)
@@ -8495,22 +8794,22 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         )
         self.favorite_selector.grid(row=2, column=1, sticky="ew", padx=(10, 10), pady=(10, 0))
         self.favorite_selector.bind("<<ComboboxSelected>>", self._on_favorite_selected)
-        ttk.Button(favorites, text="Load Favorite", command=self.load_selected_favorite).grid(
+        self.make_secondary_button(favorites, text="Load Favorite", command=self.load_selected_favorite).grid(
             row=2, column=2, sticky="e", pady=(10, 0)
         )
 
         ttk.Label(favorites, text="Display Title", style="FieldName.TLabel").grid(row=3, column=0, sticky="w", pady=(8, 0))
         ttk.Entry(favorites, textvariable=self.favorite_title_var).grid(row=3, column=1, sticky="ew", padx=(10, 10), pady=(8, 0))
-        ttk.Button(favorites, text="Pin Current Pair", command=self.add_current_comparison_to_favorites).grid(
+        self.make_secondary_button(favorites, text="Pin Current Pair", command=self.add_current_comparison_to_favorites).grid(
             row=3, column=2, sticky="e", pady=(8, 0)
         )
 
         ttk.Label(favorites, text="Note / Context", style="FieldName.TLabel").grid(row=4, column=0, sticky="w", pady=(8, 0))
         ttk.Entry(favorites, textvariable=self.favorite_note_var).grid(row=4, column=1, sticky="ew", padx=(10, 10), pady=(8, 0))
-        actions = ttk.Frame(favorites, style="Root.TFrame")
+        actions = ttk.Frame(favorites, style="Card.TFrame")
         actions.grid(row=4, column=2, sticky="e", pady=(8, 0))
-        ttk.Button(actions, text="Save Edits", command=self.update_selected_favorite).grid(row=0, column=0, sticky="e")
-        ttk.Button(actions, text="Remove Pin", command=self.remove_selected_favorite).grid(row=0, column=1, sticky="e", padx=(8, 0))
+        self.make_secondary_button(actions, text="Save Edits", command=self.update_selected_favorite).grid(row=0, column=0, sticky="e")
+        self.make_danger_button(actions, text="Remove Pin", command=self.remove_selected_favorite).grid(row=0, column=1, sticky="e", padx=(8, 0))
 
         self._refresh_favorites_panel()
 
@@ -8523,15 +8822,15 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         ttk.Label(
             recent,
             text=f"Reload the last {MAX_RECENT_RESULTS} saved comparisons or custom runs without browsing for CSV files.",
-            style="Hint.TLabel",
+            style="CardHint.TLabel",
             wraplength=900,
             justify="left",
         ).grid(row=0, column=0, sticky="w")
-        ttk.Button(recent, text="Clear Recent History", command=self.clear_recent_results).grid(
+        self.make_danger_button(recent, text="Clear Recent History", command=self.clear_recent_results).grid(
             row=0, column=1, sticky="e", padx=(10, 0)
         )
 
-        self.recent_results_frame = ttk.Frame(recent, style="Root.TFrame")
+        self.recent_results_frame = ttk.Frame(recent, style="Card.TFrame")
         self.recent_results_frame.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(8, 0))
         for column in range(3):
             self.recent_results_frame.columnconfigure(column, weight=1)
@@ -8821,7 +9120,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                 text=label,
                 style="CardHint.TLabel",
             ).grid(row=row_index, column=0, sticky="w", pady=3)
-            button = ttk.Button(
+            button = self.make_secondary_button(
                 self.runtime_study_figures_content,
                 text="Open Figure",
                 command=lambda path=figure_path: self.open_runtime_study_artifact(
@@ -9112,13 +9411,15 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             if column in rows[0] or column == "scenario_name"
         ]
         self.runtime_study_table.configure(displaycolumns=available_columns)
+        self._apply_runtime_study_table_alignment()
         all_columns = [
             column for column, _label, _width in RUNTIME_STUDY_TABLE_SPECS
         ]
-        for row in rows:
+        for index, row in enumerate(rows):
             self.runtime_study_table.insert(
                 "",
                 "end",
+                tags=("even" if index % 2 else "odd",),
                 values=[
                     self._runtime_study_table_value(column, row)
                     for column in all_columns
@@ -9550,7 +9851,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         for item_id in self.batch_table.get_children():
             self.batch_table.delete(item_id)
 
-        for fault_type in fault_types:
+        for index, fault_type in enumerate(fault_types):
             type_rows = [row for row in rows if row["fault_type"] == fault_type]
             detection_values = [
                 value
@@ -9577,6 +9878,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             self.batch_table.insert(
                 "",
                 "end",
+                tags=("even" if index % 2 else "odd",),
                 values=(
                     FAULT_TYPE_DISPLAY.get(fault_type, fault_type),
                     str(len(type_rows)),
