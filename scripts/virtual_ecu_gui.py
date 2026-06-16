@@ -79,7 +79,7 @@ RUNTIME_CUSTOM_MATRIX_REPORT_HTML = (
 )
 RUNTIME_CUSTOM_MATRIX_SCRIPT = PROJECT_ROOT / "scripts" / "run_runtime_custom_matrix.py"
 RUNTIME_STUDY_SOURCE_OPTIONS = (
-    "Predefined 90-run study",
+    "Predefined runtime intervention study",
     "Latest custom scenario matrix",
 )
 RUNTIME_STUDY_FIGURES: Sequence[Tuple[str, str]] = (
@@ -6405,7 +6405,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             title="Study Files",
             description=(
                 "Switch between the predefined reproducible study and the latest "
-                "custom scenario's 6 detector x 3 action matrix."
+                "custom scenario matrix."
             ),
         )
         status_card.grid(row=1, column=0, sticky="ew", padx=12, pady=(0, 12))
@@ -6449,7 +6449,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         actions.grid(row=0, column=1, rowspan=3, sticky="e", padx=(16, 0))
         self.runtime_study_run_button = ttk.Button(
             actions,
-            text="Run Predefined 75-Run Study",
+            text="Run Predefined Study",
             command=self.run_runtime_intervention_study,
             style="Primary.TButton",
         )
@@ -9171,7 +9171,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         if self.runtime_study_run_button is not None:
             self.runtime_study_run_button.state(["disabled"])
         self.runtime_study_status_text.set(
-            "Running the 90-run runtime intervention study..."
+            "Running the predefined runtime intervention study..."
         )
         self.status_text.set("Running runtime detector intervention study...")
         threading.Thread(
