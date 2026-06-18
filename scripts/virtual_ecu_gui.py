@@ -29,6 +29,12 @@ try:
 except ImportError:  # Keep the GUI runnable in minimal WSL/Python installs.
     ctk = None  # type: ignore[assignment]
 
+try:
+    from PIL import Image, ImageTk
+except ImportError:  # Pillow is optional; Tk PhotoImage is used as fallback.
+    Image = None  # type: ignore[assignment]
+    ImageTk = None  # type: ignore[assignment]
+
 os.environ.setdefault("MPLCONFIGDIR", "/tmp/virtual_ecu_mpl")
 
 import matplotlib.pyplot as plt
@@ -121,6 +127,8 @@ APP_NAME = "Virtual ECU Research Explorer"
 APP_CREATOR = "Leonidas Skaltsonis"
 APP_ATTRIBUTION_LINE_1 = "Virtual ECU Research Explorer"
 APP_ATTRIBUTION_LINE_2 = "Created by Leonidas Skaltsonis"
+SIDEBAR_LOGO_PATH = Path("assets/fault_path/Virtual_ECU.png")
+SIDEBAR_LOGO_TARGET_WIDTH_PX = 200
 THEME_COLORS = {
     "app_bg": "#F4F7FB",
     "card_bg": "#FFFFFF",
@@ -4414,6 +4422,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.page_frames: Dict[str, tk.Widget] = {}
         self.page_labels: Dict[str, str] = {}
         self.sidebar_buttons: Dict[str, tk.Widget] = {}
+        self.sidebar_logo_image: tk.PhotoImage | None = None
         self.sidebar_status_label: tk.Widget | None = None
         self.showcase_preset_selector: ttk.Combobox | None = None
         self.recent_results_frame: ttk.Frame | None = None
@@ -4719,6 +4728,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                 anchor="w",
             ).grid(row=1, column=0, sticky="ew", padx=22, pady=(0, 20))
 
+        nav_start_row = 2
         nav_items = (
             ("dashboard", "Dashboard"),
             ("summary", "1. Run / Load"),
@@ -4729,12 +4739,39 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             ("exports", "6. Exports"),
             ("custom", "Custom Faults"),
         )
-        for row, (page_key, label) in enumerate(nav_items, start=2):
+        for row, (page_key, label) in enumerate(nav_items, start=nav_start_row):
             button = self._create_sidebar_button(sidebar, page_key, label)
             button.grid(row=row, column=0, sticky="ew", padx=14, pady=4)
             self.sidebar_buttons[page_key] = button
 
-        sidebar.rowconfigure(10, weight=1)
+        logo_row = nav_start_row + len(nav_items)
+        self.sidebar_logo_image = self._load_sidebar_logo_image()
+        if self.sidebar_logo_image is not None:
+            logo_frame = tk.Frame(
+                sidebar,
+                bg=SIDEBAR_BG,
+                bd=0,
+                highlightthickness=0,
+            )
+            logo_frame.grid(
+                row=logo_row,
+                column=0,
+                sticky="ew",
+                padx=12,
+                pady=(14, 12),
+            )
+            tk.Label(
+                logo_frame,
+                image=self.sidebar_logo_image,
+                bg=SIDEBAR_BG,
+                bd=0,
+            ).pack(anchor="center", padx=0, pady=0)
+            footer_spacer_row = logo_row + 1
+        else:
+            footer_spacer_row = logo_row
+        attribution_row = footer_spacer_row + 1
+        status_row = attribution_row + 1
+        sidebar.rowconfigure(footer_spacer_row, weight=1)
         attribution_text = f"{APP_ATTRIBUTION_LINE_1}\n{APP_ATTRIBUTION_LINE_2}"
         if CTK_AVAILABLE:
             self.sidebar_attribution_label = ctk.CTkLabel(
@@ -4759,7 +4796,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                 anchor="w",
             )
         self.sidebar_attribution_label.grid(
-            row=11,
+            row=attribution_row,
             column=0,
             sticky="ew",
             padx=16,
@@ -4790,7 +4827,40 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                 padx=12,
                 pady=10,
             )
-        self.sidebar_status_label.grid(row=12, column=0, sticky="ew", padx=16, pady=(0, 22))
+        self.sidebar_status_label.grid(row=status_row, column=0, sticky="ew", padx=16, pady=(0, 22))
+
+    def _load_sidebar_logo_image(self) -> tk.PhotoImage | None:
+        logo_path = PROJECT_ROOT / SIDEBAR_LOGO_PATH
+        if not logo_path.exists():
+            return None
+
+        if Image is not None and ImageTk is not None:
+            try:
+                with Image.open(logo_path) as image:
+                    image = image.convert("RGBA")
+                    width, height = image.size
+                    if width > SIDEBAR_LOGO_TARGET_WIDTH_PX:
+                        scaled_height = max(
+                            1,
+                            int(height * (SIDEBAR_LOGO_TARGET_WIDTH_PX / width)),
+                        )
+                        image = image.resize(
+                            (SIDEBAR_LOGO_TARGET_WIDTH_PX, scaled_height),
+                            Image.LANCZOS,
+                        )
+                    return ImageTk.PhotoImage(image)
+            except (OSError, ValueError, tk.TclError):
+                pass
+
+        try:
+            image = tk.PhotoImage(file=str(logo_path))
+            width = image.width()
+            if width > SIDEBAR_LOGO_TARGET_WIDTH_PX:
+                factor = max(1, (width + SIDEBAR_LOGO_TARGET_WIDTH_PX - 1) // SIDEBAR_LOGO_TARGET_WIDTH_PX)
+                image = image.subsample(factor, factor)
+            return image
+        except tk.TclError:
+            return None
 
     def _create_sidebar_button(self, parent: tk.Misc, page_key: str, label: str) -> tk.Widget:
         if CTK_AVAILABLE:
