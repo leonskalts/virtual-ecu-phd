@@ -117,6 +117,10 @@ MAX_CUSTOM_SCENARIO_EVENTS = 4
 MAX_RECENT_RESULTS = 6
 MAX_FAVORITES = 8
 CTK_AVAILABLE = ctk is not None
+APP_NAME = "Virtual ECU Research Explorer"
+APP_CREATOR = "Leonidas Skaltsonis"
+APP_ATTRIBUTION_LINE_1 = "Virtual ECU Research Explorer"
+APP_ATTRIBUTION_LINE_2 = "Created by Leonidas Skaltsonis"
 THEME_COLORS = {
     "app_bg": "#F4F7FB",
     "card_bg": "#FFFFFF",
@@ -4586,7 +4590,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         header.columnconfigure(0, weight=1)
         header.columnconfigure(1, weight=0)
 
-        ttk.Label(header, text="Virtual ECU Research Explorer", style="Header.TLabel").grid(
+        ttk.Label(header, text=APP_NAME, style="Header.TLabel").grid(
             row=0, column=0, sticky="w"
         )
         ttk.Label(
@@ -4731,6 +4735,36 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             self.sidebar_buttons[page_key] = button
 
         sidebar.rowconfigure(10, weight=1)
+        attribution_text = f"{APP_ATTRIBUTION_LINE_1}\n{APP_ATTRIBUTION_LINE_2}"
+        if CTK_AVAILABLE:
+            self.sidebar_attribution_label = ctk.CTkLabel(
+                sidebar,
+                text=attribution_text,
+                text_color="#B7C3D4",
+                fg_color="transparent",
+                font=(UI_FONT, 10),
+                wraplength=200,
+                justify="left",
+                anchor="w",
+            )
+        else:
+            self.sidebar_attribution_label = tk.Label(
+                sidebar,
+                text=attribution_text,
+                bg=SIDEBAR_BG,
+                fg="#B7C3D4",
+                font=(UI_FONT, 10),
+                wraplength=200,
+                justify="left",
+                anchor="w",
+            )
+        self.sidebar_attribution_label.grid(
+            row=11,
+            column=0,
+            sticky="ew",
+            padx=16,
+            pady=(10, 8),
+        )
         if CTK_AVAILABLE:
             self.sidebar_status_label = ctk.CTkLabel(
                 sidebar,
@@ -4756,7 +4790,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                 padx=12,
                 pady=10,
             )
-        self.sidebar_status_label.grid(row=11, column=0, sticky="ew", padx=16, pady=(12, 22))
+        self.sidebar_status_label.grid(row=12, column=0, sticky="ew", padx=16, pady=(0, 22))
 
     def _create_sidebar_button(self, parent: tk.Misc, page_key: str, label: str) -> tk.Widget:
         if CTK_AVAILABLE:
