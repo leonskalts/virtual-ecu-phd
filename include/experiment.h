@@ -22,6 +22,7 @@ int experiment_configure_custom_fault_sequence(
     const fault_event_t *events,
     unsigned int event_count
 );
+int experiment_load_driving_profile(ecu_state_t *state, const char *path);
 fault_mode_t experiment_fault_mode_from_string(const char *text);
 fault_behavior_t experiment_fault_behavior_from_string(const char *text);
 const char *experiment_campaign_usage(void);

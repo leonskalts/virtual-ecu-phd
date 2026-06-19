@@ -84,11 +84,30 @@ typedef struct {
 } experiment_config_t;
 
 typedef struct {
+    unsigned int start_ms;
+    unsigned int end_ms;
+    float vehicle_speed_kph;
+    float engine_load;
+    float ambient_temp_c;
+    float external_airflow_factor;
+    float road_slope_percent;
+} driving_profile_segment_t;
+
+typedef struct {
+    bool enabled;
+    unsigned int segment_count;
+    char source_path[ECU_PATH_BUFFER_SIZE];
+    driving_profile_segment_t segments[ECU_MAX_DRIVING_PROFILE_SEGMENTS];
+} driving_profile_config_t;
+
+typedef struct {
     scenario_phase_t scenario_phase;
     float ambient_temp_c;
     float engine_load;
     float engine_speed_rpm;
     float vehicle_speed_kph;
+    float external_airflow_factor;
+    float road_slope_percent;
     float coolant_temp_true_c;
     float radiator_temp_true_c;
 } plant_state_t;
@@ -195,6 +214,7 @@ typedef struct ecu_state {
     diagnostic_flags_t diagnostics;
     safety_status_t safety;
     experiment_config_t experiment;
+    driving_profile_config_t driving_profile;
     fault_state_t faults;
     experiment_metrics_t metrics;
     detection_algorithm_state_t detection;

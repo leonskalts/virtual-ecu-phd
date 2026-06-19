@@ -58,6 +58,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     parser.add_argument("--executable", type=Path, default=DEFAULT_EXECUTABLE)
+    parser.add_argument("--driving-profile", type=Path, default=None)
     parser.add_argument("--no-figures", action="store_true")
     return parser.parse_args()
 
@@ -93,6 +94,7 @@ def simulator_command(
     events: Sequence[Event],
     detector: str,
     action: str,
+    driving_profile: Path | None = None,
 ) -> List[str]:
     command = [str(executable), str(raw_path)]
     if len(events) == 1:
@@ -120,6 +122,8 @@ def simulator_command(
                 ]
             )
     command.extend(["--detector", detector, "--detector-action", action])
+    if driving_profile is not None:
+        command.extend(["--driving-profile", str(driving_profile)])
     return command
 
 
@@ -131,12 +135,13 @@ def run_simulation(
     events: Sequence[Event],
     detector: str,
     action: str,
+    driving_profile: Path | None = None,
 ) -> Dict[str, object]:
     stem = f"{detector}__{action}"
     raw_path = raw_dir / f"{stem}.csv"
     summary_path = study.summary_path_for(raw_path)
     completed = subprocess.run(
-        simulator_command(executable, raw_path, events, detector, action),
+        simulator_command(executable, raw_path, events, detector, action, driving_profile),
         cwd=PROJECT_ROOT,
         check=False,
         capture_output=True,
@@ -222,6 +227,7 @@ def run_matrix(
     scenario_id: str,
     scenario_name: str,
     events: Sequence[Event],
+    driving_profile: Path | None = None,
 ) -> List[Dict[str, object]]:
     if not executable.is_file():
         raise FileNotFoundError(
@@ -245,6 +251,7 @@ def run_matrix(
                     events,
                     detector,
                     action,
+                    driving_profile,
                 )
             )
     return results
@@ -617,6 +624,7 @@ def main() -> int:
         args.scenario_id,
         args.scenario_name,
         events,
+        args.driving_profile.resolve() if args.driving_profile is not None else None,
     )
     comparison_path = output_dir / "runtime_custom_matrix_comparison.csv"
     summary_path = output_dir / "runtime_custom_matrix_summary.md"

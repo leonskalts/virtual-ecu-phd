@@ -22,11 +22,13 @@ static int parse_runtime_detection_options(
     int *argc,
     char **argv,
     detection_algorithm_t *selected_algorithm,
-    detection_action_t *selected_action
+    detection_action_t *selected_action,
+    const char **driving_profile_path
 )
 {
     *selected_algorithm = DETECTION_ALGORITHM_BUILTIN_ECU;
     *selected_action = DETECTION_ACTION_OBSERVE_ONLY;
+    *driving_profile_path = NULL;
 
     while (*argc >= 3) {
         const char *option = argv[*argc - 2];
@@ -67,6 +69,12 @@ static int parse_runtime_detection_options(
             }
 
             *selected_action = detection_action_from_string(value);
+            *argc -= 2;
+            continue;
+        }
+
+        if (strcmp(option, "--driving-profile") == 0) {
+            *driving_profile_path = value;
             *argc -= 2;
             continue;
         }
@@ -207,6 +215,7 @@ int main(int argc, char **argv)
     const char *log_path = ECU_DEFAULT_LOG_PATH;
     detection_algorithm_t selected_algorithm;
     detection_action_t selected_action;
+    const char *driving_profile_path;
     int config_status;
     char summary_path[ECU_PATH_BUFFER_SIZE];
 
@@ -215,13 +224,18 @@ int main(int argc, char **argv)
             &argc,
             argv,
             &selected_algorithm,
-            &selected_action
+            &selected_action,
+            &driving_profile_path
         ) != 0) {
         return 1;
     }
     config_status = configure_experiment_from_args(&state, argc, argv, &log_path);
     if (config_status != 0) {
         return (config_status > 0) ? 0 : 1;
+    }
+    if (driving_profile_path != NULL &&
+        experiment_load_driving_profile(&state, driving_profile_path) != 0) {
+        return 1;
     }
 
     state.detection.selected_algorithm = selected_algorithm;
@@ -244,6 +258,10 @@ int main(int argc, char **argv)
     printf("Campaign: %s\n", state.experiment.campaign_id);
     printf("Runtime detector: %s\n", detection_algorithm_name(state.detection.selected_algorithm));
     printf("Runtime detector action: %s\n", detection_action_name(state.detection.selected_action));
+    printf(
+        "Driving profile: %s\n",
+        state.driving_profile.enabled ? state.driving_profile.source_path : "default thermal plant"
+    );
     printf("Final coolant temperature: %.2f C\n", state.plant.coolant_temp_true_c);
     printf("Final safe state: %d\n", (int)state.safety.current_state);
     printf("Primary DTC at end of run: %d\n", (int)state.diagnostics.primary_dtc);

@@ -1,5 +1,7 @@
 #include "experiment.h"
 
+#include <errno.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -175,6 +177,11 @@ static void zero_campaign(ecu_state_t *state)
     }
 }
 
+static void clear_driving_profile(ecu_state_t *state)
+{
+    memset(&state->driving_profile, 0, sizeof(state->driving_profile));
+}
+
 static void copy_text(char *dst, size_t dst_size, const char *src)
 {
     if (dst_size == 0U) {
@@ -219,6 +226,7 @@ static const builtin_campaign_t *find_campaign(const char *campaign_id)
 
 void experiment_init_default(ecu_state_t *state)
 {
+    clear_driving_profile(state);
     assign_campaign(state, &BUILTIN_CAMPAIGNS[1]);
 }
 
@@ -318,6 +326,184 @@ int experiment_configure_custom_fault_sequence(
     return 0;
 }
 
+static int parse_uint_field(const char *text, unsigned int *out)
+{
+    char *endptr;
+    long value;
+
+    errno = 0;
+    value = strtol(text, &endptr, 10);
+    if (errno != 0 || endptr == text || *endptr != '\0' || value < 0L || value > (long)UINT_MAX) {
+        return -1;
+    }
+
+    *out = (unsigned int)value;
+    return 0;
+}
+
+static int parse_float_field(const char *text, float *out)
+{
+    char *endptr;
+    float value;
+
+    errno = 0;
+    value = strtof(text, &endptr);
+    if (errno != 0 || endptr == text || *endptr != '\0') {
+        return -1;
+    }
+
+    *out = value;
+    return 0;
+}
+
+static void strip_line_end(char *text)
+{
+    size_t len = strlen(text);
+
+    while (len > 0U && (text[len - 1U] == '\n' || text[len - 1U] == '\r')) {
+        text[len - 1U] = '\0';
+        len--;
+    }
+}
+
+static int validate_driving_segment(const driving_profile_segment_t *segment, unsigned int line_number)
+{
+    if (segment->end_ms <= segment->start_ms) {
+        fprintf(stderr, "Driving profile line %u: end_ms must be greater than start_ms.\n", line_number);
+        return -1;
+    }
+    if (segment->vehicle_speed_kph < 0.0f) {
+        fprintf(stderr, "Driving profile line %u: vehicle_speed_kph must be >= 0.\n", line_number);
+        return -1;
+    }
+    if (segment->engine_load < 0.0f || segment->engine_load > 1.0f) {
+        fprintf(stderr, "Driving profile line %u: engine_load must be in [0.0, 1.0].\n", line_number);
+        return -1;
+    }
+    if (segment->ambient_temp_c < -40.0f || segment->ambient_temp_c > 80.0f) {
+        fprintf(stderr, "Driving profile line %u: ambient_temp_c must be in [-40, 80].\n", line_number);
+        return -1;
+    }
+    if (segment->external_airflow_factor < 0.0f || segment->external_airflow_factor > 1.0f) {
+        fprintf(stderr, "Driving profile line %u: external_airflow_factor must be in [0.0, 1.0].\n", line_number);
+        return -1;
+    }
+    if (segment->road_slope_percent < -20.0f || segment->road_slope_percent > 20.0f) {
+        fprintf(stderr, "Driving profile line %u: road_slope_percent must be in [-20, 20].\n", line_number);
+        return -1;
+    }
+
+    return 0;
+}
+
+static void sort_driving_segments(driving_profile_segment_t *segments, unsigned int count)
+{
+    unsigned int i;
+
+    for (i = 1U; i < count; i++) {
+        driving_profile_segment_t current = segments[i];
+        unsigned int j = i;
+
+        while (j > 0U && segments[j - 1U].start_ms > current.start_ms) {
+            segments[j] = segments[j - 1U];
+            j--;
+        }
+        segments[j] = current;
+    }
+}
+
+int experiment_load_driving_profile(ecu_state_t *state, const char *path)
+{
+    FILE *profile_file;
+    char line[512];
+    driving_profile_config_t loaded_profile;
+    unsigned int line_number = 0U;
+
+    if (path == NULL || path[0] == '\0') {
+        fprintf(stderr, "Driving profile path is empty.\n");
+        return -1;
+    }
+
+    profile_file = fopen(path, "r");
+    if (profile_file == NULL) {
+        fprintf(stderr, "Failed to open driving profile '%s': %s\n", path, strerror(errno));
+        return -1;
+    }
+
+    memset(&loaded_profile, 0, sizeof(loaded_profile));
+    copy_text(loaded_profile.source_path, sizeof(loaded_profile.source_path), path);
+
+    while (fgets(line, sizeof(line), profile_file) != NULL) {
+        char *tokens[7];
+        char *cursor;
+        unsigned int token_count = 0U;
+        driving_profile_segment_t segment;
+
+        line_number++;
+        strip_line_end(line);
+        if (line[0] == '\0') {
+            continue;
+        }
+        if (line_number == 1U && strstr(line, "start_ms") != NULL) {
+            continue;
+        }
+        if (loaded_profile.segment_count >= ECU_MAX_DRIVING_PROFILE_SEGMENTS) {
+            fprintf(
+                stderr,
+                "Driving profile has more than %u segments; keep this research model compact.\n",
+                ECU_MAX_DRIVING_PROFILE_SEGMENTS
+            );
+            fclose(profile_file);
+            return -1;
+        }
+
+        cursor = strtok(line, ",");
+        while (cursor != NULL && token_count < 7U) {
+            tokens[token_count] = cursor;
+            token_count++;
+            cursor = strtok(NULL, ",");
+        }
+        if (token_count != 7U || cursor != NULL) {
+            fprintf(stderr, "Driving profile line %u: expected 7 CSV columns.\n", line_number);
+            fclose(profile_file);
+            return -1;
+        }
+
+        memset(&segment, 0, sizeof(segment));
+        if (parse_uint_field(tokens[0], &segment.start_ms) != 0 ||
+            parse_uint_field(tokens[1], &segment.end_ms) != 0 ||
+            parse_float_field(tokens[2], &segment.vehicle_speed_kph) != 0 ||
+            parse_float_field(tokens[3], &segment.engine_load) != 0 ||
+            parse_float_field(tokens[4], &segment.ambient_temp_c) != 0 ||
+            parse_float_field(tokens[5], &segment.external_airflow_factor) != 0 ||
+            parse_float_field(tokens[6], &segment.road_slope_percent) != 0) {
+            fprintf(stderr, "Driving profile line %u: failed to parse numeric values.\n", line_number);
+            fclose(profile_file);
+            return -1;
+        }
+
+        if (validate_driving_segment(&segment, line_number) != 0) {
+            fclose(profile_file);
+            return -1;
+        }
+
+        loaded_profile.segments[loaded_profile.segment_count] = segment;
+        loaded_profile.segment_count++;
+    }
+
+    fclose(profile_file);
+
+    if (loaded_profile.segment_count == 0U) {
+        fprintf(stderr, "Driving profile '%s' does not contain any segments.\n", path);
+        return -1;
+    }
+
+    sort_driving_segments(loaded_profile.segments, loaded_profile.segment_count);
+    loaded_profile.enabled = true;
+    state->driving_profile = loaded_profile;
+    return 0;
+}
+
 fault_mode_t experiment_fault_mode_from_string(const char *text)
 {
     if (strcmp(text, "sensor_bias") == 0) {
@@ -365,7 +551,8 @@ const char *experiment_campaign_usage(void)
         "  Append --detector <builtin_ecu|threshold|ewma|cusum|thermal_observer|kalman_filter> "
         "to select runtime detection.\n"
         "  Append --detector-action <observe_only|precautionary_cooling|limp_home> "
-        "to select intervention.\n";
+        "to select intervention.\n"
+        "  Append --driving-profile <path> to enable an optional custom driving/environment CSV profile.\n";
 }
 
 void experiment_list_campaigns(FILE *stream)

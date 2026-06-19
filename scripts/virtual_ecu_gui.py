@@ -68,6 +68,8 @@ RECENT_RESULTS_PATH = PROJECT_ROOT / "presets" / "recent_results.json"
 FAVORITE_COMPARISONS_PATH = PROJECT_ROOT / "presets" / "favorite_comparisons.json"
 GUI_SESSION_STATE_PATH = PROJECT_ROOT / "presets" / "gui_session_state.json"
 FAULT_PATH_ASSET_DIR = PROJECT_ROOT / "assets" / "fault_path"
+DRIVING_PROFILE_DIR = PROJECT_ROOT / "profiles" / "driving"
+LATEST_GUI_DRIVING_PROFILE_CSV = DRIVING_PROFILE_DIR / "latest_gui_driving_profile.csv"
 EXPORT_ROOT = PROJECT_ROOT / "results" / "gui_comparison_reports"
 SNAPSHOT_ROOT = PROJECT_ROOT / "results" / "gui_snapshots"
 PRESENTATION_BUNDLE_ROOT = PROJECT_ROOT / "results" / "gui_presentation_bundles"
@@ -87,6 +89,12 @@ RUNTIME_CUSTOM_MATRIX_SCRIPT = PROJECT_ROOT / "scripts" / "run_runtime_custom_ma
 RUNTIME_STUDY_SOURCE_OPTIONS = (
     "Predefined runtime intervention study",
     "Latest custom scenario matrix",
+)
+DRIVING_PROFILE_MODE_DEFAULT = "Default Thermal Plant"
+DRIVING_PROFILE_MODE_CUSTOM = "Custom Driving Profile"
+DRIVING_PROFILE_MODE_OPTIONS = (
+    DRIVING_PROFILE_MODE_DEFAULT,
+    DRIVING_PROFILE_MODE_CUSTOM,
 )
 RUNTIME_STUDY_FIGURES: Sequence[Tuple[str, str]] = (
     ("Detection Latency by Detector and Scenario", "detection_latency_by_detector_scenario.png"),
@@ -4321,6 +4329,13 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.detection_action_help = tk.StringVar(
             value=DETECTION_ACTION_HELP[default_detection_action_display]
         )
+        self.driving_profile_mode = tk.StringVar(value=DRIVING_PROFILE_MODE_DEFAULT)
+        self.driving_profile_status = tk.StringVar(
+            value="Uses built-in thermal phases: Warmup -> Highway -> Urban Traffic -> Hot Idle."
+        )
+        self.custom_driving_mode_var = tk.StringVar(value="Default Thermal Plant")
+        self.custom_driving_profile_var = tk.StringVar(value="n/a")
+        self.custom_driving_segments_var = tk.StringVar(value="0")
         self.detection_comparison_status = tk.StringVar(
             value="Run a custom experiment, then compare all algorithms on its CSV."
         )
@@ -4417,6 +4432,8 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.current_plot_results: Dict[str, object] | None = None
         self.loaded_result_slots: Dict[str, Dict[str, object] | None] = {"left": None, "right": None}
         self.last_custom_result: Dict[str, object] | None = None
+        self.driving_profile_segments: List[Dict[str, float]] = []
+        self.active_driving_profile_path: Path | None = None
         self.batch_rows: List[Dict[str, str]] = []
         self.runtime_study_rows: List[Dict[str, str]] = []
         self.batch_table: ttk.Treeview | None = None
@@ -5944,7 +5961,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         content.grid(row=1, column=0, sticky="nsew")
         content.columnconfigure(0, weight=8)
         content.columnconfigure(1, weight=3)
-        content.rowconfigure(1, weight=1)
+        content.rowconfigure(2, weight=1)
 
         detection_card = self._section_card(
             content,
@@ -6045,8 +6062,10 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             justify="left",
         ).grid(row=1, column=2, sticky="w", pady=(10, 0))
 
+        self._build_driving_profile_card(content, row=1)
+
         builder_notebook = ttk.Notebook(content)
-        builder_notebook.grid(row=1, column=0, sticky="nsew", padx=(0, 6))
+        builder_notebook.grid(row=2, column=0, sticky="nsew", padx=(0, 6))
         self.custom_builder_notebook = builder_notebook
 
         single_tab = ttk.Frame(builder_notebook, style="Root.TFrame")
@@ -6061,7 +6080,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self._build_multi_custom_builder(multi_tab)
 
         results_column = ttk.Frame(content, style="Root.TFrame")
-        results_column.grid(row=1, column=1, sticky="nsew")
+        results_column.grid(row=2, column=1, sticky="nsew")
         results_column.columnconfigure(0, weight=1)
 
         quick_detection_card = self._section_card(
@@ -6120,6 +6139,9 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self._build_custom_metric_row(summary, 8, "Safe-State Latency", self.custom_summary_vars["Safe-State Latency"])
         self._build_custom_metric_row(summary, 9, "Saved Files", self.custom_saved_paths_var, wraplength=300)
         self._build_custom_metric_row(summary, 10, "Last Loaded Mode", self.custom_last_run_var, wraplength=300)
+        self._build_custom_metric_row(summary, 11, "Driving Mode", self.custom_driving_mode_var, wraplength=300)
+        self._build_custom_metric_row(summary, 12, "Profile", self.custom_driving_profile_var, wraplength=300)
+        self._build_custom_metric_row(summary, 13, "Segments", self.custom_driving_segments_var)
 
         detection_result_card = self._section_card(
             results_column,
@@ -6245,6 +6267,372 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.detection_comparison_table.grid(row=1, column=0, sticky="ew")
         comparison_scroll.grid(row=2, column=0, sticky="ew", pady=(6, 0))
         self.detection_comparison_frame.grid_remove()
+
+    def _build_driving_profile_card(self, parent: ttk.Frame, *, row: int) -> None:
+        card = self._section_card(
+            parent,
+            title="Driving / Environment Conditions",
+            description="Keep the default thermal phases or run custom scenarios with a CSV driving profile.",
+        )
+        card.grid(row=row, column=0, columnspan=2, sticky="ew", pady=(0, 10))
+        content = self._card_content(card, padding=(16, 0, 16, 12))
+        content.columnconfigure(2, weight=1)
+
+        ttk.Label(content, text="Mode", style="CardFieldName.TLabel").grid(row=0, column=0, sticky="w")
+        mode_selector = ttk.Combobox(
+            content,
+            textvariable=self.driving_profile_mode,
+            values=DRIVING_PROFILE_MODE_OPTIONS,
+            state="readonly",
+            width=28,
+        )
+        mode_selector.grid(row=0, column=1, sticky="w", padx=(10, 16))
+        mode_selector.bind("<<ComboboxSelected>>", lambda _event: self._refresh_driving_profile_status())
+
+        ttk.Label(
+            content,
+            textvariable=self.driving_profile_status,
+            style="CardHint.TLabel",
+            wraplength=640,
+            justify="left",
+        ).grid(row=0, column=2, sticky="w")
+
+        self.make_secondary_button(
+            content,
+            text="Configure Custom Driving Profile",
+            command=self.open_driving_profile_editor,
+        ).grid(row=0, column=3, sticky="e", padx=(12, 0))
+
+    def _refresh_driving_profile_status(self) -> None:
+        if self.driving_profile_mode.get() == DRIVING_PROFILE_MODE_CUSTOM:
+            if self.active_driving_profile_path is not None and self.driving_profile_segments:
+                self.driving_profile_status.set(
+                    f"Custom profile active: {self.active_driving_profile_path.relative_to(PROJECT_ROOT)} "
+                    f"({len(self.driving_profile_segments)} segments)."
+                )
+            else:
+                self.driving_profile_status.set(
+                    "Custom profile selected. Configure and Apply a profile before running."
+                )
+            return
+        self.driving_profile_status.set(
+            "Uses built-in thermal phases: Warmup -> Highway -> Urban Traffic -> Hot Idle."
+        )
+
+    def _example_driving_segments(self) -> List[Dict[str, float]]:
+        return [
+            {
+                "start_s": 0.0,
+                "end_s": 20.0,
+                "vehicle_speed_kph": 100.0,
+                "engine_load": 0.45,
+                "ambient_temp_c": 30.0,
+                "external_airflow_factor": 0.4,
+                "road_slope_percent": 0.0,
+            },
+            {
+                "start_s": 20.0,
+                "end_s": 40.0,
+                "vehicle_speed_kph": 80.0,
+                "engine_load": 0.50,
+                "ambient_temp_c": 30.0,
+                "external_airflow_factor": 0.3,
+                "road_slope_percent": 0.0,
+            },
+            {
+                "start_s": 40.0,
+                "end_s": 60.0,
+                "vehicle_speed_kph": 30.0,
+                "engine_load": 0.65,
+                "ambient_temp_c": 30.0,
+                "external_airflow_factor": 0.1,
+                "road_slope_percent": 4.0,
+            },
+        ]
+
+    @staticmethod
+    def _validate_driving_profile_segments(
+        segments: Sequence[Dict[str, float]],
+    ) -> List[Dict[str, float]]:
+        normalized: List[Dict[str, float]] = []
+        for index, segment in enumerate(segments, start=1):
+            start_s = float(segment["start_s"])
+            end_s = float(segment["end_s"])
+            speed = float(segment["vehicle_speed_kph"])
+            load = float(segment["engine_load"])
+            ambient = float(segment["ambient_temp_c"])
+            airflow = float(segment["external_airflow_factor"])
+            slope = float(segment["road_slope_percent"])
+
+            if start_s < 0.0 or end_s <= start_s:
+                raise ValueError(f"Segment {index}: end time must be greater than start time.")
+            if speed < 0.0:
+                raise ValueError(f"Segment {index}: vehicle speed must be non-negative.")
+            if not 0.0 <= load <= 1.0:
+                raise ValueError(f"Segment {index}: engine load must be in [0, 1].")
+            if not -40.0 <= ambient <= 80.0:
+                raise ValueError(f"Segment {index}: ambient temperature must be in [-40, 80] C.")
+            if not 0.0 <= airflow <= 1.0:
+                raise ValueError(f"Segment {index}: external airflow must be in [0, 1].")
+            if not -20.0 <= slope <= 20.0:
+                raise ValueError(f"Segment {index}: road slope must be in [-20, 20] percent.")
+
+            normalized.append(
+                {
+                    "start_s": start_s,
+                    "end_s": end_s,
+                    "vehicle_speed_kph": speed,
+                    "engine_load": load,
+                    "ambient_temp_c": ambient,
+                    "external_airflow_factor": airflow,
+                    "road_slope_percent": slope,
+                }
+            )
+
+        if not normalized:
+            raise ValueError("Add at least one driving profile segment.")
+        return sorted(normalized, key=lambda row: row["start_s"])
+
+    def _write_driving_profile_csv(
+        self,
+        path: Path,
+        segments: Sequence[Dict[str, float]],
+    ) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("w", newline="", encoding="utf-8") as handle:
+            writer = csv.writer(handle)
+            writer.writerow(
+                [
+                    "start_ms",
+                    "end_ms",
+                    "vehicle_speed_kph",
+                    "engine_load",
+                    "ambient_temp_c",
+                    "external_airflow_factor",
+                    "road_slope_percent",
+                ]
+            )
+            for segment in segments:
+                writer.writerow(
+                    [
+                        int(round(float(segment["start_s"]) * 1000.0)),
+                        int(round(float(segment["end_s"]) * 1000.0)),
+                        f"{float(segment['vehicle_speed_kph']):g}",
+                        f"{float(segment['engine_load']):g}",
+                        f"{float(segment['ambient_temp_c']):g}",
+                        f"{float(segment['external_airflow_factor']):g}",
+                        f"{float(segment['road_slope_percent']):g}",
+                    ]
+                )
+
+    def _read_driving_profile_csv(self, path: Path) -> List[Dict[str, float]]:
+        rows = read_csv_rows(path)
+        segments: List[Dict[str, float]] = []
+        for row in rows:
+            segments.append(
+                {
+                    "start_s": float(row["start_ms"]) / 1000.0,
+                    "end_s": float(row["end_ms"]) / 1000.0,
+                    "vehicle_speed_kph": float(row["vehicle_speed_kph"]),
+                    "engine_load": float(row["engine_load"]),
+                    "ambient_temp_c": float(row["ambient_temp_c"]),
+                    "external_airflow_factor": float(row["external_airflow_factor"]),
+                    "road_slope_percent": float(row["road_slope_percent"]),
+                }
+            )
+        return self._validate_driving_profile_segments(segments)
+
+    def open_driving_profile_editor(self) -> None:
+        window = tk.Toplevel(self)
+        window.title("Custom Driving Profile")
+        window.configure(background=APP_BG)
+        window.geometry("920x520")
+        window.transient(self)
+        window.columnconfigure(0, weight=1)
+        window.rowconfigure(1, weight=1)
+
+        ttk.Label(
+            window,
+            text=(
+                "Simulation length remains the existing virtual ECU duration. "
+                "Segments outside the listed intervals reuse the nearest profile segment."
+            ),
+            style="Hint.TLabel",
+            wraplength=860,
+            justify="left",
+        ).grid(row=0, column=0, sticky="ew", padx=16, pady=(16, 8))
+
+        columns = (
+            "start_s",
+            "end_s",
+            "vehicle_speed_kph",
+            "engine_load",
+            "ambient_temp_c",
+            "external_airflow_factor",
+            "road_slope_percent",
+        )
+        table = ttk.Treeview(window, columns=columns, show="headings", height=8)
+        headings = {
+            "start_s": "Start [s]",
+            "end_s": "End [s]",
+            "vehicle_speed_kph": "Vehicle Speed [km/h]",
+            "engine_load": "Engine Load [0-1]",
+            "ambient_temp_c": "Ambient [C]",
+            "external_airflow_factor": "External Airflow [0-1]",
+            "road_slope_percent": "Road Slope [%]",
+        }
+        widths = {
+            "start_s": 80,
+            "end_s": 80,
+            "vehicle_speed_kph": 150,
+            "engine_load": 130,
+            "ambient_temp_c": 100,
+            "external_airflow_factor": 165,
+            "road_slope_percent": 120,
+        }
+        for column in columns:
+            table.heading(column, text=headings[column], anchor=tk.CENTER)
+            table.column(column, width=widths[column], anchor=tk.CENTER, stretch=True)
+        table.grid(row=1, column=0, sticky="nsew", padx=16)
+        scroll = ttk.Scrollbar(window, orient="vertical", command=table.yview)
+        table.configure(yscrollcommand=scroll.set)
+        scroll.grid(row=1, column=1, sticky="ns")
+
+        editor = ttk.Frame(window, style="Root.TFrame")
+        editor.grid(row=2, column=0, sticky="ew", padx=16, pady=(10, 6))
+        for column in range(7):
+            editor.columnconfigure(column, weight=1)
+
+        entry_vars = {column: tk.StringVar(value="0") for column in columns}
+        defaults = {
+            "start_s": "0",
+            "end_s": "20",
+            "vehicle_speed_kph": "100",
+            "engine_load": "0.45",
+            "ambient_temp_c": "30",
+            "external_airflow_factor": "0.4",
+            "road_slope_percent": "0",
+        }
+        for column, value in defaults.items():
+            entry_vars[column].set(value)
+        for index, column in enumerate(columns):
+            ttk.Label(editor, text=headings[column], style="CardHint.TLabel").grid(row=0, column=index, sticky="w")
+            ttk.Entry(editor, textvariable=entry_vars[column], width=14).grid(row=1, column=index, sticky="ew", padx=(0, 6))
+
+        def table_segments() -> List[Dict[str, float]]:
+            segments: List[Dict[str, float]] = []
+            for item_id in table.get_children():
+                values = table.item(item_id, "values")
+                segments.append({column: float(values[index]) for index, column in enumerate(columns)})
+            return segments
+
+        def refresh_table(segments: Sequence[Dict[str, float]]) -> None:
+            for item_id in table.get_children():
+                table.delete(item_id)
+            for segment in segments:
+                table.insert(
+                    "",
+                    "end",
+                    values=tuple(f"{float(segment[column]):g}" for column in columns),
+                )
+
+        def selected_segment() -> Dict[str, float]:
+            return {column: float(entry_vars[column].get()) for column in columns}
+
+        def add_segment() -> None:
+            try:
+                segments = table_segments()
+                segments.append(selected_segment())
+                refresh_table(self._validate_driving_profile_segments(segments))
+            except (ValueError, KeyError) as exc:
+                messagebox.showerror("Invalid Driving Segment", str(exc), parent=window)
+
+        def update_selected() -> None:
+            selection = table.selection()
+            if not selection:
+                add_segment()
+                return
+            try:
+                values = tuple(f"{float(entry_vars[column].get()):g}" for column in columns)
+                table.item(selection[0], values=values)
+                refresh_table(self._validate_driving_profile_segments(table_segments()))
+            except (ValueError, KeyError) as exc:
+                messagebox.showerror("Invalid Driving Segment", str(exc), parent=window)
+
+        def delete_selected() -> None:
+            for item_id in table.selection():
+                table.delete(item_id)
+
+        def clear_profile() -> None:
+            refresh_table([])
+
+        def use_example() -> None:
+            refresh_table(self._example_driving_segments())
+
+        def load_profile() -> None:
+            selected = filedialog.askopenfilename(
+                title="Load driving profile CSV",
+                initialdir=str(DRIVING_PROFILE_DIR if DRIVING_PROFILE_DIR.exists() else PROJECT_ROOT),
+                filetypes=(("CSV files", "*.csv"), ("All files", "*.*")),
+                parent=window,
+            )
+            if not selected:
+                return
+            try:
+                refresh_table(self._read_driving_profile_csv(Path(selected)))
+            except (OSError, ValueError, KeyError, csv.Error) as exc:
+                messagebox.showerror("Load Profile Failed", str(exc), parent=window)
+
+        def save_profile_as() -> None:
+            selected = filedialog.asksaveasfilename(
+                title="Save driving profile CSV",
+                initialdir=str(DRIVING_PROFILE_DIR),
+                defaultextension=".csv",
+                filetypes=(("CSV files", "*.csv"), ("All files", "*.*")),
+                parent=window,
+            )
+            if not selected:
+                return
+            try:
+                self._write_driving_profile_csv(Path(selected), self._validate_driving_profile_segments(table_segments()))
+            except (OSError, ValueError) as exc:
+                messagebox.showerror("Save Profile Failed", str(exc), parent=window)
+
+        def apply_profile() -> None:
+            try:
+                segments = self._validate_driving_profile_segments(table_segments())
+                self._write_driving_profile_csv(LATEST_GUI_DRIVING_PROFILE_CSV, segments)
+            except (OSError, ValueError) as exc:
+                messagebox.showerror("Apply Profile Failed", str(exc), parent=window)
+                return
+            self.driving_profile_segments = list(segments)
+            self.active_driving_profile_path = LATEST_GUI_DRIVING_PROFILE_CSV
+            self.driving_profile_mode.set(DRIVING_PROFILE_MODE_CUSTOM)
+            self._refresh_driving_profile_status()
+            window.destroy()
+
+        def on_select(_event: tk.Event[tk.Misc] | None = None) -> None:
+            selection = table.selection()
+            if not selection:
+                return
+            values = table.item(selection[0], "values")
+            for index, column in enumerate(columns):
+                entry_vars[column].set(str(values[index]))
+
+        table.bind("<<TreeviewSelect>>", on_select)
+
+        actions = ttk.Frame(window, style="Root.TFrame")
+        actions.grid(row=3, column=0, sticky="ew", padx=16, pady=(4, 16))
+        self.make_secondary_button(actions, text="Add Segment", command=add_segment).grid(row=0, column=0, padx=(0, 6))
+        self.make_secondary_button(actions, text="Update Selected", command=update_selected).grid(row=0, column=1, padx=(0, 6))
+        self.make_danger_button(actions, text="Delete Selected Segment", command=delete_selected).grid(row=0, column=2, padx=(0, 6))
+        self.make_danger_button(actions, text="Clear Profile", command=clear_profile).grid(row=0, column=3, padx=(0, 6))
+        self.make_secondary_button(actions, text="Use Example Profile", command=use_example).grid(row=0, column=4, padx=(0, 6))
+        self.make_secondary_button(actions, text="Save Profile", command=save_profile_as).grid(row=0, column=5, padx=(0, 6))
+        self.make_secondary_button(actions, text="Load Profile", command=load_profile).grid(row=0, column=6, padx=(0, 6))
+        self.make_primary_button(actions, text="Apply", command=apply_profile).grid(row=0, column=7)
+
+        refresh_table(self.driving_profile_segments or self._example_driving_segments())
 
     def _build_single_custom_builder(self, parent: ttk.Frame) -> None:
         builder = self._section_card(
@@ -7345,6 +7733,28 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         display_name = self.detection_action_choice.get()
         return DETECTION_ACTION_NAMES.get(display_name, "observe_only")
 
+    def _active_driving_profile_metadata(self) -> Dict[str, object]:
+        if self.driving_profile_mode.get() != DRIVING_PROFILE_MODE_CUSTOM:
+            return {
+                "mode": DRIVING_PROFILE_MODE_DEFAULT,
+                "path": None,
+                "segments": 0,
+            }
+
+        if not self.driving_profile_segments:
+            raise ValueError("Configure and Apply a custom driving profile before running.")
+
+        segments = self._validate_driving_profile_segments(self.driving_profile_segments)
+        self._write_driving_profile_csv(LATEST_GUI_DRIVING_PROFILE_CSV, segments)
+        self.driving_profile_segments = list(segments)
+        self.active_driving_profile_path = LATEST_GUI_DRIVING_PROFILE_CSV
+        self._refresh_driving_profile_status()
+        return {
+            "mode": DRIVING_PROFILE_MODE_CUSTOM,
+            "path": LATEST_GUI_DRIVING_PROFILE_CSV,
+            "segments": len(segments),
+        }
+
     def _on_detection_algorithm_changed(
         self,
         _event: tk.Event[tk.Misc] | None = None,
@@ -7610,6 +8020,9 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             variable.set("-")
         self.custom_saved_paths_var.set("No files yet. Run a custom experiment to generate CSV outputs.")
         self.custom_last_run_var.set("No custom run loaded yet.")
+        self.custom_driving_mode_var.set(DRIVING_PROFILE_MODE_DEFAULT)
+        self.custom_driving_profile_var.set("n/a")
+        self.custom_driving_segments_var.set("0")
         self.custom_loaded_slot_var.set("Not loaded")
         self.last_custom_result = None
         self._clear_detection_comparison()
@@ -8750,6 +9163,26 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             f"{Path(result['log_path']).relative_to(PROJECT_ROOT)}\n{Path(result['summary_path']).relative_to(PROJECT_ROOT)}"
         )
         self.custom_last_run_var.set(loaded_mode)
+        driving_profile = result.get("driving_profile", {})
+        if isinstance(driving_profile, dict):
+            mode = str(driving_profile.get("mode", DRIVING_PROFILE_MODE_DEFAULT))
+            path_value = driving_profile.get("path")
+            segments = int(driving_profile.get("segments", 0) or 0)
+        else:
+            mode = DRIVING_PROFILE_MODE_DEFAULT
+            path_value = None
+            segments = 0
+        self.custom_driving_mode_var.set(mode)
+        if path_value is not None:
+            profile_display_path = Path(path_value)
+            try:
+                profile_display = str(profile_display_path.relative_to(PROJECT_ROOT))
+            except ValueError:
+                profile_display = str(profile_display_path)
+        else:
+            profile_display = "n/a"
+        self.custom_driving_profile_var.set(profile_display)
+        self.custom_driving_segments_var.set(str(segments))
         self._update_custom_detection_result(result)
         self.last_custom_result = result
         self._clear_detection_comparison()
@@ -10059,6 +10492,10 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                     f"{float(event['parameter']):g}",
                 ]
             )
+        if self.last_custom_result is not None:
+            driving_profile = self.last_custom_result.get("driving_profile")
+            if isinstance(driving_profile, dict) and driving_profile.get("path") is not None:
+                command.extend(["--driving-profile", str(driving_profile["path"])])
 
         if self.runtime_custom_matrix_run_button is not None:
             self.runtime_custom_matrix_run_button.state(["disabled"])
@@ -10709,6 +11146,11 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         CUSTOM_LOGS_DIR.mkdir(parents=True, exist_ok=True)
         detection_algorithm = self._selected_detection_algorithm_name()
         detection_action = self._selected_detection_action_name()
+        try:
+            driving_profile = self._active_driving_profile_metadata()
+        except (OSError, ValueError) as exc:
+            messagebox.showerror("Driving Profile Invalid", str(exc))
+            return
         detection_display = DETECTION_ALGORITHM_DISPLAY[detection_algorithm]
         action_display = DETECTION_ACTION_DISPLAY[detection_action]
         run_noun = "custom multi-fault scenario" if str(config.get("kind", "single")) == "multi" else "custom experiment"
@@ -10739,6 +11181,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                 config,
                 detection_algorithm,
                 detection_action,
+                driving_profile,
                 self.left_campaign.get(),
                 self.right_campaign.get(),
             ),
@@ -10864,6 +11307,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         config: Dict[str, object],
         detection_algorithm: str,
         detection_action: str,
+        driving_profile: Dict[str, object],
     ) -> Dict[str, object]:
         log_path = custom_log_path(config)
         if str(config.get("kind", "single")) == "multi":
@@ -10898,6 +11342,9 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                 detection_action,
             ]
         )
+        profile_path = driving_profile.get("path")
+        if profile_path is not None:
+            command.extend(["--driving-profile", str(profile_path)])
         completed = subprocess.run(
             command,
             cwd=PROJECT_ROOT,
@@ -10915,6 +11362,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         result["custom_config"] = dict(config)
         result["detection_algorithm"] = detection_algorithm
         result["detection_action"] = detection_action
+        result["driving_profile"] = dict(driving_profile)
         try:
             result["detection_result"] = run_detection_algorithm(
                 log_path,
@@ -10945,6 +11393,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         config: Dict[str, object],
         detection_algorithm: str,
         detection_action: str,
+        driving_profile: Dict[str, object],
         left_campaign_id: str,
         right_campaign_id: str,
     ) -> None:
@@ -10953,6 +11402,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                 config,
                 detection_algorithm,
                 detection_action,
+                driving_profile,
             )
             item_label = "Custom scenario" if str(config.get("kind", "single")) == "multi" else "Custom run"
 
