@@ -12,7 +12,7 @@ import threading
 import textwrap
 import webbrowser
 from pathlib import Path
-from typing import Dict, Iterable, List, Sequence, Tuple
+from typing import Callable, Dict, Iterable, List, Sequence, Tuple
 
 try:
     import tkinter as tk
@@ -200,6 +200,23 @@ BUTTON_STYLES = {
         "bg": THEME_COLORS["danger"],
         "hover": THEME_COLORS["danger_hover"],
         "fg": "#FFFFFF",
+    },
+}
+ACTIVITY_STATUS_STYLES = {
+    "ready": {
+        "bg": "#172235",
+        "title": "#D7E2F2",
+        "detail": "#9CA3AF",
+    },
+    "busy": {
+        "bg": "#0F2A44",
+        "title": "#BAE6FD",
+        "detail": "#D7E2F2",
+    },
+    "error": {
+        "bg": "#3F1D1D",
+        "title": "#FECACA",
+        "detail": "#FEE2E2",
     },
 }
 UI_FONT = "Segoe UI"
@@ -4367,7 +4384,8 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.dashboard_export_var = tk.StringVar(value="Exports unlock after a comparison is loaded")
         self.dashboard_batch_var = tk.StringVar(value="Batch dashboard is ready to load data")
         self.dashboard_custom_var = tk.StringVar(value="Try a single-fault demo when ready")
-        self.dashboard_runtime_var = tk.StringVar(value="Simulator ready" if self.executable else "Build the simulator before running campaigns")
+        self.activity_title_var = tk.StringVar(value="Simulator Ready")
+        self.activity_detail_var = tk.StringVar(value="")
         self.batch_csv_path = tk.StringVar(value=str(DEFAULT_BATCH_AGGREGATE_CSV))
         self.batch_run_count_var = tk.StringVar(value="-")
         self.batch_fault_classes_var = tk.StringVar(value="-")
@@ -4402,9 +4420,11 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.batch_rows: List[Dict[str, str]] = []
         self.runtime_study_rows: List[Dict[str, str]] = []
         self.batch_table: ttk.Treeview | None = None
+        self.batch_load_button: ttk.Button | None = None
         self.runtime_study_table: ttk.Treeview | None = None
         self.runtime_study_run_button: ttk.Button | None = None
         self.runtime_custom_matrix_run_button: ttk.Button | None = None
+        self.runtime_study_reload_button: ttk.Button | None = None
         self.runtime_study_report_button: ttk.Button | None = None
         self.runtime_study_folder_button: ttk.Button | None = None
         self.runtime_study_figures_content: ttk.Frame | None = None
@@ -4423,7 +4443,10 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.page_labels: Dict[str, str] = {}
         self.sidebar_buttons: Dict[str, tk.Widget] = {}
         self.sidebar_logo_image: tk.PhotoImage | None = None
-        self.sidebar_status_label: tk.Widget | None = None
+        self.sidebar_activity_frame: tk.Widget | None = None
+        self.sidebar_activity_title_label: tk.Widget | None = None
+        self.sidebar_activity_detail_label: tk.Widget | None = None
+        self.sidebar_activity_clear_button: tk.Widget | None = None
         self.showcase_preset_selector: ttk.Combobox | None = None
         self.recent_results_frame: ttk.Frame | None = None
         self.favorite_selector: ttk.Combobox | None = None
@@ -4475,7 +4498,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             self._set_custom_controls_enabled(False)
 
         if DEFAULT_BATCH_AGGREGATE_CSV.exists():
-            self.load_batch_results()
+            self.load_batch_results(update_activity=False)
         self.after(0, self._maybe_auto_restore_session)
 
     def _configure_style(self) -> None:
@@ -4766,11 +4789,12 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                 bg=SIDEBAR_BG,
                 bd=0,
             ).pack(anchor="center", padx=0, pady=0)
-            footer_spacer_row = logo_row + 1
+            activity_row = logo_row + 1
         else:
-            footer_spacer_row = logo_row
+            activity_row = logo_row
+        self._build_sidebar_activity_panel(sidebar, activity_row)
+        footer_spacer_row = activity_row + 1
         attribution_row = footer_spacer_row + 1
-        status_row = attribution_row + 1
         sidebar.rowconfigure(footer_spacer_row, weight=1)
         attribution_text = f"{APP_ATTRIBUTION_LINE_1}\n{APP_ATTRIBUTION_LINE_2}"
         if CTK_AVAILABLE:
@@ -4800,34 +4824,243 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             column=0,
             sticky="ew",
             padx=16,
-            pady=(10, 8),
+            pady=(10, 22),
         )
+
+    def _build_sidebar_activity_panel(self, sidebar: tk.Widget, row: int) -> None:
+        style = ACTIVITY_STATUS_STYLES["ready"]
         if CTK_AVAILABLE:
-            self.sidebar_status_label = ctk.CTkLabel(
+            self.sidebar_activity_frame = ctk.CTkFrame(
                 sidebar,
-                textvariable=self.dashboard_runtime_var,
-                text_color="#d4deec",
-                fg_color="#1b2b4a",
+                fg_color=style["bg"],
                 corner_radius=12,
-                font=(UI_FONT, 11),
+                border_width=0,
+            )
+            self.sidebar_activity_title_label = ctk.CTkLabel(
+                self.sidebar_activity_frame,
+                textvariable=self.activity_title_var,
+                text_color=style["title"],
+                fg_color="transparent",
+                font=(UI_FONT, 11, "bold"),
+                anchor="w",
+            )
+            self.sidebar_activity_detail_label = ctk.CTkLabel(
+                self.sidebar_activity_frame,
+                textvariable=self.activity_detail_var,
+                text_color=style["detail"],
+                fg_color="transparent",
+                font=(UI_FONT, 10),
                 wraplength=190,
                 justify="left",
                 anchor="w",
+            )
+            self.sidebar_activity_clear_button = ctk.CTkButton(
+                self.sidebar_activity_frame,
+                text="Clear",
+                command=self.clear_activity_status,
+                width=56,
+                height=24,
+                corner_radius=8,
+                fg_color="#203047",
+                hover_color="#2B3B55",
+                text_color="#B7C3D4",
+                font=(UI_FONT, 10),
             )
         else:
-            self.sidebar_status_label = tk.Label(
+            self.sidebar_activity_frame = tk.Frame(
                 sidebar,
-                textvariable=self.dashboard_runtime_var,
-                bg="#1b2b4a",
-                fg="#d4deec",
-                font=(UI_FONT, 11),
+                bg=style["bg"],
+                bd=0,
+                highlightthickness=0,
+            )
+            self.sidebar_activity_title_label = tk.Label(
+                self.sidebar_activity_frame,
+                textvariable=self.activity_title_var,
+                bg=style["bg"],
+                fg=style["title"],
+                font=(UI_FONT, 11, "bold"),
+                anchor="w",
+            )
+            self.sidebar_activity_detail_label = tk.Label(
+                self.sidebar_activity_frame,
+                textvariable=self.activity_detail_var,
+                bg=style["bg"],
+                fg=style["detail"],
+                font=(UI_FONT, 10),
                 wraplength=190,
                 justify="left",
                 anchor="w",
-                padx=12,
-                pady=10,
             )
-        self.sidebar_status_label.grid(row=status_row, column=0, sticky="ew", padx=16, pady=(0, 22))
+            self.sidebar_activity_clear_button = tk.Button(
+                self.sidebar_activity_frame,
+                text="Clear",
+                command=self.clear_activity_status,
+                bg="#203047",
+                fg="#B7C3D4",
+                activebackground="#2B3B55",
+                activeforeground="#E5E7EB",
+                relief="flat",
+                borderwidth=0,
+                padx=8,
+                pady=2,
+                font=(UI_FONT, 9),
+                cursor="hand2",
+            )
+
+        self.sidebar_activity_frame.grid(
+            row=row,
+            column=0,
+            sticky="ew",
+            padx=16,
+            pady=(0, 12),
+        )
+        self.sidebar_activity_title_label.pack(fill="x", padx=12, pady=(10, 1))
+        self.sidebar_activity_detail_label.pack(fill="x", padx=12, pady=(0, 8))
+        self.sidebar_activity_clear_button.pack(anchor="e", padx=12, pady=(0, 10))
+
+    def set_activity_status(
+        self,
+        title: str,
+        detail: str | None = None,
+        state: str = "ready",
+    ) -> None:
+        if threading.current_thread() is not threading.main_thread():
+            self.after(
+                0,
+                lambda: self.set_activity_status(title, detail, state),
+            )
+            return
+
+        style = ACTIVITY_STATUS_STYLES.get(state, ACTIVITY_STATUS_STYLES["ready"])
+        self.activity_title_var.set(title)
+        self.activity_detail_var.set(detail or "")
+
+        if self.sidebar_activity_frame is not None:
+            if CTK_AVAILABLE:
+                self.sidebar_activity_frame.configure(fg_color=style["bg"])  # type: ignore[attr-defined]
+            else:
+                self.sidebar_activity_frame.configure(bg=style["bg"])  # type: ignore[attr-defined]
+        if self.sidebar_activity_title_label is not None:
+            if CTK_AVAILABLE:
+                self.sidebar_activity_title_label.configure(text_color=style["title"])  # type: ignore[attr-defined]
+            else:
+                self.sidebar_activity_title_label.configure(  # type: ignore[attr-defined]
+                    bg=style["bg"],
+                    fg=style["title"],
+                )
+        if self.sidebar_activity_detail_label is not None:
+            if CTK_AVAILABLE:
+                self.sidebar_activity_detail_label.configure(text_color=style["detail"])  # type: ignore[attr-defined]
+            else:
+                self.sidebar_activity_detail_label.configure(  # type: ignore[attr-defined]
+                    bg=style["bg"],
+                    fg=style["detail"],
+                )
+        if self.sidebar_activity_clear_button is not None and not CTK_AVAILABLE:
+            self.sidebar_activity_clear_button.configure(  # type: ignore[attr-defined]
+                bg="#203047",
+                activebackground="#2B3B55",
+            )
+
+    def set_activity_busy(self, message: str) -> None:
+        self.set_activity_status(
+            "Simulator Busy",
+            f"{message}\nPlease wait...",
+            state="busy",
+        )
+
+    def set_activity_ready(
+        self,
+        detail: str | None = None,
+        last_action: str | None = None,
+    ) -> None:
+        detail_lines: List[str] = []
+        if detail:
+            detail_lines.append(detail)
+        if last_action:
+            detail_lines.append(f"Last action: {last_action}")
+        self.set_activity_status(
+            "Simulator Ready",
+            "\n".join(detail_lines),
+            state="ready",
+        )
+
+    def set_activity_error(self, detail: str | None = None) -> None:
+        self.set_activity_status(
+            "Simulator Error",
+            detail or "See message.",
+            state="error",
+        )
+
+    def clear_activity_status(self) -> None:
+        self.set_activity_ready()
+
+    @staticmethod
+    def _set_buttons_enabled(
+        buttons: Sequence[tk.Widget | None],
+        enabled: bool,
+    ) -> None:
+        state = ["!disabled"] if enabled else ["disabled"]
+        tk_state = tk.NORMAL if enabled else tk.DISABLED
+        for button in buttons:
+            if button is None:
+                continue
+            try:
+                button.state(state)  # type: ignore[attr-defined]
+            except (AttributeError, tk.TclError):
+                try:
+                    button.configure(state=tk_state)  # type: ignore[attr-defined]
+                except tk.TclError:
+                    pass
+
+    def run_background_task(
+        self,
+        status_title: str,
+        status_detail: str,
+        task_fn: Callable[[], object],
+        on_success: Callable[[object], None] | None = None,
+        on_error: Callable[[Exception], None] | None = None,
+        buttons_to_disable: Sequence[tk.Widget | None] | None = None,
+        success_action: str | None = None,
+        show_activity: bool = True,
+    ) -> None:
+        buttons = tuple(buttons_to_disable or ())
+        self._set_buttons_enabled(buttons, False)
+        if show_activity:
+            self.set_activity_busy(status_title)
+
+        def finish_success(result: object) -> None:
+            try:
+                if on_success is not None:
+                    on_success(result)
+            finally:
+                self._set_buttons_enabled(buttons, True)
+                if show_activity:
+                    self.set_activity_ready(
+                        detail="Completed successfully." if success_action else None,
+                        last_action=success_action,
+                    )
+
+        def finish_error(exc: Exception) -> None:
+            try:
+                if show_activity:
+                    self.set_activity_error()
+                if on_error is not None:
+                    on_error(exc)
+                else:
+                    messagebox.showerror("Operation Failed", str(exc))
+            finally:
+                self._set_buttons_enabled(buttons, True)
+
+        def worker() -> None:
+            try:
+                result = task_fn()
+            except Exception as exc:  # Keep controls recoverable even on unexpected failures.
+                self.after(0, lambda error=exc: finish_error(error))
+                return
+            self.after(0, lambda value=result: finish_success(value))
+
+        threading.Thread(target=worker, daemon=True).start()
 
     def _load_sidebar_logo_image(self) -> tk.PhotoImage | None:
         logo_path = PROJECT_ROOT / SIDEBAR_LOGO_PATH
@@ -6590,7 +6823,12 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         path_entry = ttk.Entry(controls, textvariable=self.batch_csv_path)
         path_entry.grid(row=0, column=1, sticky="ew", padx=(10, 10))
         self.make_secondary_button(controls, text="Browse", command=self.browse_batch_results).grid(row=0, column=2, sticky="e")
-        self.make_primary_button(controls, text="Load Aggregate CSV", command=self.load_batch_results).grid(
+        self.batch_load_button = self.make_primary_button(
+            controls,
+            text="Load Aggregate CSV",
+            command=self.load_batch_results,
+        )
+        self.batch_load_button.grid(
             row=0, column=3, sticky="e", padx=(8, 0)
         )
 
@@ -6840,11 +7078,12 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.runtime_study_folder_button.grid(
             row=1, column=1, sticky="e", padx=(8, 0), pady=(8, 0)
         )
-        self.make_secondary_button(
+        self.runtime_study_reload_button = self.make_secondary_button(
             actions,
             text="Reload Results",
-            command=self.load_runtime_study_source,
-        ).grid(row=0, column=2, rowspan=2, sticky="e", padx=(8, 0))
+            command=self.reload_runtime_study_source,
+        )
+        self.runtime_study_reload_button.grid(row=0, column=2, rowspan=2, sticky="e", padx=(8, 0))
 
         summary_shell = ttk.Frame(
             parent,
@@ -7181,15 +7420,36 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             return
 
         log_path = Path(log_path_value)
-        try:
-            results = [
+        def compare_task() -> object:
+            return [
                 evaluate_detection(log_path, algorithm_name)
                 for algorithm_name in SUPPORTED_ALGORITHMS
             ]
-        except (OSError, ValueError, csv.Error) as exc:
-            messagebox.showerror("Algorithm Comparison Failed", str(exc))
-            return
 
+        def on_success(results_obj: object) -> None:
+            self._render_detection_comparison_results(
+                log_path,
+                list(results_obj),  # type: ignore[arg-type]
+            )
+
+        def on_error(exc: Exception) -> None:
+            messagebox.showerror("Algorithm Comparison Failed", str(exc))
+
+        self.run_background_task(
+            "Running all algorithms...",
+            "Please wait.",
+            compare_task,
+            on_success=on_success,
+            on_error=on_error,
+            buttons_to_disable=(self.compare_all_algorithms_button,),
+            success_action="Compare All Algorithms",
+        )
+
+    def _render_detection_comparison_results(
+        self,
+        log_path: Path,
+        results: Sequence[Dict[str, object]],
+    ) -> None:
         self._clear_detection_comparison(hide=False)
         if self.detection_comparison_table is None:
             return
@@ -9572,9 +9832,64 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.runtime_study_source_choice.set(RUNTIME_STUDY_SOURCE_OPTIONS[0])
         self.load_runtime_study_source(show_error=show_error)
 
+    def reload_runtime_study_source(self) -> None:
+        _output_dir, comparison_path, _report_path, _figures = (
+            self._runtime_study_source_paths()
+        )
+        source_name = self.runtime_study_source_choice.get()
+        self.runtime_study_path_text.set(
+            str(comparison_path.relative_to(PROJECT_ROOT))
+        )
+
+        def load_task() -> object:
+            if not comparison_path.is_file():
+                return None
+            return read_csv_rows(comparison_path)
+
+        def on_success(rows_obj: object) -> None:
+            if rows_obj is None:
+                self._clear_runtime_study_results(
+                    f"No results found for {source_name}. Run the corresponding study "
+                    "from this page first."
+                )
+                return
+
+            rows = list(rows_obj)  # type: ignore[arg-type]
+            if not rows:
+                self._clear_runtime_study_results(
+                    f"Runtime study comparison CSV is empty: {comparison_path}"
+                )
+                return
+
+            self.runtime_study_rows = list(rows)
+            self._update_runtime_study_summary(rows)
+            self._populate_runtime_study_table(rows)
+            self.runtime_study_status_text.set(
+                f"Loaded {len(rows)} runs for {source_name} from "
+                f"{comparison_path.relative_to(PROJECT_ROOT)}."
+            )
+            self._set_runtime_study_artifact_states()
+
+        def on_error(exc: Exception) -> None:
+            self._clear_runtime_study_results(
+                f"Failed to load {source_name}: {exc}"
+            )
+            messagebox.showerror("Runtime Study Load Failed", str(exc))
+
+        self.run_background_task(
+            "Reloading results...",
+            "Please wait.",
+            load_task,
+            on_success=on_success,
+            on_error=on_error,
+            buttons_to_disable=(self.runtime_study_reload_button,),
+            success_action="Reload Results",
+        )
+
     def run_runtime_intervention_study(self) -> None:
         if self.runtime_study_run_button is not None:
             self.runtime_study_run_button.state(["disabled"])
+        self.set_activity_busy("Running runtime study...")
         self.runtime_study_status_text.set(
             "Running the predefined runtime intervention study..."
         )
@@ -9585,13 +9900,23 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         ).start()
 
     def _run_runtime_intervention_study_worker(self) -> None:
-        completed = subprocess.run(
-            [sys.executable, str(RUNTIME_STUDY_SCRIPT)],
-            cwd=PROJECT_ROOT,
-            check=False,
-            capture_output=True,
-            text=True,
-        )
+        try:
+            completed = subprocess.run(
+                [sys.executable, str(RUNTIME_STUDY_SCRIPT)],
+                cwd=PROJECT_ROOT,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+        except OSError as exc:
+            self.after(
+                0,
+                lambda error=exc: self._finish_runtime_intervention_study(
+                    1,
+                    str(error),
+                ),
+            )
+            return
         message = completed.stderr.strip() or completed.stdout.strip()
         self.after(
             0,
@@ -9613,6 +9938,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                 "Runtime intervention study failed. Review the error dialog."
             )
             self.status_text.set("Runtime intervention study failed.")
+            self.set_activity_error()
             messagebox.showerror(
                 "Runtime Intervention Study Failed",
                 message or "Unknown study runner failure.",
@@ -9621,6 +9947,10 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.load_runtime_intervention_study(show_error=True)
         self.status_text.set(
             "Runtime intervention study complete. Results and report reloaded."
+        )
+        self.set_activity_ready(
+            detail="Completed successfully.",
+            last_action="Predefined Runtime Study",
         )
 
     @staticmethod
@@ -9732,8 +10062,9 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
 
         if self.runtime_custom_matrix_run_button is not None:
             self.runtime_custom_matrix_run_button.state(["disabled"])
+        self.set_activity_busy("Running custom matrix...")
         self.runtime_study_status_text.set(
-            f"Running 12 combinations for {custom_campaign_label(config)}..."
+            f"Running custom matrix for {custom_campaign_label(config)}..."
         )
         self.status_text.set("Running the latest custom runtime detector matrix...")
         threading.Thread(
@@ -9743,13 +10074,23 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         ).start()
 
     def _run_runtime_custom_matrix_worker(self, command: Sequence[str]) -> None:
-        completed = subprocess.run(
-            list(command),
-            cwd=PROJECT_ROOT,
-            check=False,
-            capture_output=True,
-            text=True,
-        )
+        try:
+            completed = subprocess.run(
+                list(command),
+                cwd=PROJECT_ROOT,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+        except OSError as exc:
+            self.after(
+                0,
+                lambda error=exc: self._finish_runtime_custom_matrix(
+                    1,
+                    str(error),
+                ),
+            )
+            return
         message = completed.stderr.strip() or completed.stdout.strip()
         self.after(
             0,
@@ -9767,6 +10108,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                 "Latest custom scenario matrix failed. Review the error dialog."
             )
             self.status_text.set("Runtime custom scenario matrix failed.")
+            self.set_activity_error()
             messagebox.showerror(
                 "Runtime Custom Matrix Failed",
                 message or "Unknown custom matrix runner failure.",
@@ -9776,7 +10118,11 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self._refresh_runtime_study_figure_buttons()
         self.load_runtime_study_source(show_error=True)
         self.status_text.set(
-            "Runtime custom scenario matrix complete. The 18-run result is loaded."
+            "Runtime custom scenario matrix complete. Results are loaded."
+        )
+        self.set_activity_ready(
+            detail="Completed successfully.",
+            last_action="Runtime Custom Matrix",
         )
 
     def open_runtime_study_artifact(self, path: Path, title: str) -> None:
@@ -9886,25 +10232,37 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
 
         self._set_propagation_evidence_rows(evidence_rows)
 
-    def load_batch_results(self) -> None:
+    def load_batch_results(self, *, update_activity: bool = True) -> None:
         csv_path = Path(self.batch_csv_path.get()).expanduser()
-        try:
-            rows = read_csv_rows(csv_path)
-        except FileNotFoundError:
-            self._clear_batch_results()
-            self.batch_status_text.set(f"Batch aggregate CSV not found: {csv_path}")
-            return
-        except (OSError, csv.Error) as exc:
-            self._clear_batch_results()
-            self.batch_status_text.set(f"Failed to load batch aggregate CSV: {exc}")
-            return
 
-        if not rows:
-            self._clear_batch_results()
-            self.batch_status_text.set(f"Batch aggregate CSV is empty: {csv_path}")
-            return
+        def load_task() -> object:
+            return read_csv_rows(csv_path)
 
-        self._apply_batch_results(csv_path, rows)
+        def on_success(rows_obj: object) -> None:
+            rows = list(rows_obj)  # type: ignore[arg-type]
+            if not rows:
+                self._clear_batch_results()
+                self.batch_status_text.set(f"Batch aggregate CSV is empty: {csv_path}")
+                return
+            self._apply_batch_results(csv_path, rows)
+
+        def on_error(exc: Exception) -> None:
+            self._clear_batch_results()
+            if isinstance(exc, FileNotFoundError):
+                self.batch_status_text.set(f"Batch aggregate CSV not found: {csv_path}")
+            else:
+                self.batch_status_text.set(f"Failed to load batch aggregate CSV: {exc}")
+
+        self.run_background_task(
+            "Loading aggregate CSV...",
+            "Please wait.",
+            load_task,
+            on_success=on_success,
+            on_error=on_error,
+            buttons_to_disable=(self.batch_load_button,),
+            success_action="Load Aggregate CSV",
+            show_activity=update_activity,
+        )
 
     def _clear_batch_results(self) -> None:
         self.batch_rows = []
@@ -10360,6 +10718,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             "right": f"Running {run_noun} as right vs {self.left_campaign.get()}...",
             "baseline": f"Running {run_noun} vs baseline...",
         }.get(mode, f"Running {run_noun}...")
+        self.set_activity_busy("Running experiment...")
         self.status_text.set(mode_text)
         self.custom_status_text.set(
             f"Executing {custom_campaign_label(config)} with {detection_display} "
@@ -10375,7 +10734,14 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
 
         worker = threading.Thread(
             target=self._run_custom_experiment_worker,
-            args=(mode, config, detection_algorithm, detection_action),
+            args=(
+                mode,
+                config,
+                detection_algorithm,
+                detection_action,
+                self.left_campaign.get(),
+                self.right_campaign.get(),
+            ),
             daemon=True,
         )
         worker.start()
@@ -10579,6 +10945,8 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         config: Dict[str, object],
         detection_algorithm: str,
         detection_action: str,
+        left_campaign_id: str,
+        right_campaign_id: str,
     ) -> None:
         try:
             custom_result = self._run_custom_campaign(
@@ -10586,8 +10954,6 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                 detection_algorithm,
                 detection_action,
             )
-            left_campaign_id = self.left_campaign.get()
-            right_campaign_id = self.right_campaign.get()
             item_label = "Custom scenario" if str(config.get("kind", "single")) == "multi" else "Custom run"
 
             if mode == "only":
@@ -10651,6 +11017,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
     def _show_error(self, message: str) -> None:
         self.status_text.set("Run failed.")
         self.custom_status_text.set("Custom experiment run failed.")
+        self.set_activity_error()
         self.run_compare_button.state(["!disabled"])
         self.run_left_button.state(["!disabled"])
         self.snapshot_button.state(["disabled"])
@@ -10735,6 +11102,15 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.custom_status_text.set(
             f"{custom_status} Saved files: {Path(custom_result['log_path']).relative_to(PROJECT_ROOT)} and "
             f"{Path(custom_result['summary_path']).relative_to(PROJECT_ROOT)}."
+        )
+        custom_config = custom_result.get("custom_config")
+        is_multi = (
+            isinstance(custom_config, dict)
+            and str(custom_config.get("kind", "single")) == "multi"
+        )
+        self.set_activity_ready(
+            detail="Completed successfully.",
+            last_action="Run Custom Scenario" if is_multi else "Run Single Fault",
         )
 
     def _apply_results(
