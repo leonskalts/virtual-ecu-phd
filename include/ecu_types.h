@@ -101,6 +101,11 @@ typedef struct {
 } driving_profile_config_t;
 
 typedef struct {
+    bool custom_duration_enabled;
+    unsigned int duration_ms;
+} simulation_config_t;
+
+typedef struct {
     scenario_phase_t scenario_phase;
     float ambient_temp_c;
     float engine_load;
@@ -215,6 +220,7 @@ typedef struct ecu_state {
     safety_status_t safety;
     experiment_config_t experiment;
     driving_profile_config_t driving_profile;
+    simulation_config_t simulation;
     fault_state_t faults;
     experiment_metrics_t metrics;
     detection_algorithm_state_t detection;

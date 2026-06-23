@@ -137,6 +137,9 @@ APP_ATTRIBUTION_LINE_1 = "Virtual ECU Research Explorer"
 APP_ATTRIBUTION_LINE_2 = "Created by Leonidas Skaltsonis"
 SIDEBAR_LOGO_PATH = Path("assets/fault_path/Virtual_ECU.png")
 SIDEBAR_LOGO_TARGET_WIDTH_PX = 200
+DEFAULT_SIMULATION_DURATION_MS = 120000
+MIN_SIMULATION_DURATION_MS = 1000
+MAX_SIMULATION_DURATION_MS = 3600000
 THEME_COLORS = {
     "app_bg": "#F4F7FB",
     "card_bg": "#FFFFFF",
@@ -4333,7 +4336,9 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.driving_profile_status = tk.StringVar(
             value="Uses built-in thermal phases: Warmup -> Highway -> Urban Traffic -> Hot Idle."
         )
+        self.driving_profile_duration_s = tk.StringVar(value=str(DEFAULT_SIMULATION_DURATION_MS // 1000))
         self.custom_driving_mode_var = tk.StringVar(value="Default Thermal Plant")
+        self.custom_simulation_duration_var = tk.StringVar(value=f"{DEFAULT_SIMULATION_DURATION_MS // 1000} s")
         self.custom_driving_profile_var = tk.StringVar(value="n/a")
         self.custom_driving_segments_var = tk.StringVar(value="0")
         self.detection_comparison_status = tk.StringVar(
@@ -4434,6 +4439,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.last_custom_result: Dict[str, object] | None = None
         self.driving_profile_segments: List[Dict[str, float]] = []
         self.active_driving_profile_path: Path | None = None
+        self.active_driving_profile_duration_ms: int | None = None
         self.batch_rows: List[Dict[str, str]] = []
         self.runtime_study_rows: List[Dict[str, str]] = []
         self.batch_table: ttk.Treeview | None = None
@@ -6140,8 +6146,9 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self._build_custom_metric_row(summary, 9, "Saved Files", self.custom_saved_paths_var, wraplength=300)
         self._build_custom_metric_row(summary, 10, "Last Loaded Mode", self.custom_last_run_var, wraplength=300)
         self._build_custom_metric_row(summary, 11, "Driving Mode", self.custom_driving_mode_var, wraplength=300)
-        self._build_custom_metric_row(summary, 12, "Profile", self.custom_driving_profile_var, wraplength=300)
-        self._build_custom_metric_row(summary, 13, "Segments", self.custom_driving_segments_var)
+        self._build_custom_metric_row(summary, 12, "Simulation Duration", self.custom_simulation_duration_var, wraplength=300)
+        self._build_custom_metric_row(summary, 13, "Profile", self.custom_driving_profile_var, wraplength=300)
+        self._build_custom_metric_row(summary, 14, "Segments", self.custom_driving_segments_var)
 
         detection_result_card = self._section_card(
             results_column,
@@ -6306,9 +6313,14 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
     def _refresh_driving_profile_status(self) -> None:
         if self.driving_profile_mode.get() == DRIVING_PROFILE_MODE_CUSTOM:
             if self.active_driving_profile_path is not None and self.driving_profile_segments:
+                duration_text = (
+                    self._format_duration_label(self.active_driving_profile_duration_ms)
+                    if self.active_driving_profile_duration_ms is not None
+                    else "duration not applied"
+                )
                 self.driving_profile_status.set(
                     f"Custom profile active: {self.active_driving_profile_path.relative_to(PROJECT_ROOT)} "
-                    f"({len(self.driving_profile_segments)} segments)."
+                    f"({len(self.driving_profile_segments)} segments, {duration_text})."
                 )
             else:
                 self.driving_profile_status.set(
@@ -6323,7 +6335,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         return [
             {
                 "start_s": 0.0,
-                "end_s": 20.0,
+                "end_s": 100.0,
                 "vehicle_speed_kph": 100.0,
                 "engine_load": 0.45,
                 "ambient_temp_c": 30.0,
@@ -6331,24 +6343,40 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                 "road_slope_percent": 0.0,
             },
             {
-                "start_s": 20.0,
-                "end_s": 40.0,
+                "start_s": 100.0,
+                "end_s": 200.0,
                 "vehicle_speed_kph": 80.0,
-                "engine_load": 0.50,
-                "ambient_temp_c": 30.0,
+                "engine_load": 0.60,
+                "ambient_temp_c": 32.0,
                 "external_airflow_factor": 0.3,
                 "road_slope_percent": 0.0,
             },
             {
-                "start_s": 40.0,
-                "end_s": 60.0,
-                "vehicle_speed_kph": 30.0,
-                "engine_load": 0.65,
-                "ambient_temp_c": 30.0,
-                "external_airflow_factor": 0.1,
-                "road_slope_percent": 4.0,
+                "start_s": 200.0,
+                "end_s": 300.0,
+                "vehicle_speed_kph": 20.0,
+                "engine_load": 0.90,
+                "ambient_temp_c": 38.0,
+                "external_airflow_factor": 0.0,
+                "road_slope_percent": 6.0,
             },
         ]
+
+    @staticmethod
+    def _parse_simulation_duration_ms(duration_s_text: str) -> int:
+        try:
+            duration_s = float(duration_s_text)
+        except ValueError as exc:
+            raise ValueError("Simulation Duration [s] must be numeric.") from exc
+
+        duration_ms = int(round(duration_s * 1000.0))
+        if duration_ms < MIN_SIMULATION_DURATION_MS or duration_ms > MAX_SIMULATION_DURATION_MS:
+            raise ValueError(
+                "Simulation Duration [s] must be between "
+                f"{MIN_SIMULATION_DURATION_MS / 1000:g} and "
+                f"{MAX_SIMULATION_DURATION_MS / 1000:g} seconds."
+            )
+        return duration_ms
 
     @staticmethod
     def _validate_driving_profile_segments(
@@ -6392,6 +6420,52 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         if not normalized:
             raise ValueError("Add at least one driving profile segment.")
         return sorted(normalized, key=lambda row: row["start_s"])
+
+    def _validate_driving_profile_coverage(
+        self,
+        segments: Sequence[Dict[str, float]],
+        duration_ms: int,
+    ) -> List[Dict[str, float]]:
+        normalized = self._validate_driving_profile_segments(segments)
+        expected_start_ms = 0
+
+        if int(round(normalized[0]["start_s"] * 1000.0)) != 0:
+            raise ValueError("Profile must start at 0 s.")
+
+        for segment in normalized:
+            start_ms = int(round(segment["start_s"] * 1000.0))
+            end_ms = int(round(segment["end_s"] * 1000.0))
+            if start_ms > expected_start_ms:
+                raise ValueError(
+                    f"Gap detected between {expected_start_ms / 1000:g} s "
+                    f"and {start_ms / 1000:g} s."
+                )
+            if start_ms < expected_start_ms:
+                raise ValueError(
+                    f"Overlap detected between {start_ms / 1000:g} s "
+                    f"and {expected_start_ms / 1000:g} s."
+                )
+            expected_start_ms = end_ms
+
+        if expected_start_ms < duration_ms:
+            raise ValueError(
+                f"Profile ends at {expected_start_ms / 1000:g} s but simulation "
+                f"duration is {duration_ms / 1000:g} s. Add a segment from "
+                f"{expected_start_ms / 1000:g} s to {duration_ms / 1000:g} s."
+            )
+        if expected_start_ms > duration_ms:
+            raise ValueError(
+                f"Final segment ends at {expected_start_ms / 1000:g} s but "
+                f"simulation duration is {duration_ms / 1000:g} s."
+            )
+
+        return normalized
+
+    @staticmethod
+    def _format_duration_label(duration_ms: int) -> str:
+        if duration_ms % 1000 == 0:
+            return f"{duration_ms // 1000} s"
+        return f"{duration_ms / 1000.0:g} s"
 
     def _write_driving_profile_csv(
         self,
@@ -6449,18 +6523,28 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         window.geometry("920x520")
         window.transient(self)
         window.columnconfigure(0, weight=1)
-        window.rowconfigure(1, weight=1)
+        window.rowconfigure(2, weight=1)
 
         ttk.Label(
             window,
             text=(
-                "Simulation length remains the existing virtual ECU duration. "
-                "Segments outside the listed intervals reuse the nearest profile segment."
+                "Custom Driving Profile mode runs for the selected duration. "
+                "The profile must cover exactly 0 s through that duration."
             ),
             style="Hint.TLabel",
             wraplength=860,
             justify="left",
         ).grid(row=0, column=0, sticky="ew", padx=16, pady=(16, 8))
+
+        duration_row = ttk.Frame(window, style="Root.TFrame")
+        duration_row.grid(row=1, column=0, sticky="ew", padx=16, pady=(0, 8))
+        ttk.Label(duration_row, text="Simulation Duration [s]", style="CardFieldName.TLabel").grid(row=0, column=0, sticky="w")
+        ttk.Entry(duration_row, textvariable=self.driving_profile_duration_s, width=12).grid(row=0, column=1, sticky="w", padx=(10, 12))
+        ttk.Label(
+            duration_row,
+            text="Default is 120 s; example profile uses 300 s.",
+            style="Hint.TLabel",
+        ).grid(row=0, column=2, sticky="w")
 
         columns = (
             "start_s",
@@ -6493,20 +6577,20 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         for column in columns:
             table.heading(column, text=headings[column], anchor=tk.CENTER)
             table.column(column, width=widths[column], anchor=tk.CENTER, stretch=True)
-        table.grid(row=1, column=0, sticky="nsew", padx=16)
+        table.grid(row=2, column=0, sticky="nsew", padx=16)
         scroll = ttk.Scrollbar(window, orient="vertical", command=table.yview)
         table.configure(yscrollcommand=scroll.set)
-        scroll.grid(row=1, column=1, sticky="ns")
+        scroll.grid(row=2, column=1, sticky="ns")
 
         editor = ttk.Frame(window, style="Root.TFrame")
-        editor.grid(row=2, column=0, sticky="ew", padx=16, pady=(10, 6))
+        editor.grid(row=3, column=0, sticky="ew", padx=16, pady=(10, 6))
         for column in range(7):
             editor.columnconfigure(column, weight=1)
 
         entry_vars = {column: tk.StringVar(value="0") for column in columns}
         defaults = {
             "start_s": "0",
-            "end_s": "20",
+            "end_s": "100",
             "vehicle_speed_kph": "100",
             "engine_load": "0.45",
             "ambient_temp_c": "30",
@@ -6567,7 +6651,41 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             refresh_table([])
 
         def use_example() -> None:
+            self.driving_profile_duration_s.set("300")
             refresh_table(self._example_driving_segments())
+
+        def extend_last_segment_to_duration() -> None:
+            try:
+                duration_ms = self._parse_simulation_duration_ms(self.driving_profile_duration_s.get())
+                segments = self._validate_driving_profile_segments(table_segments())
+            except (ValueError, KeyError) as exc:
+                messagebox.showerror("Extend Profile Failed", str(exc), parent=window)
+                return
+
+            duration_s = duration_ms / 1000.0
+            last = segments[-1]
+            if last["end_s"] >= duration_s:
+                messagebox.showinfo(
+                    "Profile Extension",
+                    "The last segment already reaches or exceeds the selected duration.",
+                    parent=window,
+                )
+                return
+            extension = dict(last)
+            extension["start_s"] = last["end_s"]
+            extension["end_s"] = duration_s
+            segments.append(extension)
+            refresh_table(segments)
+
+        def validate_profile() -> bool:
+            try:
+                duration_ms = self._parse_simulation_duration_ms(self.driving_profile_duration_s.get())
+                self._validate_driving_profile_coverage(table_segments(), duration_ms)
+            except (ValueError, KeyError) as exc:
+                messagebox.showerror("Driving Profile Invalid", str(exc), parent=window)
+                return False
+            messagebox.showinfo("Driving Profile Valid", "Profile covers the full simulation duration.", parent=window)
+            return True
 
         def load_profile() -> None:
             selected = filedialog.askopenfilename(
@@ -6600,13 +6718,15 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
 
         def apply_profile() -> None:
             try:
-                segments = self._validate_driving_profile_segments(table_segments())
+                duration_ms = self._parse_simulation_duration_ms(self.driving_profile_duration_s.get())
+                segments = self._validate_driving_profile_coverage(table_segments(), duration_ms)
                 self._write_driving_profile_csv(LATEST_GUI_DRIVING_PROFILE_CSV, segments)
             except (OSError, ValueError) as exc:
                 messagebox.showerror("Apply Profile Failed", str(exc), parent=window)
                 return
             self.driving_profile_segments = list(segments)
             self.active_driving_profile_path = LATEST_GUI_DRIVING_PROFILE_CSV
+            self.active_driving_profile_duration_ms = duration_ms
             self.driving_profile_mode.set(DRIVING_PROFILE_MODE_CUSTOM)
             self._refresh_driving_profile_status()
             window.destroy()
@@ -6622,15 +6742,17 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         table.bind("<<TreeviewSelect>>", on_select)
 
         actions = ttk.Frame(window, style="Root.TFrame")
-        actions.grid(row=3, column=0, sticky="ew", padx=16, pady=(4, 16))
+        actions.grid(row=4, column=0, sticky="ew", padx=16, pady=(4, 16))
         self.make_secondary_button(actions, text="Add Segment", command=add_segment).grid(row=0, column=0, padx=(0, 6))
         self.make_secondary_button(actions, text="Update Selected", command=update_selected).grid(row=0, column=1, padx=(0, 6))
         self.make_danger_button(actions, text="Delete Selected Segment", command=delete_selected).grid(row=0, column=2, padx=(0, 6))
         self.make_danger_button(actions, text="Clear Profile", command=clear_profile).grid(row=0, column=3, padx=(0, 6))
         self.make_secondary_button(actions, text="Use Example Profile", command=use_example).grid(row=0, column=4, padx=(0, 6))
-        self.make_secondary_button(actions, text="Save Profile", command=save_profile_as).grid(row=0, column=5, padx=(0, 6))
-        self.make_secondary_button(actions, text="Load Profile", command=load_profile).grid(row=0, column=6, padx=(0, 6))
-        self.make_primary_button(actions, text="Apply", command=apply_profile).grid(row=0, column=7)
+        self.make_secondary_button(actions, text="Extend Last Segment to Duration", command=extend_last_segment_to_duration).grid(row=0, column=5, padx=(0, 6))
+        self.make_secondary_button(actions, text="Validate Profile", command=validate_profile).grid(row=0, column=6, padx=(0, 6))
+        self.make_secondary_button(actions, text="Save Profile", command=save_profile_as).grid(row=0, column=7, padx=(0, 6))
+        self.make_secondary_button(actions, text="Load Profile", command=load_profile).grid(row=0, column=8, padx=(0, 6))
+        self.make_primary_button(actions, text="Apply", command=apply_profile).grid(row=0, column=9)
 
         refresh_table(self.driving_profile_segments or self._example_driving_segments())
 
@@ -7739,20 +7861,26 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                 "mode": DRIVING_PROFILE_MODE_DEFAULT,
                 "path": None,
                 "segments": 0,
+                "duration_ms": DEFAULT_SIMULATION_DURATION_MS,
+                "duration_mode": "default",
             }
 
         if not self.driving_profile_segments:
             raise ValueError("Configure and Apply a custom driving profile before running.")
 
-        segments = self._validate_driving_profile_segments(self.driving_profile_segments)
+        duration_ms = self._parse_simulation_duration_ms(self.driving_profile_duration_s.get())
+        segments = self._validate_driving_profile_coverage(self.driving_profile_segments, duration_ms)
         self._write_driving_profile_csv(LATEST_GUI_DRIVING_PROFILE_CSV, segments)
         self.driving_profile_segments = list(segments)
         self.active_driving_profile_path = LATEST_GUI_DRIVING_PROFILE_CSV
+        self.active_driving_profile_duration_ms = duration_ms
         self._refresh_driving_profile_status()
         return {
             "mode": DRIVING_PROFILE_MODE_CUSTOM,
             "path": LATEST_GUI_DRIVING_PROFILE_CSV,
             "segments": len(segments),
+            "duration_ms": duration_ms,
+            "duration_mode": "custom",
         }
 
     def _on_detection_algorithm_changed(
@@ -9168,10 +9296,12 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             mode = str(driving_profile.get("mode", DRIVING_PROFILE_MODE_DEFAULT))
             path_value = driving_profile.get("path")
             segments = int(driving_profile.get("segments", 0) or 0)
+            duration_ms = int(driving_profile.get("duration_ms", DEFAULT_SIMULATION_DURATION_MS) or DEFAULT_SIMULATION_DURATION_MS)
         else:
             mode = DRIVING_PROFILE_MODE_DEFAULT
             path_value = None
             segments = 0
+            duration_ms = DEFAULT_SIMULATION_DURATION_MS
         self.custom_driving_mode_var.set(mode)
         if path_value is not None:
             profile_display_path = Path(path_value)
@@ -9183,6 +9313,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             profile_display = "n/a"
         self.custom_driving_profile_var.set(profile_display)
         self.custom_driving_segments_var.set(str(segments))
+        self.custom_simulation_duration_var.set(self._format_duration_label(duration_ms))
         self._update_custom_detection_result(result)
         self.last_custom_result = result
         self._clear_detection_comparison()
@@ -10496,6 +10627,8 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             driving_profile = self.last_custom_result.get("driving_profile")
             if isinstance(driving_profile, dict) and driving_profile.get("path") is not None:
                 command.extend(["--driving-profile", str(driving_profile["path"])])
+                if driving_profile.get("duration_ms") is not None:
+                    command.extend(["--simulation-duration-ms", str(int(driving_profile["duration_ms"]))])
 
         if self.runtime_custom_matrix_run_button is not None:
             self.runtime_custom_matrix_run_button.state(["disabled"])
@@ -11345,6 +11478,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         profile_path = driving_profile.get("path")
         if profile_path is not None:
             command.extend(["--driving-profile", str(profile_path)])
+            command.extend(["--simulation-duration-ms", str(int(driving_profile["duration_ms"]))])
         completed = subprocess.run(
             command,
             cwd=PROJECT_ROOT,

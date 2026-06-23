@@ -182,6 +182,12 @@ static void clear_driving_profile(ecu_state_t *state)
     memset(&state->driving_profile, 0, sizeof(state->driving_profile));
 }
 
+static void reset_simulation_duration(ecu_state_t *state)
+{
+    state->simulation.custom_duration_enabled = false;
+    state->simulation.duration_ms = ECU_SIM_DURATION_MS;
+}
+
 static void copy_text(char *dst, size_t dst_size, const char *src)
 {
     if (dst_size == 0U) {
@@ -227,6 +233,7 @@ static const builtin_campaign_t *find_campaign(const char *campaign_id)
 void experiment_init_default(ecu_state_t *state)
 {
     clear_driving_profile(state);
+    reset_simulation_duration(state);
     assign_campaign(state, &BUILTIN_CAMPAIGNS[1]);
 }
 
@@ -412,6 +419,96 @@ static void sort_driving_segments(driving_profile_segment_t *segments, unsigned 
     }
 }
 
+int experiment_set_simulation_duration(ecu_state_t *state, unsigned int duration_ms)
+{
+    if (duration_ms < ECU_MIN_SIM_DURATION_MS || duration_ms > ECU_MAX_SIM_DURATION_MS) {
+        fprintf(
+            stderr,
+            "Invalid simulation duration %u ms. Expected %u..%u ms.\n",
+            duration_ms,
+            ECU_MIN_SIM_DURATION_MS,
+            ECU_MAX_SIM_DURATION_MS
+        );
+        return -1;
+    }
+
+    state->simulation.custom_duration_enabled = true;
+    state->simulation.duration_ms = duration_ms;
+    return 0;
+}
+
+int experiment_validate_driving_profile_coverage(const ecu_state_t *state)
+{
+    unsigned int expected_start = 0U;
+    unsigned int i;
+
+    if (!state->driving_profile.enabled || !state->simulation.custom_duration_enabled) {
+        return 0;
+    }
+
+    if (state->driving_profile.segment_count == 0U) {
+        fprintf(stderr, "Custom driving profile has no segments.\n");
+        return -1;
+    }
+
+    if (state->driving_profile.segments[0].start_ms != 0U) {
+        fprintf(
+            stderr,
+            "Custom driving profile must start at 0 ms; first segment starts at %u ms.\n",
+            state->driving_profile.segments[0].start_ms
+        );
+        return -1;
+    }
+
+    for (i = 0U; i < state->driving_profile.segment_count; i++) {
+        const driving_profile_segment_t *segment = &state->driving_profile.segments[i];
+
+        if (segment->start_ms > expected_start) {
+            fprintf(
+                stderr,
+                "Custom driving profile gap detected: %u-%u ms is uncovered.\n",
+                expected_start,
+                segment->start_ms
+            );
+            return -1;
+        }
+        if (segment->start_ms < expected_start) {
+            fprintf(
+                stderr,
+                "Custom driving profile overlap detected around %u-%u ms.\n",
+                segment->start_ms,
+                expected_start
+            );
+            return -1;
+        }
+        expected_start = segment->end_ms;
+    }
+
+    if (expected_start < state->simulation.duration_ms) {
+        fprintf(
+            stderr,
+            "Custom driving profile ends at %u ms but simulation duration is %u ms. "
+            "Add a segment from %u to %u ms.\n",
+            expected_start,
+            state->simulation.duration_ms,
+            expected_start,
+            state->simulation.duration_ms
+        );
+        return -1;
+    }
+    if (expected_start > state->simulation.duration_ms) {
+        fprintf(
+            stderr,
+            "Custom driving profile ends at %u ms but simulation duration is %u ms.\n",
+            expected_start,
+            state->simulation.duration_ms
+        );
+        return -1;
+    }
+
+    return 0;
+}
+
 int experiment_load_driving_profile(ecu_state_t *state, const char *path)
 {
     FILE *profile_file;
@@ -552,7 +649,8 @@ const char *experiment_campaign_usage(void)
         "to select runtime detection.\n"
         "  Append --detector-action <observe_only|precautionary_cooling|limp_home> "
         "to select intervention.\n"
-        "  Append --driving-profile <path> to enable an optional custom driving/environment CSV profile.\n";
+        "  Append --driving-profile <path> to enable an optional custom driving/environment CSV profile.\n"
+        "  Append --simulation-duration-ms <duration_ms> to run with an explicit duration.\n";
 }
 
 void experiment_list_campaigns(FILE *stream)

@@ -341,7 +341,8 @@ int metrics_write_summary(const ecu_state_t *state, const char *log_path, char *
         "runtime_detection_action,runtime_detection_action_requested,"
         "runtime_detection_requested_safe_state,runtime_detection_action_time_ms,"
         "runtime_detection_action_reason,runtime_detection_label,"
-        "driving_profile_mode,driving_profile_path,driving_profile_segment_count\n"
+        "driving_profile_mode,driving_profile_path,driving_profile_segment_count,"
+        "simulation_duration_ms,simulation_duration_mode\n"
     );
 
     csv_write_text(summary_file, state->experiment.experiment_id);
@@ -438,6 +439,12 @@ int metrics_write_summary(const ecu_state_t *state, const char *log_path, char *
         state->driving_profile.enabled ? state->driving_profile.source_path : "none"
     );
     fprintf(summary_file, ",%u", state->driving_profile.enabled ? state->driving_profile.segment_count : 0U);
+    fprintf(summary_file, ",%u", state->simulation.duration_ms);
+    fputc(',', summary_file);
+    csv_write_text(
+        summary_file,
+        state->simulation.custom_duration_enabled ? "custom" : "default"
+    );
     fputc('\n', summary_file);
 
     fclose(summary_file);

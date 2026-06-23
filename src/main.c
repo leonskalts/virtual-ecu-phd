@@ -1,3 +1,4 @@
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -23,12 +24,16 @@ static int parse_runtime_detection_options(
     char **argv,
     detection_algorithm_t *selected_algorithm,
     detection_action_t *selected_action,
-    const char **driving_profile_path
+    const char **driving_profile_path,
+    unsigned int *simulation_duration_ms,
+    int *custom_duration_enabled
 )
 {
     *selected_algorithm = DETECTION_ALGORITHM_BUILTIN_ECU;
     *selected_action = DETECTION_ACTION_OBSERVE_ONLY;
     *driving_profile_path = NULL;
+    *simulation_duration_ms = 0U;
+    *custom_duration_enabled = 0;
 
     while (*argc >= 3) {
         const char *option = argv[*argc - 2];
@@ -75,6 +80,21 @@ static int parse_runtime_detection_options(
 
         if (strcmp(option, "--driving-profile") == 0) {
             *driving_profile_path = value;
+            *argc -= 2;
+            continue;
+        }
+
+        if (strcmp(option, "--simulation-duration-ms") == 0) {
+            char *endptr;
+            unsigned long parsed_duration = strtoul(value, &endptr, 10);
+
+            if (endptr == value || *endptr != '\0' || parsed_duration > UINT_MAX) {
+                fprintf(stderr, "Invalid simulation duration '%s'. Expected positive milliseconds.\n", value);
+                return -1;
+            }
+
+            *simulation_duration_ms = (unsigned int)parsed_duration;
+            *custom_duration_enabled = 1;
             *argc -= 2;
             continue;
         }
@@ -216,6 +236,8 @@ int main(int argc, char **argv)
     detection_algorithm_t selected_algorithm;
     detection_action_t selected_action;
     const char *driving_profile_path;
+    unsigned int simulation_duration_ms;
+    int custom_duration_enabled;
     int config_status;
     char summary_path[ECU_PATH_BUFFER_SIZE];
 
@@ -225,7 +247,9 @@ int main(int argc, char **argv)
             argv,
             &selected_algorithm,
             &selected_action,
-            &driving_profile_path
+            &driving_profile_path,
+            &simulation_duration_ms,
+            &custom_duration_enabled
         ) != 0) {
         return 1;
     }
@@ -233,8 +257,15 @@ int main(int argc, char **argv)
     if (config_status != 0) {
         return (config_status > 0) ? 0 : 1;
     }
+    if (custom_duration_enabled &&
+        experiment_set_simulation_duration(&state, simulation_duration_ms) != 0) {
+        return 1;
+    }
     if (driving_profile_path != NULL &&
         experiment_load_driving_profile(&state, driving_profile_path) != 0) {
+        return 1;
+    }
+    if (experiment_validate_driving_profile_coverage(&state) != 0) {
         return 1;
     }
 
@@ -262,6 +293,11 @@ int main(int argc, char **argv)
         "Driving profile: %s\n",
         state.driving_profile.enabled ? state.driving_profile.source_path : "default thermal plant"
     );
+    if (state.simulation.custom_duration_enabled) {
+        printf("Simulation duration: %u ms\n", state.simulation.duration_ms);
+    } else {
+        printf("Simulation duration: default\n");
+    }
     printf("Final coolant temperature: %.2f C\n", state.plant.coolant_temp_true_c);
     printf("Final safe state: %d\n", (int)state.safety.current_state);
     printf("Primary DTC at end of run: %d\n", (int)state.diagnostics.primary_dtc);
