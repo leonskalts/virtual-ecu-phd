@@ -43,8 +43,14 @@ void scheduler_init(ecu_state_t *state)
 
 void scheduler_run(ecu_state_t *state)
 {
+    unsigned int duration_ms = state->simulation.duration_ms;
+
+    if (duration_ms == 0U) {
+        duration_ms = ECU_SIM_DURATION_MS;
+    }
+
     for (state->time.time_ms = 0U;
-         state->time.time_ms <= ECU_SIM_DURATION_MS;
+         state->time.time_ms <= duration_ms;
          state->time.time_ms += ECU_DT_MS, state->time.tick++) {
         /* The order reflects an ECU research loop: inject scenario conditions,
          * sense, control, diagnose, enforce safety, log, then advance the plant. */
