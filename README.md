@@ -1,11 +1,12 @@
 # Virtual ECU Research Explorer
 
-A research-oriented virtual ECU simulator for automotive thermal-management
-fault injection, runtime detection, safety-action studies, and cross-layer
-dependability experiments.
+A lightweight C + Python/Tkinter research platform for virtual ECU
+thermal-management fault injection, runtime fault detection, safety-action
+evaluation, custom driving/environment profiles, and GUI-based result
+exploration.
 
-Virtual ECU Research Explorer is a lightweight C + Python/Tkinter research
-platform for controlled, repeatable experiments around ECU-visible effects of
+It combines a modular C simulator, Python study runners, and a Tkinter desktop
+GUI for controlled, repeatable experiments around ECU-visible effects of
 hardware-origin automotive electronics faults.
 
 ## Research Scope
@@ -19,6 +20,21 @@ It is not a transistor-level, SPICE-level, circuit-level, CFD, production
 vehicle, or production ECU model. The goal is controlled and repeatable
 cross-layer experimentation, not production calibration or real-vehicle
 prediction.
+
+## System Overview
+
+```text
+Fault scenario / campaign
+-> ECU sensors, control, diagnostics, and actuators
+-> Runtime detection algorithm
+-> Optional detector action / safe-state request
+-> Thermal plant response
+-> CSV metrics, GUI views, and study outputs
+```
+
+The C simulator runs the fixed-step ECU loop. Python scripts and the Tkinter GUI
+orchestrate experiments, load CSV outputs, build comparisons, and generate
+study artifacts.
 
 ## Key Capabilities
 
@@ -35,6 +51,16 @@ prediction.
 - Batch studies and runtime detector intervention studies.
 - Python/Tkinter GUI for running, comparing, visualizing, and exporting
   experiments.
+
+## Main Workflows
+
+- Run built-in campaigns from the CLI.
+- Run custom single-fault or multi-fault scenarios.
+- Select runtime detection algorithms and detector actions.
+- Configure custom driving/environment profiles and custom simulation duration.
+- Use the GUI for interactive comparison, runtime studies, batch inspection,
+  exports, and figures.
+- Use scripts for reproducible batch and study outputs.
 
 ## Runtime Detection Algorithms
 
@@ -226,6 +252,23 @@ docs/
 Each simulator run writes a raw time-series CSV and a matching one-row summary
 CSV. GUI and study scripts write derived reports, figures, and aggregate CSVs
 under `results/`.
+
+## Repository Layout
+
+```text
+src/        C simulator core
+include/    C headers and shared data types
+scripts/    GUI, study runners, and export helpers
+python/     Python helper modules
+docs/       technical documentation
+profiles/   driving profile examples
+assets/     GUI visual assets
+logs/       generated simulator logs
+results/    generated study outputs
+```
+
+Source code is mainly in `src/`, `include/`, `scripts/`, and `python/`.
+`logs/` and `results/` are generated-output locations.
 
 ## More Documentation
 
