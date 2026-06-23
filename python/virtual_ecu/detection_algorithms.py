@@ -84,6 +84,14 @@ ADAPTIVE_KALMAN_THRESHOLD_SCALE_MIN = 0.700
 ADAPTIVE_KALMAN_THRESHOLD_SCALE_MAX = 1.200
 ADAPTIVE_KALMAN_THRESHOLD_SCALE_LOW_STRESS = 1.150
 ADAPTIVE_KALMAN_THRESHOLD_SCALE_RANGE = 0.450
+ADAPTIVE_KALMAN_CONTEXT_MULTIPLIER_MAX = 1.180
+ADAPTIVE_KALMAN_ACTUATOR_SCORE_WEIGHT = 1.050
+ADAPTIVE_KALMAN_TREND_SCORE_WEIGHT = 0.220
+ADAPTIVE_KALMAN_TREND_GATE_SCORE = 0.250
+ADAPTIVE_KALMAN_STRONG_SCORE = 1.180
+ADAPTIVE_KALMAN_CONFIRM_SCORE = 1.000
+ADAPTIVE_KALMAN_WEAK_SCORE = 0.920
+ADAPTIVE_KALMAN_WEAK_CONFIRM_SAMPLES = 3
 
 
 @dataclass(frozen=True)
@@ -262,6 +270,26 @@ def adaptive_kalman_threshold_scale(
     )
 
 
+def adaptive_kalman_trend_score(
+    row: Dict[str, str],
+    previous_coolant_temp_c: float,
+) -> float:
+    coolant_delta_c = (
+        parse_float(row, "coolant_temp_meas_c") - previous_coolant_temp_c
+    )
+    return clamp_unit((coolant_delta_c - 0.025) / 0.150)
+
+
+def adaptive_kalman_actuator_score(row: Dict[str, str]) -> float:
+    fan_score = abs(parse_float(row, "fan_tracking_error")) / THRESHOLD_LIMITS[
+        "fan_tracking_error"
+    ]
+    pump_score = abs(parse_float(row, "pump_tracking_error")) / THRESHOLD_LIMITS[
+        "pump_tracking_error"
+    ]
+    return max(fan_score, pump_score)
+
+
 def detector_alarms(rows: Sequence[Dict[str, str]], algorithm_name: str) -> List[bool]:
     signals = available_residuals(rows)
     alarms: List[bool] = []
@@ -330,6 +358,7 @@ def detector_alarms(rows: Sequence[Dict[str, str]], algorithm_name: str) -> List
         expected_delta_c = kalman_filter_expected_delta(rows[0], estimate_c)
         accumulated_innovation = 0.0
         previous_coolant_temp_c = estimate_c
+        confirmation_count = 0
         alarms.append(False)
         for row in rows[1:]:
             predicted_c = estimate_c + expected_delta_c
@@ -360,10 +389,61 @@ def detector_alarms(rows: Sequence[Dict[str, str]], algorithm_name: str) -> List
                 - KALMAN_FILTER_ACCUMULATION_ALLOWANCE,
             )
             expected_delta_c = kalman_filter_expected_delta(row, estimate_c)
-            alarms.append(
+            instantaneous_score = normalized_innovation / innovation_threshold
+            accumulated_score = accumulated_innovation / accumulation_limit
+            raw_score = max(instantaneous_score, accumulated_score)
+            raw_alarm = (
                 normalized_innovation >= innovation_threshold
                 or accumulated_innovation >= accumulation_limit
             )
+            if algorithm_name == "adaptive_kalman_filter":
+                context_severity = adaptive_kalman_context_severity(
+                    row, previous_coolant_temp_c
+                )
+                context_multiplier = 1.0 + (
+                    (ADAPTIVE_KALMAN_CONTEXT_MULTIPLIER_MAX - 1.0)
+                    * context_severity
+                )
+                actuator_score = adaptive_kalman_actuator_score(row)
+                actuator_component = max(
+                    0.0,
+                    min(
+                        1.25,
+                        ADAPTIVE_KALMAN_ACTUATOR_SCORE_WEIGHT * actuator_score,
+                    ),
+                )
+                trend_gate = (
+                    raw_score >= ADAPTIVE_KALMAN_TREND_GATE_SCORE
+                    or actuator_score >= ADAPTIVE_KALMAN_TREND_GATE_SCORE
+                )
+                trend_component = (
+                    ADAPTIVE_KALMAN_TREND_SCORE_WEIGHT
+                    * adaptive_kalman_trend_score(row, previous_coolant_temp_c)
+                    if trend_gate
+                    else 0.0
+                )
+                combined_score = max(raw_score, actuator_component)
+                combined_score = max(
+                    0.0,
+                    min(2.0, (combined_score + trend_component) * context_multiplier),
+                )
+                if (
+                    combined_score >= ADAPTIVE_KALMAN_STRONG_SCORE
+                    or actuator_score >= 1.0
+                    or raw_alarm
+                ):
+                    required_samples = 1
+                elif combined_score >= ADAPTIVE_KALMAN_CONFIRM_SCORE:
+                    required_samples = 2
+                else:
+                    required_samples = ADAPTIVE_KALMAN_WEAK_CONFIRM_SAMPLES
+                if combined_score >= ADAPTIVE_KALMAN_WEAK_SCORE:
+                    confirmation_count += 1
+                else:
+                    confirmation_count = 0
+                alarms.append(raw_alarm or confirmation_count >= required_samples)
+            else:
+                alarms.append(raw_alarm)
             previous_coolant_temp_c = parse_float(row, "coolant_temp_meas_c")
         return alarms
 

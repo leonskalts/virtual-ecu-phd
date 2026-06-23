@@ -48,6 +48,19 @@
 #define ADAPTIVE_KALMAN_THRESHOLD_SCALE_MAX 1.200f
 #define ADAPTIVE_KALMAN_THRESHOLD_SCALE_LOW_STRESS 1.150f
 #define ADAPTIVE_KALMAN_THRESHOLD_SCALE_RANGE 0.450f
+/* The adaptive v2 score is intentionally bounded and evidence-gated. Context
+ * cannot alarm by itself; trend support is only counted when innovation or
+ * actuator tracking evidence is already present. Strong actuator mismatch can
+ * confirm quickly because command and actual feedback are runtime-observable
+ * ECU signals, not injected-fault labels. */
+#define ADAPTIVE_KALMAN_CONTEXT_MULTIPLIER_MAX 1.180f
+#define ADAPTIVE_KALMAN_ACTUATOR_SCORE_WEIGHT 1.050f
+#define ADAPTIVE_KALMAN_TREND_SCORE_WEIGHT 0.220f
+#define ADAPTIVE_KALMAN_TREND_GATE_SCORE 0.250f
+#define ADAPTIVE_KALMAN_STRONG_SCORE 1.180f
+#define ADAPTIVE_KALMAN_CONFIRM_SCORE 1.000f
+#define ADAPTIVE_KALMAN_WEAK_SCORE 0.920f
+#define ADAPTIVE_KALMAN_WEAK_CONFIRM_SAMPLES 3U
 
 static float abs_float(float value)
 {
@@ -214,6 +227,30 @@ static float adaptive_kalman_threshold_scale(
     );
 }
 
+static float adaptive_kalman_trend_score(
+    const ecu_state_t *state,
+    const detection_algorithm_state_t *detector
+)
+{
+    const float coolant_delta_c =
+        state->sensors.coolant_temp_meas_c -
+        detector->kalman_filter_previous_coolant_temp_c;
+
+    return clamp_unit((coolant_delta_c - 0.025f) / 0.150f);
+}
+
+static float adaptive_kalman_actuator_score(const ecu_state_t *state)
+{
+    const float fan_score =
+        abs_float(state->control.fan_command - state->actuators.fan_actual) /
+        THRESHOLD_FAN_TRACKING_ERROR;
+    const float pump_score =
+        abs_float(state->control.pump_command - state->actuators.pump_actual) /
+        THRESHOLD_PUMP_TRACKING_ERROR;
+
+    return (fan_score > pump_score) ? fan_score : pump_score;
+}
+
 static void kalman_filter_step(
     ecu_state_t *state,
     const char *runtime_label,
@@ -273,6 +310,7 @@ static void kalman_filter_step(
             KALMAN_FILTER_INNOVATION_THRESHOLD * threshold_scale;
         const float accumulation_limit =
             KALMAN_FILTER_ACCUMULATION_LIMIT * threshold_scale;
+        bool raw_kalman_alarm;
         float accumulated_score;
         float instantaneous_score;
 
@@ -298,9 +336,69 @@ static void kalman_filter_step(
             detector->kalman_filter_accumulated_innovation / accumulation_limit;
         detector->current_score = (instantaneous_score > accumulated_score) ?
             instantaneous_score : accumulated_score;
-        detector->alarm_active =
+        raw_kalman_alarm =
             normalized_innovation >= innovation_threshold ||
             detector->kalman_filter_accumulated_innovation >= accumulation_limit;
+
+        if (adaptive_thresholds) {
+            const float context_severity =
+                adaptive_kalman_context_severity(state, detector);
+            const float context_multiplier =
+                1.0f +
+                (
+                    (ADAPTIVE_KALMAN_CONTEXT_MULTIPLIER_MAX - 1.0f) *
+                    context_severity
+                );
+            const float actuator_score = adaptive_kalman_actuator_score(state);
+            const float actuator_component = clamp_range(
+                ADAPTIVE_KALMAN_ACTUATOR_SCORE_WEIGHT * actuator_score,
+                0.0f,
+                1.25f
+            );
+            const float trend_score = adaptive_kalman_trend_score(state, detector);
+            const bool trend_gate =
+                detector->current_score >= ADAPTIVE_KALMAN_TREND_GATE_SCORE ||
+                actuator_score >= ADAPTIVE_KALMAN_TREND_GATE_SCORE;
+            const float trend_component = trend_gate ?
+                (ADAPTIVE_KALMAN_TREND_SCORE_WEIGHT * trend_score) : 0.0f;
+            float combined_score =
+                (detector->current_score > actuator_component) ?
+                detector->current_score : actuator_component;
+            unsigned int required_samples;
+
+            combined_score =
+                clamp_range(
+                    (combined_score + trend_component) * context_multiplier,
+                    0.0f,
+                    2.0f
+                );
+
+            if (combined_score >= ADAPTIVE_KALMAN_STRONG_SCORE ||
+                actuator_score >= 1.0f ||
+                raw_kalman_alarm) {
+                required_samples = 1U;
+            } else if (combined_score >= ADAPTIVE_KALMAN_CONFIRM_SCORE) {
+                required_samples = 2U;
+            } else {
+                required_samples = ADAPTIVE_KALMAN_WEAK_CONFIRM_SAMPLES;
+            }
+
+            if (combined_score >= ADAPTIVE_KALMAN_WEAK_SCORE) {
+                detector->adaptive_kalman_filter_confirmation_count++;
+            } else {
+                detector->adaptive_kalman_filter_confirmation_count = 0U;
+            }
+
+            detector->current_score = combined_score;
+            detector->alarm_active =
+                raw_kalman_alarm ||
+                (
+                    detector->adaptive_kalman_filter_confirmation_count >=
+                    required_samples
+                );
+        } else {
+            detector->alarm_active = raw_kalman_alarm;
+        }
         detector->kalman_filter_previous_coolant_temp_c =
             state->sensors.coolant_temp_meas_c;
     }

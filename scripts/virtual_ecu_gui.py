@@ -276,7 +276,7 @@ DETECTION_ALGORITHM_OPTIONS: Sequence[Tuple[str, str, str]] = (
     (
         "Adaptive Kalman Filter",
         "adaptive_kalman_filter",
-        "Adjusts Kalman-style innovation sensitivity using thermal operating context.",
+        "Combines Kalman innovation with bounded context, trend, and actuator-tracking evidence.",
     ),
 )
 DETECTION_ALGORITHM_NAMES = {

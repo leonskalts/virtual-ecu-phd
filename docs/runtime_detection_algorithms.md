@@ -99,17 +99,23 @@ mechanism.
 ## Adaptive Kalman Filter Observer
 
 `adaptive_kalman_filter` uses the same scalar coolant-temperature observer as
-`kalman_filter`, but scales the innovation and accumulation thresholds using
-runtime thermal context. The context score is deterministic and heuristic. It
-uses ECU-visible or simulator-observable operating variables such as measured
-coolant temperature, coolant temperature trend, engine load, vehicle speed,
-ambient temperature, custom-profile external airflow factor, and custom-profile
-road slope.
+`kalman_filter`, then combines bounded runtime-observable evidence into a
+context-aware score. Kalman innovation remains the primary evidence source.
+Actuator command/actual mismatch can add bounded support, coolant rising trend
+can add bounded support only when innovation or actuator evidence is already
+present, and thermal context can moderately multiply existing evidence.
 
-Higher thermal stress lowers the effective decision limits moderately, while
-low-stress operation raises them slightly. The threshold scale is bounded from
-`0.70` to `1.20` of the base Kalman limits so the detector remains explainable
-and cannot become unrealistically sensitive. The runtime label is
+The context score is deterministic and heuristic. It uses ECU-visible or
+simulator-observable operating variables such as measured coolant temperature,
+coolant temperature trend, engine load, vehicle speed, ambient temperature,
+custom-profile external airflow factor, and custom-profile road slope. Context
+alone cannot trigger detection, and trend alone cannot trigger detection.
+
+Higher thermal stress lowers the effective Kalman decision limits moderately,
+while low-stress operation raises them slightly. The threshold scale is bounded
+from `0.70` to `1.20` of the base Kalman limits. A bounded confirmation counter
+requires persistence for weak/medium evidence while allowing strong multi-signal
+evidence to confirm quickly. The runtime label is
 `adaptive_kalman_filter_contextual_innovation`.
 
 This detector does not read fault type, scenario ID, fault start time, fault
