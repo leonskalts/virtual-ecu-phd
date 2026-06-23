@@ -26,6 +26,7 @@ DETECTORS = (
     "cusum",
     "thermal_observer",
     "kalman_filter",
+    "adaptive_kalman_filter",
 )
 ACTIONS = ("observe_only", "precautionary_cooling", "limp_home")
 
@@ -36,6 +37,7 @@ DETECTOR_COLORS = {
     "cusum": "#10b981",
     "thermal_observer": "#a855f7",
     "kalman_filter": "#dc2626",
+    "adaptive_kalman_filter": "#0284c7",
 }
 ACTION_COLORS = {
     "observe_only": "#64748b",
@@ -954,7 +956,7 @@ def write_html_report(
 
   <h2>Study Design</h2>
   <p>
-    Five custom single-fault scenarios are crossed with six runtime detectors
+    Five custom single-fault scenarios are crossed with {len(DETECTORS)} runtime detectors
     and three action modes, producing {len(results)} deterministic simulator
     runs. A detector identifies an anomaly; an action optionally requests
     precautionary cooling or limp-home through the existing maximum-severity

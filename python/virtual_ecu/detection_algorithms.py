@@ -20,6 +20,7 @@ SUPPORTED_ALGORITHMS = (
     "cusum",
     "thermal_observer",
     "kalman_filter",
+    "adaptive_kalman_filter",
 )
 OFFLINE_RESIDUAL_ALGORITHMS = (
     "threshold",
@@ -79,6 +80,10 @@ KALMAN_FILTER_INNOVATION_THRESHOLD = 3.000
 KALMAN_FILTER_ACCUMULATION_ALLOWANCE = 0.060
 KALMAN_FILTER_ACCUMULATION_LEAK = 0.985
 KALMAN_FILTER_ACCUMULATION_LIMIT = 3.000
+ADAPTIVE_KALMAN_THRESHOLD_SCALE_MIN = 0.700
+ADAPTIVE_KALMAN_THRESHOLD_SCALE_MAX = 1.200
+ADAPTIVE_KALMAN_THRESHOLD_SCALE_LOW_STRESS = 1.150
+ADAPTIVE_KALMAN_THRESHOLD_SCALE_RANGE = 0.450
 
 
 @dataclass(frozen=True)
@@ -212,6 +217,51 @@ def kalman_filter_expected_delta(
     return expected_rate_c_per_s * THERMAL_OBSERVER_DT_S
 
 
+def adaptive_kalman_context_severity(
+    row: Dict[str, str],
+    previous_coolant_temp_c: float,
+) -> float:
+    coolant_temp_c = parse_float(row, "coolant_temp_meas_c")
+    coolant_delta_c = coolant_temp_c - previous_coolant_temp_c
+    load_score = clamp_unit((parse_float(row, "engine_load") - 0.35) / 0.65)
+    low_speed_score = clamp_unit(
+        (45.0 - parse_float(row, "vehicle_speed_kph")) / 45.0
+    )
+    low_extra_airflow_score = 1.0 - clamp_unit(
+        parse_float(row, "external_airflow_factor", 0.0)
+    )
+    ambient_score = clamp_unit((parse_float(row, "ambient_temp_c") - 25.0) / 15.0)
+    uphill_score = clamp_unit(parse_float(row, "road_slope_percent", 0.0) / 8.0)
+    coolant_level_score = clamp_unit(
+        (coolant_temp_c - THERMAL_OBSERVER_TARGET_COOLANT_C) / 18.0
+    )
+    rising_score = clamp_unit((coolant_delta_c - 0.025) / 0.125)
+    return clamp_unit(
+        (0.24 * load_score)
+        + (0.16 * low_speed_score)
+        + (0.10 * low_extra_airflow_score)
+        + (0.16 * ambient_score)
+        + (0.10 * uphill_score)
+        + (0.14 * coolant_level_score)
+        + (0.10 * rising_score)
+    )
+
+
+def adaptive_kalman_threshold_scale(
+    row: Dict[str, str],
+    previous_coolant_temp_c: float,
+) -> float:
+    severity = adaptive_kalman_context_severity(row, previous_coolant_temp_c)
+    return max(
+        ADAPTIVE_KALMAN_THRESHOLD_SCALE_MIN,
+        min(
+            ADAPTIVE_KALMAN_THRESHOLD_SCALE_MAX,
+            ADAPTIVE_KALMAN_THRESHOLD_SCALE_LOW_STRESS
+            - (ADAPTIVE_KALMAN_THRESHOLD_SCALE_RANGE * severity),
+        ),
+    )
+
+
 def detector_alarms(rows: Sequence[Dict[str, str]], algorithm_name: str) -> List[bool]:
     signals = available_residuals(rows)
     alarms: List[bool] = []
@@ -274,11 +324,12 @@ def detector_alarms(rows: Sequence[Dict[str, str]], algorithm_name: str) -> List
             expected_delta_c = thermal_observer_expected_delta(row)
         return alarms
 
-    if algorithm_name == "kalman_filter":
+    if algorithm_name in {"kalman_filter", "adaptive_kalman_filter"}:
         estimate_c = parse_float(rows[0], "coolant_temp_meas_c")
         covariance = KALMAN_FILTER_INITIAL_COVARIANCE
         expected_delta_c = kalman_filter_expected_delta(rows[0], estimate_c)
         accumulated_innovation = 0.0
+        previous_coolant_temp_c = estimate_c
         alarms.append(False)
         for row in rows[1:]:
             predicted_c = estimate_c + expected_delta_c
@@ -291,6 +342,15 @@ def detector_alarms(rows: Sequence[Dict[str, str]], algorithm_name: str) -> List
                 innovation_variance
             )
             kalman_gain = predicted_covariance / innovation_variance
+            threshold_scale = (
+                adaptive_kalman_threshold_scale(row, previous_coolant_temp_c)
+                if algorithm_name == "adaptive_kalman_filter"
+                else 1.0
+            )
+            innovation_threshold = (
+                KALMAN_FILTER_INNOVATION_THRESHOLD * threshold_scale
+            )
+            accumulation_limit = KALMAN_FILTER_ACCUMULATION_LIMIT * threshold_scale
             estimate_c = predicted_c + (kalman_gain * innovation)
             covariance = (1.0 - kalman_gain) * predicted_covariance
             accumulated_innovation = max(
@@ -301,9 +361,10 @@ def detector_alarms(rows: Sequence[Dict[str, str]], algorithm_name: str) -> List
             )
             expected_delta_c = kalman_filter_expected_delta(row, estimate_c)
             alarms.append(
-                normalized_innovation >= KALMAN_FILTER_INNOVATION_THRESHOLD
-                or accumulated_innovation >= KALMAN_FILTER_ACCUMULATION_LIMIT
+                normalized_innovation >= innovation_threshold
+                or accumulated_innovation >= accumulation_limit
             )
+            previous_coolant_temp_c = parse_float(row, "coolant_temp_meas_c")
         return alarms
 
     raise ValueError(f"Unknown offline detector: {algorithm_name}")

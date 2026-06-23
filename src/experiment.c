@@ -645,7 +645,7 @@ const char *experiment_campaign_usage(void)
         "  ./virtual_ecu [log_path] <campaign_id>\n"
         "  ./virtual_ecu [log_path] custom <fault_type> <start_ms> <duration_ms> <fault_behavior> <parameter>\n"
         "  ./virtual_ecu [log_path] custom_multi <event_count> <fault_type> <start_ms> <duration_ms> <fault_behavior> <parameter> [...]\n"
-        "  Append --detector <builtin_ecu|threshold|ewma|cusum|thermal_observer|kalman_filter> "
+        "  Append --detector <builtin_ecu|threshold|ewma|cusum|thermal_observer|kalman_filter|adaptive_kalman_filter> "
         "to select runtime detection.\n"
         "  Append --detector-action <observe_only|precautionary_cooling|limp_home> "
         "to select intervention.\n"

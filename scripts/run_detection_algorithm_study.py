@@ -34,6 +34,8 @@ from virtual_ecu.detection_algorithms import (  # noqa: E402
     KALMAN_FILTER_INNOVATION_THRESHOLD,
     KALMAN_FILTER_MEASUREMENT_NOISE_R,
     KALMAN_FILTER_PROCESS_NOISE_Q,
+    ADAPTIVE_KALMAN_THRESHOLD_SCALE_MAX,
+    ADAPTIVE_KALMAN_THRESHOLD_SCALE_MIN,
     THERMAL_OBSERVER_DECISION_LIMIT_C,
     THERMAL_OBSERVER_MISMATCH_ALLOWANCE_C,
     THRESHOLD_LIMITS,
@@ -54,7 +56,14 @@ SCENARIO_IDS = [
     "paper_default_multi_fault",
 ]
 
-ALGORITHM_ORDER = ["threshold", "ewma", "cusum", "thermal_observer", "kalman_filter"]
+ALGORITHM_ORDER = [
+    "threshold",
+    "ewma",
+    "cusum",
+    "thermal_observer",
+    "kalman_filter",
+    "adaptive_kalman_filter",
+]
 OUTPUT_COLUMNS = [
     "scenario_id",
     "algorithm",
@@ -75,7 +84,8 @@ OUTPUT_COLUMNS = [
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Compare offline threshold, EWMA, CUSUM, thermal-observer, and Kalman-style detectors."
+            "Compare offline threshold, EWMA, CUSUM, thermal-observer, "
+            "Kalman-style, and adaptive Kalman-style detectors."
         )
     )
     parser.add_argument(
@@ -226,6 +236,10 @@ def write_summary(path: Path, results: Sequence[Dict[str, object]]) -> None:
             f"accumulation allowance `{KALMAN_FILTER_ACCUMULATION_ALLOWANCE:.3f}`, "
             f"leak `{KALMAN_FILTER_ACCUMULATION_LEAK:.3f}`, "
             f"limit `{KALMAN_FILTER_ACCUMULATION_LIMIT:.2f}`.",
+            "- Adaptive Kalman filter observer: same scalar observer with "
+            "context-scaled innovation and accumulation limits bounded from "
+            f"`{ADAPTIVE_KALMAN_THRESHOLD_SCALE_MIN:.2f}` to "
+            f"`{ADAPTIVE_KALMAN_THRESHOLD_SCALE_MAX:.2f}` of the base limits.",
             "",
             "The direct detectors operate on absolute residual magnitudes. The "
             "thermal observer accumulates positive coolant-trajectory mismatch, "
@@ -284,6 +298,7 @@ def plot_figures(output_dir: Path, results: Sequence[Dict[str, object]]) -> List
         "cusum": "#4c9f70",
         "thermal_observer": "#a855f7",
         "kalman_filter": "#dc2626",
+        "adaptive_kalman_filter": "#0284c7",
     }
     fault_scenarios = [item for item in SCENARIO_IDS if item != "baseline"]
     short_labels = [

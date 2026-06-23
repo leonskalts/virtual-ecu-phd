@@ -9,7 +9,8 @@ typedef enum {
     DETECTION_ALGORITHM_EWMA,
     DETECTION_ALGORITHM_CUSUM,
     DETECTION_ALGORITHM_THERMAL_OBSERVER,
-    DETECTION_ALGORITHM_KALMAN_FILTER
+    DETECTION_ALGORITHM_KALMAN_FILTER,
+    DETECTION_ALGORITHM_ADAPTIVE_KALMAN_FILTER
 } detection_algorithm_t;
 
 typedef enum {
@@ -39,6 +40,7 @@ typedef struct {
     float kalman_filter_expected_delta_c;
     float kalman_filter_innovation_c;
     float kalman_filter_accumulated_innovation;
+    float kalman_filter_previous_coolant_temp_c;
     float current_score;
     bool alarm_active;
     bool detected;

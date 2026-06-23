@@ -32,6 +32,9 @@ The runtime module supports:
   heating relative to that model.
 - `kalman_filter`: estimates coolant temperature with a lightweight scalar
   Kalman-style observer and alarms on abnormal normalized innovation.
+- `adaptive_kalman_filter`: extends the scalar Kalman-style observer with a
+  bounded context-aware innovation sensitivity based on thermal operating
+  context.
 
 The three direct residual detectors use fan tracking error, pump tracking
 error, and coolant sensor residual. Constants match the Python offline detector
@@ -93,6 +96,28 @@ are tuned for conservative virtual-ECU experiments, and the implementation is
 not production ECU validation, real-vehicle validation, or a certified safety
 mechanism.
 
+## Adaptive Kalman Filter Observer
+
+`adaptive_kalman_filter` uses the same scalar coolant-temperature observer as
+`kalman_filter`, but scales the innovation and accumulation thresholds using
+runtime thermal context. The context score is deterministic and heuristic. It
+uses ECU-visible or simulator-observable operating variables such as measured
+coolant temperature, coolant temperature trend, engine load, vehicle speed,
+ambient temperature, custom-profile external airflow factor, and custom-profile
+road slope.
+
+Higher thermal stress lowers the effective decision limits moderately, while
+low-stress operation raises them slightly. The threshold scale is bounded from
+`0.70` to `1.20` of the base Kalman limits so the detector remains explainable
+and cannot become unrealistically sensitive. The runtime label is
+`adaptive_kalman_filter_contextual_innovation`.
+
+This detector does not read fault type, scenario ID, fault start time, fault
+duration, injected-fault-active flags, or ground-truth fault labels. It is a
+deterministic context-aware research heuristic intended for comparative runtime
+detection experiments, not a production ECU monitor or real-vehicle validation
+method.
+
 ## Terminal Use
 
 The default remains `builtin_ecu`, so existing commands continue to work:
@@ -109,10 +134,11 @@ Select a runtime detector by appending `--detector`:
 ./virtual_ecu logs/ewma.csv custom sensor_bias 30000 15000 transient 6.0 --detector ewma
 ./virtual_ecu logs/thermal_observer.csv custom calibration_memory_corruption 52000 0 permanent 16.0 --detector thermal_observer
 ./virtual_ecu logs/kalman_filter.csv custom calibration_memory_corruption 52000 0 permanent 16.0 --detector kalman_filter
+./virtual_ecu logs/adaptive_kalman_filter.csv custom calibration_memory_corruption 52000 0 permanent 16.0 --detector adaptive_kalman_filter
 ```
 
 Valid values are `builtin_ecu`, `threshold`, `ewma`, `cusum`,
-`thermal_observer`, and `kalman_filter`.
+`thermal_observer`, `kalman_filter`, and `adaptive_kalman_filter`.
 
 ## Detector Actions
 
@@ -203,8 +229,8 @@ make
 python3 scripts/run_runtime_intervention_study.py
 ```
 
-The study runs five custom single-fault scenarios across all six runtime
-detectors and all three detector actions. Its 90 simulator runs are written to:
+The study runs five custom single-fault scenarios across all seven runtime
+detectors and all three detector actions. Its 105 simulator runs are written to:
 
 ```text
 results/runtime_intervention_study_v1/
@@ -230,12 +256,12 @@ are descriptive rather than evidence of statistical significance.
 ### Latest Custom Scenario Matrix
 
 The GUI **Runtime Study** page can also run the latest custom scenario through
-the complete six-detector by three-action matrix. Choose **Latest custom
+the complete detector by action matrix. Choose **Latest custom
 scenario matrix**, then click **Run Matrix for Latest Custom Scenario**.
 
 The GUI prefers the configuration from the most recently completed custom run.
 If no custom run is loaded, it uses the currently active Single Fault or
-Multi-Fault builder configuration. The 18 simulator runs and generated
+Multi-Fault builder configuration. The simulator runs and generated
 artifacts are replaced on each invocation under:
 
 ```text

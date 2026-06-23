@@ -72,6 +72,7 @@ Current runtime detection algorithms:
 - CUSUM
 - thermal observer
 - Kalman filter
+- adaptive Kalman filter
 
 Runtime detectors observe evidence inside the simulator loop. They can remain
 observe-only or request a configured safe-state response, depending on the

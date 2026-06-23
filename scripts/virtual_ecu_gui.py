@@ -273,6 +273,11 @@ DETECTION_ALGORITHM_OPTIONS: Sequence[Tuple[str, str, str]] = (
         "kalman_filter",
         "Estimates coolant temperature with a lightweight Kalman-style observer and detects abnormal innovation.",
     ),
+    (
+        "Adaptive Kalman Filter",
+        "adaptive_kalman_filter",
+        "Adjusts Kalman-style innovation sensitivity using thermal operating context.",
+    ),
 )
 DETECTION_ALGORITHM_NAMES = {
     display_name: algorithm_name

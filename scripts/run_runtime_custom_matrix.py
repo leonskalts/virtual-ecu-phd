@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run an 18-run runtime detector/action matrix for one custom scenario."""
+"""Run a runtime detector/action matrix for one custom scenario."""
 
 from __future__ import annotations
 
@@ -42,7 +42,7 @@ class Event:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Run all six runtime detectors and three detector actions for one "
+            "Run all supported runtime detectors and three detector actions for one "
             "custom scenario in the virtual ECU research simulator."
         )
     )
@@ -504,7 +504,7 @@ def write_markdown(
         "## Reproduction",
         "",
         "Use the Runtime Study page's **Run Matrix for Latest Custom Scenario** "
-        "button to reproduce this exact 5 x 3 comparison from the latest custom configuration.",
+        "button to reproduce this detector x action comparison from the latest custom configuration.",
     ]
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -605,7 +605,7 @@ code{{background:#e8eef6;padding:2px 5px;border-radius:4px}}
 </style></head><body><main>
 <section class="hero"><h1>Runtime Custom Scenario Matrix</h1>
 <p>This virtual ECU research simulator study evaluates one custom scenario across
-six runtime detectors and three detector actions. Runtime detectors run inside
+{len(study.DETECTORS)} runtime detectors and three detector actions. Runtime detectors run inside
 the C simulation loop. Detector actions are optional research interventions;
 <code>observe_only</code> preserves baseline behavior.</p>
 <div class="cards">{cards_html}</div></section>
