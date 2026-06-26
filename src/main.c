@@ -46,12 +46,13 @@ static int parse_runtime_detection_options(
                 strcmp(value, "cusum") != 0 &&
                 strcmp(value, "thermal_observer") != 0 &&
                 strcmp(value, "kalman_filter") != 0 &&
-                strcmp(value, "adaptive_kalman_filter") != 0) {
+                strcmp(value, "adaptive_kalman_filter") != 0 &&
+                strcmp(value, "hybrid_adaptive_kalman") != 0) {
                 fprintf(
                     stderr,
                     "Unknown detector '%s'. Expected builtin_ecu, threshold, ewma, "
-                    "cusum, thermal_observer, kalman_filter, or "
-                    "adaptive_kalman_filter.\n",
+                    "cusum, thermal_observer, kalman_filter, "
+                    "adaptive_kalman_filter, or hybrid_adaptive_kalman.\n",
                     value
                 );
                 return -1;

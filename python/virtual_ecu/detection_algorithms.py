@@ -102,6 +102,8 @@ HYBRID_KALMAN_CONTEXT_MULTIPLIER_MIN = 0.850
 HYBRID_KALMAN_CONTEXT_MULTIPLIER_MAX = 1.150
 HYBRID_KALMAN_ACTUATOR_FAST_WEIGHT = 1.050
 HYBRID_KALMAN_SENSOR_FAST_WEIGHT = 0.850
+HYBRID_KALMAN_SENSOR_FAST_SUPPORT_SCORE = 0.880
+HYBRID_KALMAN_SENSOR_FAST_COMBINED_SUPPORT_SCORE = 0.900
 HYBRID_KALMAN_FAST_SCORE_MAX = 1.500
 HYBRID_KALMAN_SENSOR_SCORE_MAX = 1.250
 HYBRID_KALMAN_CONFIRM_SCORE = 0.950
@@ -477,6 +479,7 @@ def detector_alarms(rows: Sequence[Dict[str, str]], algorithm_name: str) -> List
                     min(2.0, (combined_score + trend_component) * context_multiplier),
                 )
                 hybrid_fast_alarm = False
+                hybrid_sensor_fast_alarm = False
                 hybrid_medium_evidence = False
                 if algorithm_name == "hybrid_adaptive_kalman":
                     sensor_score = hybrid_kalman_sensor_score(row)
@@ -525,14 +528,26 @@ def detector_alarms(rows: Sequence[Dict[str, str]], algorithm_name: str) -> List
                         hybrid_fast_score >= HYBRID_KALMAN_FAST_STRONG_SCORE
                         and fast_support
                     )
+                    hybrid_sensor_fast_alarm = (
+                        fast_sensor_score
+                        >= HYBRID_KALMAN_SENSOR_FAST_SUPPORT_SCORE
+                        and combined_score
+                        >= HYBRID_KALMAN_SENSOR_FAST_COMBINED_SUPPORT_SCORE
+                        and (kalman_support or trend_support)
+                    )
                     hybrid_medium_evidence = (
                         hybrid_fast_score >= HYBRID_KALMAN_FAST_MEDIUM_SCORE
                         and (kalman_support or trend_support)
                     )
-                    if hybrid_fast_alarm or hybrid_medium_evidence:
+                    if (
+                        hybrid_fast_alarm
+                        or hybrid_sensor_fast_alarm
+                        or hybrid_medium_evidence
+                    ):
                         combined_score = max(combined_score, hybrid_fast_score)
                 if (
                     hybrid_fast_alarm
+                    or hybrid_sensor_fast_alarm
                     or combined_score >= ADAPTIVE_KALMAN_STRONG_SCORE
                     or actuator_score >= 1.0
                     or raw_alarm
@@ -564,6 +579,7 @@ def detector_alarms(rows: Sequence[Dict[str, str]], algorithm_name: str) -> List
                 alarms.append(
                     raw_alarm
                     or hybrid_fast_alarm
+                    or hybrid_sensor_fast_alarm
                     or confirmation_count >= required_samples
                 )
             else:

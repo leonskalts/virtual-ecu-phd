@@ -75,6 +75,8 @@
 #define HYBRID_KALMAN_CONTEXT_MULTIPLIER_MAX 1.150f
 #define HYBRID_KALMAN_ACTUATOR_FAST_WEIGHT 1.050f
 #define HYBRID_KALMAN_SENSOR_FAST_WEIGHT 0.850f
+#define HYBRID_KALMAN_SENSOR_FAST_SUPPORT_SCORE 0.880f
+#define HYBRID_KALMAN_SENSOR_FAST_COMBINED_SUPPORT_SCORE 0.900f
 #define HYBRID_KALMAN_FAST_SCORE_MAX 1.500f
 #define HYBRID_KALMAN_SENSOR_SCORE_MAX 1.250f
 #define HYBRID_KALMAN_CONFIRM_SCORE 0.950f
@@ -423,6 +425,7 @@ static void kalman_filter_step(
                 fast_actuator_score : fast_sensor_score;
             bool hybrid_fast_alarm = false;
             bool hybrid_medium_evidence = false;
+            bool hybrid_sensor_fast_alarm = false;
             unsigned int required_samples;
 
             combined_score =
@@ -456,14 +459,21 @@ static void kalman_filter_step(
                 hybrid_fast_alarm =
                     hybrid_fast_score >= HYBRID_KALMAN_FAST_STRONG_SCORE &&
                     fast_support;
+                hybrid_sensor_fast_alarm =
+                    fast_sensor_score >=
+                        HYBRID_KALMAN_SENSOR_FAST_SUPPORT_SCORE &&
+                    combined_score >=
+                        HYBRID_KALMAN_SENSOR_FAST_COMBINED_SUPPORT_SCORE &&
+                    (kalman_support || trend_support);
                 hybrid_medium_evidence =
                     hybrid_fast_score >= HYBRID_KALMAN_FAST_MEDIUM_SCORE &&
                     (kalman_support || trend_support);
 
-                if (hybrid_fast_alarm) {
+                if (hybrid_fast_alarm || hybrid_sensor_fast_alarm) {
                     combined_score = (combined_score > hybrid_fast_score) ?
                         combined_score : hybrid_fast_score;
-                    if (fast_actuator_score >= fast_sensor_score) {
+                    if (!hybrid_sensor_fast_alarm &&
+                        fast_actuator_score >= fast_sensor_score) {
                         snprintf(
                             detector->runtime_label,
                             sizeof(detector->runtime_label),
@@ -498,6 +508,7 @@ static void kalman_filter_step(
             }
 
             if (hybrid_fast_alarm ||
+                hybrid_sensor_fast_alarm ||
                 combined_score >= ADAPTIVE_KALMAN_STRONG_SCORE ||
                 actuator_score >= 1.0f ||
                 raw_kalman_alarm) {
@@ -529,6 +540,7 @@ static void kalman_filter_step(
             detector->alarm_active =
                 raw_kalman_alarm ||
                 hybrid_fast_alarm ||
+                hybrid_sensor_fast_alarm ||
                 (
                     detector->adaptive_kalman_filter_confirmation_count >=
                     required_samples

@@ -143,6 +143,11 @@ existing evidence gate, or high thermal context severity. Medium evidence
 requires confirmation. Weak residual evidence, context alone, and trend alone
 cannot trigger detection.
 
+For stale-sensor cases, a conservative sensor residual fast path can confirm
+one timestep earlier only when the residual is strong and the hybrid
+Kalman/context score is already high. This keeps the hybrid distinct from a
+pure threshold detector: coolant sensor residual alone is not sufficient.
+
 Hybrid runtime labels describe the dominant evidence:
 `hybrid_adaptive_kalman_fast_actuator_evidence`,
 `hybrid_adaptive_kalman_fast_sensor_evidence`,
