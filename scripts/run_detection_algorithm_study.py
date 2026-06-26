@@ -63,6 +63,7 @@ ALGORITHM_ORDER = [
     "thermal_observer",
     "kalman_filter",
     "adaptive_kalman_filter",
+    "hybrid_adaptive_kalman",
 ]
 OUTPUT_COLUMNS = [
     "scenario_id",
@@ -299,6 +300,7 @@ def plot_figures(output_dir: Path, results: Sequence[Dict[str, object]]) -> List
         "thermal_observer": "#a855f7",
         "kalman_filter": "#dc2626",
         "adaptive_kalman_filter": "#0284c7",
+        "hybrid_adaptive_kalman": "#0f766e",
     }
     fault_scenarios = [item for item in SCENARIO_IDS if item != "baseline"]
     short_labels = [

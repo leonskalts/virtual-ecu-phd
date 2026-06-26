@@ -27,6 +27,7 @@ DETECTORS = (
     "thermal_observer",
     "kalman_filter",
     "adaptive_kalman_filter",
+    "hybrid_adaptive_kalman",
 )
 ACTIONS = ("observe_only", "precautionary_cooling", "limp_home")
 
@@ -38,6 +39,7 @@ DETECTOR_COLORS = {
     "thermal_observer": "#a855f7",
     "kalman_filter": "#dc2626",
     "adaptive_kalman_filter": "#0284c7",
+    "hybrid_adaptive_kalman": "#0f766e",
 }
 ACTION_COLORS = {
     "observe_only": "#64748b",

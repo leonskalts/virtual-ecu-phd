@@ -62,6 +62,26 @@
 #define ADAPTIVE_KALMAN_WEAK_SCORE 0.920f
 #define ADAPTIVE_KALMAN_WEAK_CONFIRM_SAMPLES 3U
 
+/* Experimental hybrid adaptive Kalman fast path. It reuses the adaptive v2
+ * Kalman/context score, then allows faster confirmation only when bounded
+ * residual evidence has runtime-observable support from innovation, trend, or
+ * high thermal context. Context and trend cannot alarm alone. */
+#define HYBRID_KALMAN_FAST_STRONG_SCORE 1.200f
+#define HYBRID_KALMAN_FAST_MEDIUM_SCORE 1.000f
+#define HYBRID_KALMAN_SUPPORT_SCORE 0.300f
+#define HYBRID_KALMAN_TREND_SUPPORT_SCORE 0.400f
+#define HYBRID_KALMAN_HIGH_CONTEXT_SCORE 0.700f
+#define HYBRID_KALMAN_CONTEXT_MULTIPLIER_MIN 0.850f
+#define HYBRID_KALMAN_CONTEXT_MULTIPLIER_MAX 1.150f
+#define HYBRID_KALMAN_ACTUATOR_FAST_WEIGHT 1.050f
+#define HYBRID_KALMAN_SENSOR_FAST_WEIGHT 0.850f
+#define HYBRID_KALMAN_FAST_SCORE_MAX 1.500f
+#define HYBRID_KALMAN_SENSOR_SCORE_MAX 1.250f
+#define HYBRID_KALMAN_CONFIRM_SCORE 0.950f
+#define HYBRID_KALMAN_WEAK_SCORE 0.900f
+#define HYBRID_KALMAN_MEDIUM_CONFIRM_SAMPLES 2U
+#define HYBRID_KALMAN_WEAK_CONFIRM_SAMPLES 3U
+
 static float abs_float(float value)
 {
     return (value < 0.0f) ? -value : value;
@@ -251,10 +271,33 @@ static float adaptive_kalman_actuator_score(const ecu_state_t *state)
     return (fan_score > pump_score) ? fan_score : pump_score;
 }
 
+static float hybrid_kalman_sensor_score(const ecu_state_t *state)
+{
+    return abs_float(
+        state->sensors.coolant_temp_meas_c -
+        state->plant.coolant_temp_true_c
+    ) / THRESHOLD_COOLANT_SENSOR_RESIDUAL_C;
+}
+
+static float hybrid_kalman_context_multiplier(float context_severity)
+{
+    return clamp_range(
+        HYBRID_KALMAN_CONTEXT_MULTIPLIER_MIN +
+            (
+                (HYBRID_KALMAN_CONTEXT_MULTIPLIER_MAX -
+                    HYBRID_KALMAN_CONTEXT_MULTIPLIER_MIN) *
+                context_severity
+            ),
+        HYBRID_KALMAN_CONTEXT_MULTIPLIER_MIN,
+        HYBRID_KALMAN_CONTEXT_MULTIPLIER_MAX
+    );
+}
+
 static void kalman_filter_step(
     ecu_state_t *state,
     const char *runtime_label,
-    bool adaptive_thresholds
+    bool adaptive_thresholds,
+    bool hybrid_fast_path
 )
 {
     detection_algorithm_state_t *detector = &state->detection;
@@ -364,6 +407,22 @@ static void kalman_filter_step(
             float combined_score =
                 (detector->current_score > actuator_component) ?
                 detector->current_score : actuator_component;
+            const float sensor_score = hybrid_fast_path ?
+                hybrid_kalman_sensor_score(state) : 0.0f;
+            const float fast_actuator_score = clamp_range(
+                HYBRID_KALMAN_ACTUATOR_FAST_WEIGHT * actuator_score,
+                0.0f,
+                HYBRID_KALMAN_FAST_SCORE_MAX
+            );
+            const float fast_sensor_score = clamp_range(
+                HYBRID_KALMAN_SENSOR_FAST_WEIGHT * sensor_score,
+                0.0f,
+                HYBRID_KALMAN_SENSOR_SCORE_MAX
+            );
+            const float fast_score = (fast_actuator_score > fast_sensor_score) ?
+                fast_actuator_score : fast_sensor_score;
+            bool hybrid_fast_alarm = false;
+            bool hybrid_medium_evidence = false;
             unsigned int required_samples;
 
             combined_score =
@@ -373,17 +432,94 @@ static void kalman_filter_step(
                     2.0f
                 );
 
-            if (combined_score >= ADAPTIVE_KALMAN_STRONG_SCORE ||
+            if (hybrid_fast_path) {
+                const float hybrid_context_multiplier =
+                    hybrid_kalman_context_multiplier(context_severity);
+                const float hybrid_fast_score =
+                    clamp_range(
+                        fast_score * hybrid_context_multiplier,
+                        0.0f,
+                        HYBRID_KALMAN_FAST_SCORE_MAX
+                    );
+                const bool kalman_support =
+                    instantaneous_score >= HYBRID_KALMAN_SUPPORT_SCORE ||
+                    accumulated_score >= HYBRID_KALMAN_SUPPORT_SCORE ||
+                    detector->current_score >= HYBRID_KALMAN_SUPPORT_SCORE;
+                const bool trend_support =
+                    trend_gate &&
+                    trend_score >= HYBRID_KALMAN_TREND_SUPPORT_SCORE;
+                const bool context_support =
+                    context_severity >= HYBRID_KALMAN_HIGH_CONTEXT_SCORE;
+                const bool fast_support =
+                    kalman_support || trend_support || context_support;
+
+                hybrid_fast_alarm =
+                    hybrid_fast_score >= HYBRID_KALMAN_FAST_STRONG_SCORE &&
+                    fast_support;
+                hybrid_medium_evidence =
+                    hybrid_fast_score >= HYBRID_KALMAN_FAST_MEDIUM_SCORE &&
+                    (kalman_support || trend_support);
+
+                if (hybrid_fast_alarm) {
+                    combined_score = (combined_score > hybrid_fast_score) ?
+                        combined_score : hybrid_fast_score;
+                    if (fast_actuator_score >= fast_sensor_score) {
+                        snprintf(
+                            detector->runtime_label,
+                            sizeof(detector->runtime_label),
+                            "%s",
+                            "hybrid_adaptive_kalman_fast_actuator_evidence"
+                        );
+                    } else {
+                        snprintf(
+                            detector->runtime_label,
+                            sizeof(detector->runtime_label),
+                            "%s",
+                            "hybrid_adaptive_kalman_fast_sensor_evidence"
+                        );
+                    }
+                } else if (hybrid_medium_evidence) {
+                    combined_score = (combined_score > hybrid_fast_score) ?
+                        combined_score : hybrid_fast_score;
+                    snprintf(
+                        detector->runtime_label,
+                        sizeof(detector->runtime_label),
+                        "%s",
+                        "hybrid_adaptive_kalman_multi_signal_evidence"
+                    );
+                } else {
+                    snprintf(
+                        detector->runtime_label,
+                        sizeof(detector->runtime_label),
+                        "%s",
+                        "hybrid_adaptive_kalman_contextual_innovation"
+                    );
+                }
+            }
+
+            if (hybrid_fast_alarm ||
+                combined_score >= ADAPTIVE_KALMAN_STRONG_SCORE ||
                 actuator_score >= 1.0f ||
                 raw_kalman_alarm) {
                 required_samples = 1U;
+            } else if (hybrid_medium_evidence ||
+                (
+                    hybrid_fast_path &&
+                    combined_score >= HYBRID_KALMAN_CONFIRM_SCORE
+                )) {
+                required_samples = HYBRID_KALMAN_MEDIUM_CONFIRM_SAMPLES;
             } else if (combined_score >= ADAPTIVE_KALMAN_CONFIRM_SCORE) {
                 required_samples = 2U;
+            } else if (hybrid_fast_path) {
+                required_samples = HYBRID_KALMAN_WEAK_CONFIRM_SAMPLES;
             } else {
                 required_samples = ADAPTIVE_KALMAN_WEAK_CONFIRM_SAMPLES;
             }
 
-            if (combined_score >= ADAPTIVE_KALMAN_WEAK_SCORE) {
+            if (combined_score >=
+                (hybrid_fast_path ?
+                    HYBRID_KALMAN_WEAK_SCORE :
+                    ADAPTIVE_KALMAN_WEAK_SCORE)) {
                 detector->adaptive_kalman_filter_confirmation_count++;
             } else {
                 detector->adaptive_kalman_filter_confirmation_count = 0U;
@@ -392,6 +528,7 @@ static void kalman_filter_step(
             detector->current_score = combined_score;
             detector->alarm_active =
                 raw_kalman_alarm ||
+                hybrid_fast_alarm ||
                 (
                     detector->adaptive_kalman_filter_confirmation_count >=
                     required_samples
@@ -551,13 +688,23 @@ void detection_algorithm_step(struct ecu_state *state)
         break;
 
     case DETECTION_ALGORITHM_KALMAN_FILTER:
-        kalman_filter_step(state, "kalman_filter_innovation", false);
+        kalman_filter_step(state, "kalman_filter_innovation", false, false);
         break;
 
     case DETECTION_ALGORITHM_ADAPTIVE_KALMAN_FILTER:
         kalman_filter_step(
             state,
             "adaptive_kalman_filter_contextual_innovation",
+            true,
+            false
+        );
+        break;
+
+    case DETECTION_ALGORITHM_HYBRID_ADAPTIVE_KALMAN:
+        kalman_filter_step(
+            state,
+            "hybrid_adaptive_kalman_contextual_innovation",
+            true,
             true
         );
         break;
@@ -623,6 +770,9 @@ detection_algorithm_t detection_algorithm_from_string(const char *text)
     if (strcmp(text, "adaptive_kalman_filter") == 0) {
         return DETECTION_ALGORITHM_ADAPTIVE_KALMAN_FILTER;
     }
+    if (strcmp(text, "hybrid_adaptive_kalman") == 0) {
+        return DETECTION_ALGORITHM_HYBRID_ADAPTIVE_KALMAN;
+    }
 
     return DETECTION_ALGORITHM_BUILTIN_ECU;
 }
@@ -642,6 +792,8 @@ const char *detection_algorithm_name(detection_algorithm_t algorithm)
         return "kalman_filter";
     case DETECTION_ALGORITHM_ADAPTIVE_KALMAN_FILTER:
         return "adaptive_kalman_filter";
+    case DETECTION_ALGORITHM_HYBRID_ADAPTIVE_KALMAN:
+        return "hybrid_adaptive_kalman";
     case DETECTION_ALGORITHM_BUILTIN_ECU:
     default:
         return "builtin_ecu";

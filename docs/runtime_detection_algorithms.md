@@ -35,6 +35,8 @@ The runtime module supports:
 - `adaptive_kalman_filter`: extends the scalar Kalman-style observer with a
   bounded context-aware innovation sensitivity based on thermal operating
   context.
+- `hybrid_adaptive_kalman`: experimental low-latency variant that keeps the
+  adaptive Kalman observer and adds a guarded, bounded fast-evidence path.
 
 The three direct residual detectors use fan tracking error, pump tracking
 error, and coolant sensor residual. Constants match the Python offline detector
@@ -124,6 +126,34 @@ deterministic context-aware research heuristic intended for comparative runtime
 detection experiments, not a production ECU monitor or real-vehicle validation
 method.
 
+## Hybrid Adaptive Kalman Detector
+
+`hybrid_adaptive_kalman` is an experimental detector variant. It does not
+replace the accepted `adaptive_kalman_filter` behavior. It reuses the same
+scalar Kalman-style observer, adaptive threshold scaling, context score,
+actuator evidence, and trend gate, then adds a guarded fast path for bounded
+runtime-observable residual evidence.
+
+The fast path considers fan command/actual mismatch, pump command/actual
+mismatch, and coolant sensor residual evidence already available to the
+runtime detector infrastructure. Strong fast evidence can confirm quickly only
+when at least one support signal is present: Kalman innovation support,
+accumulated innovation support, coolant rising-trend support behind the
+existing evidence gate, or high thermal context severity. Medium evidence
+requires confirmation. Weak residual evidence, context alone, and trend alone
+cannot trigger detection.
+
+Hybrid runtime labels describe the dominant evidence:
+`hybrid_adaptive_kalman_fast_actuator_evidence`,
+`hybrid_adaptive_kalman_fast_sensor_evidence`,
+`hybrid_adaptive_kalman_contextual_innovation`, or
+`hybrid_adaptive_kalman_multi_signal_evidence`.
+
+The hybrid detector is intended for comparative experiments about latency and
+robustness tradeoffs. It remains deterministic and scenario-blind: it does not
+read fault type, scenario ID, fault start time, fault duration, injected-fault
+state, or ground-truth labels.
+
 ## Terminal Use
 
 The default remains `builtin_ecu`, so existing commands continue to work:
@@ -141,10 +171,12 @@ Select a runtime detector by appending `--detector`:
 ./virtual_ecu logs/thermal_observer.csv custom calibration_memory_corruption 52000 0 permanent 16.0 --detector thermal_observer
 ./virtual_ecu logs/kalman_filter.csv custom calibration_memory_corruption 52000 0 permanent 16.0 --detector kalman_filter
 ./virtual_ecu logs/adaptive_kalman_filter.csv custom calibration_memory_corruption 52000 0 permanent 16.0 --detector adaptive_kalman_filter
+./virtual_ecu logs/hybrid_adaptive_kalman.csv custom sensor_bias 75000 0 permanent 6.0 --detector hybrid_adaptive_kalman
 ```
 
 Valid values are `builtin_ecu`, `threshold`, `ewma`, `cusum`,
-`thermal_observer`, `kalman_filter`, and `adaptive_kalman_filter`.
+`thermal_observer`, `kalman_filter`, `adaptive_kalman_filter`, and
+`hybrid_adaptive_kalman`.
 
 ## Detector Actions
 
@@ -236,7 +268,7 @@ python3 scripts/run_runtime_intervention_study.py
 ```
 
 The study runs five custom single-fault scenarios across all seven runtime
-detectors and all three detector actions. Its 105 simulator runs are written to:
+detectors and all three detector actions. Its simulator runs are written to:
 
 ```text
 results/runtime_intervention_study_v1/

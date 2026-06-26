@@ -21,6 +21,7 @@ SUPPORTED_ALGORITHMS = (
     "thermal_observer",
     "kalman_filter",
     "adaptive_kalman_filter",
+    "hybrid_adaptive_kalman",
 )
 OFFLINE_RESIDUAL_ALGORITHMS = (
     "threshold",
@@ -92,6 +93,21 @@ ADAPTIVE_KALMAN_STRONG_SCORE = 1.180
 ADAPTIVE_KALMAN_CONFIRM_SCORE = 1.000
 ADAPTIVE_KALMAN_WEAK_SCORE = 0.920
 ADAPTIVE_KALMAN_WEAK_CONFIRM_SAMPLES = 3
+HYBRID_KALMAN_FAST_STRONG_SCORE = 1.200
+HYBRID_KALMAN_FAST_MEDIUM_SCORE = 1.000
+HYBRID_KALMAN_SUPPORT_SCORE = 0.300
+HYBRID_KALMAN_TREND_SUPPORT_SCORE = 0.400
+HYBRID_KALMAN_HIGH_CONTEXT_SCORE = 0.700
+HYBRID_KALMAN_CONTEXT_MULTIPLIER_MIN = 0.850
+HYBRID_KALMAN_CONTEXT_MULTIPLIER_MAX = 1.150
+HYBRID_KALMAN_ACTUATOR_FAST_WEIGHT = 1.050
+HYBRID_KALMAN_SENSOR_FAST_WEIGHT = 0.850
+HYBRID_KALMAN_FAST_SCORE_MAX = 1.500
+HYBRID_KALMAN_SENSOR_SCORE_MAX = 1.250
+HYBRID_KALMAN_CONFIRM_SCORE = 0.950
+HYBRID_KALMAN_WEAK_SCORE = 0.900
+HYBRID_KALMAN_MEDIUM_CONFIRM_SAMPLES = 2
+HYBRID_KALMAN_WEAK_CONFIRM_SAMPLES = 3
 
 
 @dataclass(frozen=True)
@@ -290,6 +306,29 @@ def adaptive_kalman_actuator_score(row: Dict[str, str]) -> float:
     return max(fan_score, pump_score)
 
 
+def hybrid_kalman_sensor_score(row: Dict[str, str]) -> float:
+    return abs(parse_float(row, "coolant_sensor_residual_c")) / THRESHOLD_LIMITS[
+        "coolant_sensor_residual_c"
+    ]
+
+
+def hybrid_kalman_context_multiplier(context_severity: float) -> float:
+    return max(
+        HYBRID_KALMAN_CONTEXT_MULTIPLIER_MIN,
+        min(
+            HYBRID_KALMAN_CONTEXT_MULTIPLIER_MAX,
+            HYBRID_KALMAN_CONTEXT_MULTIPLIER_MIN
+            + (
+                (
+                    HYBRID_KALMAN_CONTEXT_MULTIPLIER_MAX
+                    - HYBRID_KALMAN_CONTEXT_MULTIPLIER_MIN
+                )
+                * context_severity
+            ),
+        ),
+    )
+
+
 def detector_alarms(rows: Sequence[Dict[str, str]], algorithm_name: str) -> List[bool]:
     signals = available_residuals(rows)
     alarms: List[bool] = []
@@ -352,7 +391,11 @@ def detector_alarms(rows: Sequence[Dict[str, str]], algorithm_name: str) -> List
             expected_delta_c = thermal_observer_expected_delta(row)
         return alarms
 
-    if algorithm_name in {"kalman_filter", "adaptive_kalman_filter"}:
+    if algorithm_name in {
+        "kalman_filter",
+        "adaptive_kalman_filter",
+        "hybrid_adaptive_kalman",
+    }:
         estimate_c = parse_float(rows[0], "coolant_temp_meas_c")
         covariance = KALMAN_FILTER_INITIAL_COVARIANCE
         expected_delta_c = kalman_filter_expected_delta(rows[0], estimate_c)
@@ -373,7 +416,10 @@ def detector_alarms(rows: Sequence[Dict[str, str]], algorithm_name: str) -> List
             kalman_gain = predicted_covariance / innovation_variance
             threshold_scale = (
                 adaptive_kalman_threshold_scale(row, previous_coolant_temp_c)
-                if algorithm_name == "adaptive_kalman_filter"
+                if algorithm_name in {
+                    "adaptive_kalman_filter",
+                    "hybrid_adaptive_kalman",
+                }
                 else 1.0
             )
             innovation_threshold = (
@@ -396,7 +442,10 @@ def detector_alarms(rows: Sequence[Dict[str, str]], algorithm_name: str) -> List
                 normalized_innovation >= innovation_threshold
                 or accumulated_innovation >= accumulation_limit
             )
-            if algorithm_name == "adaptive_kalman_filter":
+            if algorithm_name in {
+                "adaptive_kalman_filter",
+                "hybrid_adaptive_kalman",
+            }:
                 context_severity = adaptive_kalman_context_severity(
                     row, previous_coolant_temp_c
                 )
@@ -427,21 +476,96 @@ def detector_alarms(rows: Sequence[Dict[str, str]], algorithm_name: str) -> List
                     0.0,
                     min(2.0, (combined_score + trend_component) * context_multiplier),
                 )
+                hybrid_fast_alarm = False
+                hybrid_medium_evidence = False
+                if algorithm_name == "hybrid_adaptive_kalman":
+                    sensor_score = hybrid_kalman_sensor_score(row)
+                    fast_actuator_score = max(
+                        0.0,
+                        min(
+                            HYBRID_KALMAN_FAST_SCORE_MAX,
+                            HYBRID_KALMAN_ACTUATOR_FAST_WEIGHT * actuator_score,
+                        ),
+                    )
+                    fast_sensor_score = max(
+                        0.0,
+                        min(
+                            HYBRID_KALMAN_SENSOR_SCORE_MAX,
+                            HYBRID_KALMAN_SENSOR_FAST_WEIGHT * sensor_score,
+                        ),
+                    )
+                    fast_score = max(fast_actuator_score, fast_sensor_score)
+                    hybrid_fast_score = max(
+                        0.0,
+                        min(
+                            HYBRID_KALMAN_FAST_SCORE_MAX,
+                            fast_score
+                            * hybrid_kalman_context_multiplier(context_severity),
+                        ),
+                    )
+                    kalman_support = (
+                        instantaneous_score >= HYBRID_KALMAN_SUPPORT_SCORE
+                        or accumulated_score >= HYBRID_KALMAN_SUPPORT_SCORE
+                        or raw_score >= HYBRID_KALMAN_SUPPORT_SCORE
+                    )
+                    trend_support = (
+                        trend_gate
+                        and adaptive_kalman_trend_score(
+                            row, previous_coolant_temp_c
+                        )
+                        >= HYBRID_KALMAN_TREND_SUPPORT_SCORE
+                    )
+                    context_support = (
+                        context_severity >= HYBRID_KALMAN_HIGH_CONTEXT_SCORE
+                    )
+                    fast_support = (
+                        kalman_support or trend_support or context_support
+                    )
+                    hybrid_fast_alarm = (
+                        hybrid_fast_score >= HYBRID_KALMAN_FAST_STRONG_SCORE
+                        and fast_support
+                    )
+                    hybrid_medium_evidence = (
+                        hybrid_fast_score >= HYBRID_KALMAN_FAST_MEDIUM_SCORE
+                        and (kalman_support or trend_support)
+                    )
+                    if hybrid_fast_alarm or hybrid_medium_evidence:
+                        combined_score = max(combined_score, hybrid_fast_score)
                 if (
-                    combined_score >= ADAPTIVE_KALMAN_STRONG_SCORE
+                    hybrid_fast_alarm
+                    or combined_score >= ADAPTIVE_KALMAN_STRONG_SCORE
                     or actuator_score >= 1.0
                     or raw_alarm
                 ):
                     required_samples = 1
+                elif (
+                    hybrid_medium_evidence
+                    or (
+                        algorithm_name == "hybrid_adaptive_kalman"
+                        and combined_score >= HYBRID_KALMAN_CONFIRM_SCORE
+                    )
+                ):
+                    required_samples = HYBRID_KALMAN_MEDIUM_CONFIRM_SAMPLES
                 elif combined_score >= ADAPTIVE_KALMAN_CONFIRM_SCORE:
                     required_samples = 2
+                elif algorithm_name == "hybrid_adaptive_kalman":
+                    required_samples = HYBRID_KALMAN_WEAK_CONFIRM_SAMPLES
                 else:
                     required_samples = ADAPTIVE_KALMAN_WEAK_CONFIRM_SAMPLES
-                if combined_score >= ADAPTIVE_KALMAN_WEAK_SCORE:
+                weak_score = (
+                    HYBRID_KALMAN_WEAK_SCORE
+                    if algorithm_name == "hybrid_adaptive_kalman"
+                    else ADAPTIVE_KALMAN_WEAK_SCORE
+                )
+                if combined_score >= weak_score:
                     confirmation_count += 1
                 else:
                     confirmation_count = 0
-                alarms.append(raw_alarm or confirmation_count >= required_samples)
+                alarms.append(
+                    raw_alarm
+                    or hybrid_fast_alarm
+                    or confirmation_count >= required_samples
+                )
             else:
                 alarms.append(raw_alarm)
             previous_coolant_temp_c = parse_float(row, "coolant_temp_meas_c")
