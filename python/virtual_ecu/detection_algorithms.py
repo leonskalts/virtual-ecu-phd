@@ -106,6 +106,14 @@ HYBRID_KALMAN_SENSOR_FAST_SUPPORT_SCORE = 0.880
 HYBRID_KALMAN_SENSOR_FAST_COMBINED_SUPPORT_SCORE = 0.900
 HYBRID_KALMAN_FAST_SCORE_MAX = 1.500
 HYBRID_KALMAN_SENSOR_SCORE_MAX = 1.250
+HYBRID_KALMAN_THERMAL_FUSION_LIMIT_C = 0.300
+HYBRID_KALMAN_THERMAL_FUSION_SCORE_MAX = 1.120
+HYBRID_KALMAN_THERMAL_SENSOR_SUPPORT_SCORE = 0.020
+HYBRID_KALMAN_THERMAL_ACTUATOR_SUPPORT_SCORE = 0.250
+HYBRID_KALMAN_THERMAL_KALMAN_SUPPORT_SCORE = 0.200
+HYBRID_KALMAN_THERMAL_SENSOR_SUPPORT_WEIGHT = 0.350
+HYBRID_KALMAN_THERMAL_KALMAN_SUPPORT_WEIGHT = 0.200
+HYBRID_KALMAN_THERMAL_MEDIUM_SCORE = 0.950
 HYBRID_KALMAN_CONFIRM_SCORE = 0.950
 HYBRID_KALMAN_WEAK_SCORE = 0.900
 HYBRID_KALMAN_MEDIUM_CONFIRM_SAMPLES = 2
@@ -403,6 +411,9 @@ def detector_alarms(rows: Sequence[Dict[str, str]], algorithm_name: str) -> List
         expected_delta_c = kalman_filter_expected_delta(rows[0], estimate_c)
         accumulated_innovation = 0.0
         previous_coolant_temp_c = estimate_c
+        thermal_previous_coolant_temp_c = estimate_c
+        thermal_expected_delta_c = thermal_observer_expected_delta(rows[0])
+        thermal_accumulated_mismatch_c = 0.0
         confirmation_count = 0
         alarms.append(False)
         for row in rows[1:]:
@@ -539,12 +550,59 @@ def detector_alarms(rows: Sequence[Dict[str, str]], algorithm_name: str) -> List
                         hybrid_fast_score >= HYBRID_KALMAN_FAST_MEDIUM_SCORE
                         and (kalman_support or trend_support)
                     )
+                    observed_thermal_delta_c = (
+                        parse_float(row, "coolant_temp_meas_c")
+                        - thermal_previous_coolant_temp_c
+                    )
+                    thermal_accumulated_mismatch_c = max(
+                        0.0,
+                        thermal_accumulated_mismatch_c
+                        + observed_thermal_delta_c
+                        - thermal_expected_delta_c
+                        - THERMAL_OBSERVER_MISMATCH_ALLOWANCE_C,
+                    )
+                    thermal_fusion_score = max(
+                        0.0,
+                        min(
+                            HYBRID_KALMAN_THERMAL_FUSION_SCORE_MAX,
+                            (
+                                thermal_accumulated_mismatch_c
+                                / HYBRID_KALMAN_THERMAL_FUSION_LIMIT_C
+                            )
+                            + (
+                                HYBRID_KALMAN_THERMAL_SENSOR_SUPPORT_WEIGHT
+                                * sensor_score
+                            )
+                            + (
+                                HYBRID_KALMAN_THERMAL_KALMAN_SUPPORT_WEIGHT
+                                * raw_score
+                            ),
+                        ),
+                    )
+                    hybrid_thermal_evidence = (
+                        (
+                            sensor_score
+                            >= HYBRID_KALMAN_THERMAL_SENSOR_SUPPORT_SCORE
+                            or actuator_score
+                            >= HYBRID_KALMAN_THERMAL_ACTUATOR_SUPPORT_SCORE
+                        )
+                        and raw_score >= HYBRID_KALMAN_THERMAL_KALMAN_SUPPORT_SCORE
+                        and thermal_fusion_score
+                        >= HYBRID_KALMAN_THERMAL_MEDIUM_SCORE
+                    )
+                    if hybrid_thermal_evidence:
+                        combined_score = max(combined_score, thermal_fusion_score)
+                        hybrid_medium_evidence = True
                     if (
                         hybrid_fast_alarm
                         or hybrid_sensor_fast_alarm
                         or hybrid_medium_evidence
                     ):
                         combined_score = max(combined_score, hybrid_fast_score)
+                    thermal_previous_coolant_temp_c = parse_float(
+                        row, "coolant_temp_meas_c"
+                    )
+                    thermal_expected_delta_c = thermal_observer_expected_delta(row)
                 if (
                     hybrid_fast_alarm
                     or hybrid_sensor_fast_alarm

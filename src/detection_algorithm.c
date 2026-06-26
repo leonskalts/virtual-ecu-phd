@@ -79,6 +79,14 @@
 #define HYBRID_KALMAN_SENSOR_FAST_COMBINED_SUPPORT_SCORE 0.900f
 #define HYBRID_KALMAN_FAST_SCORE_MAX 1.500f
 #define HYBRID_KALMAN_SENSOR_SCORE_MAX 1.250f
+#define HYBRID_KALMAN_THERMAL_FUSION_LIMIT_C 0.300f
+#define HYBRID_KALMAN_THERMAL_FUSION_SCORE_MAX 1.120f
+#define HYBRID_KALMAN_THERMAL_SENSOR_SUPPORT_SCORE 0.020f
+#define HYBRID_KALMAN_THERMAL_ACTUATOR_SUPPORT_SCORE 0.250f
+#define HYBRID_KALMAN_THERMAL_KALMAN_SUPPORT_SCORE 0.200f
+#define HYBRID_KALMAN_THERMAL_SENSOR_SUPPORT_WEIGHT 0.350f
+#define HYBRID_KALMAN_THERMAL_KALMAN_SUPPORT_WEIGHT 0.200f
+#define HYBRID_KALMAN_THERMAL_MEDIUM_SCORE 0.950f
 #define HYBRID_KALMAN_CONFIRM_SCORE 0.950f
 #define HYBRID_KALMAN_WEAK_SCORE 0.900f
 #define HYBRID_KALMAN_MEDIUM_CONFIRM_SAMPLES 2U
@@ -329,6 +337,12 @@ static void kalman_filter_step(
         detector->kalman_filter_accumulated_innovation = 0.0f;
         detector->kalman_filter_previous_coolant_temp_c =
             state->sensors.coolant_temp_meas_c;
+        detector->thermal_observer_previous_coolant_temp_c =
+            state->sensors.coolant_temp_meas_c;
+        detector->thermal_observer_expected_delta_c =
+            thermal_observer_expected_delta(state);
+        detector->thermal_observer_accumulated_mismatch_c = 0.0f;
+        detector->thermal_observer_initialized = hybrid_fast_path;
         detector->kalman_filter_initialized = true;
         detector->current_score = 0.0f;
         detector->alarm_active = false;
@@ -455,6 +469,11 @@ static void kalman_filter_step(
                     context_severity >= HYBRID_KALMAN_HIGH_CONTEXT_SCORE;
                 const bool fast_support =
                     kalman_support || trend_support || context_support;
+                const float observed_thermal_delta_c =
+                    state->sensors.coolant_temp_meas_c -
+                    detector->thermal_observer_previous_coolant_temp_c;
+                float thermal_fusion_score;
+                bool hybrid_thermal_evidence = false;
 
                 hybrid_fast_alarm =
                     hybrid_fast_score >= HYBRID_KALMAN_FAST_STRONG_SCORE &&
@@ -468,6 +487,51 @@ static void kalman_filter_step(
                 hybrid_medium_evidence =
                     hybrid_fast_score >= HYBRID_KALMAN_FAST_MEDIUM_SCORE &&
                     (kalman_support || trend_support);
+
+                detector->thermal_observer_accumulated_mismatch_c =
+                    max_zero(
+                        detector->thermal_observer_accumulated_mismatch_c +
+                        observed_thermal_delta_c -
+                        detector->thermal_observer_expected_delta_c -
+                        THERMAL_OBSERVER_MISMATCH_ALLOWANCE_C
+                    );
+                thermal_fusion_score = clamp_range(
+                    (
+                        detector->thermal_observer_accumulated_mismatch_c /
+                        HYBRID_KALMAN_THERMAL_FUSION_LIMIT_C
+                    ) +
+                        (
+                            HYBRID_KALMAN_THERMAL_SENSOR_SUPPORT_WEIGHT *
+                            sensor_score
+                        ) +
+                        (
+                            HYBRID_KALMAN_THERMAL_KALMAN_SUPPORT_WEIGHT *
+                            detector->current_score
+                        ),
+                    0.0f,
+                    HYBRID_KALMAN_THERMAL_FUSION_SCORE_MAX
+                );
+                hybrid_thermal_evidence =
+                    (
+                        sensor_score >=
+                            HYBRID_KALMAN_THERMAL_SENSOR_SUPPORT_SCORE ||
+                        actuator_score >=
+                            HYBRID_KALMAN_THERMAL_ACTUATOR_SUPPORT_SCORE
+                    ) &&
+                    detector->current_score >=
+                        HYBRID_KALMAN_THERMAL_KALMAN_SUPPORT_SCORE &&
+                    thermal_fusion_score >= HYBRID_KALMAN_THERMAL_MEDIUM_SCORE;
+
+                /* Thermal-observer-style mismatch is fused as bounded
+                 * evidence, not as a second detector alarm. It can accelerate
+                 * confirmation only when residual and Kalman support are both
+                 * present, so healthy high-stress thermal movement is not a
+                 * standalone trigger. */
+                if (hybrid_thermal_evidence &&
+                    thermal_fusion_score > combined_score) {
+                    combined_score = thermal_fusion_score;
+                    hybrid_medium_evidence = true;
+                }
 
                 if (hybrid_fast_alarm || hybrid_sensor_fast_alarm) {
                     combined_score = (combined_score > hybrid_fast_score) ?
@@ -488,6 +552,15 @@ static void kalman_filter_step(
                             "hybrid_adaptive_kalman_fast_sensor_evidence"
                         );
                     }
+                } else if (hybrid_thermal_evidence) {
+                    snprintf(
+                        detector->runtime_label,
+                        sizeof(detector->runtime_label),
+                        "%s",
+                        (trend_support || context_support) ?
+                            "hybrid_adaptive_kalman_contextual_thermal_fusion" :
+                            "hybrid_adaptive_kalman_thermal_mismatch_evidence"
+                    );
                 } else if (hybrid_medium_evidence) {
                     combined_score = (combined_score > hybrid_fast_score) ?
                         combined_score : hybrid_fast_score;
@@ -505,6 +578,11 @@ static void kalman_filter_step(
                         "hybrid_adaptive_kalman_contextual_innovation"
                     );
                 }
+
+                detector->thermal_observer_previous_coolant_temp_c =
+                    state->sensors.coolant_temp_meas_c;
+                detector->thermal_observer_expected_delta_c =
+                    thermal_observer_expected_delta(state);
             }
 
             if (hybrid_fast_alarm ||

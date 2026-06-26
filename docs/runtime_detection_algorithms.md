@@ -148,10 +148,19 @@ one timestep earlier only when the residual is strong and the hybrid
 Kalman/context score is already high. This keeps the hybrid distinct from a
 pure threshold detector: coolant sensor residual alone is not sufficient.
 
+The hybrid score also includes a bounded thermal-fusion evidence term. It
+accumulates positive healthy-model thermal mismatch, similar in shape to the
+standalone `thermal_observer`, but folds that value back into the same hybrid
+confidence score and confirmation counter. Thermal mismatch is not used as an
+OR fallback alarm; it needs residual support plus Kalman support before it can
+accelerate confirmation.
+
 Hybrid runtime labels describe the dominant evidence:
 `hybrid_adaptive_kalman_fast_actuator_evidence`,
 `hybrid_adaptive_kalman_fast_sensor_evidence`,
-`hybrid_adaptive_kalman_contextual_innovation`, or
+`hybrid_adaptive_kalman_contextual_innovation`,
+`hybrid_adaptive_kalman_thermal_mismatch_evidence`,
+`hybrid_adaptive_kalman_contextual_thermal_fusion`, or
 `hybrid_adaptive_kalman_multi_signal_evidence`.
 
 The hybrid detector is intended for comparative experiments about latency and
