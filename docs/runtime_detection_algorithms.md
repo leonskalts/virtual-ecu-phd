@@ -39,8 +39,9 @@ The runtime module supports:
   adaptive Kalman observer and adds a guarded, bounded fast-evidence path.
 
 The direct residual/freshness detectors use fan tracking error, pump tracking
-error, coolant sensor residual, and ECU-level coolant sensor freshness score.
-Constants match the Python offline detector configuration.
+error, coolant sensor residual, ECU-level coolant sensor freshness score, and
+ECU-level fan actuator health score. Constants match the Python offline
+detector configuration.
 
 ## Coolant Sensor Freshness Monitoring
 
@@ -62,6 +63,30 @@ runtime detectors. `threshold`, `ewma`, and `cusum` treat it as another
 bounded evidence channel. The Kalman-family detectors fold freshness into
 their existing score/confirmation logic. The built-in ECU DTC path also treats
 stale coolant freshness as coolant-sensor rationality evidence.
+
+## Fan Actuator Health Feedback
+
+The Virtual ECU also tracks fan actuator health as part of the current
+actuator feedback state. The actuator module publishes
+`fan_driver_feedback_ok`, `fan_rotation_feedback_ok`,
+`fan_current_feedback_ok`, `fan_actuator_health_score`,
+`fan_actuator_feedback_age_ms`, and `fan_actuator_fault_suspected`.
+
+These fields model ECU-observable actuator feedback, not detector knowledge of
+an injected scenario. During healthy operation the driver, current, and
+rotation feedback remain OK and the health score stays at zero. If the fan
+actuator cannot respond, the actuator feedback degrades and the health score
+rises even before coolant temperature or Kalman innovation has had time to
+accumulate. The detector logic consumes only these telemetry fields; it does
+not read fault type, scenario ID, injected-fault-active state, fault start
+time, or fault duration.
+
+This signal helps early transient fan-stuck-off cases where command/actual or
+thermal mismatch may otherwise be too brief or delayed for robust detection.
+The built-in ECU DTC path treats suspected fan actuator health failure as fan
+tracking evidence. `threshold`, `ewma`, and `cusum` use fan health as another
+direct residual channel. The Kalman-family detectors use it as bounded support
+inside their existing score and confirmation logic.
 
 ## Thermal Observer Detector
 
@@ -124,10 +149,10 @@ mechanism.
 `adaptive_kalman_filter` uses the same scalar coolant-temperature observer as
 `kalman_filter`, then combines bounded runtime-observable evidence into a
 context-aware score. Kalman innovation remains the primary evidence source.
-Actuator command/actual mismatch can add bounded support, coolant rising trend
-can add bounded support only when innovation or actuator evidence is already
-present, coolant sensor freshness can add bounded support, and thermal context
-can moderately multiply existing evidence.
+Actuator command/actual mismatch and fan actuator health can add bounded
+support, coolant rising trend can add bounded support only when innovation or
+actuator evidence is already present, coolant sensor freshness can add bounded
+support, and thermal context can moderately multiply existing evidence.
 
 The context score is deterministic and heuristic. It uses ECU-visible or
 simulator-observable operating variables such as measured coolant temperature,
@@ -177,16 +202,17 @@ confidence score and confirmation counter. Thermal mismatch is not used as an
 OR fallback alarm; it needs residual support plus Kalman support before it can
 accelerate confirmation.
 
-Coolant sensor freshness is fused into the same hybrid confidence score. A
-stale freshness signal can provide bounded medium evidence and must pass the
-same dynamic confirmation path; it is not ORed into the alarm result as a
-separate threshold detector.
+Coolant sensor freshness and fan actuator health are fused into the same
+hybrid confidence score. A stale freshness signal or failed fan health signal
+can provide bounded evidence and must pass the same dynamic confirmation path;
+neither is ORed into the alarm result as a separate threshold detector.
 
 Hybrid runtime labels describe the dominant evidence:
 `hybrid_adaptive_kalman_fast_actuator_evidence`,
 `hybrid_adaptive_kalman_fast_sensor_evidence`,
 `hybrid_adaptive_kalman_contextual_innovation`,
 `hybrid_adaptive_kalman_sensor_freshness_fusion`,
+`hybrid_adaptive_kalman_fan_feedback_fusion`,
 `hybrid_adaptive_kalman_thermal_mismatch_evidence`,
 `hybrid_adaptive_kalman_contextual_thermal_fusion`, or
 `hybrid_adaptive_kalman_multi_signal_evidence`.

@@ -11,6 +11,7 @@
 #define THRESHOLD_PUMP_TRACKING_ERROR 0.20f
 #define THRESHOLD_COOLANT_SENSOR_RESIDUAL_C 2.00f
 #define THRESHOLD_COOLANT_SENSOR_FRESHNESS_SCORE 1.00f
+#define THRESHOLD_FAN_ACTUATOR_HEALTH_SCORE ECU_FAN_ACTUATOR_HEALTH_FAULT_SCORE
 
 #define EWMA_ALPHA 0.20f
 
@@ -18,10 +19,12 @@
 #define CUSUM_ALLOWANCE_PUMP_TRACKING_ERROR 0.05f
 #define CUSUM_ALLOWANCE_COOLANT_SENSOR_RESIDUAL_C 0.25f
 #define CUSUM_ALLOWANCE_COOLANT_SENSOR_FRESHNESS_SCORE 0.05f
+#define CUSUM_ALLOWANCE_FAN_ACTUATOR_HEALTH_SCORE 0.05f
 #define CUSUM_LIMIT_FAN_TRACKING_ERROR 0.80f
 #define CUSUM_LIMIT_PUMP_TRACKING_ERROR 0.80f
 #define CUSUM_LIMIT_COOLANT_SENSOR_RESIDUAL_C 8.00f
 #define CUSUM_LIMIT_COOLANT_SENSOR_FRESHNESS_SCORE 2.00f
+#define CUSUM_LIMIT_FAN_ACTUATOR_HEALTH_SCORE 2.00f
 
 /* Lightweight healthy-thermal observer. It predicts one coolant-temperature
  * step using the nominal 92 C controller target and ideal healthy actuator
@@ -62,6 +65,8 @@
 #define ADAPTIVE_KALMAN_TREND_GATE_SCORE 0.250f
 #define ADAPTIVE_KALMAN_FRESHNESS_SCORE_WEIGHT 1.000f
 #define ADAPTIVE_KALMAN_FRESHNESS_SCORE_MAX 1.050f
+#define ADAPTIVE_KALMAN_FAN_HEALTH_SCORE_WEIGHT 1.000f
+#define ADAPTIVE_KALMAN_FAN_HEALTH_SCORE_MAX 1.050f
 #define ADAPTIVE_KALMAN_STRONG_SCORE 1.180f
 #define ADAPTIVE_KALMAN_CONFIRM_SCORE 1.000f
 #define ADAPTIVE_KALMAN_WEAK_SCORE 0.920f
@@ -95,6 +100,9 @@
 #define HYBRID_KALMAN_FRESHNESS_SCORE_WEIGHT 1.050f
 #define HYBRID_KALMAN_FRESHNESS_SCORE_MAX 1.100f
 #define HYBRID_KALMAN_FRESHNESS_MEDIUM_SCORE 0.950f
+#define HYBRID_KALMAN_FAN_HEALTH_SCORE_WEIGHT 1.050f
+#define HYBRID_KALMAN_FAN_HEALTH_SCORE_MAX 1.100f
+#define HYBRID_KALMAN_FAN_HEALTH_MEDIUM_SCORE 0.950f
 #define HYBRID_KALMAN_CONFIRM_SCORE 0.950f
 #define HYBRID_KALMAN_WEAK_SCORE 0.900f
 #define HYBRID_KALMAN_MEDIUM_CONFIRM_SAMPLES 2U
@@ -289,6 +297,12 @@ static float adaptive_kalman_actuator_score(const ecu_state_t *state)
     return (fan_score > pump_score) ? fan_score : pump_score;
 }
 
+static float adaptive_kalman_fan_health_score(const ecu_state_t *state)
+{
+    return state->actuators.fan_actuator_health_score /
+        THRESHOLD_FAN_ACTUATOR_HEALTH_SCORE;
+}
+
 static float hybrid_kalman_sensor_score(const ecu_state_t *state)
 {
     return abs_float(
@@ -416,11 +430,28 @@ static void kalman_filter_step(
                     (ADAPTIVE_KALMAN_CONTEXT_MULTIPLIER_MAX - 1.0f) *
                     context_severity
                 );
-            const float actuator_score = adaptive_kalman_actuator_score(state);
+            const float tracking_actuator_score =
+                adaptive_kalman_actuator_score(state);
+            const float fan_health_score =
+                adaptive_kalman_fan_health_score(state);
+            const float actuator_score =
+                (tracking_actuator_score > fan_health_score) ?
+                tracking_actuator_score : fan_health_score;
             const float actuator_component = clamp_range(
                 ADAPTIVE_KALMAN_ACTUATOR_SCORE_WEIGHT * actuator_score,
                 0.0f,
                 1.25f
+            );
+            const float fan_health_component = clamp_range(
+                (
+                    hybrid_fast_path ?
+                        HYBRID_KALMAN_FAN_HEALTH_SCORE_WEIGHT :
+                        ADAPTIVE_KALMAN_FAN_HEALTH_SCORE_WEIGHT
+                ) * fan_health_score,
+                0.0f,
+                hybrid_fast_path ?
+                    HYBRID_KALMAN_FAN_HEALTH_SCORE_MAX :
+                    ADAPTIVE_KALMAN_FAN_HEALTH_SCORE_MAX
             );
             const float freshness_component = clamp_range(
                 (
@@ -480,6 +511,18 @@ static void kalman_filter_step(
                 );
             }
 
+            if (fan_health_component > combined_score) {
+                combined_score = fan_health_component;
+                snprintf(
+                    detector->runtime_label,
+                    sizeof(detector->runtime_label),
+                    "%s",
+                    hybrid_fast_path ?
+                        "hybrid_adaptive_kalman_fan_feedback_fusion" :
+                        "adaptive_kalman_filter_fan_feedback_support"
+                );
+            }
+
             if (hybrid_fast_path) {
                 const float hybrid_context_multiplier =
                     hybrid_kalman_context_multiplier(context_severity);
@@ -519,6 +562,9 @@ static void kalman_filter_step(
                     hybrid_fast_score >= HYBRID_KALMAN_FAST_MEDIUM_SCORE &&
                     (kalman_support || trend_support);
                 if (freshness_component >= HYBRID_KALMAN_FRESHNESS_MEDIUM_SCORE) {
+                    hybrid_medium_evidence = true;
+                }
+                if (fan_health_component >= HYBRID_KALMAN_FAN_HEALTH_MEDIUM_SCORE) {
                     hybrid_medium_evidence = true;
                 }
 
@@ -595,6 +641,13 @@ static void kalman_filter_step(
                             "hybrid_adaptive_kalman_contextual_thermal_fusion" :
                             "hybrid_adaptive_kalman_thermal_mismatch_evidence"
                     );
+                } else if (fan_health_component >= HYBRID_KALMAN_FAN_HEALTH_MEDIUM_SCORE) {
+                    snprintf(
+                        detector->runtime_label,
+                        sizeof(detector->runtime_label),
+                        "%s",
+                        "hybrid_adaptive_kalman_fan_feedback_fusion"
+                    );
                 } else if (freshness_component >= HYBRID_KALMAN_FRESHNESS_MEDIUM_SCORE) {
                     snprintf(
                         detector->runtime_label,
@@ -670,6 +723,14 @@ static void kalman_filter_step(
                 0.0f,
                 1.05f
             );
+            const float fan_health_component = clamp_range(
+                0.90f * adaptive_kalman_fan_health_score(state),
+                0.0f,
+                1.05f
+            );
+            const float support_component =
+                (freshness_component > fan_health_component) ?
+                freshness_component : fan_health_component;
 
             if (freshness_component > detector->current_score) {
                 detector->current_score = freshness_component;
@@ -681,7 +742,17 @@ static void kalman_filter_step(
                 );
             }
 
-            if (freshness_component >= 0.90f) {
+            if (fan_health_component > detector->current_score) {
+                detector->current_score = fan_health_component;
+                snprintf(
+                    detector->runtime_label,
+                    sizeof(detector->runtime_label),
+                    "%s",
+                    "kalman_filter_fan_feedback_support"
+                );
+            }
+
+            if (support_component >= 0.90f) {
                 detector->adaptive_kalman_filter_confirmation_count++;
             } else {
                 detector->adaptive_kalman_filter_confirmation_count = 0U;
@@ -701,7 +772,9 @@ static void set_score_and_label(
     float fan_score,
     float pump_score,
     float sensor_score,
-    float freshness_score
+    float freshness_score,
+    float fan_health_score,
+    const char *fan_health_label
 )
 {
     detector->current_score = fan_score;
@@ -729,6 +802,16 @@ static void set_score_and_label(
             sizeof(detector->runtime_label),
             "%s",
             "coolant_sensor_freshness_stale"
+        );
+    }
+
+    if (fan_health_score > detector->current_score) {
+        detector->current_score = fan_health_score;
+        snprintf(
+            detector->runtime_label,
+            sizeof(detector->runtime_label),
+            "%s",
+            fan_health_label
         );
     }
 }
@@ -761,6 +844,9 @@ void detection_algorithm_step(struct ecu_state *state)
     float freshness_score =
         state->sensors.coolant_sensor_freshness_score /
         THRESHOLD_COOLANT_SENSOR_FRESHNESS_SCORE;
+    float fan_health_score =
+        state->actuators.fan_actuator_health_score /
+        THRESHOLD_FAN_ACTUATOR_HEALTH_SCORE;
     bool before_fault = state->metrics.fault_present_in_campaign &&
         state->time.time_ms < state->metrics.first_fault_start_ms;
 
@@ -771,7 +857,9 @@ void detection_algorithm_step(struct ecu_state *state)
             fan_residual / THRESHOLD_FAN_TRACKING_ERROR,
             pump_residual / THRESHOLD_PUMP_TRACKING_ERROR,
             sensor_residual / THRESHOLD_COOLANT_SENSOR_RESIDUAL_C,
-            freshness_score
+            freshness_score,
+            fan_health_score,
+            "threshold_fan_actuator_feedback_fault"
         );
         detector->alarm_active = detector->current_score >= 1.0f;
         break;
@@ -789,13 +877,19 @@ void detection_algorithm_step(struct ecu_state *state)
         detector->ewma_coolant_sensor_freshness_score =
             (EWMA_ALPHA * freshness_score) +
             ((1.0f - EWMA_ALPHA) * detector->ewma_coolant_sensor_freshness_score);
+        detector->ewma_fan_actuator_health_score =
+            (EWMA_ALPHA * fan_health_score) +
+            ((1.0f - EWMA_ALPHA) * detector->ewma_fan_actuator_health_score);
         set_score_and_label(
             detector,
             detector->ewma_fan_tracking_error / THRESHOLD_FAN_TRACKING_ERROR,
             detector->ewma_pump_tracking_error / THRESHOLD_PUMP_TRACKING_ERROR,
             detector->ewma_coolant_sensor_residual_c / THRESHOLD_COOLANT_SENSOR_RESIDUAL_C,
             detector->ewma_coolant_sensor_freshness_score /
-                THRESHOLD_COOLANT_SENSOR_FRESHNESS_SCORE
+                THRESHOLD_COOLANT_SENSOR_FRESHNESS_SCORE,
+            detector->ewma_fan_actuator_health_score /
+                THRESHOLD_FAN_ACTUATOR_HEALTH_SCORE,
+            "ewma_fan_actuator_feedback_fault"
         );
         detector->alarm_active = detector->current_score >= 1.0f;
         break;
@@ -821,13 +915,21 @@ void detection_algorithm_step(struct ecu_state *state)
             freshness_score -
             CUSUM_ALLOWANCE_COOLANT_SENSOR_FRESHNESS_SCORE
         );
+        detector->cusum_fan_actuator_health_score = max_zero(
+            detector->cusum_fan_actuator_health_score +
+            fan_health_score -
+            CUSUM_ALLOWANCE_FAN_ACTUATOR_HEALTH_SCORE
+        );
         set_score_and_label(
             detector,
             detector->cusum_fan_tracking_error / CUSUM_LIMIT_FAN_TRACKING_ERROR,
             detector->cusum_pump_tracking_error / CUSUM_LIMIT_PUMP_TRACKING_ERROR,
             detector->cusum_coolant_sensor_residual_c / CUSUM_LIMIT_COOLANT_SENSOR_RESIDUAL_C,
             detector->cusum_coolant_sensor_freshness_score /
-                CUSUM_LIMIT_COOLANT_SENSOR_FRESHNESS_SCORE
+                CUSUM_LIMIT_COOLANT_SENSOR_FRESHNESS_SCORE,
+            detector->cusum_fan_actuator_health_score /
+                CUSUM_LIMIT_FAN_ACTUATOR_HEALTH_SCORE,
+            "cusum_fan_actuator_feedback_fault"
         );
         detector->alarm_active = detector->current_score >= 1.0f;
         break;

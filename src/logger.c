@@ -102,6 +102,8 @@ int logger_open(ecu_state_t *state, const char *path)
         "radiator_temp_true_c,radiator_temp_meas_c,"
         "pump_command,pump_actual,pump_tracking_error,"
         "fan_command,fan_actual,fan_tracking_error,"
+        "fan_driver_feedback_ok,fan_rotation_feedback_ok,fan_current_feedback_ok,"
+        "fan_actuator_health_score,fan_actuator_feedback_age_ms,fan_actuator_fault_suspected,"
         "overtemp_warning,overtemp_critical,coolant_sensor_fault,cooling_performance_low,"
         "pump_tracking_fault,fan_tracking_fault,"
         "coolant_sensor_fail_count,pump_fail_count,fan_fail_count,cooling_perf_fail_count,"
@@ -190,6 +192,7 @@ void logger_write(ecu_state_t *state)
         ",%.2f,%.2f"
         ",%.3f,%.3f,%.3f"
         ",%.3f,%.3f,%.3f"
+        ",%d,%d,%d,%.3f,%u,%d"
         ",%d,%d,%d,%d,%d,%d"
         ",%u,%u,%u,%u"
         ",%u,%d,%d,%d",
@@ -213,6 +216,12 @@ void logger_write(ecu_state_t *state)
         state->control.fan_command,
         state->actuators.fan_actual,
         state->control.fan_command - state->actuators.fan_actual,
+        state->actuators.fan_driver_feedback_ok ? 1 : 0,
+        state->actuators.fan_rotation_feedback_ok ? 1 : 0,
+        state->actuators.fan_current_feedback_ok ? 1 : 0,
+        state->actuators.fan_actuator_health_score,
+        state->actuators.fan_actuator_feedback_age_ms,
+        state->actuators.fan_actuator_fault_suspected ? 1 : 0,
         state->diagnostics.overtemp_warning ? 1 : 0,
         state->diagnostics.overtemp_critical ? 1 : 0,
         state->diagnostics.coolant_sensor_rationality_fault ? 1 : 0,

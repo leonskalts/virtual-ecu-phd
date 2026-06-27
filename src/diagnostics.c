@@ -167,7 +167,9 @@ void diagnostics_step(ecu_state_t *state)
         ((state->actuators.fan_actual > 0.80f) || (state->control.fan_command > 0.80f));
 
     state->diagnostics.pump_tracking_fault = cooling_gap > 0.25f;
-    state->diagnostics.fan_tracking_fault = fan_gap > 0.25f;
+    state->diagnostics.fan_tracking_fault =
+        fan_gap > 0.25f ||
+        state->actuators.fan_actuator_fault_suspected;
 
     dtc_update(
         &state->diagnostics.coolant_sensor_dtc,

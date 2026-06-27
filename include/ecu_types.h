@@ -137,6 +137,12 @@ typedef struct {
 typedef struct {
     float pump_actual;
     float fan_actual;
+    bool fan_driver_feedback_ok;
+    bool fan_rotation_feedback_ok;
+    bool fan_current_feedback_ok;
+    float fan_actuator_health_score;
+    unsigned int fan_actuator_feedback_age_ms;
+    bool fan_actuator_fault_suspected;
 } actuator_feedback_t;
 
 typedef struct {
