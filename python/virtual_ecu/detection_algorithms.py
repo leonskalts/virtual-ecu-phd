@@ -33,6 +33,7 @@ RESIDUAL_SIGNALS = (
     "fan_tracking_error",
     "pump_tracking_error",
     "coolant_sensor_residual_c",
+    "coolant_sensor_freshness_score",
 )
 
 # Configurable detector parameters. Residual magnitudes are used so both
@@ -41,6 +42,7 @@ THRESHOLD_LIMITS = {
     "fan_tracking_error": 0.25,
     "pump_tracking_error": 0.20,
     "coolant_sensor_residual_c": 2.00,
+    "coolant_sensor_freshness_score": 1.00,
 }
 
 EWMA_ALPHA = 0.20
@@ -48,6 +50,7 @@ EWMA_LIMITS = {
     "fan_tracking_error": 0.25,
     "pump_tracking_error": 0.20,
     "coolant_sensor_residual_c": 2.00,
+    "coolant_sensor_freshness_score": 1.00,
 }
 
 # CUSUM accumulates max(0, previous + |residual| - allowance). The decision
@@ -56,11 +59,13 @@ CUSUM_ALLOWANCES = {
     "fan_tracking_error": 0.05,
     "pump_tracking_error": 0.05,
     "coolant_sensor_residual_c": 0.25,
+    "coolant_sensor_freshness_score": 0.05,
 }
 CUSUM_DECISION_LIMITS = {
     "fan_tracking_error": 0.80,
     "pump_tracking_error": 0.80,
     "coolant_sensor_residual_c": 8.00,
+    "coolant_sensor_freshness_score": 2.00,
 }
 
 # The thermal observer predicts one 100 ms coolant step from the nominal
@@ -89,6 +94,8 @@ ADAPTIVE_KALMAN_CONTEXT_MULTIPLIER_MAX = 1.180
 ADAPTIVE_KALMAN_ACTUATOR_SCORE_WEIGHT = 1.050
 ADAPTIVE_KALMAN_TREND_SCORE_WEIGHT = 0.220
 ADAPTIVE_KALMAN_TREND_GATE_SCORE = 0.250
+ADAPTIVE_KALMAN_FRESHNESS_SCORE_WEIGHT = 1.000
+ADAPTIVE_KALMAN_FRESHNESS_SCORE_MAX = 1.050
 ADAPTIVE_KALMAN_STRONG_SCORE = 1.180
 ADAPTIVE_KALMAN_CONFIRM_SCORE = 1.000
 ADAPTIVE_KALMAN_WEAK_SCORE = 0.920
@@ -114,6 +121,9 @@ HYBRID_KALMAN_THERMAL_KALMAN_SUPPORT_SCORE = 0.200
 HYBRID_KALMAN_THERMAL_SENSOR_SUPPORT_WEIGHT = 0.350
 HYBRID_KALMAN_THERMAL_KALMAN_SUPPORT_WEIGHT = 0.200
 HYBRID_KALMAN_THERMAL_MEDIUM_SCORE = 0.950
+HYBRID_KALMAN_FRESHNESS_SCORE_WEIGHT = 1.050
+HYBRID_KALMAN_FRESHNESS_SCORE_MAX = 1.100
+HYBRID_KALMAN_FRESHNESS_MEDIUM_SCORE = 0.950
 HYBRID_KALMAN_CONFIRM_SCORE = 0.950
 HYBRID_KALMAN_WEAK_SCORE = 0.900
 HYBRID_KALMAN_MEDIUM_CONFIRM_SAMPLES = 2
@@ -322,6 +332,10 @@ def hybrid_kalman_sensor_score(row: Dict[str, str]) -> float:
     ]
 
 
+def coolant_sensor_freshness_score(row: Dict[str, str]) -> float:
+    return parse_float(row, "coolant_sensor_freshness_score")
+
+
 def hybrid_kalman_context_multiplier(context_severity: float) -> float:
     return max(
         HYBRID_KALMAN_CONTEXT_MULTIPLIER_MIN,
@@ -474,6 +488,22 @@ def detector_alarms(rows: Sequence[Dict[str, str]], algorithm_name: str) -> List
                         ADAPTIVE_KALMAN_ACTUATOR_SCORE_WEIGHT * actuator_score,
                     ),
                 )
+                freshness_component = max(
+                    0.0,
+                    min(
+                        (
+                            HYBRID_KALMAN_FRESHNESS_SCORE_MAX
+                            if algorithm_name == "hybrid_adaptive_kalman"
+                            else ADAPTIVE_KALMAN_FRESHNESS_SCORE_MAX
+                        ),
+                        (
+                            HYBRID_KALMAN_FRESHNESS_SCORE_WEIGHT
+                            if algorithm_name == "hybrid_adaptive_kalman"
+                            else ADAPTIVE_KALMAN_FRESHNESS_SCORE_WEIGHT
+                        )
+                        * coolant_sensor_freshness_score(row),
+                    ),
+                )
                 trend_gate = (
                     raw_score >= ADAPTIVE_KALMAN_TREND_GATE_SCORE
                     or actuator_score >= ADAPTIVE_KALMAN_TREND_GATE_SCORE
@@ -489,6 +519,7 @@ def detector_alarms(rows: Sequence[Dict[str, str]], algorithm_name: str) -> List
                     0.0,
                     min(2.0, (combined_score + trend_component) * context_multiplier),
                 )
+                combined_score = max(combined_score, freshness_component)
                 hybrid_fast_alarm = False
                 hybrid_sensor_fast_alarm = False
                 hybrid_medium_evidence = False
@@ -550,6 +581,11 @@ def detector_alarms(rows: Sequence[Dict[str, str]], algorithm_name: str) -> List
                         hybrid_fast_score >= HYBRID_KALMAN_FAST_MEDIUM_SCORE
                         and (kalman_support or trend_support)
                     )
+                    if (
+                        freshness_component
+                        >= HYBRID_KALMAN_FRESHNESS_MEDIUM_SCORE
+                    ):
+                        hybrid_medium_evidence = True
                     observed_thermal_delta_c = (
                         parse_float(row, "coolant_temp_meas_c")
                         - thermal_previous_coolant_temp_c
@@ -641,7 +677,15 @@ def detector_alarms(rows: Sequence[Dict[str, str]], algorithm_name: str) -> List
                     or confirmation_count >= required_samples
                 )
             else:
-                alarms.append(raw_alarm)
+                freshness_component = max(
+                    0.0,
+                    min(1.05, 0.90 * coolant_sensor_freshness_score(row)),
+                )
+                if freshness_component >= 0.90:
+                    confirmation_count += 1
+                else:
+                    confirmation_count = 0
+                alarms.append(raw_alarm or confirmation_count >= 3)
             previous_coolant_temp_c = parse_float(row, "coolant_temp_meas_c")
         return alarms
 

@@ -10,15 +10,18 @@
 #define THRESHOLD_FAN_TRACKING_ERROR 0.25f
 #define THRESHOLD_PUMP_TRACKING_ERROR 0.20f
 #define THRESHOLD_COOLANT_SENSOR_RESIDUAL_C 2.00f
+#define THRESHOLD_COOLANT_SENSOR_FRESHNESS_SCORE 1.00f
 
 #define EWMA_ALPHA 0.20f
 
 #define CUSUM_ALLOWANCE_FAN_TRACKING_ERROR 0.05f
 #define CUSUM_ALLOWANCE_PUMP_TRACKING_ERROR 0.05f
 #define CUSUM_ALLOWANCE_COOLANT_SENSOR_RESIDUAL_C 0.25f
+#define CUSUM_ALLOWANCE_COOLANT_SENSOR_FRESHNESS_SCORE 0.05f
 #define CUSUM_LIMIT_FAN_TRACKING_ERROR 0.80f
 #define CUSUM_LIMIT_PUMP_TRACKING_ERROR 0.80f
 #define CUSUM_LIMIT_COOLANT_SENSOR_RESIDUAL_C 8.00f
+#define CUSUM_LIMIT_COOLANT_SENSOR_FRESHNESS_SCORE 2.00f
 
 /* Lightweight healthy-thermal observer. It predicts one coolant-temperature
  * step using the nominal 92 C controller target and ideal healthy actuator
@@ -57,6 +60,8 @@
 #define ADAPTIVE_KALMAN_ACTUATOR_SCORE_WEIGHT 1.050f
 #define ADAPTIVE_KALMAN_TREND_SCORE_WEIGHT 0.220f
 #define ADAPTIVE_KALMAN_TREND_GATE_SCORE 0.250f
+#define ADAPTIVE_KALMAN_FRESHNESS_SCORE_WEIGHT 1.000f
+#define ADAPTIVE_KALMAN_FRESHNESS_SCORE_MAX 1.050f
 #define ADAPTIVE_KALMAN_STRONG_SCORE 1.180f
 #define ADAPTIVE_KALMAN_CONFIRM_SCORE 1.000f
 #define ADAPTIVE_KALMAN_WEAK_SCORE 0.920f
@@ -87,6 +92,9 @@
 #define HYBRID_KALMAN_THERMAL_SENSOR_SUPPORT_WEIGHT 0.350f
 #define HYBRID_KALMAN_THERMAL_KALMAN_SUPPORT_WEIGHT 0.200f
 #define HYBRID_KALMAN_THERMAL_MEDIUM_SCORE 0.950f
+#define HYBRID_KALMAN_FRESHNESS_SCORE_WEIGHT 1.050f
+#define HYBRID_KALMAN_FRESHNESS_SCORE_MAX 1.100f
+#define HYBRID_KALMAN_FRESHNESS_MEDIUM_SCORE 0.950f
 #define HYBRID_KALMAN_CONFIRM_SCORE 0.950f
 #define HYBRID_KALMAN_WEAK_SCORE 0.900f
 #define HYBRID_KALMAN_MEDIUM_CONFIRM_SAMPLES 2U
@@ -414,6 +422,17 @@ static void kalman_filter_step(
                 0.0f,
                 1.25f
             );
+            const float freshness_component = clamp_range(
+                (
+                    hybrid_fast_path ?
+                        HYBRID_KALMAN_FRESHNESS_SCORE_WEIGHT :
+                        ADAPTIVE_KALMAN_FRESHNESS_SCORE_WEIGHT
+                ) * state->sensors.coolant_sensor_freshness_score,
+                0.0f,
+                hybrid_fast_path ?
+                    HYBRID_KALMAN_FRESHNESS_SCORE_MAX :
+                    ADAPTIVE_KALMAN_FRESHNESS_SCORE_MAX
+            );
             const float trend_score = adaptive_kalman_trend_score(state, detector);
             const bool trend_gate =
                 detector->current_score >= ADAPTIVE_KALMAN_TREND_GATE_SCORE ||
@@ -448,6 +467,18 @@ static void kalman_filter_step(
                     0.0f,
                     2.0f
                 );
+
+            if (freshness_component > combined_score) {
+                combined_score = freshness_component;
+                snprintf(
+                    detector->runtime_label,
+                    sizeof(detector->runtime_label),
+                    "%s",
+                    hybrid_fast_path ?
+                        "hybrid_adaptive_kalman_sensor_freshness_fusion" :
+                        "adaptive_kalman_filter_sensor_freshness_support"
+                );
+            }
 
             if (hybrid_fast_path) {
                 const float hybrid_context_multiplier =
@@ -487,6 +518,9 @@ static void kalman_filter_step(
                 hybrid_medium_evidence =
                     hybrid_fast_score >= HYBRID_KALMAN_FAST_MEDIUM_SCORE &&
                     (kalman_support || trend_support);
+                if (freshness_component >= HYBRID_KALMAN_FRESHNESS_MEDIUM_SCORE) {
+                    hybrid_medium_evidence = true;
+                }
 
                 detector->thermal_observer_accumulated_mismatch_c =
                     max_zero(
@@ -561,6 +595,13 @@ static void kalman_filter_step(
                             "hybrid_adaptive_kalman_contextual_thermal_fusion" :
                             "hybrid_adaptive_kalman_thermal_mismatch_evidence"
                     );
+                } else if (freshness_component >= HYBRID_KALMAN_FRESHNESS_MEDIUM_SCORE) {
+                    snprintf(
+                        detector->runtime_label,
+                        sizeof(detector->runtime_label),
+                        "%s",
+                        "hybrid_adaptive_kalman_sensor_freshness_fusion"
+                    );
                 } else if (hybrid_medium_evidence) {
                     combined_score = (combined_score > hybrid_fast_score) ?
                         combined_score : hybrid_fast_score;
@@ -624,7 +665,31 @@ static void kalman_filter_step(
                     required_samples
                 );
         } else {
-            detector->alarm_active = raw_kalman_alarm;
+            const float freshness_component = clamp_range(
+                0.90f * state->sensors.coolant_sensor_freshness_score,
+                0.0f,
+                1.05f
+            );
+
+            if (freshness_component > detector->current_score) {
+                detector->current_score = freshness_component;
+                snprintf(
+                    detector->runtime_label,
+                    sizeof(detector->runtime_label),
+                    "%s",
+                    "kalman_filter_sensor_freshness_support"
+                );
+            }
+
+            if (freshness_component >= 0.90f) {
+                detector->adaptive_kalman_filter_confirmation_count++;
+            } else {
+                detector->adaptive_kalman_filter_confirmation_count = 0U;
+            }
+
+            detector->alarm_active =
+                raw_kalman_alarm ||
+                detector->adaptive_kalman_filter_confirmation_count >= 3U;
         }
         detector->kalman_filter_previous_coolant_temp_c =
             state->sensors.coolant_temp_meas_c;
@@ -635,7 +700,8 @@ static void set_score_and_label(
     detection_algorithm_state_t *detector,
     float fan_score,
     float pump_score,
-    float sensor_score
+    float sensor_score,
+    float freshness_score
 )
 {
     detector->current_score = fan_score;
@@ -653,6 +719,16 @@ static void set_score_and_label(
             sizeof(detector->runtime_label),
             "%s",
             "coolant_sensor_residual_c"
+        );
+    }
+
+    if (freshness_score > detector->current_score) {
+        detector->current_score = freshness_score;
+        snprintf(
+            detector->runtime_label,
+            sizeof(detector->runtime_label),
+            "%s",
+            "coolant_sensor_freshness_stale"
         );
     }
 }
@@ -682,6 +758,9 @@ void detection_algorithm_step(struct ecu_state *state)
     float sensor_residual = abs_float(
         state->sensors.coolant_temp_meas_c - state->plant.coolant_temp_true_c
     );
+    float freshness_score =
+        state->sensors.coolant_sensor_freshness_score /
+        THRESHOLD_COOLANT_SENSOR_FRESHNESS_SCORE;
     bool before_fault = state->metrics.fault_present_in_campaign &&
         state->time.time_ms < state->metrics.first_fault_start_ms;
 
@@ -691,7 +770,8 @@ void detection_algorithm_step(struct ecu_state *state)
             detector,
             fan_residual / THRESHOLD_FAN_TRACKING_ERROR,
             pump_residual / THRESHOLD_PUMP_TRACKING_ERROR,
-            sensor_residual / THRESHOLD_COOLANT_SENSOR_RESIDUAL_C
+            sensor_residual / THRESHOLD_COOLANT_SENSOR_RESIDUAL_C,
+            freshness_score
         );
         detector->alarm_active = detector->current_score >= 1.0f;
         break;
@@ -706,11 +786,16 @@ void detection_algorithm_step(struct ecu_state *state)
         detector->ewma_coolant_sensor_residual_c =
             (EWMA_ALPHA * sensor_residual) +
             ((1.0f - EWMA_ALPHA) * detector->ewma_coolant_sensor_residual_c);
+        detector->ewma_coolant_sensor_freshness_score =
+            (EWMA_ALPHA * freshness_score) +
+            ((1.0f - EWMA_ALPHA) * detector->ewma_coolant_sensor_freshness_score);
         set_score_and_label(
             detector,
             detector->ewma_fan_tracking_error / THRESHOLD_FAN_TRACKING_ERROR,
             detector->ewma_pump_tracking_error / THRESHOLD_PUMP_TRACKING_ERROR,
-            detector->ewma_coolant_sensor_residual_c / THRESHOLD_COOLANT_SENSOR_RESIDUAL_C
+            detector->ewma_coolant_sensor_residual_c / THRESHOLD_COOLANT_SENSOR_RESIDUAL_C,
+            detector->ewma_coolant_sensor_freshness_score /
+                THRESHOLD_COOLANT_SENSOR_FRESHNESS_SCORE
         );
         detector->alarm_active = detector->current_score >= 1.0f;
         break;
@@ -731,11 +816,18 @@ void detection_algorithm_step(struct ecu_state *state)
             sensor_residual -
             CUSUM_ALLOWANCE_COOLANT_SENSOR_RESIDUAL_C
         );
+        detector->cusum_coolant_sensor_freshness_score = max_zero(
+            detector->cusum_coolant_sensor_freshness_score +
+            freshness_score -
+            CUSUM_ALLOWANCE_COOLANT_SENSOR_FRESHNESS_SCORE
+        );
         set_score_and_label(
             detector,
             detector->cusum_fan_tracking_error / CUSUM_LIMIT_FAN_TRACKING_ERROR,
             detector->cusum_pump_tracking_error / CUSUM_LIMIT_PUMP_TRACKING_ERROR,
-            detector->cusum_coolant_sensor_residual_c / CUSUM_LIMIT_COOLANT_SENSOR_RESIDUAL_C
+            detector->cusum_coolant_sensor_residual_c / CUSUM_LIMIT_COOLANT_SENSOR_RESIDUAL_C,
+            detector->cusum_coolant_sensor_freshness_score /
+                CUSUM_LIMIT_COOLANT_SENSOR_FRESHNESS_SCORE
         );
         detector->alarm_active = detector->current_score >= 1.0f;
         break;

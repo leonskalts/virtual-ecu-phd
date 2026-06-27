@@ -21,12 +21,34 @@ static float intermittent_sensor_error(unsigned int time_ms, float amplitude_c)
     return 0.0f;
 }
 
+static void update_coolant_sensor_freshness(ecu_state_t *state, bool refreshed)
+{
+    if (refreshed) {
+        state->sensors.coolant_sensor_last_update_ms = state->time.time_ms;
+    }
+
+    state->sensors.coolant_sensor_update_age_ms =
+        state->time.time_ms - state->sensors.coolant_sensor_last_update_ms;
+    state->sensors.coolant_sensor_expected_period_ms = ECU_SENSOR_PERIOD_MS;
+    state->sensors.coolant_sensor_freshness_score =
+        (float)state->sensors.coolant_sensor_update_age_ms /
+        (float)ECU_COOLANT_SENSOR_FRESHNESS_STALE_MS;
+    state->sensors.coolant_sensor_freshness_ok =
+        state->sensors.coolant_sensor_update_age_ms <
+        ECU_COOLANT_SENSOR_FRESHNESS_STALE_MS;
+}
+
 void sensors_init(ecu_state_t *state)
 {
     state->sensors.coolant_temp_meas_c = state->plant.coolant_temp_true_c;
     state->sensors.radiator_temp_meas_c = state->plant.radiator_temp_true_c;
     state->sensors.ambient_temp_meas_c = state->plant.ambient_temp_c;
     state->sensors.vehicle_speed_meas_kph = state->plant.vehicle_speed_kph;
+    state->sensors.coolant_sensor_last_update_ms = state->time.time_ms;
+    state->sensors.coolant_sensor_update_age_ms = 0U;
+    state->sensors.coolant_sensor_expected_period_ms = ECU_SENSOR_PERIOD_MS;
+    state->sensors.coolant_sensor_freshness_score = 0.0f;
+    state->sensors.coolant_sensor_freshness_ok = true;
     state->faults.stale_coolant_temp_c = state->plant.coolant_temp_true_c;
     state->faults.stale_sample_timestamp_ms = 0U;
     state->faults.stale_sample_valid = false;
@@ -35,6 +57,7 @@ void sensors_init(ecu_state_t *state)
 void sensors_step(ecu_state_t *state)
 {
     float coolant_meas = state->plant.coolant_temp_true_c;
+    bool coolant_refreshed = true;
 
     /* Persistent measurement offset models ADC/reference/front-end faults. */
     if (state->faults.enabled && state->faults.active_mode == FAULT_SENSOR_BIAS) {
@@ -59,12 +82,16 @@ void sensors_step(ecu_state_t *state)
             state->faults.stale_coolant_temp_c = coolant_meas;
             state->faults.stale_sample_timestamp_ms = state->time.time_ms;
             state->faults.stale_sample_valid = true;
+            coolant_refreshed = true;
+        } else {
+            coolant_refreshed = false;
         }
 
         coolant_meas = state->faults.stale_coolant_temp_c;
     }
 
     state->sensors.coolant_temp_meas_c = coolant_meas;
+    update_coolant_sensor_freshness(state, coolant_refreshed);
     state->sensors.radiator_temp_meas_c = state->plant.radiator_temp_true_c;
     state->sensors.ambient_temp_meas_c = state->plant.ambient_temp_c;
     state->sensors.vehicle_speed_meas_kph = state->plant.vehicle_speed_kph;

@@ -122,6 +122,11 @@ typedef struct {
     float radiator_temp_meas_c;
     float ambient_temp_meas_c;
     float vehicle_speed_meas_kph;
+    unsigned int coolant_sensor_last_update_ms;
+    unsigned int coolant_sensor_update_age_ms;
+    unsigned int coolant_sensor_expected_period_ms;
+    float coolant_sensor_freshness_score;
+    bool coolant_sensor_freshness_ok;
 } sensor_data_t;
 
 typedef struct {

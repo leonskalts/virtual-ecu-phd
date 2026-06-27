@@ -96,6 +96,9 @@ int logger_open(ecu_state_t *state, const char *path)
         "primary_dtc_id,primary_dtc_label,primary_dtc_class,"
         "ambient_temp_c,engine_speed_rpm,engine_load,vehicle_speed_kph,"
         "coolant_temp_true_c,coolant_temp_meas_c,coolant_sensor_residual_c,"
+        "coolant_sensor_last_update_ms,coolant_sensor_update_age_ms,"
+        "coolant_sensor_expected_period_ms,coolant_sensor_freshness_score,"
+        "coolant_sensor_freshness_ok,"
         "radiator_temp_true_c,radiator_temp_meas_c,"
         "pump_command,pump_actual,pump_tracking_error,"
         "fan_command,fan_actual,fan_tracking_error,"
@@ -183,6 +186,7 @@ void logger_write(ecu_state_t *state)
         state->log_file,
         ",%.2f,%.2f,%.3f,%.2f"
         ",%.2f,%.2f,%.2f"
+        ",%u,%u,%u,%.3f,%d"
         ",%.2f,%.2f"
         ",%.3f,%.3f,%.3f"
         ",%.3f,%.3f,%.3f"
@@ -196,6 +200,11 @@ void logger_write(ecu_state_t *state)
         state->plant.coolant_temp_true_c,
         state->sensors.coolant_temp_meas_c,
         state->sensors.coolant_temp_meas_c - state->plant.coolant_temp_true_c,
+        state->sensors.coolant_sensor_last_update_ms,
+        state->sensors.coolant_sensor_update_age_ms,
+        state->sensors.coolant_sensor_expected_period_ms,
+        state->sensors.coolant_sensor_freshness_score,
+        state->sensors.coolant_sensor_freshness_ok ? 1 : 0,
         state->plant.radiator_temp_true_c,
         state->sensors.radiator_temp_meas_c,
         state->control.pump_command,

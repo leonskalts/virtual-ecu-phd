@@ -38,9 +38,30 @@ The runtime module supports:
 - `hybrid_adaptive_kalman`: experimental low-latency variant that keeps the
   adaptive Kalman observer and adds a guarded, bounded fast-evidence path.
 
-The three direct residual detectors use fan tracking error, pump tracking
-error, and coolant sensor residual. Constants match the Python offline detector
-configuration.
+The direct residual/freshness detectors use fan tracking error, pump tracking
+error, coolant sensor residual, and ECU-level coolant sensor freshness score.
+Constants match the Python offline detector configuration.
+
+## Coolant Sensor Freshness Monitoring
+
+The Virtual ECU tracks coolant sensor freshness as part of the current sensor
+state. The sensor module records `coolant_sensor_last_update_ms`,
+`coolant_sensor_update_age_ms`, `coolant_sensor_expected_period_ms`,
+`coolant_sensor_freshness_score`, and `coolant_sensor_freshness_ok`.
+
+Normal coolant sensor refreshes reset the update timestamp, so the update age
+stays low during healthy operation. Stale sampled-data behavior holds the
+previous coolant measurement; while the value is held, the timestamp does not
+advance and the update age rises. The freshness score is derived from that
+runtime-observable age relative to the expected sensor period. Detectors do
+not read fault type, scenario ID, injected-fault state, or fault timing to
+decide whether a sample is stale.
+
+The freshness signal is logged in every runtime CSV trace and can be used by
+runtime detectors. `threshold`, `ewma`, and `cusum` treat it as another
+bounded evidence channel. The Kalman-family detectors fold freshness into
+their existing score/confirmation logic. The built-in ECU DTC path also treats
+stale coolant freshness as coolant-sensor rationality evidence.
 
 ## Thermal Observer Detector
 
@@ -105,7 +126,8 @@ mechanism.
 context-aware score. Kalman innovation remains the primary evidence source.
 Actuator command/actual mismatch can add bounded support, coolant rising trend
 can add bounded support only when innovation or actuator evidence is already
-present, and thermal context can moderately multiply existing evidence.
+present, coolant sensor freshness can add bounded support, and thermal context
+can moderately multiply existing evidence.
 
 The context score is deterministic and heuristic. It uses ECU-visible or
 simulator-observable operating variables such as measured coolant temperature,
@@ -155,10 +177,16 @@ confidence score and confirmation counter. Thermal mismatch is not used as an
 OR fallback alarm; it needs residual support plus Kalman support before it can
 accelerate confirmation.
 
+Coolant sensor freshness is fused into the same hybrid confidence score. A
+stale freshness signal can provide bounded medium evidence and must pass the
+same dynamic confirmation path; it is not ORed into the alarm result as a
+separate threshold detector.
+
 Hybrid runtime labels describe the dominant evidence:
 `hybrid_adaptive_kalman_fast_actuator_evidence`,
 `hybrid_adaptive_kalman_fast_sensor_evidence`,
 `hybrid_adaptive_kalman_contextual_innovation`,
+`hybrid_adaptive_kalman_sensor_freshness_fusion`,
 `hybrid_adaptive_kalman_thermal_mismatch_evidence`,
 `hybrid_adaptive_kalman_contextual_thermal_fusion`, or
 `hybrid_adaptive_kalman_multi_signal_evidence`.

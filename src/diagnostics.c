@@ -158,7 +158,8 @@ void diagnostics_step(ecu_state_t *state)
     state->diagnostics.coolant_sensor_rationality_fault =
         (measured < ECU_SENSOR_IMPLAUSIBLE_LOW_C) ||
         (measured > ECU_SENSOR_IMPLAUSIBLE_HIGH_C) ||
-        (abs_float(sensor_residual) >= ECU_SENSOR_RATIONALITY_RESIDUAL_C);
+        (abs_float(sensor_residual) >= ECU_SENSOR_RATIONALITY_RESIDUAL_C) ||
+        !state->sensors.coolant_sensor_freshness_ok;
 
     state->diagnostics.cooling_performance_low =
         (measured > ECU_TARGET_COOLANT_TEMP_C + 10.0f) &&

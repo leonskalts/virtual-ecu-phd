@@ -26,9 +26,11 @@ typedef struct {
     float ewma_fan_tracking_error;
     float ewma_pump_tracking_error;
     float ewma_coolant_sensor_residual_c;
+    float ewma_coolant_sensor_freshness_score;
     float cusum_fan_tracking_error;
     float cusum_pump_tracking_error;
     float cusum_coolant_sensor_residual_c;
+    float cusum_coolant_sensor_freshness_score;
     float thermal_observer_previous_coolant_temp_c;
     float thermal_observer_expected_delta_c;
     float thermal_observer_accumulated_mismatch_c;
