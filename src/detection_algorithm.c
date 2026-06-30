@@ -97,6 +97,11 @@
 #define HYBRID_KALMAN_THERMAL_SENSOR_SUPPORT_WEIGHT 0.350f
 #define HYBRID_KALMAN_THERMAL_KALMAN_SUPPORT_WEIGHT 0.200f
 #define HYBRID_KALMAN_THERMAL_MEDIUM_SCORE 0.950f
+#define HYBRID_KALMAN_PUMP_MEMORY_ALLOWANCE 0.006f
+#define HYBRID_KALMAN_PUMP_MEMORY_LEAK 0.985f
+#define HYBRID_KALMAN_PUMP_MEMORY_LIMIT 0.550f
+#define HYBRID_KALMAN_PUMP_MEMORY_SCORE_MAX 1.150f
+#define HYBRID_KALMAN_PUMP_MEMORY_MEDIUM_SCORE 0.950f
 #define HYBRID_KALMAN_FRESHNESS_SCORE_WEIGHT 1.050f
 #define HYBRID_KALMAN_FRESHNESS_SCORE_MAX 1.100f
 #define HYBRID_KALMAN_FRESHNESS_MEDIUM_SCORE 0.950f
@@ -186,6 +191,7 @@ static float thermal_observer_expected_delta(const ecu_state_t *state)
         (7.5f * nominal_pump) -
         (6.0f * nominal_fan) -
         ((vehicle_speed_kph / 40.0f) * state->experiment.ram_air_scale) -
+        (3.0f * state->plant.external_airflow_factor) -
         (0.08f * (coolant_temp_c - ambient_temp_c));
 
     return expected_rate_c_per_s * dt_s;
@@ -222,6 +228,7 @@ static float kalman_filter_expected_delta(const ecu_state_t *state, float coolan
         (7.5f * clamp_unit(pump_cooling)) -
         (6.0f * clamp_unit(fan_cooling)) -
         ((vehicle_speed_kph / 40.0f) * state->experiment.ram_air_scale) -
+        (3.0f * state->plant.external_airflow_factor) -
         (0.08f * (coolant_temp_c - ambient_temp_c));
 
     return expected_rate_c_per_s * dt_s;
@@ -372,9 +379,14 @@ static void kalman_filter_step(
     }
 
     {
+        const float current_expected_delta_c =
+            kalman_filter_expected_delta(
+                state,
+                detector->kalman_filter_estimated_coolant_temp_c
+            );
         const float predicted_coolant_temp_c =
             detector->kalman_filter_estimated_coolant_temp_c +
-            detector->kalman_filter_expected_delta_c;
+            current_expected_delta_c;
         const float predicted_covariance =
             detector->kalman_filter_estimate_covariance +
             detector->kalman_filter_process_noise_q;
@@ -437,6 +449,9 @@ static void kalman_filter_step(
             const float actuator_score =
                 (tracking_actuator_score > fan_health_score) ?
                 tracking_actuator_score : fan_health_score;
+            const float pump_tracking_residual =
+                abs_float(state->control.pump_command -
+                    state->actuators.pump_actual);
             const float actuator_component = clamp_range(
                 ADAPTIVE_KALMAN_ACTUATOR_SCORE_WEIGHT * actuator_score,
                 0.0f,
@@ -547,7 +562,9 @@ static void kalman_filter_step(
                     state->sensors.coolant_temp_meas_c -
                     detector->thermal_observer_previous_coolant_temp_c;
                 float thermal_fusion_score;
+                float pump_memory_score;
                 bool hybrid_thermal_evidence = false;
+                bool hybrid_pump_memory_evidence = false;
 
                 hybrid_fast_alarm =
                     hybrid_fast_score >= HYBRID_KALMAN_FAST_STRONG_SCORE &&
@@ -567,6 +584,24 @@ static void kalman_filter_step(
                 if (fan_health_component >= HYBRID_KALMAN_FAN_HEALTH_MEDIUM_SCORE) {
                     hybrid_medium_evidence = true;
                 }
+
+                detector->hybrid_kalman_pump_tracking_memory =
+                    max_zero(
+                        (HYBRID_KALMAN_PUMP_MEMORY_LEAK *
+                            detector->hybrid_kalman_pump_tracking_memory) +
+                        pump_tracking_residual -
+                        HYBRID_KALMAN_PUMP_MEMORY_ALLOWANCE
+                    );
+                pump_memory_score = clamp_range(
+                    detector->hybrid_kalman_pump_tracking_memory /
+                        HYBRID_KALMAN_PUMP_MEMORY_LIMIT,
+                    0.0f,
+                    HYBRID_KALMAN_PUMP_MEMORY_SCORE_MAX
+                );
+                hybrid_pump_memory_evidence =
+                    pump_memory_score >=
+                        HYBRID_KALMAN_PUMP_MEMORY_MEDIUM_SCORE &&
+                    (kalman_support || trend_support || context_support);
 
                 detector->thermal_observer_accumulated_mismatch_c =
                     max_zero(
@@ -613,6 +648,12 @@ static void kalman_filter_step(
                     hybrid_medium_evidence = true;
                 }
 
+                if (hybrid_pump_memory_evidence &&
+                    pump_memory_score > combined_score) {
+                    combined_score = pump_memory_score;
+                    hybrid_medium_evidence = true;
+                }
+
                 if (hybrid_fast_alarm || hybrid_sensor_fast_alarm) {
                     combined_score = (combined_score > hybrid_fast_score) ?
                         combined_score : hybrid_fast_score;
@@ -640,6 +681,13 @@ static void kalman_filter_step(
                         (trend_support || context_support) ?
                             "hybrid_adaptive_kalman_contextual_thermal_fusion" :
                             "hybrid_adaptive_kalman_thermal_mismatch_evidence"
+                    );
+                } else if (hybrid_pump_memory_evidence) {
+                    snprintf(
+                        detector->runtime_label,
+                        sizeof(detector->runtime_label),
+                        "%s",
+                        "hybrid_adaptive_kalman_pump_tracking_memory"
                     );
                 } else if (fan_health_component >= HYBRID_KALMAN_FAN_HEALTH_MEDIUM_SCORE) {
                     snprintf(

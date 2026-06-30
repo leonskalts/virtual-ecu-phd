@@ -93,9 +93,10 @@ inside their existing score and confirmation logic.
 The thermal observer complements the direct command-versus-actual residual
 detectors. At each 100 ms simulator step it predicts the next coolant
 temperature change using the nominal 92 C cooling target, engine load, vehicle
-speed, ambient temperature, and expected healthy pump/fan demand. It compares
-that prediction with the observed coolant-temperature change and accumulates
-positive mismatch after a small allowance.
+speed, ambient temperature, custom-profile external airflow, and expected
+healthy pump/fan demand. It compares that prediction with the observed
+coolant-temperature change and accumulates positive mismatch after a small
+allowance.
 
 This makes indirect thermal/control faults more observable. For example,
 calibration-memory corruption can delay cooling demand while pump and fan
@@ -113,10 +114,10 @@ controller model, allowance, and decision threshold.
 
 The Kalman filter observer estimates the expected coolant temperature state
 with a one-dimensional thermal model. At each simulator timestep it predicts
-the next coolant temperature from engine load, vehicle speed, ambient
-temperature, campaign thermal metadata, and a healthy cooling expectation
-derived from pump and fan demand. It then compares this prediction with the
-observed coolant-temperature measurement.
+the next coolant temperature from current engine load, vehicle speed, ambient
+temperature, campaign thermal metadata, custom-profile external airflow, and a
+healthy cooling expectation derived from pump and fan demand. It then compares
+this prediction with the observed coolant-temperature measurement.
 
 The prediction residual is the innovation:
 
@@ -201,6 +202,13 @@ standalone `thermal_observer`, but folds that value back into the same hybrid
 confidence score and confirmation counter. Thermal mismatch is not used as an
 OR fallback alarm; it needs residual support plus Kalman support before it can
 accelerate confirmation.
+
+The hybrid also keeps a small leaky memory of persistent pump command/actual
+mismatch. This is for low-amplitude pump-authority loss where the instantaneous
+residual is below the direct residual-detector threshold. The memory term is
+bounded and can only contribute as medium hybrid evidence when Kalman, trend,
+or high-context support is already present; pump memory alone cannot trigger
+detection.
 
 Coolant sensor freshness and fan actuator health are fused into the same
 hybrid confidence score. A stale freshness signal or failed fan health signal

@@ -128,6 +128,11 @@ HYBRID_KALMAN_THERMAL_KALMAN_SUPPORT_SCORE = 0.200
 HYBRID_KALMAN_THERMAL_SENSOR_SUPPORT_WEIGHT = 0.350
 HYBRID_KALMAN_THERMAL_KALMAN_SUPPORT_WEIGHT = 0.200
 HYBRID_KALMAN_THERMAL_MEDIUM_SCORE = 0.950
+HYBRID_KALMAN_PUMP_MEMORY_ALLOWANCE = 0.006
+HYBRID_KALMAN_PUMP_MEMORY_LEAK = 0.985
+HYBRID_KALMAN_PUMP_MEMORY_LIMIT = 0.550
+HYBRID_KALMAN_PUMP_MEMORY_SCORE_MAX = 1.150
+HYBRID_KALMAN_PUMP_MEMORY_MEDIUM_SCORE = 0.950
 HYBRID_KALMAN_FRESHNESS_SCORE_WEIGHT = 1.050
 HYBRID_KALMAN_FRESHNESS_SCORE_MAX = 1.100
 HYBRID_KALMAN_FRESHNESS_MEDIUM_SCORE = 0.950
@@ -226,6 +231,7 @@ def thermal_observer_expected_delta(row: Dict[str, str]) -> float:
         - (7.5 * nominal_pump)
         - (6.0 * nominal_fan)
         - ((vehicle_speed_kph / 40.0) * ram_air_scale)
+        - (3.0 * parse_float(row, "external_airflow_factor"))
         - (0.08 * (coolant_temp_c - ambient_temp_c))
     )
     return expected_rate_c_per_s * THERMAL_OBSERVER_DT_S
@@ -266,6 +272,7 @@ def kalman_filter_expected_delta(
         - (7.5 * clamp_unit(pump_cooling))
         - (6.0 * clamp_unit(fan_cooling))
         - ((vehicle_speed_kph / 40.0) * ram_air_scale)
+        - (3.0 * parse_float(row, "external_airflow_factor"))
         - (0.08 * (coolant_temp_c - ambient_temp_c))
     )
     return expected_rate_c_per_s * THERMAL_OBSERVER_DT_S
@@ -447,10 +454,12 @@ def detector_alarms(rows: Sequence[Dict[str, str]], algorithm_name: str) -> List
         thermal_previous_coolant_temp_c = estimate_c
         thermal_expected_delta_c = thermal_observer_expected_delta(rows[0])
         thermal_accumulated_mismatch_c = 0.0
+        hybrid_pump_tracking_memory = 0.0
         confirmation_count = 0
         alarms.append(False)
         for row in rows[1:]:
-            predicted_c = estimate_c + expected_delta_c
+            current_expected_delta_c = kalman_filter_expected_delta(row, estimate_c)
+            predicted_c = estimate_c + current_expected_delta_c
             predicted_covariance = covariance + KALMAN_FILTER_PROCESS_NOISE_Q
             innovation = parse_float(row, "coolant_temp_meas_c") - predicted_c
             innovation_variance = (
@@ -560,6 +569,9 @@ def detector_alarms(rows: Sequence[Dict[str, str]], algorithm_name: str) -> List
                 hybrid_sensor_fast_alarm = False
                 hybrid_medium_evidence = False
                 if algorithm_name == "hybrid_adaptive_kalman":
+                    pump_tracking_residual = abs(
+                        parse_float(row, "pump_tracking_error")
+                    )
                     sensor_score = hybrid_kalman_sensor_score(row)
                     fast_actuator_score = max(
                         0.0,
@@ -627,6 +639,28 @@ def detector_alarms(rows: Sequence[Dict[str, str]], algorithm_name: str) -> List
                         >= HYBRID_KALMAN_FAN_HEALTH_MEDIUM_SCORE
                     ):
                         hybrid_medium_evidence = True
+                    hybrid_pump_tracking_memory = max(
+                        0.0,
+                        (
+                            HYBRID_KALMAN_PUMP_MEMORY_LEAK
+                            * hybrid_pump_tracking_memory
+                        )
+                        + pump_tracking_residual
+                        - HYBRID_KALMAN_PUMP_MEMORY_ALLOWANCE,
+                    )
+                    pump_memory_score = max(
+                        0.0,
+                        min(
+                            HYBRID_KALMAN_PUMP_MEMORY_SCORE_MAX,
+                            hybrid_pump_tracking_memory
+                            / HYBRID_KALMAN_PUMP_MEMORY_LIMIT,
+                        ),
+                    )
+                    hybrid_pump_memory_evidence = (
+                        pump_memory_score
+                        >= HYBRID_KALMAN_PUMP_MEMORY_MEDIUM_SCORE
+                        and (kalman_support or trend_support or context_support)
+                    )
                     observed_thermal_delta_c = (
                         parse_float(row, "coolant_temp_meas_c")
                         - thermal_previous_coolant_temp_c
@@ -669,6 +703,9 @@ def detector_alarms(rows: Sequence[Dict[str, str]], algorithm_name: str) -> List
                     )
                     if hybrid_thermal_evidence:
                         combined_score = max(combined_score, thermal_fusion_score)
+                        hybrid_medium_evidence = True
+                    if hybrid_pump_memory_evidence:
+                        combined_score = max(combined_score, pump_memory_score)
                         hybrid_medium_evidence = True
                     if (
                         hybrid_fast_alarm

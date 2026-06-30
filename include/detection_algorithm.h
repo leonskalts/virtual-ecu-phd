@@ -46,6 +46,7 @@ typedef struct {
     float kalman_filter_innovation_c;
     float kalman_filter_accumulated_innovation;
     float kalman_filter_previous_coolant_temp_c;
+    float hybrid_kalman_pump_tracking_memory;
     unsigned int adaptive_kalman_filter_confirmation_count;
     float current_score;
     bool alarm_active;
