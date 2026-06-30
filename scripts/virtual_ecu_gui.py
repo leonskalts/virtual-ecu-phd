@@ -4,8 +4,10 @@
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 import threading
@@ -128,6 +130,8 @@ RUNTIME_STUDY_TABLE_SPECS: Sequence[Tuple[str, str, int]] = (
     ("shutdown_requested", "Shutdown", 85),
 )
 MAX_CUSTOM_SCENARIO_EVENTS = 4
+MAX_CUSTOM_RUN_BASENAME_LEN = 80
+CUSTOM_RUN_HASH_LEN = 8
 MAX_RECENT_RESULTS = 6
 MAX_FAVORITES = 8
 CTK_AVAILABLE = ctk is not None
@@ -897,6 +901,56 @@ def custom_parameter_token(parameter: float) -> str:
     return "".join(parts) or "0"
 
 
+def safe_custom_run_slug(text: str) -> str:
+    slug = re.sub(r"[^a-z0-9_-]+", "_", text.lower())
+    slug = re.sub(r"_+", "_", slug).strip("_-")
+    return slug or "custom_run"
+
+
+def custom_event_hash(config: Dict[str, object]) -> str:
+    events = [
+        {
+            "fault_type": str(event["fault_type"]),
+            "fault_behavior": str(event["fault_behavior"]),
+            "start_ms": int(event["start_ms"]),
+            "duration_ms": int(event["duration_ms"]),
+            "parameter": f"{float(event['parameter']):g}",
+        }
+        for event in custom_events(config)
+    ]
+    payload = json.dumps(events, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha1(payload.encode("utf-8")).hexdigest()[:CUSTOM_RUN_HASH_LEN]
+
+
+def bounded_custom_run_basename(base: str, hash_token: str) -> str:
+    safe_base = safe_custom_run_slug(base)
+    safe_hash = safe_custom_run_slug(hash_token)[:CUSTOM_RUN_HASH_LEN]
+    suffix = f"_{safe_hash}"
+    max_prefix_len = MAX_CUSTOM_RUN_BASENAME_LEN - len(suffix)
+    if max_prefix_len < len("custom"):
+        return f"custom{suffix}"[:MAX_CUSTOM_RUN_BASENAME_LEN]
+    if len(safe_base) > max_prefix_len:
+        safe_base = safe_base[:max_prefix_len].rstrip("_-") or "custom"
+    return f"{safe_base}{suffix}"
+
+
+def custom_run_basename(config: Dict[str, object]) -> str:
+    hash_token = custom_event_hash(config)
+    if str(config.get("kind", "single")) == "multi":
+        event_count = len(custom_events(config))
+        return bounded_custom_run_basename(
+            f"custom_multi_{event_count}events",
+            hash_token,
+        )
+
+    base = (
+        f"custom_{config['fault_type']}_{config['fault_behavior']}"
+        f"_start{config['start_ms']}_dur{config['duration_ms']}"
+        f"_param{custom_parameter_token(float(config['parameter']))}"
+    )
+    return bounded_custom_run_basename(base, hash_token)
+
+
 def default_custom_event(
     fault_type: str = "sensor_bias",
     fault_behavior: str = "transient",
@@ -932,25 +986,11 @@ def custom_events(config: Dict[str, object]) -> List[Dict[str, object]]:
 
 
 def custom_campaign_id(config: Dict[str, object]) -> str:
-    if str(config.get("kind", "single")) == "multi":
-        parts = []
-        for index, event in enumerate(custom_events(config), start=1):
-            parts.append(
-                f"e{index}_{event['fault_type']}_{event['fault_behavior']}"
-                f"_start{event['start_ms']}_dur{event['duration_ms']}"
-                f"_param{custom_parameter_token(float(event['parameter']))}"
-            )
-        return "custom_multi_" + "__".join(parts)
-
-    return (
-        f"custom_{config['fault_type']}_{config['fault_behavior']}"
-        f"_start{config['start_ms']}_dur{config['duration_ms']}"
-        f"_param{custom_parameter_token(float(config['parameter']))}"
-    )
+    return custom_run_basename(config)
 
 
 def custom_log_path(config: Dict[str, object]) -> Path:
-    return CUSTOM_LOGS_DIR / f"{custom_campaign_id(config)}.csv"
+    return CUSTOM_LOGS_DIR / f"{custom_run_basename(config)}.csv"
 
 
 def custom_campaign_label(config: Dict[str, object]) -> str:
@@ -1100,6 +1140,45 @@ def summary_path_for(log_path: Path) -> Path:
     if log_path.suffix.lower() == ".csv":
         return log_path.with_name(f"{log_path.stem}_summary.csv")
     return log_path.with_name(f"{log_path.name}_summary.csv")
+
+
+def scenario_metadata_path_for(log_path: Path) -> Path:
+    return log_path.with_name(f"{log_path.stem}_scenario.json")
+
+
+def write_custom_scenario_metadata(
+    path: Path,
+    config: Dict[str, object],
+    *,
+    detection_algorithm: str,
+    detection_action: str,
+    driving_profile: Dict[str, object],
+) -> None:
+    events = [
+        {
+            "index": index,
+            "fault_type": str(event["fault_type"]),
+            "fault_behavior": str(event["fault_behavior"]),
+            "start_ms": int(event["start_ms"]),
+            "duration_ms": int(event["duration_ms"]),
+            "parameter": float(event["parameter"]),
+        }
+        for index, event in enumerate(custom_events(config), start=1)
+    ]
+    metadata = {
+        "scenario_id": custom_campaign_id(config),
+        "scenario_hash": custom_event_hash(config),
+        "scenario_kind": str(config.get("kind", "single")),
+        "scenario_name": custom_campaign_label(config),
+        "event_count": len(events),
+        "events": events,
+        "detection_algorithm": detection_algorithm,
+        "detection_action": detection_action,
+        "driving_profile": driving_profile,
+        "max_basename_length": MAX_CUSTOM_RUN_BASENAME_LEN,
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
 def raw_path_for_summary(summary_path: Path) -> Path:
@@ -11500,10 +11579,19 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             raise RuntimeError(completed.stderr or completed.stdout or "Unknown simulator failure.")
 
         result = self._load_simulation_result(custom_campaign_id(config), log_path)
+        metadata_path = scenario_metadata_path_for(log_path)
+        write_custom_scenario_metadata(
+            metadata_path,
+            config,
+            detection_algorithm=detection_algorithm,
+            detection_action=detection_action,
+            driving_profile=driving_profile,
+        )
         summary = dict(result["summary_row"])  # type: ignore[arg-type]
         summary["campaign_label"] = custom_campaign_label(config)
         result["summary_row"] = summary
         result["custom_config"] = dict(config)
+        result["scenario_metadata_path"] = metadata_path
         result["detection_algorithm"] = detection_algorithm
         result["detection_action"] = detection_action
         result["driving_profile"] = dict(driving_profile)
@@ -11693,9 +11781,16 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         )
         self._open_comparison_figures_tab()
         self.status_text.set(completion_status)
+        saved_files = [
+            Path(custom_result["log_path"]).relative_to(PROJECT_ROOT),
+            Path(custom_result["summary_path"]).relative_to(PROJECT_ROOT),
+        ]
+        metadata_path = custom_result.get("scenario_metadata_path")
+        if isinstance(metadata_path, Path):
+            saved_files.append(metadata_path.relative_to(PROJECT_ROOT))
         self.custom_status_text.set(
-            f"{custom_status} Saved files: {Path(custom_result['log_path']).relative_to(PROJECT_ROOT)} and "
-            f"{Path(custom_result['summary_path']).relative_to(PROJECT_ROOT)}."
+            f"{custom_status} Saved files: "
+            f"{', '.join(str(path) for path in saved_files)}."
         )
         custom_config = custom_result.get("custom_config")
         is_multi = (
