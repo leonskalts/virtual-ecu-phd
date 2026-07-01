@@ -2991,6 +2991,19 @@ class PlotCanvas(ttk.Frame):
         }
         self.redraw()
 
+    def plot_fault_detection_timeline(
+        self,
+        runs: Sequence[Dict[str, object]],
+        *,
+        max_time_s: float,
+    ) -> None:
+        self._drawer = self._draw_fault_detection_timeline
+        self._payload = {
+            "runs": [dict(run) for run in runs],
+            "max_time_s": max_time_s,
+        }
+        self.redraw()
+
     def redraw(self) -> None:
         self.canvas.delete("all")
         self._drawer(self._payload)
@@ -3083,7 +3096,7 @@ class PlotCanvas(ttk.Frame):
         self.canvas.create_line(left, bottom, left, top, fill="#4a5560", width=self._line_width())
         self.canvas.create_text(
             (left + right) / 2,
-            bottom + (x_label_offset if x_label_offset is not None else (30 if self.presentation_mode else 26)),
+            bottom + (x_label_offset if x_label_offset is not None else (42 if self.presentation_mode else 38)),
             text=x_label,
             fill="#33404d",
             font=self._font("axis_label"),
@@ -3097,6 +3110,19 @@ class PlotCanvas(ttk.Frame):
             font=self._font("axis_label"),
         )
         return left, top, right, bottom
+
+    def _edge_aware_label_position(
+        self,
+        x_pos: float,
+        *,
+        left: float,
+        right: float,
+        label_width: int,
+        margin: int = 6,
+    ) -> Tuple[float, str]:
+        if x_pos + label_width + margin > right:
+            return max(left + margin, x_pos - margin), "ne"
+        return min(right - margin, x_pos + margin), "nw"
 
     def _legend_rows(
         self,
@@ -3289,11 +3315,17 @@ class PlotCanvas(ttk.Frame):
             self.canvas.create_line(x_pos, top, x_pos, bottom, fill=color, dash=dash, width=self._line_width())
             label = str(overlay.get("label", "Fault"))
             label_y = top + 12 + (index % 3) * (16 if self.presentation_mode else 14)
+            label_x, label_anchor = self._edge_aware_label_position(
+                x_pos,
+                left=left,
+                right=right,
+                label_width=96 if self.presentation_mode else 82,
+            )
             self.canvas.create_text(
-                x_pos + 4,
+                label_x,
                 label_y,
                 text=label,
-                anchor="nw",
+                anchor=label_anchor,
                 fill=color,
                 font=self._font("tick"),
                 width=96 if self.presentation_mode else 82,
@@ -3327,11 +3359,17 @@ class PlotCanvas(ttk.Frame):
                 outline=color,
             )
             label_y = bottom - 18 - (index % 3) * (16 if self.presentation_mode else 14)
+            label_x, label_anchor = self._edge_aware_label_position(
+                x_pos,
+                left=left,
+                right=right,
+                label_width=92 if self.presentation_mode else 78,
+            )
             self.canvas.create_text(
-                x_pos + 5,
+                label_x,
                 label_y,
                 text=str(marker.get("label", "Event")),
-                anchor="sw",
+                anchor="se" if label_anchor == "ne" else "sw",
                 fill=color,
                 font=self._font("tick"),
                 width=92 if self.presentation_mode else 78,
@@ -3608,6 +3646,229 @@ class PlotCanvas(ttk.Frame):
                 width=slot_width * 0.9,
             )
 
+    def _draw_fault_detection_timeline(self, payload: object) -> None:
+        data = payload  # type: ignore[assignment]
+        runs = data["runs"]
+        max_time_s = float(data.get("max_time_s", 0.0))
+        lane_order = (
+            "fault_events",
+            "detection",
+            "ecu_dtc",
+            "safe_state",
+        )
+        lane_labels = {
+            "fault_events": "Fault Events",
+            "detection": "Detection",
+            "ecu_dtc": "ECU DTC",
+            "safe_state": "Safe State",
+        }
+        lane_colors = {
+            "fault_events": "#f7ece7",
+            "detection": "#f0eaf8",
+            "ecu_dtc": "#f8f0df",
+            "safe_state": "#f8e8e5",
+        }
+
+        for run in runs:
+            for event in run.get("events", []):
+                start_s = float_or_none(event.get("time_s"))
+                end_s = float_or_none(event.get("end_s"))
+                if start_s is not None:
+                    max_time_s = max(max_time_s, start_s)
+                if end_s is not None:
+                    max_time_s = max(max_time_s, end_s)
+            for marker in run.get("markers", []):
+                time_s = float_or_none(marker.get("time_s"))
+                if time_s is not None:
+                    max_time_s = max(max_time_s, time_s)
+        if max_time_s <= 0.0:
+            max_time_s = 1.0
+        max_time_s *= 1.04
+
+        legend_entries = [
+            (
+                str(run.get("label", f"Run {index + 1}")),
+                str(run.get("color", LEFT_COLOR)),
+                run.get("dash") if isinstance(run.get("dash"), tuple) else None,
+            )
+            for index, run in enumerate(runs)
+        ]
+        legend_height = self._draw_legend(legend_entries, left=116, top=10, right=self._canvas_size()[0] - 24)
+        left, top, right, bottom = self._draw_axes(
+            "Timeline",
+            y_tick_labels=[lane_labels[lane] for lane in lane_order],
+            top_margin=20 + legend_height,
+            bottom_margin=82,
+            right_margin=34,
+            extra_left_margin=38,
+        )
+
+        lane_positions = {
+            lane: len(lane_order) - 1 - index
+            for index, lane in enumerate(lane_order)
+        }
+        lane_min = -0.42
+        lane_max = len(lane_order) - 0.58
+
+        def map_x(value: float) -> float:
+            return left + value * (right - left) / max_time_s
+
+        def map_y(value: float) -> float:
+            return bottom - (value - lane_min) * (bottom - top) / (lane_max - lane_min)
+
+        for tick in range(6):
+            x_value = tick * max_time_s / 5.0
+            x_pos = map_x(x_value)
+            self.canvas.create_line(x_pos, top, x_pos, bottom + 4, fill="#e7edf2", dash=(2, 4))
+            self.canvas.create_text(
+                x_pos,
+                bottom + 16,
+                text=f"{x_value:.0f}",
+                anchor="n",
+                fill="#506070",
+                font=self._font("tick"),
+            )
+
+        for lane in lane_order:
+            lane_y = map_y(float(lane_positions[lane]))
+            lane_top = map_y(float(lane_positions[lane]) + 0.38)
+            lane_bottom = map_y(float(lane_positions[lane]) - 0.38)
+            self.canvas.create_rectangle(
+                left,
+                lane_top,
+                right,
+                lane_bottom,
+                fill=lane_colors[lane],
+                outline="",
+            )
+            self.canvas.create_line(left - 4, lane_y, right, lane_y, fill="#dce4eb", dash=(2, 4))
+            self.canvas.create_text(
+                left - 10,
+                lane_y,
+                text=lane_labels[lane],
+                anchor="e",
+                fill="#506070",
+                font=self._font("tick"),
+            )
+
+        style_offsets = (0.12, -0.12, 0.24, -0.24)
+        for run_index, run in enumerate(runs):
+            color = str(run.get("color", LEFT_COLOR))
+            dash = run.get("dash") if isinstance(run.get("dash"), tuple) else ()
+            run_offset = style_offsets[min(run_index, len(style_offsets) - 1)]
+            fault_y = map_y(lane_positions["fault_events"] + run_offset)
+
+            for event_index, event in enumerate(run.get("events", [])):
+                start_s = float_or_none(event.get("time_s"))
+                if start_s is None:
+                    continue
+                end_s = float_or_none(event.get("end_s"))
+                x0 = map_x(start_s)
+                label = str(event.get("label", "Fault"))
+                label_y = fault_y - 24 + (event_index % 3) * 15
+                if end_s is not None and end_s > start_s:
+                    x1 = map_x(end_s)
+                    self.canvas.create_line(
+                        x0,
+                        fault_y,
+                        x1,
+                        fault_y,
+                        fill=color,
+                        width=self._line_width(emphasis=True) + 2,
+                        dash=dash or (),
+                    )
+                    self.canvas.create_line(x0, fault_y - 8, x0, fault_y + 8, fill=color, width=self._line_width())
+                    self.canvas.create_line(x1, fault_y - 8, x1, fault_y + 8, fill=color, width=self._line_width())
+                    label_x = (x0 + x1) / 2.0
+                    anchor = "center"
+                else:
+                    self.canvas.create_line(
+                        x0,
+                        fault_y - 9,
+                        x0,
+                        fault_y + 9,
+                        fill=color,
+                        width=self._line_width(emphasis=True),
+                        dash=dash or (),
+                    )
+                    self.canvas.create_line(
+                        x0,
+                        fault_y,
+                        min(right, x0 + 28),
+                        fault_y,
+                        fill=color,
+                        width=self._line_width(),
+                        arrow=tk.LAST,
+                    )
+                    label_x, anchor = self._edge_aware_label_position(
+                        x0,
+                        left=left,
+                        right=right,
+                        label_width=112 if self.presentation_mode else 96,
+                    )
+                self.canvas.create_text(
+                    label_x,
+                    label_y,
+                    text=label,
+                    anchor=anchor,
+                    fill=color,
+                    font=self._font("tick"),
+                    width=112 if self.presentation_mode else 96,
+                )
+
+            marker_lanes = {
+                "Detection": "detection",
+                "L Detection": "detection",
+                "R Detection": "detection",
+                "ECU DTC": "ecu_dtc",
+                "L ECU DTC": "ecu_dtc",
+                "R ECU DTC": "ecu_dtc",
+                "Safe State": "safe_state",
+                "L Safe State": "safe_state",
+                "R Safe State": "safe_state",
+            }
+            for marker_index, marker in enumerate(run.get("markers", [])):
+                time_s = float_or_none(marker.get("time_s"))
+                if time_s is None:
+                    continue
+                label = str(marker.get("label", "Marker"))
+                lane = marker_lanes.get(label, marker_lanes.get(label.replace("L ", "").replace("R ", ""), "detection"))
+                x_pos = map_x(time_s)
+                y_pos = map_y(lane_positions[lane] + run_offset)
+                marker_color = str(marker.get("color", color))
+                self.canvas.create_line(
+                    x_pos,
+                    y_pos - 10,
+                    x_pos,
+                    y_pos + 10,
+                    fill=marker_color,
+                    width=self._line_width(emphasis=True),
+                    dash=marker.get("dash") if isinstance(marker.get("dash"), tuple) else (),
+                )
+                self.canvas.create_oval(
+                    x_pos - 4,
+                    y_pos - 4,
+                    x_pos + 4,
+                    y_pos + 4,
+                    fill=marker_color,
+                    outline=marker_color,
+                )
+                label_x, label_anchor = self._edge_aware_label_position(
+                    x_pos,
+                    left=left,
+                    right=right,
+                    label_width=100 if self.presentation_mode else 86,
+                )
+                self.canvas.create_text(
+                    label_x,
+                    y_pos - 18 + (marker_index % 2) * 12,
+                    text=label,
+                    anchor=label_anchor,
+                    fill=marker_color,
+                    font=self._font("tick"),
+                    width=100 if self.presentation_mode else 86,
+                )
+
     def _draw_propagation_timeline(self, payload: object) -> None:
         data = payload  # type: ignore[assignment]
         labels = data["labels"]
@@ -3650,7 +3911,7 @@ class PlotCanvas(ttk.Frame):
             "Stage",
             y_tick_labels=lane_labels,
             top_margin=18 + legend_height,
-            bottom_margin=74,
+            bottom_margin=104,
             extra_left_margin=54,
         )
 
@@ -3751,7 +4012,9 @@ class PlotCanvas(ttk.Frame):
 
                 x_pos = map_x(float(item.get("time_s", 0.0)))
                 marker_size = 4 if self.presentation_mode else 3
-                label_offset = -15 if (report_index == 0) == (item_index % 2 == 0) else 15
+                label_offset = (
+                    -18 if (report_index == 0) == (item_index % 2 == 0) else 18
+                ) + ((item_index % 3) - 1) * 5
                 self.canvas.create_line(
                     x_pos,
                     y_pos - 7,
@@ -3769,18 +4032,26 @@ class PlotCanvas(ttk.Frame):
                     fill=color,
                     outline=color,
                 )
-                self.canvas.create_text(
+                label_width = 130 if self.presentation_mode else 104
+                label_x, label_anchor = self._edge_aware_label_position(
                     x_pos,
+                    left=left,
+                    right=right,
+                    label_width=label_width,
+                )
+                self.canvas.create_text(
+                    label_x,
                     y_pos + label_offset,
                     text=str(item.get("evidence_label", item.get("short_label", ""))),
+                    anchor=label_anchor,
                     fill=color,
                     font=self._font("tick"),
-                    width=130 if self.presentation_mode else 104,
+                    width=label_width,
                 )
 
         self.canvas.create_text(
             left,
-            bottom + 34,
+            bottom + 58,
             anchor="w",
             text="Read top-to-bottom as: hardware-origin fault -> ECU manifestation -> diagnostic effect -> safe-state/system effect.",
             fill="#5b6b79",
@@ -10362,11 +10633,11 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         selected_plot = self.comparison_plot_choice.get()
 
         default_help = {
-            "Coolant Temperature Comparison": "Use this figure for the high-level thermal trajectory comparison, threshold crossing story, and available event markers.",
-            "Fault and Detection Timeline": "Use this figure to explain multi-fault propagation with fault starts, detection, ECU DTC, and safe-state markers on the coolant trace.",
+            "Coolant Temperature Comparison": "Use this figure for thermal trajectory and threshold crossing.",
+            "Fault and Detection Timeline": "Use this figure for event timing, detection, ECU DTC, and safe-state chronology.",
             "Safe-State Comparison": "Use this figure to show protection-state escalation timing and end-state severity across campaigns.",
             "Fan Command / Actual Comparison": "Use this figure when permanent actuation faults are present and you want a direct command-versus-realization view.",
-            "Cross-Layer Propagation Timeline": "Use this figure to read top-to-bottom from hardware-origin fault to ECU manifestation, diagnostic effect, and safe-state/system effect.",
+            "Cross-Layer Propagation Timeline": "Use this figure for hardware-to-ECU-to-diagnostic propagation.",
         }
 
         if selected_plot != "Cross-Layer Propagation Timeline" or self.current_plot_results is None:
@@ -12303,21 +12574,8 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         left_label = self.summary_vars["left"]["Campaign Name"].get()
         right_rows = right_result["raw_rows"] if right_result is not None else None  # type: ignore[assignment]
 
-        if selected_plot in {
-            "Coolant Temperature Comparison",
-            "Fault and Detection Timeline",
-        }:
-            left_events = scenario_events_for_result(left_result)
-            if selected_plot == "Fault and Detection Timeline":
-                if right_result is None:
-                    self.comparison_plot.set_title(
-                        f"Custom Multi-Fault Scenario ({len(left_events)} events)"
-                        if len(left_events) > 1
-                        else "Single Scenario Analysis"
-                    )
-                else:
-                    self.comparison_plot.set_title("Fault and Detection Timeline")
-            elif right_result is None:
+        if selected_plot == "Coolant Temperature Comparison":
+            if right_result is None:
                 self.comparison_plot.set_title("Single Scenario Analysis")
 
             coolant_series = [
@@ -12334,12 +12592,6 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                 color=LEFT_COLOR,
                 dash=LEFT_DASH,
                 run_label=left_label,
-            )
-            evidence_markers = result_evidence_markers(
-                left_result,
-                color=LEFT_COLOR,
-                run_label=left_label,
-                label_prefix="L " if right_rows is not None else "",
             )
 
             if right_rows is not None:
@@ -12361,21 +12613,74 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                         run_label=right_label,
                     )
                 )
-                evidence_markers.extend(
-                    result_evidence_markers(
-                        right_result,  # type: ignore[arg-type]
-                        color=RIGHT_COLOR,
-                        run_label=right_label,
-                        label_prefix="R ",
-                    )
-                )
 
             self.comparison_plot.plot_lines(
                 coolant_series,
                 y_label="Temp [C]",
                 threshold_lines=((108.0, "#8c6b2d", "Warning"), (115.0, "#7b4d57", "Critical")),
                 event_overlays=event_overlays,
-                evidence_markers=evidence_markers,
+                evidence_markers=(),
+            )
+            return
+
+        if selected_plot == "Fault and Detection Timeline":
+            left_events = scenario_events_for_result(left_result)
+            if right_result is None:
+                self.comparison_plot.set_title(
+                    f"Custom Multi-Fault Scenario ({len(left_events)} events)"
+                    if len(left_events) > 1
+                    else "Single Scenario Analysis"
+                )
+            else:
+                self.comparison_plot.set_title("Fault and Detection Timeline")
+
+            max_time_s = max(float_series(left_rows, "time_s"), default=0.0)
+            timeline_runs = [
+                {
+                    "label": left_label,
+                    "color": LEFT_COLOR,
+                    "dash": LEFT_DASH,
+                    "events": result_event_overlays(
+                        left_result,
+                        color=LEFT_COLOR,
+                        dash=LEFT_DASH,
+                        run_label=left_label,
+                    ),
+                    "markers": result_evidence_markers(
+                        left_result,
+                        color=LEFT_COLOR,
+                        run_label=left_label,
+                        label_prefix="L " if right_rows is not None else "",
+                    ),
+                }
+            ]
+
+            if right_rows is not None and right_result is not None:
+                right_label = self.summary_vars["right"]["Campaign Name"].get()
+                max_time_s = max(max_time_s, max(float_series(right_rows, "time_s"), default=0.0))
+                timeline_runs.append(
+                    {
+                        "label": right_label,
+                        "color": RIGHT_COLOR,
+                        "dash": RIGHT_DASH,
+                        "events": result_event_overlays(
+                            right_result,
+                            color=RIGHT_COLOR,
+                            dash=RIGHT_DASH,
+                            run_label=right_label,
+                        ),
+                        "markers": result_evidence_markers(
+                            right_result,
+                            color=RIGHT_COLOR,
+                            run_label=right_label,
+                            label_prefix="R ",
+                        ),
+                    }
+                )
+
+            self.comparison_plot.plot_fault_detection_timeline(
+                timeline_runs,
+                max_time_s=max_time_s,
             )
             return
 
