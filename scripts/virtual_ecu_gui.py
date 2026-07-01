@@ -1621,7 +1621,9 @@ def result_event_overlays(
                 "end_s": (start_ms + duration_ms) / 1000.0
                 if duration_ms > 0
                 else None,
-                "label": short_event_label(fault_type),
+                "code": f"E{int(event.get('index', len(overlays) + 1))}",
+                "label": f"E{int(event.get('index', len(overlays) + 1))}",
+                "full_label": short_event_label(fault_type),
                 "detail": f"{run_label}: {short_event_label(fault_type)}",
                 "color": color,
                 "dash": dash,
@@ -1650,6 +1652,7 @@ def result_evidence_markers(
     color: str,
     run_label: str,
     label_prefix: str = "",
+    compact: bool = False,
 ) -> List[Dict[str, object]]:
     raw_rows = result.get("raw_rows")
     summary = result.get("summary_row")
@@ -1663,7 +1666,8 @@ def result_evidence_markers(
         markers.append(
             {
                 "time_s": detection_ms / 1000.0,
-                "label": f"{label_prefix}Detection",
+                "label": f"{label_prefix}{'D' if compact else 'Detection'}",
+                "full_label": "Runtime Detection",
                 "detail": f"{run_label}: Detection",
                 "color": "#7a3fb2",
                 "dash": (2, 2),
@@ -1681,7 +1685,8 @@ def result_evidence_markers(
         markers.append(
             {
                 "time_s": dtc_time_s,
-                "label": f"{label_prefix}ECU DTC",
+                "label": f"{label_prefix}{'DTC' if compact else 'ECU DTC'}",
+                "full_label": "ECU DTC",
                 "detail": f"{run_label}: ECU DTC",
                 "color": "#b86e1d",
                 "dash": (6, 3),
@@ -1696,7 +1701,8 @@ def result_evidence_markers(
         markers.append(
             {
                 "time_s": safe_state_time_s,
-                "label": f"{label_prefix}Safe State",
+                "label": f"{label_prefix}{'SS' if compact else 'Safe State'}",
+                "full_label": "Safe-State Transition",
                 "detail": f"{run_label}: Safe State",
                 "color": "#b5483b",
                 "dash": (8, 3),
@@ -1704,6 +1710,50 @@ def result_evidence_markers(
         )
 
     return markers
+
+
+def marker_key_entries_from_items(
+    items: Sequence[Dict[str, object]],
+) -> List[Tuple[str, str]]:
+    entries: List[Tuple[str, str]] = []
+    seen: set[str] = set()
+    for item in items:
+        code = str(item.get("code", item.get("label", ""))).strip()
+        label = str(item.get("full_label", item.get("detail", ""))).strip()
+        label = label.split(":", 1)[-1].strip() if ":" in label else label
+        if not code or not label or code in seen:
+            continue
+        entries.append((code, label))
+        seen.add(code)
+    return entries
+
+
+def prefixed_marker_items(
+    items: Sequence[Dict[str, object]],
+    prefix: str,
+) -> List[Dict[str, object]]:
+    if not prefix:
+        return [dict(item) for item in items]
+    prefixed: List[Dict[str, object]] = []
+    for item in items:
+        updated = dict(item)
+        code = str(updated.get("code", updated.get("label", ""))).strip()
+        if code:
+            prefixed_code = f"{prefix}{code}"
+            updated["code"] = prefixed_code
+            updated["label"] = prefixed_code
+        prefixed.append(updated)
+    return prefixed
+
+
+def reaction_marker_key_entries(markers: Sequence[Dict[str, object]]) -> List[Tuple[str, str]]:
+    normalized: List[Dict[str, object]] = []
+    for marker in markers:
+        label = str(marker.get("label", "")).strip()
+        code = label.replace("L ", "").replace("R ", "")
+        if code in {"D", "DTC", "SS"}:
+            normalized.append({"code": code, "full_label": marker.get("full_label", "")})
+    return marker_key_entries_from_items(normalized)
 
 
 def infer_fault_class(first_row: Dict[str, str]) -> str:
@@ -2889,6 +2939,7 @@ class PlotCanvas(ttk.Frame):
         threshold_lines: Sequence[Tuple[float, str, str]] = (),
         event_overlays: Sequence[Dict[str, object]] = (),
         evidence_markers: Sequence[Dict[str, object]] = (),
+        marker_key_entries: Sequence[Tuple[str, str]] = (),
     ) -> None:
         self._drawer = self._draw_line_plot
         self._payload = {
@@ -2902,6 +2953,7 @@ class PlotCanvas(ttk.Frame):
             "threshold_lines": list(threshold_lines),
             "event_overlays": [dict(item) for item in event_overlays],
             "evidence_markers": [dict(item) for item in evidence_markers],
+            "marker_key_entries": list(marker_key_entries),
         }
         self.redraw()
 
@@ -3124,6 +3176,144 @@ class PlotCanvas(ttk.Frame):
             return max(left + margin, x_pos - margin), "ne"
         return min(right - margin, x_pos + margin), "nw"
 
+    @staticmethod
+    def _label_box(
+        x_pos: float,
+        y_pos: float,
+        width: int,
+        height: int,
+        anchor: str,
+    ) -> Tuple[float, float, float, float]:
+        if "e" in anchor:
+            x0 = x_pos - width
+            x1 = x_pos
+        elif "w" in anchor:
+            x0 = x_pos
+            x1 = x_pos + width
+        else:
+            x0 = x_pos - (width / 2.0)
+            x1 = x_pos + (width / 2.0)
+
+        if "s" in anchor:
+            y0 = y_pos - height
+            y1 = y_pos
+        elif "n" in anchor:
+            y0 = y_pos
+            y1 = y_pos + height
+        else:
+            y0 = y_pos - (height / 2.0)
+            y1 = y_pos + (height / 2.0)
+        return x0, y0, x1, y1
+
+    @staticmethod
+    def _boxes_overlap(
+        first: Tuple[float, float, float, float],
+        second: Tuple[float, float, float, float],
+        *,
+        padding: int = 3,
+    ) -> bool:
+        return not (
+            first[2] + padding < second[0]
+            or second[2] + padding < first[0]
+            or first[3] + padding < second[1]
+            or second[3] + padding < first[1]
+        )
+
+    def _place_annotation_label(
+        self,
+        x_pos: float,
+        y_pos: float,
+        *,
+        left: float,
+        right: float,
+        top: float,
+        bottom: float,
+        width: int,
+        height: int,
+        used_boxes: List[Tuple[float, float, float, float]],
+        prefer_above: bool = True,
+    ) -> Tuple[float, float, str]:
+        label_x, anchor = self._edge_aware_label_position(
+            x_pos,
+            left=left,
+            right=right,
+            label_width=width,
+        )
+        vertical_offsets = (
+            (0, -16, 16, -31, 31, -46, 46)
+            if prefer_above
+            else (0, 16, -16, 31, -31, 46, -46)
+        )
+        for offset in vertical_offsets:
+            candidate_y = min(max(y_pos + offset, top + 4), bottom - 4)
+            box = self._label_box(label_x, candidate_y, width, height, anchor)
+            if not any(self._boxes_overlap(box, existing) for existing in used_boxes):
+                used_boxes.append(box)
+                return label_x, candidate_y, anchor
+
+        fallback_y = min(max(y_pos, top + 4), bottom - 4)
+        used_boxes.append(self._label_box(label_x, fallback_y, width, height, anchor))
+        return label_x, fallback_y, anchor
+
+    def _marker_key_lines(
+        self,
+        entries: Sequence[Tuple[str, str]],
+        *,
+        available_width: int,
+    ) -> List[str]:
+        if not entries:
+            return []
+        max_chars = max(36, int(available_width / (7.5 if self.presentation_mode else 6.6)))
+        parts = [f"{code} {label}" for code, label in entries]
+        lines: List[str] = []
+        current = "Marker key: "
+        for part in parts:
+            candidate = f"{current}{' | ' if current.strip() != 'Marker key:' else ''}{part}"
+            if len(candidate) > max_chars and current.strip() != "Marker key:":
+                lines.append(current.rstrip())
+                current = f"Marker key: {part}"
+            else:
+                current = candidate
+        if current.strip():
+            lines.append(current.rstrip())
+        return lines
+
+    def _marker_key_height(
+        self,
+        entries: Sequence[Tuple[str, str]],
+        *,
+        available_width: int,
+    ) -> int:
+        lines = self._marker_key_lines(entries, available_width=available_width)
+        if not lines:
+            return 0
+        line_height = 18 if self.presentation_mode else 16
+        return 10 + (line_height * len(lines))
+
+    def _draw_marker_key(
+        self,
+        entries: Sequence[Tuple[str, str]],
+        *,
+        left: int,
+        top: int,
+        right: int,
+    ) -> int:
+        lines = self._marker_key_lines(entries, available_width=max(right - left, 80))
+        if not lines:
+            return 0
+        line_height = 18 if self.presentation_mode else 16
+        for index, line in enumerate(lines):
+            self.canvas.create_text(
+                left,
+                top + index * line_height,
+                text=line,
+                anchor="nw",
+                fill="#4e5f70",
+                font=self._font("legend"),
+                width=max(right - left, 80),
+            )
+        return 10 + (line_height * len(lines))
+
     def _legend_rows(
         self,
         entries: Sequence[Tuple[str, str, Tuple[int, ...] | None]],
@@ -3219,6 +3409,7 @@ class PlotCanvas(ttk.Frame):
         threshold_lines = data["threshold_lines"]
         event_overlays = data.get("event_overlays", [])
         evidence_markers = data.get("evidence_markers", [])
+        marker_key_entries = data.get("marker_key_entries", [])
 
         if not series:
             self._draw_message("No plot data available.")
@@ -3260,11 +3451,12 @@ class PlotCanvas(ttk.Frame):
 
         legend_entries = [(label, color, dash) for label, color, _, _, dash in series]
         legend_height = self._draw_legend(legend_entries, left=96, top=10, right=self._canvas_size()[0] - 24)
+        key_height = self._marker_key_height(marker_key_entries, available_width=self._canvas_size()[0] - 120)
         left, top, right, bottom = self._draw_axes(
             y_label,
             y_tick_labels=y_tick_labels,
             top_margin=18 + legend_height,
-            bottom_margin=64,
+            bottom_margin=76 + key_height,
             right_margin=52 if threshold_lines else 34,
         )
         def map_x(value: float) -> float:
@@ -3291,6 +3483,7 @@ class PlotCanvas(ttk.Frame):
             label_y = max(y_pos - 8, top + 8)
             self.canvas.create_text(right - 6, label_y, text=label, anchor="e", fill=color, font=self._font("threshold"))
 
+        used_label_boxes: List[Tuple[float, float, float, float]] = []
         for index, overlay in enumerate(event_overlays):
             time_s = float_or_none(overlay.get("time_s"))
             if time_s is None:
@@ -3314,12 +3507,17 @@ class PlotCanvas(ttk.Frame):
                 self.canvas.create_line(x_end, top, x_end, bottom, fill=color, dash=(2, 3), width=self._line_width())
             self.canvas.create_line(x_pos, top, x_pos, bottom, fill=color, dash=dash, width=self._line_width())
             label = str(overlay.get("label", "Fault"))
-            label_y = top + 12 + (index % 3) * (16 if self.presentation_mode else 14)
-            label_x, label_anchor = self._edge_aware_label_position(
+            label_x, label_y, label_anchor = self._place_annotation_label(
                 x_pos,
+                top + 12,
                 left=left,
                 right=right,
-                label_width=96 if self.presentation_mode else 82,
+                top=top,
+                bottom=bottom,
+                width=38 if self.presentation_mode else 30,
+                height=18 if self.presentation_mode else 15,
+                used_boxes=used_label_boxes,
+                prefer_above=True,
             )
             self.canvas.create_text(
                 label_x,
@@ -3328,7 +3526,7 @@ class PlotCanvas(ttk.Frame):
                 anchor=label_anchor,
                 fill=color,
                 font=self._font("tick"),
-                width=96 if self.presentation_mode else 82,
+                width=38 if self.presentation_mode else 30,
             )
 
         for label, color, x_values, y_values, dash in series:
@@ -3358,22 +3556,29 @@ class PlotCanvas(ttk.Frame):
                 fill=color,
                 outline=color,
             )
-            label_y = bottom - 18 - (index % 3) * (16 if self.presentation_mode else 14)
-            label_x, label_anchor = self._edge_aware_label_position(
+            label_x, label_y, label_anchor = self._place_annotation_label(
                 x_pos,
+                bottom - 18,
                 left=left,
                 right=right,
-                label_width=92 if self.presentation_mode else 78,
+                top=top,
+                bottom=bottom,
+                width=48 if self.presentation_mode else 40,
+                height=18 if self.presentation_mode else 15,
+                used_boxes=used_label_boxes,
+                prefer_above=False,
             )
             self.canvas.create_text(
                 label_x,
                 label_y,
                 text=str(marker.get("label", "Event")),
-                anchor="se" if label_anchor == "ne" else "sw",
+                anchor=label_anchor,
                 fill=color,
                 font=self._font("tick"),
-                width=92 if self.presentation_mode else 78,
+                width=48 if self.presentation_mode else 40,
             )
+
+        self._draw_marker_key(marker_key_entries, left=left, top=bottom + 52, right=right)
 
     def _draw_step_plot(self, payload: object) -> None:
         data = payload  # type: ignore[assignment]
@@ -3668,8 +3873,15 @@ class PlotCanvas(ttk.Frame):
             "ecu_dtc": "#f8f0df",
             "safe_state": "#f8e8e5",
         }
+        marker_key_entries: List[Tuple[str, str]] = []
 
         for run in runs:
+            marker_key_entries.extend(
+                marker_key_entries_from_items(run.get("events", []))
+            )
+            marker_key_entries.extend(
+                reaction_marker_key_entries(run.get("markers", []))
+            )
             for event in run.get("events", []):
                 start_s = float_or_none(event.get("time_s"))
                 end_s = float_or_none(event.get("end_s"))
@@ -3684,6 +3896,13 @@ class PlotCanvas(ttk.Frame):
         if max_time_s <= 0.0:
             max_time_s = 1.0
         max_time_s *= 1.04
+        deduped_key_entries: List[Tuple[str, str]] = []
+        seen_key_codes: set[str] = set()
+        for code, label in marker_key_entries:
+            if code in seen_key_codes:
+                continue
+            deduped_key_entries.append((code, label))
+            seen_key_codes.add(code)
 
         legend_entries = [
             (
@@ -3694,11 +3913,12 @@ class PlotCanvas(ttk.Frame):
             for index, run in enumerate(runs)
         ]
         legend_height = self._draw_legend(legend_entries, left=116, top=10, right=self._canvas_size()[0] - 24)
+        key_height = self._marker_key_height(deduped_key_entries, available_width=self._canvas_size()[0] - 150)
         left, top, right, bottom = self._draw_axes(
             "Timeline",
             y_tick_labels=[lane_labels[lane] for lane in lane_order],
             top_margin=20 + legend_height,
-            bottom_margin=82,
+            bottom_margin=96 + key_height,
             right_margin=34,
             extra_left_margin=38,
         )
@@ -3752,6 +3972,7 @@ class PlotCanvas(ttk.Frame):
             )
 
         style_offsets = (0.12, -0.12, 0.24, -0.24)
+        used_label_boxes: List[Tuple[float, float, float, float]] = []
         for run_index, run in enumerate(runs):
             color = str(run.get("color", LEFT_COLOR))
             dash = run.get("dash") if isinstance(run.get("dash"), tuple) else ()
@@ -3765,7 +3986,6 @@ class PlotCanvas(ttk.Frame):
                 end_s = float_or_none(event.get("end_s"))
                 x0 = map_x(start_s)
                 label = str(event.get("label", "Fault"))
-                label_y = fault_y - 24 + (event_index % 3) * 15
                 if end_s is not None and end_s > start_s:
                     x1 = map_x(end_s)
                     self.canvas.create_line(
@@ -3779,8 +3999,18 @@ class PlotCanvas(ttk.Frame):
                     )
                     self.canvas.create_line(x0, fault_y - 8, x0, fault_y + 8, fill=color, width=self._line_width())
                     self.canvas.create_line(x1, fault_y - 8, x1, fault_y + 8, fill=color, width=self._line_width())
-                    label_x = (x0 + x1) / 2.0
-                    anchor = "center"
+                    label_x, label_y, anchor = self._place_annotation_label(
+                        (x0 + x1) / 2.0,
+                        fault_y - 18,
+                        left=left,
+                        right=right,
+                        top=top,
+                        bottom=bottom,
+                        width=36 if self.presentation_mode else 30,
+                        height=18 if self.presentation_mode else 15,
+                        used_boxes=used_label_boxes,
+                        prefer_above=True,
+                    )
                 else:
                     self.canvas.create_line(
                         x0,
@@ -3800,11 +4030,17 @@ class PlotCanvas(ttk.Frame):
                         width=self._line_width(),
                         arrow=tk.LAST,
                     )
-                    label_x, anchor = self._edge_aware_label_position(
+                    label_x, label_y, anchor = self._place_annotation_label(
                         x0,
+                        fault_y - 18,
                         left=left,
                         right=right,
-                        label_width=112 if self.presentation_mode else 96,
+                        top=top,
+                        bottom=bottom,
+                        width=36 if self.presentation_mode else 30,
+                        height=18 if self.presentation_mode else 15,
+                        used_boxes=used_label_boxes,
+                        prefer_above=(event_index % 2 == 0),
                     )
                 self.canvas.create_text(
                     label_x,
@@ -3813,19 +4049,28 @@ class PlotCanvas(ttk.Frame):
                     anchor=anchor,
                     fill=color,
                     font=self._font("tick"),
-                    width=112 if self.presentation_mode else 96,
+                    width=36 if self.presentation_mode else 30,
                 )
 
             marker_lanes = {
                 "Detection": "detection",
                 "L Detection": "detection",
                 "R Detection": "detection",
+                "D": "detection",
+                "L D": "detection",
+                "R D": "detection",
                 "ECU DTC": "ecu_dtc",
                 "L ECU DTC": "ecu_dtc",
                 "R ECU DTC": "ecu_dtc",
+                "DTC": "ecu_dtc",
+                "L DTC": "ecu_dtc",
+                "R DTC": "ecu_dtc",
                 "Safe State": "safe_state",
                 "L Safe State": "safe_state",
                 "R Safe State": "safe_state",
+                "SS": "safe_state",
+                "L SS": "safe_state",
+                "R SS": "safe_state",
             }
             for marker_index, marker in enumerate(run.get("markers", [])):
                 time_s = float_or_none(marker.get("time_s"))
@@ -3853,21 +4098,29 @@ class PlotCanvas(ttk.Frame):
                     fill=marker_color,
                     outline=marker_color,
                 )
-                label_x, label_anchor = self._edge_aware_label_position(
+                label_x, label_y, label_anchor = self._place_annotation_label(
                     x_pos,
+                    y_pos - 18,
                     left=left,
                     right=right,
-                    label_width=100 if self.presentation_mode else 86,
+                    top=top,
+                    bottom=bottom,
+                    width=46 if self.presentation_mode else 38,
+                    height=18 if self.presentation_mode else 15,
+                    used_boxes=used_label_boxes,
+                    prefer_above=(marker_index % 2 == 0),
                 )
                 self.canvas.create_text(
                     label_x,
-                    y_pos - 18 + (marker_index % 2) * 12,
+                    label_y,
                     text=label,
                     anchor=label_anchor,
                     fill=marker_color,
                     font=self._font("tick"),
-                    width=100 if self.presentation_mode else 86,
+                    width=46 if self.presentation_mode else 38,
                 )
+
+        self._draw_marker_key(deduped_key_entries, left=left, top=bottom + 54, right=right)
 
     def _draw_propagation_timeline(self, payload: object) -> None:
         data = payload  # type: ignore[assignment]
@@ -3901,17 +4154,42 @@ class PlotCanvas(ttk.Frame):
         if max_time_s <= 0.0:
             max_time_s = 1.0
 
+        marker_key_entries: List[Tuple[str, str]] = []
+        item_codes: Dict[Tuple[int, int], str] = {}
+        code_counts: Dict[str, int] = {}
+        lane_prefixes = {
+            "hardware_origin": "F",
+            "ecu_manifestation": "ECU",
+            "diagnostic_effect": "D",
+            "system_effect": "S",
+        }
+        for report_index, report in enumerate(reports):
+            for item_index, item in enumerate(report.get("timeline_items", [])):
+                lane = str(item.get("lane", "hardware_origin"))
+                full_label = str(item.get("evidence_label", item.get("short_label", "Event")))
+                subtype = str(item.get("effect_subtype", ""))
+                prefix = lane_prefixes.get(lane, "P")
+                if subtype == "safe_state":
+                    prefix = "SS"
+                elif subtype == "peak_temperature":
+                    prefix = "P"
+                code_counts[prefix] = code_counts.get(prefix, 0) + 1
+                code = f"{prefix}{code_counts[prefix]}"
+                item_codes[(report_index, item_index)] = code
+                marker_key_entries.append((code, full_label))
+
         legend_entries = [
             (label, style_by_index[min(index, len(style_by_index) - 1)][0], style_by_index[min(index, len(style_by_index) - 1)][1])
             for index, label in enumerate(labels)
         ]
         legend_height = self._draw_legend(legend_entries, left=96, top=10, right=self._canvas_size()[0] - 24)
+        key_height = self._marker_key_height(marker_key_entries, available_width=self._canvas_size()[0] - 160)
         lane_labels = [LANE_LABELS.get(lane, lane) for lane in lane_order]
         left, top, right, bottom = self._draw_axes(
             "Stage",
             y_tick_labels=lane_labels,
             top_margin=18 + legend_height,
-            bottom_margin=104,
+            bottom_margin=124 + key_height,
             extra_left_margin=54,
         )
 
@@ -3977,18 +4255,19 @@ class PlotCanvas(ttk.Frame):
             font=self._font("legend"),
         )
 
+        used_label_boxes: List[Tuple[float, float, float, float]] = []
         for report_index, report in enumerate(reports):
             color, dash, offset = style_by_index[min(report_index, len(style_by_index) - 1)]
 
             for item_index, item in enumerate(report.get("timeline_items", [])):
                 lane = str(item.get("lane", "hardware_origin"))
                 y_pos = map_y(lane_positions.get(lane, 0) + offset)
+                label = item_codes.get((report_index, item_index), str(item.get("short_label", "E")))
 
                 if item.get("item_type") == "interval":
                     x0 = map_x(float(item.get("start_s", 0.0)))
                     x1 = map_x(float(item.get("end_s", 0.0)))
                     midpoint = (x0 + x1) / 2.0
-                    label_offset = -14 if report_index == 0 else 14
                     self.canvas.create_line(
                         x0,
                         y_pos,
@@ -4000,21 +4279,31 @@ class PlotCanvas(ttk.Frame):
                     )
                     self.canvas.create_line(x0, y_pos - 6, x0, y_pos + 6, fill=color, width=self._line_width())
                     self.canvas.create_line(x1, y_pos - 6, x1, y_pos + 6, fill=color, width=self._line_width())
-                    self.canvas.create_text(
+                    label_x, label_y, label_anchor = self._place_annotation_label(
                         midpoint,
-                        y_pos + label_offset,
-                        text=str(item.get("evidence_label", item.get("short_label", ""))),
+                        y_pos - 16 if report_index == 0 else y_pos + 16,
+                        left=left,
+                        right=right,
+                        top=top,
+                        bottom=bottom,
+                        width=46 if self.presentation_mode else 38,
+                        height=18 if self.presentation_mode else 15,
+                        used_boxes=used_label_boxes,
+                        prefer_above=report_index == 0,
+                    )
+                    self.canvas.create_text(
+                        label_x,
+                        label_y,
+                        text=label,
+                        anchor=label_anchor,
                         fill=color,
                         font=self._font("legend"),
-                        width=max(x1 - x0 + 10, 80),
+                        width=46 if self.presentation_mode else 38,
                     )
                     continue
 
                 x_pos = map_x(float(item.get("time_s", 0.0)))
                 marker_size = 4 if self.presentation_mode else 3
-                label_offset = (
-                    -18 if (report_index == 0) == (item_index % 2 == 0) else 18
-                ) + ((item_index % 3) - 1) * 5
                 self.canvas.create_line(
                     x_pos,
                     y_pos - 7,
@@ -4032,26 +4321,32 @@ class PlotCanvas(ttk.Frame):
                     fill=color,
                     outline=color,
                 )
-                label_width = 130 if self.presentation_mode else 104
-                label_x, label_anchor = self._edge_aware_label_position(
+                label_x, label_y, label_anchor = self._place_annotation_label(
                     x_pos,
+                    y_pos - 18 if (report_index == 0) == (item_index % 2 == 0) else y_pos + 18,
                     left=left,
                     right=right,
-                    label_width=label_width,
+                    top=top,
+                    bottom=bottom,
+                    width=46 if self.presentation_mode else 38,
+                    height=18 if self.presentation_mode else 15,
+                    used_boxes=used_label_boxes,
+                    prefer_above=(report_index == 0) == (item_index % 2 == 0),
                 )
                 self.canvas.create_text(
                     label_x,
-                    y_pos + label_offset,
-                    text=str(item.get("evidence_label", item.get("short_label", ""))),
+                    label_y,
+                    text=label,
                     anchor=label_anchor,
                     fill=color,
                     font=self._font("tick"),
-                    width=label_width,
+                    width=46 if self.presentation_mode else 38,
                 )
 
+        key_drawn_height = self._draw_marker_key(marker_key_entries, left=left, top=bottom + 54, right=right)
         self.canvas.create_text(
             left,
-            bottom + 58,
+            bottom + 62 + key_drawn_height,
             anchor="w",
             text="Read top-to-bottom as: hardware-origin fault -> ECU manifestation -> diagnostic effect -> safe-state/system effect.",
             fill="#5b6b79",
@@ -12587,12 +12882,15 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                     LEFT_DASH,
                 )
             ]
-            event_overlays = result_event_overlays(
+            left_event_overlays = result_event_overlays(
                 left_result,
                 color=LEFT_COLOR,
                 dash=LEFT_DASH,
                 run_label=left_label,
             )
+            if right_rows is not None:
+                left_event_overlays = prefixed_marker_items(left_event_overlays, "L-")
+            event_overlays = list(left_event_overlays)
 
             if right_rows is not None:
                 right_label = self.summary_vars["right"]["Campaign Name"].get()
@@ -12605,14 +12903,16 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                         RIGHT_DASH,
                     )
                 )
-                event_overlays.extend(
+                right_event_overlays = prefixed_marker_items(
                     result_event_overlays(
                         right_result,  # type: ignore[arg-type]
                         color=RIGHT_COLOR,
                         dash=RIGHT_DASH,
                         run_label=right_label,
-                    )
+                    ),
+                    "R-",
                 )
+                event_overlays.extend(right_event_overlays)
 
             self.comparison_plot.plot_lines(
                 coolant_series,
@@ -12620,6 +12920,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                 threshold_lines=((108.0, "#8c6b2d", "Warning"), (115.0, "#7b4d57", "Critical")),
                 event_overlays=event_overlays,
                 evidence_markers=(),
+                marker_key_entries=marker_key_entries_from_items(event_overlays),
             )
             return
 
@@ -12640,17 +12941,21 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                     "label": left_label,
                     "color": LEFT_COLOR,
                     "dash": LEFT_DASH,
-                    "events": result_event_overlays(
-                        left_result,
-                        color=LEFT_COLOR,
-                        dash=LEFT_DASH,
-                        run_label=left_label,
+                    "events": prefixed_marker_items(
+                        result_event_overlays(
+                            left_result,
+                            color=LEFT_COLOR,
+                            dash=LEFT_DASH,
+                            run_label=left_label,
+                        ),
+                        "L-" if right_rows is not None else "",
                     ),
                     "markers": result_evidence_markers(
                         left_result,
                         color=LEFT_COLOR,
                         run_label=left_label,
                         label_prefix="L " if right_rows is not None else "",
+                        compact=True,
                     ),
                 }
             ]
@@ -12663,17 +12968,21 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                         "label": right_label,
                         "color": RIGHT_COLOR,
                         "dash": RIGHT_DASH,
-                        "events": result_event_overlays(
-                            right_result,
-                            color=RIGHT_COLOR,
-                            dash=RIGHT_DASH,
-                            run_label=right_label,
+                        "events": prefixed_marker_items(
+                            result_event_overlays(
+                                right_result,
+                                color=RIGHT_COLOR,
+                                dash=RIGHT_DASH,
+                                run_label=right_label,
+                            ),
+                            "R-",
                         ),
                         "markers": result_evidence_markers(
                             right_result,
                             color=RIGHT_COLOR,
                             run_label=right_label,
                             label_prefix="R ",
+                            compact=True,
                         ),
                     }
                 )
