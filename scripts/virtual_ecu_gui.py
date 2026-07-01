@@ -3255,6 +3255,169 @@ class PlotCanvas(ttk.Frame):
         used_boxes.append(self._label_box(label_x, fallback_y, width, height, anchor))
         return label_x, fallback_y, anchor
 
+    def _draw_lane_annotation_labels(
+        self,
+        annotations: Sequence[Dict[str, object]],
+        *,
+        lane_bounds: Dict[str, Tuple[float, float]],
+        left: float,
+        right: float,
+        top: float,
+        bottom: float,
+        used_boxes: List[Tuple[float, float, float, float]],
+        cluster_gap_px: int = 54,
+        min_vertical_spacing: int = 20,
+        merge_dense_clusters: bool = False,
+        group_prefix: str = "S",
+    ) -> List[Tuple[str, str]]:
+        group_key_entries: List[Tuple[str, str]] = []
+        annotations_by_lane: Dict[str, List[Dict[str, object]]] = {}
+        for annotation in annotations:
+            lane = str(annotation.get("lane", ""))
+            annotations_by_lane.setdefault(lane, []).append(annotation)
+
+        for lane, lane_annotations in annotations_by_lane.items():
+            lane_top, lane_bottom = lane_bounds.get(lane, (top, bottom))
+            lane_top, lane_bottom = min(lane_top, lane_bottom), max(lane_top, lane_bottom)
+            lane_annotations = sorted(
+                lane_annotations,
+                key=lambda item: (
+                    float(item.get("x_pos", 0.0)),
+                    float(item.get("marker_y", item.get("y_pos", 0.0))),
+                ),
+            )
+            clusters: List[List[Dict[str, object]]] = []
+            for annotation in lane_annotations:
+                x_pos = float(annotation.get("x_pos", 0.0))
+                if clusters and x_pos - float(clusters[-1][-1].get("x_pos", 0.0)) <= cluster_gap_px:
+                    clusters[-1].append(annotation)
+                else:
+                    clusters.append([annotation])
+
+            for cluster in clusters:
+                max_height = max(int(item.get("height", 15)) for item in cluster)
+                slot_gap = max(min_vertical_spacing, max_height + 4)
+                available_top = max(top + 4, lane_top + 4)
+                available_bottom = min(bottom - max_height - 4, lane_bottom - max_height - 4)
+                if available_bottom < available_top:
+                    available_top = max(top + 4, lane_top)
+                    available_bottom = max(available_top, min(bottom - max_height - 4, lane_bottom))
+
+                cluster_span = (
+                    max(float(item.get("x_pos", 0.0)) for item in cluster)
+                    - min(float(item.get("x_pos", 0.0)) for item in cluster)
+                )
+                needed_height = max_height + (len(cluster) - 1) * slot_gap
+                should_merge = (
+                    merge_dense_clusters
+                    and len(cluster) >= 2
+                    and cluster_span <= cluster_gap_px
+                ) or (
+                    len(cluster) >= 3
+                    and needed_height > (available_bottom - available_top + max_height)
+                    and cluster_span <= cluster_gap_px
+                )
+
+                draw_items: List[Dict[str, object]]
+                if should_merge:
+                    first = dict(cluster[0])
+                    group_code = f"{group_prefix}{len(group_key_entries) + 1}"
+                    key_parts = []
+                    for item in cluster:
+                        key_code = str(item.get("key_code", item.get("label", ""))).strip()
+                        key_label = str(item.get("key_label", "")).strip()
+                        if key_code and key_label:
+                            key_parts.append(f"{key_code} {key_label}")
+                        elif key_code:
+                            key_parts.append(key_code)
+                    first["label"] = group_code
+                    first["x_pos"] = sum(float(item.get("x_pos", 0.0)) for item in cluster) / len(cluster)
+                    first["marker_x"] = first["x_pos"]
+                    first["marker_y"] = sum(float(item.get("marker_y", item.get("y_pos", 0.0))) for item in cluster) / len(cluster)
+                    first["connectors"] = [
+                        (
+                            float(item.get("marker_x", item.get("x_pos", 0.0))),
+                            float(item.get("marker_y", item.get("y_pos", 0.0))),
+                        )
+                        for item in cluster
+                    ]
+                    first["width"] = min(
+                        max(int(first.get("width", 38)), 22 + len(group_code) * 7),
+                        max(int(right - left) - 8, 80),
+                    )
+                    if key_parts:
+                        group_key_entries.append((group_code, " | ".join(key_parts)))
+                    draw_items = [first]
+                else:
+                    draw_items = [dict(item) for item in cluster]
+
+                center_y = sum(
+                    float(item.get("marker_y", item.get("y_pos", 0.0))) for item in draw_items
+                ) / max(len(draw_items), 1)
+                first_slot_y = center_y - ((len(draw_items) - 1) * slot_gap + max_height) / 2.0
+                first_slot_y = min(
+                    max(first_slot_y, available_top),
+                    max(available_top, available_bottom - (len(draw_items) - 1) * slot_gap),
+                )
+
+                for index, annotation in enumerate(draw_items):
+                    x_pos = float(annotation.get("x_pos", 0.0))
+                    marker_x = float(annotation.get("marker_x", x_pos))
+                    marker_y = float(annotation.get("marker_y", annotation.get("y_pos", 0.0)))
+                    width = int(annotation.get("width", 38))
+                    height = int(annotation.get("height", max_height))
+                    label_x, label_anchor = self._edge_aware_label_position(
+                        x_pos,
+                        left=left,
+                        right=right,
+                        label_width=width,
+                    )
+                    desired_y = first_slot_y + index * slot_gap
+                    candidate_y = min(max(desired_y, available_top), max(available_top, available_bottom))
+                    box = self._label_box(label_x, candidate_y, width, height, label_anchor)
+
+                    if any(self._boxes_overlap(box, existing) for existing in used_boxes):
+                        for offset in (slot_gap, -slot_gap, slot_gap * 2, -slot_gap * 2):
+                            shifted_y = min(max(candidate_y + offset, available_top), max(available_top, available_bottom))
+                            shifted_box = self._label_box(label_x, shifted_y, width, height, label_anchor)
+                            if not any(self._boxes_overlap(shifted_box, existing) for existing in used_boxes):
+                                candidate_y = shifted_y
+                                box = shifted_box
+                                break
+
+                    used_boxes.append(box)
+                    label_mid_y = candidate_y + height / 2.0
+                    connectors = annotation.get("connectors")
+                    connector_points = (
+                        connectors
+                        if isinstance(connectors, list)
+                        else [(marker_x, marker_y)]
+                    )
+                    if abs(label_x - marker_x) > 8 or abs(label_mid_y - marker_y) > 8:
+                        attach_x = label_x
+                        attach_y = label_mid_y
+                        for connector_x, connector_y in connector_points:
+                            self.canvas.create_line(
+                                connector_x,
+                                connector_y,
+                                attach_x,
+                                attach_y,
+                                fill="#8da0af",
+                                dash=(2, 2),
+                                width=1,
+                            )
+                    self.canvas.create_text(
+                        label_x,
+                        candidate_y,
+                        text=str(annotation.get("label", "")),
+                        anchor=label_anchor,
+                        fill=str(annotation.get("color", "#33404d")),
+                        font=self._font(str(annotation.get("font", "tick"))),
+                        width=width,
+                    )
+
+        return group_key_entries
+
     def _marker_key_lines(
         self,
         entries: Sequence[Tuple[str, str]],
@@ -3264,7 +3427,7 @@ class PlotCanvas(ttk.Frame):
         if not entries:
             return []
         max_chars = max(36, int(available_width / (7.5 if self.presentation_mode else 6.6)))
-        parts = [f"{code} {label}" for code, label in entries]
+        parts = [f"{code} = {label}" for code, label in entries]
         lines: List[str] = []
         current = "Marker key: "
         for part in parts:
@@ -4156,6 +4319,7 @@ class PlotCanvas(ttk.Frame):
 
         marker_key_entries: List[Tuple[str, str]] = []
         item_codes: Dict[Tuple[int, int], str] = {}
+        item_key_labels: Dict[Tuple[int, int], str] = {}
         code_counts: Dict[str, int] = {}
         lane_prefixes = {
             "hardware_origin": "F",
@@ -4166,7 +4330,13 @@ class PlotCanvas(ttk.Frame):
         for report_index, report in enumerate(reports):
             for item_index, item in enumerate(report.get("timeline_items", [])):
                 lane = str(item.get("lane", "hardware_origin"))
-                full_label = str(item.get("evidence_label", item.get("short_label", "Event")))
+                label_source = (
+                    item.get("evidence_label")
+                    or item.get("summary")
+                    or item.get("short_label")
+                    or "Event"
+                )
+                full_label = str(label_source)
                 subtype = str(item.get("effect_subtype", ""))
                 prefix = lane_prefixes.get(lane, "P")
                 if subtype == "safe_state":
@@ -4176,21 +4346,28 @@ class PlotCanvas(ttk.Frame):
                 code_counts[prefix] = code_counts.get(prefix, 0) + 1
                 code = f"{prefix}{code_counts[prefix]}"
                 item_codes[(report_index, item_index)] = code
+                item_key_labels[(report_index, item_index)] = full_label
                 marker_key_entries.append((code, full_label))
 
         legend_entries = [
             (label, style_by_index[min(index, len(style_by_index) - 1)][0], style_by_index[min(index, len(style_by_index) - 1)][1])
             for index, label in enumerate(labels)
         ]
-        legend_height = self._draw_legend(legend_entries, left=96, top=10, right=self._canvas_size()[0] - 24)
+        legend_height = self._draw_legend(legend_entries, left=128, top=12, right=self._canvas_size()[0] - 24)
         key_height = self._marker_key_height(marker_key_entries, available_width=self._canvas_size()[0] - 160)
-        lane_labels = [LANE_LABELS.get(lane, lane) for lane in lane_order]
+        compact_lane_labels = {
+            "hardware_origin": "1. Hardware Fault",
+            "ecu_manifestation": "2. ECU Manifestation",
+            "diagnostic_effect": "3. Diagnostic Effect",
+            "system_effect": "4. System Effect",
+        }
+        lane_labels = [compact_lane_labels.get(lane, lane) for lane in lane_order]
         left, top, right, bottom = self._draw_axes(
-            "Stage",
+            "",
             y_tick_labels=lane_labels,
-            top_margin=18 + legend_height,
-            bottom_margin=124 + key_height,
-            extra_left_margin=54,
+            top_margin=26 + legend_height,
+            bottom_margin=146 + key_height,
+            extra_left_margin=36,
         )
 
         def map_x(value: float) -> float:
@@ -4222,10 +4399,12 @@ class PlotCanvas(ttk.Frame):
                 font=self._font("tick"),
             )
 
+        lane_label_bounds: Dict[str, Tuple[float, float]] = {}
         for lane in lane_order:
             lane_y = map_y(float(lane_positions[lane]))
             lane_top = map_y(float(lane_positions[lane]) + 0.42)
             lane_bottom = map_y(float(lane_positions[lane]) - 0.42)
+            lane_label_bounds[lane] = (lane_top, lane_bottom)
             self.canvas.create_rectangle(
                 left,
                 lane_top,
@@ -4238,24 +4417,14 @@ class PlotCanvas(ttk.Frame):
             self.canvas.create_text(
                 left - 10,
                 lane_y,
-                text=LANE_LABELS.get(lane, lane),
+                text=compact_lane_labels.get(lane, lane),
                 anchor="e",
                 fill="#506070",
                 font=self._font("tick"),
             )
 
-        arrow_x = left - 42
-        self.canvas.create_line(arrow_x, map_y(3.25), arrow_x, map_y(-0.25), fill="#7b8b99", width=2, arrow=tk.LAST)
-        self.canvas.create_text(
-            arrow_x - 12,
-            (map_y(3.25) + map_y(-0.25)) / 2.0,
-            text="Propagation",
-            angle=90,
-            fill="#607180",
-            font=self._font("legend"),
-        )
-
         used_label_boxes: List[Tuple[float, float, float, float]] = []
+        lane_annotations: List[Dict[str, object]] = []
         for report_index, report in enumerate(reports):
             color, dash, offset = style_by_index[min(report_index, len(style_by_index) - 1)]
 
@@ -4279,26 +4448,21 @@ class PlotCanvas(ttk.Frame):
                     )
                     self.canvas.create_line(x0, y_pos - 6, x0, y_pos + 6, fill=color, width=self._line_width())
                     self.canvas.create_line(x1, y_pos - 6, x1, y_pos + 6, fill=color, width=self._line_width())
-                    label_x, label_y, label_anchor = self._place_annotation_label(
-                        midpoint,
-                        y_pos - 16 if report_index == 0 else y_pos + 16,
-                        left=left,
-                        right=right,
-                        top=top,
-                        bottom=bottom,
-                        width=46 if self.presentation_mode else 38,
-                        height=18 if self.presentation_mode else 15,
-                        used_boxes=used_label_boxes,
-                        prefer_above=report_index == 0,
-                    )
-                    self.canvas.create_text(
-                        label_x,
-                        label_y,
-                        text=label,
-                        anchor=label_anchor,
-                        fill=color,
-                        font=self._font("legend"),
-                        width=46 if self.presentation_mode else 38,
+                    lane_annotations.append(
+                        {
+                            "lane": lane,
+                            "x_pos": midpoint,
+                            "y_pos": y_pos,
+                            "marker_x": midpoint,
+                            "marker_y": y_pos,
+                            "label": label,
+                            "key_code": label,
+                            "key_label": item_key_labels.get((report_index, item_index), label),
+                            "color": color,
+                            "font": "legend",
+                            "width": 46 if self.presentation_mode else 38,
+                            "height": 18 if self.presentation_mode else 15,
+                        }
                     )
                     continue
 
@@ -4321,27 +4485,38 @@ class PlotCanvas(ttk.Frame):
                     fill=color,
                     outline=color,
                 )
-                label_x, label_y, label_anchor = self._place_annotation_label(
-                    x_pos,
-                    y_pos - 18 if (report_index == 0) == (item_index % 2 == 0) else y_pos + 18,
-                    left=left,
-                    right=right,
-                    top=top,
-                    bottom=bottom,
-                    width=46 if self.presentation_mode else 38,
-                    height=18 if self.presentation_mode else 15,
-                    used_boxes=used_label_boxes,
-                    prefer_above=(report_index == 0) == (item_index % 2 == 0),
+                lane_annotations.append(
+                    {
+                        "lane": lane,
+                        "x_pos": x_pos,
+                        "y_pos": y_pos,
+                        "marker_x": x_pos,
+                        "marker_y": y_pos,
+                        "label": label,
+                        "key_code": label,
+                        "key_label": item_key_labels.get((report_index, item_index), label),
+                        "color": color,
+                        "font": "tick",
+                        "width": 46 if self.presentation_mode else 38,
+                        "height": 18 if self.presentation_mode else 15,
+                    }
                 )
-                self.canvas.create_text(
-                    label_x,
-                    label_y,
-                    text=label,
-                    anchor=label_anchor,
-                    fill=color,
-                    font=self._font("tick"),
-                    width=46 if self.presentation_mode else 38,
-                )
+
+        group_key_entries = self._draw_lane_annotation_labels(
+            lane_annotations,
+            lane_bounds=lane_label_bounds,
+            left=left,
+            right=right,
+            top=top,
+            bottom=bottom,
+            used_boxes=used_label_boxes,
+            cluster_gap_px=58 if self.presentation_mode else 52,
+            min_vertical_spacing=22 if self.presentation_mode else 19,
+            merge_dense_clusters=True,
+            group_prefix="S",
+        )
+        if group_key_entries:
+            marker_key_entries = [*marker_key_entries, *group_key_entries]
 
         key_drawn_height = self._draw_marker_key(marker_key_entries, left=left, top=bottom + 54, right=right)
         self.canvas.create_text(
