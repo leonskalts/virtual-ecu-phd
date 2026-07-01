@@ -1146,6 +1146,54 @@ def scenario_metadata_path_for(log_path: Path) -> Path:
     return log_path.with_name(f"{log_path.stem}_scenario.json")
 
 
+def load_custom_scenario_metadata(log_path: Path) -> Dict[str, object] | None:
+    metadata_path = scenario_metadata_path_for(log_path)
+    if not metadata_path.is_file():
+        return None
+    try:
+        payload = json.loads(metadata_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    events = payload.get("events")
+    if not isinstance(events, list):
+        return None
+    normalized_events: List[Dict[str, object]] = []
+    for index, event in enumerate(events, start=1):
+        if not isinstance(event, dict):
+            continue
+        fault_type = str(event.get("fault_type", "")).strip()
+        behavior = str(event.get("fault_behavior", event.get("behavior", ""))).strip()
+        start_ms = int_or_none(event.get("start_ms", ""))
+        duration_ms = int_or_none(event.get("duration_ms", ""))
+        parameter = float_or_none(event.get("parameter", ""))
+        if (
+            not fault_type
+            or fault_type == "none"
+            or start_ms is None
+            or duration_ms is None
+            or parameter is None
+        ):
+            continue
+        normalized_events.append(
+            {
+                "index": int(event.get("index", index)),
+                "fault_type": fault_type,
+                "fault_behavior": behavior or "transient",
+                "start_ms": start_ms,
+                "duration_ms": duration_ms,
+                "parameter": parameter,
+            }
+        )
+    if not normalized_events:
+        return None
+    payload["events"] = normalized_events
+    payload["event_count"] = len(normalized_events)
+    payload["metadata_path"] = metadata_path
+    return payload
+
+
 def write_custom_scenario_metadata(
     path: Path,
     config: Dict[str, object],
@@ -1241,8 +1289,9 @@ def load_existing_result_pair(selected_path: Path) -> Dict[str, object]:
         campaign_id = f"existing_{sanitize_preset_name(raw_path.stem)}"
     if "campaign_label" not in summary or not summary["campaign_label"]:
         summary["campaign_label"] = raw_path.stem.replace("_", " ").title()
+    scenario_metadata = load_custom_scenario_metadata(raw_path)
 
-    return {
+    result = {
         "campaign_id": campaign_id,
         "raw_rows": raw_rows,
         "summary_row": summary,
@@ -1250,6 +1299,12 @@ def load_existing_result_pair(selected_path: Path) -> Dict[str, object]:
         "summary_path": summary_path,
         "loaded_from_disk": True,
     }
+    if scenario_metadata is not None:
+        result["scenario_metadata"] = scenario_metadata
+        metadata_path = scenario_metadata.get("metadata_path")
+        if isinstance(metadata_path, Path):
+            result["scenario_metadata_path"] = metadata_path
+    return result
 
 
 def _project_path(path_text: str) -> Path:
@@ -1480,6 +1535,175 @@ def event_behaviors(first_row: Dict[str, str]) -> List[str]:
             behaviors.append(behavior_label)
 
     return behaviors
+
+
+def short_event_label(fault_type: str) -> str:
+    label = custom_mode_label(fault_type)
+    replacements = (
+        ("Calibration Memory Corruption", "Calibration Memory"),
+        ("Sensor Interface Intermittent", "Sensor Intermittent"),
+        ("Stale Sensor Data", "Stale Sensor"),
+    )
+    for long_label, short_label in replacements:
+        label = label.replace(long_label, short_label)
+    return textwrap.shorten(label, width=22, placeholder="...")
+
+
+def scenario_events_from_raw(first_row: Dict[str, str]) -> List[Dict[str, object]]:
+    event_count = int_or_none(first_row.get("campaign_event_count", "")) or 0
+    events: List[Dict[str, object]] = []
+    for index in range(1, event_count + 1):
+        fault_type = str(first_row.get(f"campaign_event_{index}_mode_label", "")).strip()
+        behavior = str(first_row.get(f"campaign_event_{index}_behavior_label", "")).strip()
+        start_ms = int_or_none(first_row.get(f"campaign_event_{index}_start_ms", ""))
+        duration_ms = int_or_none(first_row.get(f"campaign_event_{index}_duration_ms", ""))
+        parameter = float_or_none(first_row.get(f"campaign_event_{index}_parameter", ""))
+        if (
+            not fault_type
+            or fault_type == "none"
+            or start_ms is None
+            or duration_ms is None
+            or parameter is None
+        ):
+            continue
+        events.append(
+            {
+                "index": index,
+                "fault_type": fault_type,
+                "fault_behavior": behavior or "transient",
+                "start_ms": start_ms,
+                "duration_ms": duration_ms,
+                "parameter": parameter,
+            }
+        )
+    return events
+
+
+def scenario_events_for_result(result: Dict[str, object]) -> List[Dict[str, object]]:
+    metadata = result.get("scenario_metadata")
+    if isinstance(metadata, dict) and isinstance(metadata.get("events"), list):
+        return [
+            dict(event)
+            for event in metadata["events"]  # type: ignore[index]
+            if isinstance(event, dict)
+        ]
+    raw_rows = result.get("raw_rows")
+    if isinstance(raw_rows, list) and raw_rows and isinstance(raw_rows[0], dict):
+        return scenario_events_from_raw(raw_rows[0])
+    return []
+
+
+def scenario_event_sequence_label(events: Sequence[Dict[str, object]]) -> str:
+    labels = [short_event_label(str(event.get("fault_type", ""))) for event in events]
+    if not labels:
+        return ""
+    return " -> ".join(labels)
+
+
+def result_event_overlays(
+    result: Dict[str, object],
+    *,
+    color: str,
+    dash: Tuple[int, ...] | None,
+    run_label: str,
+) -> List[Dict[str, object]]:
+    overlays: List[Dict[str, object]] = []
+    for event in scenario_events_for_result(result):
+        start_ms = int_or_none(event.get("start_ms", ""))
+        duration_ms = int_or_none(event.get("duration_ms", ""))
+        fault_type = str(event.get("fault_type", ""))
+        behavior = str(event.get("fault_behavior", ""))
+        if start_ms is None or duration_ms is None or not fault_type:
+            continue
+        overlays.append(
+            {
+                "time_s": start_ms / 1000.0,
+                "end_s": (start_ms + duration_ms) / 1000.0
+                if duration_ms > 0
+                else None,
+                "label": short_event_label(fault_type),
+                "detail": f"{run_label}: {short_event_label(fault_type)}",
+                "color": color,
+                "dash": dash,
+                "behavior": behavior,
+                "index": int(event.get("index", len(overlays) + 1)),
+            }
+        )
+    return overlays
+
+
+def first_runtime_time_s(
+    rows: Sequence[Dict[str, str]],
+    predicate: Callable[[Dict[str, str]], bool],
+) -> float | None:
+    for row in rows:
+        if predicate(row):
+            time_ms = int_or_none(row.get("time_ms", ""))
+            if time_ms is not None:
+                return time_ms / 1000.0
+    return None
+
+
+def result_evidence_markers(
+    result: Dict[str, object],
+    *,
+    color: str,
+    run_label: str,
+    label_prefix: str = "",
+) -> List[Dict[str, object]]:
+    raw_rows = result.get("raw_rows")
+    summary = result.get("summary_row")
+    if not isinstance(raw_rows, list) or not isinstance(summary, dict):
+        return []
+    rows = [row for row in raw_rows if isinstance(row, dict)]
+    markers: List[Dict[str, object]] = []
+
+    detection_ms = int_or_none(summary.get("runtime_detection_first_detection_ms", ""))
+    if detection_ms is not None and detection_ms >= 0:
+        markers.append(
+            {
+                "time_s": detection_ms / 1000.0,
+                "label": f"{label_prefix}Detection",
+                "detail": f"{run_label}: Detection",
+                "color": "#7a3fb2",
+                "dash": (2, 2),
+            }
+        )
+
+    dtc_time_s = first_runtime_time_s(
+        rows,
+        lambda row: (
+            int_or_none(row.get("primary_dtc_id", "")) or 0
+        ) != 0
+        and str(row.get("primary_dtc_label", "none")) != "none",
+    )
+    if dtc_time_s is not None:
+        markers.append(
+            {
+                "time_s": dtc_time_s,
+                "label": f"{label_prefix}ECU DTC",
+                "detail": f"{run_label}: ECU DTC",
+                "color": "#b86e1d",
+                "dash": (6, 3),
+            }
+        )
+
+    safe_state_time_s = first_runtime_time_s(
+        rows,
+        lambda row: (int_or_none(row.get("safe_state_id", "")) or 0) != 0,
+    )
+    if safe_state_time_s is not None:
+        markers.append(
+            {
+                "time_s": safe_state_time_s,
+                "label": f"{label_prefix}Safe State",
+                "detail": f"{run_label}: Safe State",
+                "color": "#b5483b",
+                "dash": (8, 3),
+            }
+        )
+
+    return markers
 
 
 def infer_fault_class(first_row: Dict[str, str]) -> str:
@@ -2663,6 +2887,8 @@ class PlotCanvas(ttk.Frame):
         y_min: float | None = None,
         y_max: float | None = None,
         threshold_lines: Sequence[Tuple[float, str, str]] = (),
+        event_overlays: Sequence[Dict[str, object]] = (),
+        evidence_markers: Sequence[Dict[str, object]] = (),
     ) -> None:
         self._drawer = self._draw_line_plot
         self._payload = {
@@ -2674,6 +2900,8 @@ class PlotCanvas(ttk.Frame):
             "y_min": y_min,
             "y_max": y_max,
             "threshold_lines": list(threshold_lines),
+            "event_overlays": [dict(item) for item in event_overlays],
+            "evidence_markers": [dict(item) for item in evidence_markers],
         }
         self.redraw()
 
@@ -2963,6 +3191,8 @@ class PlotCanvas(ttk.Frame):
         y_min = data["y_min"]
         y_max = data["y_max"]
         threshold_lines = data["threshold_lines"]
+        event_overlays = data.get("event_overlays", [])
+        evidence_markers = data.get("evidence_markers", [])
 
         if not series:
             self._draw_message("No plot data available.")
@@ -2970,6 +3200,17 @@ class PlotCanvas(ttk.Frame):
 
         all_x = [x_value for _, _, x_values, _, _ in series for x_value in x_values]
         all_y = [y_value for _, _, _, y_values, _ in series for y_value in y_values]
+        for overlay in event_overlays:
+            time_s = float_or_none(overlay.get("time_s"))
+            end_s = float_or_none(overlay.get("end_s"))
+            if time_s is not None:
+                all_x.append(time_s)
+            if end_s is not None:
+                all_x.append(end_s)
+        for marker in evidence_markers:
+            time_s = float_or_none(marker.get("time_s"))
+            if time_s is not None:
+                all_x.append(time_s)
         if not all_x or not all_y:
             self._draw_message("No plot data available.")
             return
@@ -3024,6 +3265,40 @@ class PlotCanvas(ttk.Frame):
             label_y = max(y_pos - 8, top + 8)
             self.canvas.create_text(right - 6, label_y, text=label, anchor="e", fill=color, font=self._font("threshold"))
 
+        for index, overlay in enumerate(event_overlays):
+            time_s = float_or_none(overlay.get("time_s"))
+            if time_s is None:
+                continue
+            end_s = float_or_none(overlay.get("end_s"))
+            color = str(overlay.get("color", "#5f7894"))
+            dash_value = overlay.get("dash")
+            dash = tuple(dash_value) if isinstance(dash_value, tuple) else (4, 3)
+            x_pos = map_x(time_s)
+            if end_s is not None and end_s > time_s:
+                x_end = map_x(end_s)
+                span_id = self.canvas.create_rectangle(
+                    x_pos,
+                    top,
+                    x_end,
+                    bottom,
+                    fill="#f4f7fb",
+                    outline="",
+                )
+                self.canvas.tag_lower(span_id)
+                self.canvas.create_line(x_end, top, x_end, bottom, fill=color, dash=(2, 3), width=self._line_width())
+            self.canvas.create_line(x_pos, top, x_pos, bottom, fill=color, dash=dash, width=self._line_width())
+            label = str(overlay.get("label", "Fault"))
+            label_y = top + 12 + (index % 3) * (16 if self.presentation_mode else 14)
+            self.canvas.create_text(
+                x_pos + 4,
+                label_y,
+                text=label,
+                anchor="nw",
+                fill=color,
+                font=self._font("tick"),
+                width=96 if self.presentation_mode else 82,
+            )
+
         for label, color, x_values, y_values, dash in series:
             points = []
             for x_value, y_value in zip(x_values, y_values):
@@ -3031,6 +3306,36 @@ class PlotCanvas(ttk.Frame):
 
             if len(points) >= 4:
                 self.canvas.create_line(*points, fill=color, width=self._line_width(emphasis=True), smooth=False, dash=dash or ())
+
+        for index, marker in enumerate(evidence_markers):
+            time_s = float_or_none(marker.get("time_s"))
+            if time_s is None:
+                continue
+            color = str(marker.get("color", "#7a3fb2"))
+            dash_value = marker.get("dash")
+            dash = tuple(dash_value) if isinstance(dash_value, tuple) else (3, 2)
+            x_pos = map_x(time_s)
+            self.canvas.create_line(x_pos, top, x_pos, bottom, fill=color, dash=dash, width=self._line_width(emphasis=True))
+            self.canvas.create_polygon(
+                x_pos - 4,
+                bottom - 2,
+                x_pos + 4,
+                bottom - 2,
+                x_pos,
+                bottom - 10,
+                fill=color,
+                outline=color,
+            )
+            label_y = bottom - 18 - (index % 3) * (16 if self.presentation_mode else 14)
+            self.canvas.create_text(
+                x_pos + 5,
+                label_y,
+                text=str(marker.get("label", "Event")),
+                anchor="sw",
+                fill=color,
+                font=self._font("tick"),
+                width=92 if self.presentation_mode else 78,
+            )
 
     def _draw_step_plot(self, payload: object) -> None:
         data = payload  # type: ignore[assignment]
@@ -4334,6 +4639,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
     )
     COMPARISON_PLOT_OPTIONS = (
         "Coolant Temperature Comparison",
+        "Fault and Detection Timeline",
         "Safe-State Comparison",
         "Fan Command / Actual Comparison",
         "Cross-Layer Propagation Timeline",
@@ -10056,14 +10362,21 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         selected_plot = self.comparison_plot_choice.get()
 
         default_help = {
-            "Coolant Temperature Comparison": "Use this figure for the high-level thermal trajectory comparison and threshold crossing story.",
+            "Coolant Temperature Comparison": "Use this figure for the high-level thermal trajectory comparison, threshold crossing story, and available event markers.",
+            "Fault and Detection Timeline": "Use this figure to explain multi-fault propagation with fault starts, detection, ECU DTC, and safe-state markers on the coolant trace.",
             "Safe-State Comparison": "Use this figure to show protection-state escalation timing and end-state severity across campaigns.",
             "Fan Command / Actual Comparison": "Use this figure when permanent actuation faults are present and you want a direct command-versus-realization view.",
             "Cross-Layer Propagation Timeline": "Use this figure to read top-to-bottom from hardware-origin fault to ECU manifestation, diagnostic effect, and safe-state/system effect.",
         }
 
         if selected_plot != "Cross-Layer Propagation Timeline" or self.current_plot_results is None:
-            self.comparison_plot_help_var.set(default_help.get(selected_plot, "Select a comparison plot to inspect the current runs."))
+            help_text = default_help.get(selected_plot, "Select a comparison plot to inspect the current runs.")
+            if selected_plot == "Fault and Detection Timeline" and self.current_plot_results is not None:
+                left_result = self.current_plot_results["left"]  # type: ignore[index]
+                sequence = scenario_event_sequence_label(scenario_events_for_result(left_result))
+                if sequence:
+                    help_text = f"{help_text}\nLeft sequence: {sequence}."
+            self.comparison_plot_help_var.set(help_text)
             return
 
         left_result = self.current_plot_results["left"]  # type: ignore[index]
@@ -11448,14 +11761,21 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         raw_rows = read_csv_rows(log_path)
         summary_rows = read_csv_rows(summary_path)
         validate_result_pair(raw_rows, summary_rows, raw_path=log_path, summary_path=summary_path)
+        scenario_metadata = load_custom_scenario_metadata(log_path)
 
-        return {
+        result = {
             "campaign_id": campaign_id,
             "raw_rows": raw_rows,
             "summary_row": summary_rows[0],
             "log_path": log_path,
             "summary_path": summary_path,
         }
+        if scenario_metadata is not None:
+            result["scenario_metadata"] = scenario_metadata
+            metadata_path = scenario_metadata.get("metadata_path")
+            if isinstance(metadata_path, Path):
+                result["scenario_metadata_path"] = metadata_path
+        return result
 
     def _run_single_campaign(self, campaign_id: str, slot: str) -> Dict[str, object]:
         log_path = campaign_log_path(campaign_id, slot)
@@ -11591,6 +11911,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         summary["campaign_label"] = custom_campaign_label(config)
         result["summary_row"] = summary
         result["custom_config"] = dict(config)
+        result["scenario_metadata"] = load_custom_scenario_metadata(log_path)
         result["scenario_metadata_path"] = metadata_path
         result["detection_algorithm"] = detection_algorithm
         result["detection_action"] = detection_action
@@ -11982,7 +12303,23 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         left_label = self.summary_vars["left"]["Campaign Name"].get()
         right_rows = right_result["raw_rows"] if right_result is not None else None  # type: ignore[assignment]
 
-        if selected_plot == "Coolant Temperature Comparison":
+        if selected_plot in {
+            "Coolant Temperature Comparison",
+            "Fault and Detection Timeline",
+        }:
+            left_events = scenario_events_for_result(left_result)
+            if selected_plot == "Fault and Detection Timeline":
+                if right_result is None:
+                    self.comparison_plot.set_title(
+                        f"Custom Multi-Fault Scenario ({len(left_events)} events)"
+                        if len(left_events) > 1
+                        else "Single Scenario Analysis"
+                    )
+                else:
+                    self.comparison_plot.set_title("Fault and Detection Timeline")
+            elif right_result is None:
+                self.comparison_plot.set_title("Single Scenario Analysis")
+
             coolant_series = [
                 (
                     left_label,
@@ -11992,15 +12329,44 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                     LEFT_DASH,
                 )
             ]
+            event_overlays = result_event_overlays(
+                left_result,
+                color=LEFT_COLOR,
+                dash=LEFT_DASH,
+                run_label=left_label,
+            )
+            evidence_markers = result_evidence_markers(
+                left_result,
+                color=LEFT_COLOR,
+                run_label=left_label,
+                label_prefix="L " if right_rows is not None else "",
+            )
 
             if right_rows is not None:
+                right_label = self.summary_vars["right"]["Campaign Name"].get()
                 coolant_series.append(
                     (
-                        self.summary_vars["right"]["Campaign Name"].get(),
+                        right_label,
                         RIGHT_COLOR,
                         float_series(right_rows, "time_s"),
                         float_series(right_rows, "coolant_temp_true_c"),
                         RIGHT_DASH,
+                    )
+                )
+                event_overlays.extend(
+                    result_event_overlays(
+                        right_result,  # type: ignore[arg-type]
+                        color=RIGHT_COLOR,
+                        dash=RIGHT_DASH,
+                        run_label=right_label,
+                    )
+                )
+                evidence_markers.extend(
+                    result_evidence_markers(
+                        right_result,  # type: ignore[arg-type]
+                        color=RIGHT_COLOR,
+                        run_label=right_label,
+                        label_prefix="R ",
                     )
                 )
 
@@ -12008,6 +12374,8 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                 coolant_series,
                 y_label="Temp [C]",
                 threshold_lines=((108.0, "#8c6b2d", "Warning"), (115.0, "#7b4d57", "Critical")),
+                event_overlays=event_overlays,
+                evidence_markers=evidence_markers,
             )
             return
 
