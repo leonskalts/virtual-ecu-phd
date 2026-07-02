@@ -11,3 +11,12 @@ logs/batch/
 __pycache__/
 .venv/
 .shortcut/
+
+# Local AI assistant / agent working files
+AGENTS.md
+NEXT_SESSION_PROMPT.txt
+MEMORY.md
+CODEX.md
+.codex/
+.agents/
+.memory/
