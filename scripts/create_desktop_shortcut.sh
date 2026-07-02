@@ -8,6 +8,7 @@ LAUNCHER="${PROJECT_ROOT}/scripts/launch_gui.sh"
 PNG_ICON="${PROJECT_ROOT}/assets/fault_path/Virtual_ECU.png"
 ICON_DIR="${PROJECT_ROOT}/.shortcut"
 ICO_ICON="${ICON_DIR}/Virtual_ECU.ico"
+POWERSHELL_LAUNCHER="${ICON_DIR}/Launch_Virtual_ECU.ps1"
 
 cd "${PROJECT_ROOT}"
 
@@ -109,13 +110,45 @@ PY
   return 1
 }
 
-windows_quote_args() {
-  local arg escaped output=""
-  for arg in "$@"; do
-    escaped="${arg//\"/\\\"}"
-    output+=" \"${escaped}\""
-  done
-  printf "%s" "${output# }"
+ps_quote() {
+  local value escaped
+  value="$1"
+  escaped="$(printf "%s" "${value}" | sed "s/'/''/g")"
+  printf "'%s'" "${escaped}"
+}
+
+write_powershell_launcher() {
+  mkdir -p "${ICON_DIR}"
+
+  local distro_line=""
+  if [ -n "${WSL_DISTRO_NAME:-}" ]; then
+    distro_line="    \"-d\", $(ps_quote "${WSL_DISTRO_NAME}"),"
+  fi
+
+  cat > "${POWERSHELL_LAUNCHER}" <<PS1
+\$ErrorActionPreference = "Continue"
+\$Host.UI.RawUI.WindowTitle = "Virtual ECU"
+
+\$wslExe = Join-Path \$env:SystemRoot "System32\\wsl.exe"
+\$wslArgs = @(
+${distro_line}
+    "--cd", $(ps_quote "${PROJECT_ROOT}"),
+    "bash", "-lc", $(ps_quote "bash scripts/launch_gui.sh; code=\$?; echo EXIT_CODE:\$code; if [ \$code -ne 0 ]; then read -p 'Press Enter to close...'; fi; exit \$code")
+)
+
+Write-Host "Launching Virtual ECU Research Explorer..."
+Write-Host "Project root: ${PROJECT_ROOT}"
+Write-Host ""
+
+& \$wslExe @wslArgs
+\$exitCode = \$LASTEXITCODE
+
+Write-Host ""
+Write-Host "EXIT_CODE:\$exitCode"
+if (\$exitCode -ne 0) {
+    Read-Host "Press Enter to close"
+}
+PS1
 }
 
 create_windows_shortcut() {
@@ -129,17 +162,13 @@ create_windows_shortcut() {
     return 1
   fi
 
-  local icon_path="" icon_path_win="" ps_script ps_script_win
+  local icon_path="" icon_path_win="" launcher_win ps_script ps_script_win
   if icon_path="$(prepare_icon)"; then
     icon_path_win="$(wslpath -w "${icon_path}")"
   fi
 
-  local wsl_args
-  if [ -n "${WSL_DISTRO_NAME:-}" ]; then
-    wsl_args="$(windows_quote_args -d "${WSL_DISTRO_NAME}" --cd "${PROJECT_ROOT}" bash -lc "bash scripts/launch_gui.sh")"
-  else
-    wsl_args="$(windows_quote_args --cd "${PROJECT_ROOT}" bash -lc "bash scripts/launch_gui.sh")"
-  fi
+  write_powershell_launcher
+  launcher_win="$(wslpath -w "${POWERSHELL_LAUNCHER}")"
 
   ps_script="$(mktemp --suffix=.ps1)"
   cat > "${ps_script}" <<'PS1'
@@ -148,7 +177,7 @@ param(
     [string]$ShortcutName,
 
     [Parameter(Mandatory=$true)]
-    [string]$LauncherArguments,
+    [string]$LauncherScript,
 
     [string]$IconPath = ""
 )
@@ -164,8 +193,8 @@ $shortcutPath = Join-Path $desktopPath "$ShortcutName.lnk"
 
 $shell = New-Object -ComObject WScript.Shell
 $shortcut = $shell.CreateShortcut($shortcutPath)
-$shortcut.TargetPath = "C:\Windows\System32\wsl.exe"
-$shortcut.Arguments = $LauncherArguments
+$shortcut.TargetPath = "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"
+$shortcut.Arguments = "-NoExit -ExecutionPolicy Bypass -File `"$LauncherScript`""
 $shortcut.WorkingDirectory = [Environment]::GetFolderPath("Desktop")
 $shortcut.Description = "Launch Virtual ECU Research Explorer"
 if ($IconPath -and (Test-Path $IconPath)) {
@@ -190,7 +219,7 @@ PS1
   ps_script_win="$(wslpath -w "${ps_script}")"
   powershell.exe -NoProfile -ExecutionPolicy Bypass -File "${ps_script_win}" \
     -ShortcutName "${APP_NAME}" \
-    -LauncherArguments "${wsl_args}" \
+    -LauncherScript "${launcher_win}" \
     -IconPath "${icon_path_win}"
   rm -f "${ps_script}"
 }
