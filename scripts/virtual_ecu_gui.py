@@ -3268,9 +3268,10 @@ class PlotCanvas(ttk.Frame):
         cluster_gap_px: int = 54,
         min_vertical_spacing: int = 20,
         merge_dense_clusters: bool = False,
-        group_prefix: str = "S",
-    ) -> List[Tuple[str, str]]:
+        group_prefix: str = "G",
+    ) -> Tuple[List[Tuple[str, str]], set[str]]:
         group_key_entries: List[Tuple[str, str]] = []
+        hidden_key_codes: set[str] = set()
         annotations_by_lane: Dict[str, List[Dict[str, object]]] = {}
         for annotation in annotations:
             lane = str(annotation.get("lane", ""))
@@ -3310,6 +3311,7 @@ class PlotCanvas(ttk.Frame):
                 needed_height = max_height + (len(cluster) - 1) * slot_gap
                 should_merge = (
                     merge_dense_clusters
+                    and lane == "system_effect"
                     and len(cluster) >= 2
                     and cluster_span <= cluster_gap_px
                 ) or (
@@ -3326,6 +3328,8 @@ class PlotCanvas(ttk.Frame):
                     for item in cluster:
                         key_code = str(item.get("key_code", item.get("label", ""))).strip()
                         key_label = str(item.get("key_label", "")).strip()
+                        if key_code:
+                            hidden_key_codes.add(key_code)
                         if key_code and key_label:
                             key_parts.append(f"{key_code} {key_label}")
                         elif key_code:
@@ -3334,6 +3338,7 @@ class PlotCanvas(ttk.Frame):
                     first["x_pos"] = sum(float(item.get("x_pos", 0.0)) for item in cluster) / len(cluster)
                     first["marker_x"] = first["x_pos"]
                     first["marker_y"] = sum(float(item.get("marker_y", item.get("y_pos", 0.0))) for item in cluster) / len(cluster)
+                    first["draw_marker"] = any(bool(item.get("draw_marker", False)) for item in cluster)
                     first["connectors"] = [
                         (
                             float(item.get("marker_x", item.get("x_pos", 0.0))),
@@ -3352,9 +3357,15 @@ class PlotCanvas(ttk.Frame):
                     draw_items = [dict(item) for item in cluster]
 
                 center_y = sum(
-                    float(item.get("marker_y", item.get("y_pos", 0.0))) for item in draw_items
+                    float(
+                        item.get(
+                            "preferred_y",
+                            float(item.get("marker_y", item.get("y_pos", 0.0))) - max_height - 8,
+                        )
+                    )
+                    for item in draw_items
                 ) / max(len(draw_items), 1)
-                first_slot_y = center_y - ((len(draw_items) - 1) * slot_gap + max_height) / 2.0
+                first_slot_y = center_y - ((len(draw_items) - 1) * slot_gap) / 2.0
                 first_slot_y = min(
                     max(first_slot_y, available_top),
                     max(available_top, available_bottom - (len(draw_items) - 1) * slot_gap),
@@ -3387,6 +3398,27 @@ class PlotCanvas(ttk.Frame):
 
                     used_boxes.append(box)
                     label_mid_y = candidate_y + height / 2.0
+                    if bool(annotation.get("draw_marker", False)):
+                        marker_size = int(annotation.get("marker_size", 3))
+                        marker_color = str(annotation.get("marker_color", annotation.get("color", "#33404d")))
+                        marker_dash = annotation.get("marker_dash")
+                        self.canvas.create_line(
+                            marker_x,
+                            marker_y - 7,
+                            marker_x,
+                            marker_y + 7,
+                            fill=marker_color,
+                            width=self._line_width(),
+                            dash=marker_dash if isinstance(marker_dash, tuple) else (),
+                        )
+                        self.canvas.create_oval(
+                            marker_x - marker_size,
+                            marker_y - marker_size,
+                            marker_x + marker_size,
+                            marker_y + marker_size,
+                            fill=marker_color,
+                            outline=marker_color,
+                        )
                     connectors = annotation.get("connectors")
                     connector_points = (
                         connectors
@@ -3406,6 +3438,19 @@ class PlotCanvas(ttk.Frame):
                                 dash=(2, 2),
                                 width=1,
                             )
+                    padding = 3
+                    background = (
+                        box[0] - padding,
+                        box[1] - padding,
+                        box[2] + padding,
+                        box[3] + padding,
+                    )
+                    self.canvas.create_rectangle(
+                        *background,
+                        fill="#ffffff",
+                        outline="#d8e0e7",
+                        width=1,
+                    )
                     self.canvas.create_text(
                         label_x,
                         candidate_y,
@@ -3416,7 +3461,7 @@ class PlotCanvas(ttk.Frame):
                         width=width,
                     )
 
-        return group_key_entries
+        return group_key_entries, hidden_key_codes
 
     def _marker_key_lines(
         self,
@@ -3476,6 +3521,92 @@ class PlotCanvas(ttk.Frame):
                 width=max(right - left, 80),
             )
         return 10 + (line_height * len(lines))
+
+    @staticmethod
+    def _marker_key_group(code: str) -> str:
+        if code.startswith("F"):
+            return "Hardware"
+        if code.startswith("ECU"):
+            return "ECU"
+        if code.startswith("D"):
+            return "Diagnostic"
+        return "System"
+
+    def _grouped_marker_key_lines(
+        self,
+        entries: Sequence[Tuple[str, str]],
+        *,
+        available_width: int,
+    ) -> List[str]:
+        if not entries:
+            return []
+        grouped: Dict[str, List[Tuple[str, str]]] = {
+            "Hardware": [],
+            "ECU": [],
+            "Diagnostic": [],
+            "System": [],
+        }
+        seen: set[str] = set()
+        for code, label in entries:
+            if code in seen:
+                continue
+            grouped.setdefault(self._marker_key_group(code), []).append((code, label))
+            seen.add(code)
+
+        max_chars = max(42, int(available_width / (7.7 if self.presentation_mode else 6.8)))
+        lines = ["Marker key:"]
+        for group_name in ("Hardware", "ECU", "Diagnostic", "System"):
+            parts = [f"{code} = {label}" for code, label in grouped.get(group_name, [])]
+            if not parts:
+                continue
+            prefix = f"{group_name}: "
+            current = prefix
+            for part in parts:
+                separator = " | " if current != prefix else ""
+                candidate = f"{current}{separator}{part}"
+                if len(candidate) > max_chars and current != prefix:
+                    lines.append(current.rstrip())
+                    current = f"{' ' * len(prefix)}{part}"
+                else:
+                    current = candidate
+            lines.append(current.rstrip())
+        return lines
+
+    def _grouped_marker_key_height(
+        self,
+        entries: Sequence[Tuple[str, str]],
+        *,
+        available_width: int,
+    ) -> int:
+        lines = self._grouped_marker_key_lines(entries, available_width=available_width)
+        if not lines:
+            return 0
+        line_height = 18 if self.presentation_mode else 16
+        return 10 + line_height * len(lines)
+
+    def _draw_grouped_marker_key(
+        self,
+        entries: Sequence[Tuple[str, str]],
+        *,
+        left: int,
+        top: int,
+        right: int,
+    ) -> int:
+        lines = self._grouped_marker_key_lines(entries, available_width=max(right - left, 80))
+        if not lines:
+            return 0
+        line_height = 18 if self.presentation_mode else 16
+        for index, line in enumerate(lines):
+            self.canvas.create_text(
+                left,
+                top + index * line_height,
+                text=line,
+                anchor="nw",
+                fill="#4e5f70",
+                font=self._font("legend"),
+                width=max(right - left, 80),
+            )
+        return 10 + line_height * len(lines)
 
     def _legend_rows(
         self,
@@ -4354,7 +4485,7 @@ class PlotCanvas(ttk.Frame):
             for index, label in enumerate(labels)
         ]
         legend_height = self._draw_legend(legend_entries, left=128, top=12, right=self._canvas_size()[0] - 24)
-        key_height = self._marker_key_height(marker_key_entries, available_width=self._canvas_size()[0] - 160)
+        key_height = self._grouped_marker_key_height(marker_key_entries, available_width=self._canvas_size()[0] - 160)
         compact_lane_labels = {
             "hardware_origin": "1. Hardware Fault",
             "ecu_manifestation": "2. ECU Manifestation",
@@ -4455,6 +4586,7 @@ class PlotCanvas(ttk.Frame):
                             "y_pos": y_pos,
                             "marker_x": midpoint,
                             "marker_y": y_pos,
+                            "preferred_y": y_pos - (30 if self.presentation_mode else 24),
                             "label": label,
                             "key_code": label,
                             "key_label": item_key_labels.get((report_index, item_index), label),
@@ -4468,23 +4600,6 @@ class PlotCanvas(ttk.Frame):
 
                 x_pos = map_x(float(item.get("time_s", 0.0)))
                 marker_size = 4 if self.presentation_mode else 3
-                self.canvas.create_line(
-                    x_pos,
-                    y_pos - 7,
-                    x_pos,
-                    y_pos + 7,
-                    fill=color,
-                    width=self._line_width(),
-                    dash=dash or (),
-                )
-                self.canvas.create_oval(
-                    x_pos - marker_size,
-                    y_pos - marker_size,
-                    x_pos + marker_size,
-                    y_pos + marker_size,
-                    fill=color,
-                    outline=color,
-                )
                 lane_annotations.append(
                     {
                         "lane": lane,
@@ -4492,6 +4607,7 @@ class PlotCanvas(ttk.Frame):
                         "y_pos": y_pos,
                         "marker_x": x_pos,
                         "marker_y": y_pos,
+                        "preferred_y": y_pos - (28 if self.presentation_mode else 22),
                         "label": label,
                         "key_code": label,
                         "key_label": item_key_labels.get((report_index, item_index), label),
@@ -4499,10 +4615,14 @@ class PlotCanvas(ttk.Frame):
                         "font": "tick",
                         "width": 46 if self.presentation_mode else 38,
                         "height": 18 if self.presentation_mode else 15,
+                        "draw_marker": True,
+                        "marker_color": color,
+                        "marker_dash": dash or (),
+                        "marker_size": marker_size,
                     }
                 )
 
-        group_key_entries = self._draw_lane_annotation_labels(
+        group_key_entries, hidden_key_codes = self._draw_lane_annotation_labels(
             lane_annotations,
             lane_bounds=lane_label_bounds,
             left=left,
@@ -4513,12 +4633,16 @@ class PlotCanvas(ttk.Frame):
             cluster_gap_px=58 if self.presentation_mode else 52,
             min_vertical_spacing=22 if self.presentation_mode else 19,
             merge_dense_clusters=True,
-            group_prefix="S",
+            group_prefix="G",
         )
         if group_key_entries:
-            marker_key_entries = [*marker_key_entries, *group_key_entries]
+            marker_key_entries = [
+                entry for entry in marker_key_entries
+                if entry[0] not in hidden_key_codes
+            ]
+            marker_key_entries.extend(group_key_entries)
 
-        key_drawn_height = self._draw_marker_key(marker_key_entries, left=left, top=bottom + 54, right=right)
+        key_drawn_height = self._draw_grouped_marker_key(marker_key_entries, left=left, top=bottom + 54, right=right)
         self.canvas.create_text(
             left,
             bottom + 62 + key_drawn_height,
