@@ -20,3 +20,6 @@ CODEX.md
 .codex/
 .agents/
 .memory/
+
+# Local Codex file if created as a file instead of a directory
+.codex
