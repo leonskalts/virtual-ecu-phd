@@ -179,7 +179,11 @@ param(
     [Parameter(Mandatory=$true)]
     [string]$LauncherScript,
 
-    [string]$IconPath = ""
+    [string]$PngSource = "",
+
+    [string]$WslIconPath = "",
+
+    [string]$IconSourcePath = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -190,6 +194,13 @@ if (-not $desktopPath) {
 }
 
 $shortcutPath = Join-Path $desktopPath "$ShortcutName.lnk"
+$windowsIconPath = ""
+if ($IconSourcePath -and (Test-Path $IconSourcePath)) {
+    $windowsIconDir = Join-Path $env:LOCALAPPDATA "VirtualECU"
+    New-Item -ItemType Directory -Path $windowsIconDir -Force | Out-Null
+    $windowsIconPath = Join-Path $windowsIconDir "Virtual_ECU_shortcut.ico"
+    Copy-Item -Path $IconSourcePath -Destination $windowsIconPath -Force
+}
 
 $shell = New-Object -ComObject WScript.Shell
 $shortcut = $shell.CreateShortcut($shortcutPath)
@@ -197,8 +208,8 @@ $shortcut.TargetPath = "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.ex
 $shortcut.Arguments = "-NoExit -ExecutionPolicy Bypass -File `"$LauncherScript`""
 $shortcut.WorkingDirectory = [Environment]::GetFolderPath("Desktop")
 $shortcut.Description = "Launch Virtual ECU Research Explorer"
-if ($IconPath -and (Test-Path $IconPath)) {
-    $shortcut.IconLocation = $IconPath
+if ($windowsIconPath -and (Test-Path $windowsIconPath)) {
+    $shortcut.IconLocation = "$windowsIconPath,0"
 }
 $shortcut.Save()
 
@@ -206,13 +217,25 @@ if (-not (Test-Path $shortcutPath)) {
     throw "Shortcut was not created at: $shortcutPath"
 }
 
+$shortcutReadback = $shell.CreateShortcut($shortcutPath)
+Write-Output "PNG source: $PngSource"
+if ($WslIconPath) {
+    Write-Output "WSL ICO: $WslIconPath"
+} else {
+    Write-Output "WSL ICO: unavailable"
+}
+if ($windowsIconPath) {
+    Write-Output "Windows ICO: $windowsIconPath"
+} else {
+    Write-Output "Windows ICO: unavailable"
+}
 Write-Output "Shortcut: $shortcutPath"
 Write-Output "Target: $($shortcut.TargetPath)"
 Write-Output "Arguments: $($shortcut.Arguments)"
-if ($shortcut.IconLocation) {
-    Write-Output "Icon: $($shortcut.IconLocation)"
+if ($shortcutReadback.IconLocation) {
+    Write-Output "IconLocation readback: $($shortcutReadback.IconLocation)"
 } else {
-    Write-Output "Icon: default"
+    Write-Output "IconLocation readback: default"
 }
 PS1
 
@@ -220,7 +243,9 @@ PS1
   powershell.exe -NoProfile -ExecutionPolicy Bypass -File "${ps_script_win}" \
     -ShortcutName "${APP_NAME}" \
     -LauncherScript "${launcher_win}" \
-    -IconPath "${icon_path_win}"
+    -PngSource "${PNG_ICON}" \
+    -WslIconPath "${icon_path}" \
+    -IconSourcePath "${icon_path_win}"
   rm -f "${ps_script}"
 }
 
