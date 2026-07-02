@@ -9,3 +9,4 @@ results/gui_comparison_reports/
 results/gui_snapshots/
 logs/batch/
 __pycache__/
+.venv/

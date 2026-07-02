@@ -139,7 +139,7 @@ APP_NAME = "Virtual ECU Research Explorer"
 APP_CREATOR = "Leonidas Skaltsonis"
 APP_ATTRIBUTION_LINE_1 = "Virtual ECU Research Explorer"
 APP_ATTRIBUTION_LINE_2 = "Created by Leonidas Skaltsonis"
-SIDEBAR_LOGO_PATH = Path("assets/fault_path/Virtual_ECU.png")
+SIDEBAR_LOGO_PATH = PROJECT_ROOT / "assets" / "fault_path" / "Virtual_ECU.png"
 SIDEBAR_LOGO_TARGET_WIDTH_PX = 200
 DEFAULT_SIMULATION_DURATION_MS = 120000
 MIN_SIMULATION_DURATION_MS = 1000
@@ -6346,7 +6346,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         threading.Thread(target=worker, daemon=True).start()
 
     def _load_sidebar_logo_image(self) -> tk.PhotoImage | None:
-        logo_path = PROJECT_ROOT / SIDEBAR_LOGO_PATH
+        logo_path = SIDEBAR_LOGO_PATH
         if not logo_path.exists():
             return None
 

@@ -116,6 +116,22 @@ Example custom fault types:
 make
 ```
 
+## Quick Start for New Machine
+
+```bash
+git clone <repository-url> virtual-ecu-phd
+cd virtual-ecu-phd
+bash scripts/setup_local.sh
+bash scripts/launch_gui.sh
+```
+
+The setup script creates a local `.venv`, installs GUI/script dependencies,
+builds `virtual_ecu`, and ensures `logs/`, `logs/gui_custom/`, `results/`, and
+`presets/` exist. Generated simulator logs are saved under `logs/`; GUI exports,
+figures, and study outputs are saved under `results/`.
+
+More detail is in [INSTALL.md](INSTALL.md).
+
 ## Quick CLI Usage
 
 Run built-in campaigns:
