@@ -29,6 +29,29 @@ bash scripts/launch_gui.sh
 Generated simulator logs are saved under `logs/`. GUI exports, figures, and
 study outputs are saved under `results/`.
 
+## Desktop Shortcut
+
+After running `bash scripts/setup_local.sh`, create a desktop shortcut with:
+
+```bash
+bash scripts/create_desktop_shortcut.sh
+```
+
+On Windows with WSL, this creates a Windows desktop shortcut named
+`Virtual ECU`. Double-clicking it launches the GUI through WSL using
+`scripts/launch_gui.sh`; it does not open VS Code or the project folder.
+
+The script tries to convert `assets/fault_path/Virtual_ECU.png` into a local
+shortcut icon. If icon creation fails, the shortcut is still created with the
+default WSL icon. The shortcut is specific to the current clone location, so if
+you move the project folder, rerun `bash scripts/create_desktop_shortcut.sh`.
+
+On Linux desktops, you can create a `.desktop` launcher with:
+
+```bash
+bash scripts/create_desktop_shortcut.sh --linux
+```
+
 ## Windows
 
 Recommended option: install WSL Ubuntu, clone the repository inside WSL, and

@@ -125,6 +125,12 @@ bash scripts/setup_local.sh
 bash scripts/launch_gui.sh
 ```
 
+Optional desktop shortcut:
+
+```bash
+bash scripts/create_desktop_shortcut.sh
+```
+
 The setup script creates a local `.venv`, installs GUI/script dependencies,
 builds `virtual_ecu`, and ensures `logs/`, `logs/gui_custom/`, `results/`, and
 `presets/` exist. Generated simulator logs are saved under `logs/`; GUI exports,
