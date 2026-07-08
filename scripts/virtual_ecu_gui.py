@@ -141,6 +141,11 @@ APP_ATTRIBUTION_LINE_1 = "Virtual ECU Research Explorer"
 APP_ATTRIBUTION_LINE_2 = "Created by Leonidas Skaltsonis"
 SIDEBAR_LOGO_PATH = PROJECT_ROOT / "assets" / "fault_path" / "Virtual_ECU.png"
 SIDEBAR_LOGO_TARGET_WIDTH_PX = 200
+SIDEBAR_WIDTH_PX = 248
+DEFAULT_WINDOW_SIZE = (1400, 850)
+MINIMUM_WINDOW_SIZE = (960, 640)
+SCREEN_WIDTH_FRACTION = 0.94
+SCREEN_HEIGHT_FRACTION = 0.90
 DEFAULT_SIMULATION_DURATION_MS = 120000
 MIN_SIMULATION_DURATION_MS = 1000
 MAX_SIMULATION_DURATION_MS = 3600000
@@ -4685,10 +4690,94 @@ class ScrollableTabFrame(ttk.Frame):
         self.content.bind("<Leave>", self._unbind_mousewheel)
 
     def _on_content_configure(self, _event: tk.Event[tk.Misc]) -> None:
+        self._sync_content_window_height()
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 
     def _on_canvas_configure(self, event: tk.Event[tk.Misc]) -> None:
         self.canvas.itemconfigure(self._window_id, width=event.width)
+        self._sync_content_window_height()
+
+    def _sync_content_window_height(self) -> None:
+        viewport_height = max(1, self.canvas.winfo_height())
+        content_height = max(self.content.winfo_reqheight(), viewport_height)
+        self.canvas.itemconfigure(self._window_id, height=content_height)
+
+    def _bind_mousewheel(self, _event: tk.Event[tk.Misc]) -> None:
+        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+        self.canvas.bind_all("<Button-4>", self._on_mousewheel_linux)
+        self.canvas.bind_all("<Button-5>", self._on_mousewheel_linux)
+
+    def _unbind_mousewheel(self, _event: tk.Event[tk.Misc]) -> None:
+        self.canvas.unbind_all("<MouseWheel>")
+        self.canvas.unbind_all("<Button-4>")
+        self.canvas.unbind_all("<Button-5>")
+
+    def _on_mousewheel(self, event: tk.Event[tk.Misc]) -> None:
+        if getattr(event, "delta", 0) > 0:
+            self.canvas.yview_scroll(-1, "units")
+        elif getattr(event, "delta", 0) < 0:
+            self.canvas.yview_scroll(1, "units")
+
+    def _on_mousewheel_linux(self, event: tk.Event[tk.Misc]) -> None:
+        button = getattr(event, "num", 0)
+        if button == 4:
+            self.canvas.yview_scroll(-1, "units")
+        elif button == 5:
+            self.canvas.yview_scroll(1, "units")
+
+
+class ScrollableSidebarFrame(tk.Frame):
+    """Fixed-width sidebar shell that keeps navigation reachable on short screens."""
+
+    def __init__(self, master: tk.Misc, *, width: int) -> None:
+        super().__init__(master, width=width, bg=SIDEBAR_BG)
+        self.grid_propagate(False)
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(0, weight=1)
+
+        self.canvas = tk.Canvas(
+            self,
+            background=SIDEBAR_BG,
+            borderwidth=0,
+            highlightthickness=0,
+        )
+        self.canvas.grid(row=0, column=0, sticky="nsew")
+
+        self.scrollbar = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
+        self.scrollbar.grid(row=0, column=1, sticky="ns")
+        self.canvas.configure(yscrollcommand=self.scrollbar.set)
+
+        if CTK_AVAILABLE:
+            self.content = ctk.CTkFrame(  # type: ignore[assignment]
+                self.canvas,
+                fg_color=SIDEBAR_BG,
+                corner_radius=0,
+                border_width=0,
+            )
+        else:
+            self.content = tk.Frame(self.canvas, bg=SIDEBAR_BG)
+        self.content.columnconfigure(0, weight=1)
+        self._window_id = self.canvas.create_window((0, 0), window=self.content, anchor="nw")
+
+        self.content.bind("<Configure>", self._on_content_configure)
+        self.canvas.bind("<Configure>", self._on_canvas_configure)
+        self.canvas.bind("<Enter>", self._bind_mousewheel)
+        self.canvas.bind("<Leave>", self._unbind_mousewheel)
+        self.content.bind("<Enter>", self._bind_mousewheel)
+        self.content.bind("<Leave>", self._unbind_mousewheel)
+
+    def _on_content_configure(self, _event: tk.Event[tk.Misc]) -> None:
+        self._sync_content_window_height()
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+
+    def _on_canvas_configure(self, event: tk.Event[tk.Misc]) -> None:
+        self.canvas.itemconfigure(self._window_id, width=event.width)
+        self._sync_content_window_height()
+
+    def _sync_content_window_height(self) -> None:
+        viewport_height = max(1, self.canvas.winfo_height())
+        content_height = max(self.content.winfo_reqheight(), viewport_height)
+        self.canvas.itemconfigure(self._window_id, height=content_height)
 
     def _bind_mousewheel(self, _event: tk.Event[tk.Misc]) -> None:
         self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
@@ -5537,8 +5626,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             ctk.set_default_color_theme("blue")
         super().__init__()
         self.title("Virtual ECU Research GUI")
-        self.geometry("1360x1020")
-        self.minsize(1180, 920)
+        self._apply_screen_aware_window_size()
 
         self.executable = detect_executable()
         self.left_campaign = tk.StringVar(value="baseline")
@@ -5725,6 +5813,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.page_frames: Dict[str, tk.Widget] = {}
         self.page_labels: Dict[str, str] = {}
         self.sidebar_buttons: Dict[str, tk.Widget] = {}
+        self.sidebar_shell: ScrollableSidebarFrame | None = None
         self.sidebar_logo_image: tk.PhotoImage | None = None
         self.sidebar_activity_frame: tk.Widget | None = None
         self.sidebar_activity_title_label: tk.Widget | None = None
@@ -5783,6 +5872,31 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         if DEFAULT_BATCH_AGGREGATE_CSV.exists():
             self.load_batch_results(update_activity=False)
         self.after(0, self._maybe_auto_restore_session)
+
+    def _apply_screen_aware_window_size(self) -> None:
+        screen_width = max(1, self.winfo_screenwidth())
+        screen_height = max(1, self.winfo_screenheight())
+
+        default_width, default_height = DEFAULT_WINDOW_SIZE
+        min_width, min_height = MINIMUM_WINDOW_SIZE
+
+        usable_width = max(1, int(screen_width * SCREEN_WIDTH_FRACTION))
+        usable_height = max(1, int(screen_height * SCREEN_HEIGHT_FRACTION))
+        window_width = min(default_width, usable_width)
+        window_height = min(default_height, usable_height)
+
+        window_width = max(min_width, window_width)
+        window_height = max(min_height, window_height)
+        window_width = min(window_width, screen_width)
+        window_height = min(window_height, screen_height)
+
+        minsize_width = min(min_width, screen_width)
+        minsize_height = min(min_height, screen_height)
+        self.minsize(minsize_width, minsize_height)
+
+        x_pos = max(0, (screen_width - window_width) // 2)
+        y_pos = max(0, (screen_height - window_height) // 2)
+        self.geometry(f"{window_width}x{window_height}+{x_pos}+{y_pos}")
 
     def _configure_style(self) -> None:
         style = ttk.Style(self)
@@ -5993,12 +6107,10 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self._set_active_nav("dashboard")
 
     def _build_sidebar(self) -> None:
-        if CTK_AVAILABLE:
-            sidebar = ctk.CTkFrame(self, width=248, corner_radius=0, fg_color=SIDEBAR_BG)
-        else:
-            sidebar = tk.Frame(self, width=248, bg=SIDEBAR_BG)
-        sidebar.grid(row=0, column=0, sticky="ns")
-        sidebar.grid_propagate(False)
+        sidebar_shell = ScrollableSidebarFrame(self, width=SIDEBAR_WIDTH_PX)
+        sidebar_shell.grid(row=0, column=0, sticky="ns")
+        self.sidebar_shell = sidebar_shell
+        sidebar = sidebar_shell.content
         sidebar.columnconfigure(0, weight=1)
 
         if CTK_AVAILABLE:
