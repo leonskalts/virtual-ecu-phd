@@ -21,6 +21,9 @@ static float clamp_unit(float value)
 void control_init(ecu_state_t *state)
 {
     /* Conservative initial commands avoid aggressive cooling during warm-up. */
+    state->control.nominal_control_target_c = ECU_TARGET_COOLANT_TEMP_C;
+    state->control.active_control_target_c = ECU_TARGET_COOLANT_TEMP_C;
+    state->control.control_target_deviation_c = 0.0f;
     state->control.pump_command = 0.25f;
     state->control.fan_command = 0.0f;
 }
@@ -48,6 +51,11 @@ void control_step(ecu_state_t *state)
             &effective_target_c
         );
     }
+
+    state->control.nominal_control_target_c = ECU_TARGET_COOLANT_TEMP_C;
+    state->control.active_control_target_c = effective_target_c;
+    state->control.control_target_deviation_c =
+        effective_target_c - ECU_TARGET_COOLANT_TEMP_C;
 
     temp_error = state->sensors.coolant_temp_meas_c - effective_target_c;
 

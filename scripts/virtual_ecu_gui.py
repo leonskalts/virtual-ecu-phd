@@ -308,7 +308,7 @@ DETECTION_ALGORITHM_OPTIONS: Sequence[Tuple[str, str, str]] = (
     (
         "Hybrid Adaptive Kalman",
         "hybrid_adaptive_kalman",
-        "Experimental hybrid detector with bounded fast/persistent evidence plus adaptive Kalman support.",
+        "Experimental hybrid detector with bounded fast/persistent, calibration-integrity, and adaptive Kalman evidence.",
     ),
 )
 DETECTION_ALGORITHM_NAMES = {

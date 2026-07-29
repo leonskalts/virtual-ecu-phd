@@ -166,6 +166,9 @@ typedef struct {
 } sensor_data_t;
 
 typedef struct {
+    float nominal_control_target_c;
+    float active_control_target_c;
+    float control_target_deviation_c;
     float pump_command;
     float fan_command;
 } control_output_t;

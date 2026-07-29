@@ -100,6 +100,7 @@ int logger_open(ecu_state_t *state, const char *path)
         "coolant_sensor_expected_period_ms,coolant_sensor_freshness_score,"
         "coolant_sensor_freshness_ok,"
         "radiator_temp_true_c,radiator_temp_meas_c,"
+        "nominal_control_target_c,active_control_target_c,control_target_deviation_c,"
         "pump_command,pump_actual,pump_tracking_error,"
         "fan_command,fan_actual,fan_tracking_error,"
         "fan_driver_feedback_ok,fan_rotation_feedback_ok,fan_current_feedback_ok,"
@@ -190,6 +191,7 @@ void logger_write(ecu_state_t *state)
         ",%.2f,%.2f,%.2f"
         ",%u,%u,%u,%.3f,%d"
         ",%.2f,%.2f"
+        ",%.2f,%.2f,%.2f"
         ",%.3f,%.3f,%.3f"
         ",%.3f,%.3f,%.3f"
         ",%d,%d,%d,%.3f,%u,%d"
@@ -210,6 +212,9 @@ void logger_write(ecu_state_t *state)
         state->sensors.coolant_sensor_freshness_ok ? 1 : 0,
         state->plant.radiator_temp_true_c,
         state->sensors.radiator_temp_meas_c,
+        state->control.nominal_control_target_c,
+        state->control.active_control_target_c,
+        state->control.control_target_deviation_c,
         state->control.pump_command,
         state->actuators.pump_actual,
         state->control.pump_command - state->actuators.pump_actual,

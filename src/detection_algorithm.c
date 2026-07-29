@@ -108,6 +108,11 @@
 #define HYBRID_KALMAN_FAN_HEALTH_SCORE_WEIGHT 1.050f
 #define HYBRID_KALMAN_FAN_HEALTH_SCORE_MAX 1.100f
 #define HYBRID_KALMAN_FAN_HEALTH_MEDIUM_SCORE 0.950f
+#define HYBRID_KALMAN_CALIBRATION_DEVIATION_START_C 4.000f
+#define HYBRID_KALMAN_CALIBRATION_STRONG_DEVIATION_C 12.000f
+#define HYBRID_KALMAN_CALIBRATION_SCORE_MAX 1.200f
+#define HYBRID_KALMAN_CALIBRATION_RESPONSE_SUPPORT_SCORE 0.500f
+#define HYBRID_KALMAN_CALIBRATION_MEDIUM_SCORE 0.950f
 #define HYBRID_KALMAN_CONFIRM_SCORE 0.950f
 #define HYBRID_KALMAN_WEAK_SCORE 0.900f
 #define HYBRID_KALMAN_MEDIUM_CONFIRM_SAMPLES 2U
@@ -318,6 +323,33 @@ static float hybrid_kalman_sensor_score(const ecu_state_t *state)
     ) / THRESHOLD_COOLANT_SENSOR_RESIDUAL_C;
 }
 
+static float hybrid_kalman_control_response_score(const ecu_state_t *state)
+{
+    const float coolant_temp_c = state->sensors.coolant_temp_meas_c;
+    const float temp_error_c =
+        coolant_temp_c - state->control.nominal_control_target_c;
+    const float speed_term = state->sensors.vehicle_speed_meas_kph / 200.0f;
+    const float nominal_pump_command = clamp_unit(
+        0.30f +
+        (0.025f * temp_error_c) +
+        (0.35f * state->plant.engine_load)
+    );
+    const float nominal_fan_command = clamp_unit(
+        0.25f +
+        (0.065f * temp_error_c) -
+        (0.10f * speed_term)
+    );
+    const float pump_response_score =
+        abs_float(nominal_pump_command - state->control.pump_command) /
+        THRESHOLD_PUMP_TRACKING_ERROR;
+    const float fan_response_score =
+        abs_float(nominal_fan_command - state->control.fan_command) /
+        THRESHOLD_FAN_TRACKING_ERROR;
+
+    return (pump_response_score > fan_response_score) ?
+        pump_response_score : fan_response_score;
+}
+
 static float hybrid_kalman_context_multiplier(float context_severity)
 {
     return clamp_range(
@@ -505,6 +537,7 @@ static void kalman_filter_step(
             bool hybrid_fast_alarm = false;
             bool hybrid_medium_evidence = false;
             bool hybrid_sensor_fast_alarm = false;
+            bool hybrid_calibration_integrity_alarm = false;
             unsigned int required_samples;
 
             combined_score =
@@ -565,6 +598,8 @@ static void kalman_filter_step(
                 float pump_memory_score;
                 bool hybrid_thermal_evidence = false;
                 bool hybrid_pump_memory_evidence = false;
+                bool hybrid_calibration_integrity_evidence = false;
+                bool hybrid_calibration_integrity_dominant = false;
 
                 hybrid_fast_alarm =
                     hybrid_fast_score >= HYBRID_KALMAN_FAST_STRONG_SCORE &&
@@ -602,6 +637,44 @@ static void kalman_filter_step(
                     pump_memory_score >=
                         HYBRID_KALMAN_PUMP_MEMORY_MEDIUM_SCORE &&
                     (kalman_support || trend_support || context_support);
+
+                {
+                    const float calibration_deviation_c = abs_float(
+                        state->control.control_target_deviation_c
+                    );
+                    const float calibration_integrity_score = clamp_range(
+                        calibration_deviation_c /
+                            HYBRID_KALMAN_CALIBRATION_STRONG_DEVIATION_C,
+                        0.0f,
+                        HYBRID_KALMAN_CALIBRATION_SCORE_MAX
+                    );
+                    const float control_response_score =
+                        hybrid_kalman_control_response_score(state);
+                    const bool calibration_support =
+                        control_response_score >=
+                            HYBRID_KALMAN_CALIBRATION_RESPONSE_SUPPORT_SCORE ||
+                        kalman_support ||
+                        trend_support;
+
+                    hybrid_calibration_integrity_evidence =
+                        calibration_deviation_c >=
+                            HYBRID_KALMAN_CALIBRATION_DEVIATION_START_C &&
+                        calibration_support;
+                    hybrid_calibration_integrity_alarm =
+                        calibration_deviation_c >=
+                            HYBRID_KALMAN_CALIBRATION_STRONG_DEVIATION_C &&
+                        hybrid_calibration_integrity_evidence;
+
+                    if (hybrid_calibration_integrity_evidence &&
+                        calibration_integrity_score > combined_score) {
+                        combined_score = calibration_integrity_score;
+                        hybrid_calibration_integrity_dominant = true;
+                        if (calibration_integrity_score >=
+                            HYBRID_KALMAN_CALIBRATION_MEDIUM_SCORE) {
+                            hybrid_medium_evidence = true;
+                        }
+                    }
+                }
 
                 detector->thermal_observer_accumulated_mismatch_c =
                     max_zero(
@@ -654,7 +727,15 @@ static void kalman_filter_step(
                     hybrid_medium_evidence = true;
                 }
 
-                if (hybrid_fast_alarm || hybrid_sensor_fast_alarm) {
+                if (hybrid_calibration_integrity_dominant ||
+                    hybrid_calibration_integrity_alarm) {
+                    snprintf(
+                        detector->runtime_label,
+                        sizeof(detector->runtime_label),
+                        "%s",
+                        "hybrid_adaptive_kalman_calibration_integrity"
+                    );
+                } else if (hybrid_fast_alarm || hybrid_sensor_fast_alarm) {
                     combined_score = (combined_score > hybrid_fast_score) ?
                         combined_score : hybrid_fast_score;
                     if (!hybrid_sensor_fast_alarm &&
@@ -727,7 +808,8 @@ static void kalman_filter_step(
                     thermal_observer_expected_delta(state);
             }
 
-            if (hybrid_fast_alarm ||
+            if (hybrid_calibration_integrity_alarm ||
+                hybrid_fast_alarm ||
                 hybrid_sensor_fast_alarm ||
                 combined_score >= ADAPTIVE_KALMAN_STRONG_SCORE ||
                 actuator_score >= 1.0f ||
@@ -759,6 +841,7 @@ static void kalman_filter_step(
             detector->current_score = combined_score;
             detector->alarm_active =
                 raw_kalman_alarm ||
+                hybrid_calibration_integrity_alarm ||
                 hybrid_fast_alarm ||
                 hybrid_sensor_fast_alarm ||
                 (

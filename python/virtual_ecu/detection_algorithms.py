@@ -139,6 +139,11 @@ HYBRID_KALMAN_FRESHNESS_MEDIUM_SCORE = 0.950
 HYBRID_KALMAN_FAN_HEALTH_SCORE_WEIGHT = 1.050
 HYBRID_KALMAN_FAN_HEALTH_SCORE_MAX = 1.100
 HYBRID_KALMAN_FAN_HEALTH_MEDIUM_SCORE = 0.950
+HYBRID_KALMAN_CALIBRATION_DEVIATION_START_C = 4.000
+HYBRID_KALMAN_CALIBRATION_STRONG_DEVIATION_C = 12.000
+HYBRID_KALMAN_CALIBRATION_SCORE_MAX = 1.200
+HYBRID_KALMAN_CALIBRATION_RESPONSE_SUPPORT_SCORE = 0.500
+HYBRID_KALMAN_CALIBRATION_MEDIUM_SCORE = 0.950
 HYBRID_KALMAN_CONFIRM_SCORE = 0.950
 HYBRID_KALMAN_WEAK_SCORE = 0.900
 HYBRID_KALMAN_MEDIUM_CONFIRM_SAMPLES = 2
@@ -350,6 +355,54 @@ def hybrid_kalman_sensor_score(row: Dict[str, str]) -> float:
     return abs(parse_float(row, "coolant_sensor_residual_c")) / THRESHOLD_LIMITS[
         "coolant_sensor_residual_c"
     ]
+
+
+def hybrid_kalman_control_response_score(row: Dict[str, str]) -> float:
+    coolant_temp_c = parse_float(row, "coolant_temp_meas_c")
+    nominal_target_c = parse_float(
+        row,
+        "nominal_control_target_c",
+        THERMAL_OBSERVER_TARGET_COOLANT_C,
+    )
+    temp_error_c = coolant_temp_c - nominal_target_c
+    vehicle_speed_kph = parse_float(row, "vehicle_speed_kph")
+    nominal_pump_command = clamp_unit(
+        0.30
+        + (0.025 * temp_error_c)
+        + (0.35 * parse_float(row, "engine_load"))
+    )
+    nominal_fan_command = clamp_unit(
+        0.25
+        + (0.065 * temp_error_c)
+        - (0.10 * (vehicle_speed_kph / 200.0))
+    )
+    pump_response_score = abs(
+        nominal_pump_command - parse_float(row, "pump_command")
+    ) / THRESHOLD_LIMITS["pump_tracking_error"]
+    fan_response_score = abs(
+        nominal_fan_command - parse_float(row, "fan_command")
+    ) / THRESHOLD_LIMITS["fan_tracking_error"]
+    return max(pump_response_score, fan_response_score)
+
+
+def control_target_deviation_c(row: Dict[str, str]) -> float:
+    nominal_target_c = parse_float(
+        row,
+        "nominal_control_target_c",
+        THERMAL_OBSERVER_TARGET_COOLANT_C,
+    )
+    active_target_c = parse_float(
+        row,
+        "active_control_target_c",
+        nominal_target_c,
+    )
+    return abs(
+        parse_float(
+            row,
+            "control_target_deviation_c",
+            active_target_c - nominal_target_c,
+        )
+    )
 
 
 def coolant_sensor_freshness_score(row: Dict[str, str]) -> float:
@@ -568,6 +621,7 @@ def detector_alarms(rows: Sequence[Dict[str, str]], algorithm_name: str) -> List
                 hybrid_fast_alarm = False
                 hybrid_sensor_fast_alarm = False
                 hybrid_medium_evidence = False
+                hybrid_calibration_integrity_alarm = False
                 if algorithm_name == "hybrid_adaptive_kalman":
                     pump_tracking_residual = abs(
                         parse_float(row, "pump_tracking_error")
@@ -614,6 +668,44 @@ def detector_alarms(rows: Sequence[Dict[str, str]], algorithm_name: str) -> List
                     fast_support = (
                         kalman_support or trend_support or context_support
                     )
+                    calibration_deviation_c = control_target_deviation_c(row)
+                    calibration_integrity_score = max(
+                        0.0,
+                        min(
+                            HYBRID_KALMAN_CALIBRATION_SCORE_MAX,
+                            calibration_deviation_c
+                            / HYBRID_KALMAN_CALIBRATION_STRONG_DEVIATION_C,
+                        ),
+                    )
+                    control_response_score = (
+                        hybrid_kalman_control_response_score(row)
+                    )
+                    calibration_support = (
+                        control_response_score
+                        >= HYBRID_KALMAN_CALIBRATION_RESPONSE_SUPPORT_SCORE
+                        or kalman_support
+                        or trend_support
+                    )
+                    hybrid_calibration_integrity_evidence = (
+                        calibration_deviation_c
+                        >= HYBRID_KALMAN_CALIBRATION_DEVIATION_START_C
+                        and calibration_support
+                    )
+                    hybrid_calibration_integrity_alarm = (
+                        calibration_deviation_c
+                        >= HYBRID_KALMAN_CALIBRATION_STRONG_DEVIATION_C
+                        and hybrid_calibration_integrity_evidence
+                    )
+                    if (
+                        hybrid_calibration_integrity_evidence
+                        and calibration_integrity_score > combined_score
+                    ):
+                        combined_score = calibration_integrity_score
+                        if (
+                            calibration_integrity_score
+                            >= HYBRID_KALMAN_CALIBRATION_MEDIUM_SCORE
+                        ):
+                            hybrid_medium_evidence = True
                     hybrid_fast_alarm = (
                         hybrid_fast_score >= HYBRID_KALMAN_FAST_STRONG_SCORE
                         and fast_support
@@ -718,7 +810,8 @@ def detector_alarms(rows: Sequence[Dict[str, str]], algorithm_name: str) -> List
                     )
                     thermal_expected_delta_c = thermal_observer_expected_delta(row)
                 if (
-                    hybrid_fast_alarm
+                    hybrid_calibration_integrity_alarm
+                    or hybrid_fast_alarm
                     or hybrid_sensor_fast_alarm
                     or combined_score >= ADAPTIVE_KALMAN_STRONG_SCORE
                     or actuator_score >= 1.0
@@ -750,6 +843,7 @@ def detector_alarms(rows: Sequence[Dict[str, str]], algorithm_name: str) -> List
                     confirmation_count = 0
                 alarms.append(
                     raw_alarm
+                    or hybrid_calibration_integrity_alarm
                     or hybrid_fast_alarm
                     or hybrid_sensor_fast_alarm
                     or confirmation_count >= required_samples

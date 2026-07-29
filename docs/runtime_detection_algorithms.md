@@ -210,6 +210,16 @@ bounded and can only contribute as medium hybrid evidence when Kalman, trend,
 or high-context support is already present; pump memory alone cannot trigger
 detection.
 
+The Hybrid detector also monitors the ECU-visible active coolant-control target
+against its nominal configured value. A bounded calibration-integrity score is
+eligible only when the target deviation is at least 4.0 C and has independent
+support from nominal cooling-command inconsistency, Kalman innovation, or the
+existing gated coolant trend. A deviation of at least 12.0 C can confirm in one
+sample only when that support is present. Calibration deviation alone below
+that clearly abnormal envelope cannot trigger an alarm. The corresponding CSV
+telemetry is `nominal_control_target_c`, `active_control_target_c`, and
+`control_target_deviation_c`.
+
 Coolant sensor freshness and fan actuator health are fused into the same
 hybrid confidence score. A stale freshness signal or failed fan health signal
 can provide bounded evidence and must pass the same dynamic confirmation path;
@@ -221,6 +231,7 @@ Hybrid runtime labels describe the dominant evidence:
 `hybrid_adaptive_kalman_contextual_innovation`,
 `hybrid_adaptive_kalman_sensor_freshness_fusion`,
 `hybrid_adaptive_kalman_fan_feedback_fusion`,
+`hybrid_adaptive_kalman_calibration_integrity`,
 `hybrid_adaptive_kalman_thermal_mismatch_evidence`,
 `hybrid_adaptive_kalman_contextual_thermal_fusion`, or
 `hybrid_adaptive_kalman_multi_signal_evidence`.
@@ -228,7 +239,8 @@ Hybrid runtime labels describe the dominant evidence:
 The hybrid detector is intended for comparative experiments about latency and
 robustness tradeoffs. It remains deterministic and scenario-blind: it does not
 read fault type, scenario ID, fault start time, fault duration, injected-fault
-state, or ground-truth labels.
+state, RTL target/type, Trojan trigger state, multi-stage status, or
+ground-truth labels.
 
 ## Terminal Use
 
