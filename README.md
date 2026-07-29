@@ -208,9 +208,10 @@ More detail is in [docs/driving_environment_profiles.md](docs/driving_environmen
 ## RTL Hardware Trojan Security Study
 
 The optional security study contains separate clean and Trojan-infected
-Verilog interfaces for the coolant sensor and fan driver. Both infected RTL
-modules have explicit trigger and payload logic; neither is a renaming of the
-C fault-injection campaigns.
+Verilog interfaces for the coolant sensor, fan driver, and calibration memory.
+HT3 shifts the cooling-target calibration after an RTL counter trigger. All
+three infected modules have explicit trigger and payload logic; none is a
+renaming of the C fault-injection campaigns.
 
 ```bash
 make rtl-trojan-study
@@ -221,9 +222,10 @@ detectors, and isolated outputs are written under
 `results/rtl_hardware_trojan_study_v1/`. Verilator is required only for this
 study, not for normal builds or GUI use.
 
-The GUI provides a small **Security / RTL Analysis** page with a target
-selector, run action, and results-folder shortcut. It remains separate from
-the reliability/safety **Custom Faults** workflow.
+The GUI provides a small **Security / RTL Analysis** page with all three target
+choices, a run action, and a results-folder shortcut. It remains separate from
+the reliability/safety **Custom Faults** workflow. Verilator is not invoked
+during ordinary GUI use.
 
 See [docs/rtl_hardware_trojan_model.md](docs/rtl_hardware_trojan_model.md) for
 the RTL scaling, trigger, payload, integration boundary, and claim limits.

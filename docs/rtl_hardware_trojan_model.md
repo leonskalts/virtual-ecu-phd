@@ -6,16 +6,19 @@ This extension adds an actual RTL-level Hardware Trojan experiment path to the
 Virtual ECU Research Explorer. It does not rename, wrap, or replace the
 existing C-level fault-injection campaigns.
 
-Phase 2 provides two isolated trigger-payload RTL targets:
+The security extension provides three isolated trigger-payload RTL targets:
 
 - **HT1 — Coolant Sensor Interface Trojan**
 - **HT2 — Fan Driver Interface Trojan**
+- **HT3 — Calibration Memory / Control Parameter Interface Trojan**
 
 ```text
 nominal thermal trace
         +-> HT1 coolant RTL -> ECU-facing sensor trace --+
         |                                                 |
-        +-> HT2 fan RTL ----> realized fan trace ----------+-> unchanged
+        +-> HT2 fan RTL ----> realized fan trace ----------+
+        |                                                 |
+        +-> HT3 calibration RTL -> control-target trace ---+-> unchanged
                                                             Virtual ECU
                                                             detectors and GUI
 ```
@@ -34,6 +37,12 @@ The HT2 Verilog modules and wrapper are:
 - `rtl/security/fan_driver_interface_clean.v`
 - `rtl/security/fan_driver_interface_trojan.v`
 - `sim/security/fan_driver_interface_tb.v`
+
+The HT3 Verilog modules and wrapper are:
+
+- `rtl/security/calibration_memory_interface_clean.v`
+- `rtl/security/calibration_memory_interface_trojan.v`
+- `sim/security/calibration_memory_interface_tb.v`
 
 ## HT1 — Coolant Sensor Interface Trojan
 
@@ -146,6 +155,54 @@ The runtime consequence is a command-versus-realized fan mismatch. Existing
 actuator feedback, diagnostics, and runtime detectors observe that consequence
 through their normal signals, not through an attack label.
 
+## HT3 — Calibration Memory / Control Parameter Interface Trojan
+
+### Target path and scaling
+
+HT3 models the calibration/configuration memory path that supplies the existing
+coolant-control target. It uses the same signed 16-bit deci-degrees Celsius
+representation as HT1:
+
+```text
+rtl_value = control_target_celsius * 10
+```
+
+The nominal `92.0 C` target is therefore `920`. The clean module registers and
+forwards `calibration_in` as `calibration_out`. The infected module has the same
+one-cycle interface latency before activation.
+
+### Trigger logic
+
+The infected module contains an internal warm-up counter. With the default
+`TRIGGER_CYCLES = 521`, the counter advances once for each 100 ms calibration
+sample and activates on the sample at `52000 ms`. On activation,
+`trojan_triggered` and `payload_active` latch until reset.
+
+This trigger is implemented entirely in
+`calibration_memory_interface_trojan.v`; the C simulator does not generate an
+attack flag or decide when it activates.
+
+### Payload logic and runtime effect
+
+The payload adds the bounded `PAYLOAD_OFFSET = 160`, corresponding to
+`+16.0 C`, to the stored cooling target:
+
+```text
+trojan_calibration_value = calibration_in + 160
+```
+
+For the nominal input this changes `92.0 C` to `108.0 C`, delaying ordinary
+cooling demand. The module exposes `trigger_counter`,
+`clean_calibration_value`, and `trojan_calibration_value` together with the
+trigger and payload flags. Those fields are recorded only in the direct RTL
+trace and used after replay for reporting and latency calculation.
+
+This differs from the ordinary C-level
+`calibration_memory_corruption` reliability fault: the security study runs the
+baseline campaign, obtains the modified value from an explicit Verilog
+trigger-payload module, and supplies only that value at the control boundary.
+The runtime detectors never receive the RTL debug/status fields.
+
 ## Verilator and trace-driven integration
 
 Run the complete study with:
@@ -160,16 +217,17 @@ or:
 python3 scripts/run_rtl_hardware_trojan_study.py
 ```
 
-The script defaults to both targets. A single target can be selected with
-`--target coolant_sensor` or `--target fan_driver`.
+The script defaults to all targets. A single target can be selected with
+`--target coolant_sensor`, `--target fan_driver`, or
+`--target calibration_memory`; `--target all` runs all three.
 
 The script:
 
 1. runs a nominal Virtual ECU thermal sequence;
-2. converts coolant samples to deci-degrees Celsius and fan commands to
-   thousandths of full scale;
-3. builds and simulates both clean/infected RTL interface pairs with Verilator;
-4. writes direct clean-versus-Trojan traces for HT1 and HT2;
+2. converts coolant and calibration values to deci-degrees Celsius and fan
+   commands to thousandths of full scale;
+3. builds and simulates each clean/infected RTL interface pair with Verilator;
+4. writes direct clean-versus-Trojan traces for HT1, HT2, and HT3;
 5. replays each RTL output through the existing Virtual ECU with every existing
    detector in `observe_only` mode; and
 6. writes isolated security-study artifacts under
@@ -235,6 +293,32 @@ Samples start at 0 ms, use the 100 ms actuator period, remain within
 fan value after ordinary actuator processing. Without the option, normal
 control, fault injection, logging, and detector behavior are unchanged.
 
+### HT3 calibration replay
+
+HT3 uses an explicit opt-in control-parameter trace:
+
+```bash
+./virtual_ecu logs/example.csv baseline \
+  --calibration-trace path/to/trace.csv \
+  --detector hybrid_adaptive_kalman \
+  --detector-action observe_only
+```
+
+The trace schema is:
+
+```csv
+time_ms,control_target_c
+0,92.0
+100,92.0
+```
+
+Samples start at 0 ms, use the 100 ms control period, stay within
+`60.0..130.0 C`, and cover the full run. When explicitly supplied, the trace
+replaces only the effective coolant-control target after ordinary C-level
+fault processing. The RTL study uses the baseline campaign and does not combine
+the replay with a C-level calibration fault. Without `--calibration-trace`,
+normal control behavior is byte-for-byte unchanged.
+
 ### GUI entry point
 
 The GUI page named **Security / RTL Analysis** provides a target selector,
@@ -258,6 +342,11 @@ The generated directory contains:
   clean output, infected output, trigger state, payload state, and counter;
 - `virtual_ecu_clean_fan_actual_trace.csv` and
   `virtual_ecu_trojan_fan_actual_trace.csv`: HT2 replay inputs;
+- `rtl_calibration_memory_trojan_trace.csv`: direct HT3 calibration input,
+  clean output, infected output, trigger state, payload state, counter, and
+  debug values;
+- `virtual_ecu_clean_calibration_trace.csv` and
+  `virtual_ecu_trojan_calibration_trace.csv`: HT3 replay inputs;
 - `detector_comparison.csv`: clean and infected outcomes for all existing
   detectors, with RTL security metadata;
 - `attack_taxonomy_table.csv`: target, trigger, payload, and evaluation scope;
@@ -284,9 +373,9 @@ reference and separately reports post-payload detection.
 ## Limitations
 
 - This version is deterministic and trace-driven. The RTL consumes prerecorded
-  nominal coolant/fan-command inputs; the Virtual ECU replay is not a
-  bidirectional cycle-by-cycle plant/RTL co-simulation.
-- The two payloads and triggers are configured examples, not a representative
+  nominal coolant, fan-command, and calibration inputs; the Virtual ECU replay
+  is not a bidirectional cycle-by-cycle plant/RTL co-simulation.
+- The three payloads and triggers are configured examples, not a representative
   sample of all Hardware Trojan designs.
 - Detection results apply only to this simulation, detector calibration, input
   trace, trigger, and payload.

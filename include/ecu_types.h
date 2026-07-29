@@ -130,6 +130,18 @@ typedef struct {
 } fan_actual_trace_t;
 
 typedef struct {
+    unsigned int time_ms;
+    float control_target_c;
+} calibration_trace_sample_t;
+
+typedef struct {
+    bool enabled;
+    char source_path[ECU_PATH_BUFFER_SIZE];
+    calibration_trace_sample_t *samples;
+    unsigned int sample_count;
+} calibration_trace_t;
+
+typedef struct {
     scenario_phase_t scenario_phase;
     float ambient_temp_c;
     float engine_load;
@@ -258,6 +270,7 @@ typedef struct ecu_state {
     simulation_config_t simulation;
     coolant_sensor_trace_t coolant_sensor_trace;
     fan_actual_trace_t fan_actual_trace;
+    calibration_trace_t calibration_trace;
     fault_state_t faults;
     experiment_metrics_t metrics;
     detection_algorithm_state_t detection;

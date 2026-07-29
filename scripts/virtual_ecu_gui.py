@@ -97,10 +97,12 @@ RTL_SECURITY_STUDY_SCRIPT = (
 RTL_SECURITY_TARGET_OPTIONS = (
     "Coolant Sensor Interface",
     "Fan Driver Interface",
+    "Calibration Memory Interface",
 )
 RTL_SECURITY_TARGET_IDS = {
     "Coolant Sensor Interface": "coolant_sensor",
     "Fan Driver Interface": "fan_driver",
+    "Calibration Memory Interface": "calibration_memory",
 }
 RUNTIME_STUDY_SOURCE_OPTIONS = (
     "Predefined runtime intervention study",
@@ -9140,7 +9142,8 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             title="Security / RTL Analysis",
             description=(
                 "This section evaluates RTL-level trigger-payload security "
-                "modules inserted into Virtual ECU sensor/actuator interfaces."
+                "modules inserted into Virtual ECU sensor, actuator, and "
+                "calibration interfaces."
             ),
         )
 

@@ -55,6 +55,8 @@ COMPARISON_COLUMNS = (
     "rtl_trojan_sensor_value_c",
     "rtl_clean_fan_actual",
     "rtl_trojan_fan_actual",
+    "rtl_clean_calibration_value_c",
+    "rtl_trojan_calibration_value_c",
     "first_ecu_dtc_label_after_payload",
     "first_ecu_dtc_time_ms",
     "max_coolant_temp_c",
@@ -96,6 +98,16 @@ TARGETS = {
         rtl_trace_name="rtl_fan_driver_trojan_trace.csv",
         clean_replay_name="virtual_ecu_clean_fan_actual_trace.csv",
         trojan_replay_name="virtual_ecu_trojan_fan_actual_trace.csv",
+    ),
+    "calibration_memory": TargetSpec(
+        target_id="ht3_calibration_memory",
+        display_name="Calibration Memory Interface",
+        trojan_type="cooling_target_calibration_shift",
+        target_path="calibration_memory_interface",
+        trace_option="--calibration-trace",
+        rtl_trace_name="rtl_calibration_memory_trojan_trace.csv",
+        clean_replay_name="virtual_ecu_clean_calibration_trace.csv",
+        trojan_replay_name="virtual_ecu_trojan_calibration_trace.csv",
     ),
 }
 
@@ -240,6 +252,79 @@ int main(int argc, char **argv)
 }
 """
 
+CALIBRATION_VERILATOR_HARNESS = r"""
+#include <cstdint>
+#include <fstream>
+#include <iostream>
+
+#include "Vcalibration_memory_interface_tb.h"
+#include "verilated.h"
+
+static int signed_value(std::uint16_t value)
+{
+    return static_cast<std::int16_t>(value);
+}
+
+static void clock_cycle(Vcalibration_memory_interface_tb &top)
+{
+    top.clk = 0;
+    top.eval();
+    top.clk = 1;
+    top.eval();
+    top.clk = 0;
+    top.eval();
+}
+
+int main(int argc, char **argv)
+{
+    Verilated::commandArgs(argc, argv);
+    if (argc != 3) {
+        std::cerr << "usage: calibration_rtl_security_sim INPUT OUTPUT\n";
+        return 2;
+    }
+
+    std::ifstream input(argv[1]);
+    std::ofstream output(argv[2]);
+    if (!input || !output) {
+        std::cerr << "unable to open calibration RTL trace input or output\n";
+        return 2;
+    }
+
+    Vcalibration_memory_interface_tb top;
+    top.reset_n = 0;
+    top.calibration_in = 0;
+    clock_cycle(top);
+    clock_cycle(top);
+    top.reset_n = 1;
+
+    output
+        << "time_ms,calibration_in_deci_c,clean_calibration_out_deci_c,"
+        << "trojan_calibration_out_deci_c,trojan_triggered,payload_active,"
+        << "trigger_counter,clean_calibration_value_deci_c,"
+        << "trojan_calibration_value_deci_c\n";
+
+    unsigned int time_ms = 0;
+    int calibration_value = 0;
+    while (input >> time_ms >> calibration_value) {
+        top.calibration_in = static_cast<std::uint16_t>(calibration_value);
+        clock_cycle(top);
+        output
+            << time_ms << ","
+            << calibration_value << ","
+            << signed_value(top.clean_calibration_out) << ","
+            << signed_value(top.trojan_calibration_out) << ","
+            << static_cast<int>(top.trojan_triggered) << ","
+            << static_cast<int>(top.payload_active) << ","
+            << top.trigger_counter << ","
+            << signed_value(top.trojan_clean_calibration_value) << ","
+            << signed_value(top.trojan_debug_calibration_value) << "\n";
+    }
+
+    top.final();
+    return 0;
+}
+"""
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -252,7 +337,7 @@ def parse_args() -> argparse.Namespace:
         "--target",
         choices=("all", *TARGETS.keys()),
         default="all",
-        help="RTL security target to analyze. The default runs both targets.",
+        help="RTL security target to analyze. The default runs all targets.",
     )
     parser.add_argument(
         "--output-dir",
@@ -452,6 +537,31 @@ def run_fan_rtl(
     )
 
 
+def run_calibration_rtl(
+    source_rows: Sequence[Dict[str, str]],
+    output_trace: Path,
+) -> None:
+    input_rows = [
+        (
+            int(float(row["time_ms"])),
+            920,
+        )
+        for row in source_rows
+    ]
+    build_verilator_model(
+        "calibration_memory_interface_tb",
+        (
+            RTL_DIR / "calibration_memory_interface_clean.v",
+            RTL_DIR / "calibration_memory_interface_trojan.v",
+            SIM_DIR / "calibration_memory_interface_tb.v",
+        ),
+        CALIBRATION_VERILATOR_HARNESS,
+        "calibration_rtl_security_sim",
+        input_rows,
+        output_trace,
+    )
+
+
 def payload_trigger_row(
     rtl_rows: Sequence[Dict[str, str]],
     target: TargetSpec,
@@ -521,6 +631,33 @@ def write_fan_replay_traces(
     return clean_path, trojan_path, trigger_row
 
 
+def write_calibration_replay_traces(
+    rtl_rows: Sequence[Dict[str, str]],
+    output_dir: Path,
+    target: TargetSpec,
+) -> tuple[Path, Path, Dict[str, str]]:
+    clean_path = output_dir / target.clean_replay_name
+    trojan_path = output_dir / target.trojan_replay_name
+    trigger_row = payload_trigger_row(rtl_rows, target)
+    clean_rows = []
+    trojan_rows = []
+
+    for row in rtl_rows:
+        time_ms = int(row["time_ms"])
+        clean_c = int(row["clean_calibration_out_deci_c"]) / 10.0
+        trojan_c = int(row["trojan_calibration_out_deci_c"]) / 10.0
+        clean_rows.append(
+            {"time_ms": time_ms, "control_target_c": f"{clean_c:.1f}"}
+        )
+        trojan_rows.append(
+            {"time_ms": time_ms, "control_target_c": f"{trojan_c:.1f}"}
+        )
+
+    write_rows(clean_path, ("time_ms", "control_target_c"), clean_rows)
+    write_rows(trojan_path, ("time_ms", "control_target_c"), trojan_rows)
+    return clean_path, trojan_path, trigger_row
+
+
 def first_dtc_after(
     raw_rows: Sequence[Dict[str, str]],
     start_ms: int,
@@ -543,9 +680,14 @@ def interface_values(
             int(trigger_row["clean_sensor_out_deci_c"]) / 10.0,
             int(trigger_row["trojan_sensor_out_deci_c"]) / 10.0,
         )
+    if target.target_id == "ht2_fan_driver":
+        return (
+            int(trigger_row["clean_fan_actual_milli"]) / 1000.0,
+            int(trigger_row["trojan_fan_actual_milli"]) / 1000.0,
+        )
     return (
-        int(trigger_row["clean_fan_actual_milli"]) / 1000.0,
-        int(trigger_row["trojan_fan_actual_milli"]) / 1000.0,
+        int(trigger_row["clean_calibration_out_deci_c"]) / 10.0,
+        int(trigger_row["trojan_calibration_out_deci_c"]) / 10.0,
     )
 
 
@@ -645,6 +787,16 @@ def run_detector_variant(
             if target.target_id == "ht2_fan_driver"
             else ""
         ),
+        "rtl_clean_calibration_value_c": (
+            clean_value if target.target_id == "ht3_calibration_memory" else ""
+        ),
+        "rtl_trojan_calibration_value_c": (
+            trojan_value
+            if attack_variant and target.target_id == "ht3_calibration_memory"
+            else clean_value
+            if target.target_id == "ht3_calibration_memory"
+            else ""
+        ),
         "first_ecu_dtc_label_after_payload": dtc_label,
         "first_ecu_dtc_time_ms": dtc_time_ms,
         "max_coolant_temp_c": summary["max_coolant_temp_c"],
@@ -673,7 +825,7 @@ def write_taxonomy(path: Path, targets: Sequence[TargetSpec]) -> None:
                     ),
                 }
             )
-        else:
+        elif target.target_id == "ht2_fan_driver":
             rows.append(
                 {
                     "experiment_kind": "rtl_hardware_trojan",
@@ -685,6 +837,22 @@ def write_taxonomy(path: Path, targets: Sequence[TargetSpec]) -> None:
                         "fan command >= 0.500 for 8 consecutive cycles"
                     ),
                     "payload": "force realized fan output to 0.000",
+                    "activation": "sticky until reset",
+                    "evaluation_scope": (
+                        "Verilator RTL simulation plus Virtual ECU trace replay"
+                    ),
+                }
+            )
+        else:
+            rows.append(
+                {
+                    "experiment_kind": "rtl_hardware_trojan",
+                    "rtl_target_id": target.target_id,
+                    "trojan_type": target.trojan_type,
+                    "insertion_level": "RTL calibration-memory interface",
+                    "target": "Coolant-control target calibration value",
+                    "trigger": "internal counter reaches 521 interface cycles",
+                    "payload": "add 16.0 C to the cooling control target",
                     "activation": "sticky until reset",
                     "evaluation_scope": (
                         "Verilator RTL simulation plus Virtual ECU trace replay"
@@ -801,7 +969,7 @@ def write_reports(
                     "`virtual_ecu_trojan_sensor_trace.csv`: HT1 replay inputs.",
                 ]
             )
-        else:
+        elif target.target_id == "ht2_fan_driver":
             behavior = (
                 "requires a fan command of at least 0.500 for eight "
                 "consecutive cycles, then forces the realized fan output "
@@ -812,6 +980,20 @@ def write_reports(
                     "- `rtl_fan_driver_trojan_trace.csv`: HT2 direct RTL trace.",
                     "- `virtual_ecu_clean_fan_actual_trace.csv` and "
                     "`virtual_ecu_trojan_fan_actual_trace.csv`: HT2 replay "
+                    "inputs.",
+                ]
+            )
+        else:
+            behavior = (
+                "counts 521 calibration-interface cycles, then adds 16.0 C "
+                "to the ECU cooling control target"
+            )
+            output_lines.extend(
+                [
+                    "- `rtl_calibration_memory_trojan_trace.csv`: HT3 direct "
+                    "RTL trace.",
+                    "- `virtual_ecu_clean_calibration_trace.csv` and "
+                    "`virtual_ecu_trojan_calibration_trace.csv`: HT3 replay "
                     "inputs.",
                 ]
             )
@@ -844,7 +1026,8 @@ def write_reports(
         "`scripts/run_rtl_hardware_trojan_study.py` and is ignored by git.",
         "",
         "The analysis simulates actual clean and Trojan-infected Verilog "
-        "sensor/actuator interface modules with Verilator, then replays each "
+        "sensor, actuator, and calibration interface modules with Verilator, "
+        "then replays each "
         "RTL output through unchanged Virtual ECU detectors in `observe_only` "
         "mode.",
         "",
@@ -921,7 +1104,10 @@ def main() -> int:
     raw_dir.mkdir(parents=True, exist_ok=True)
 
     build_virtual_ecu(args.executable)
-    print("[1/4] Generating nominal coolant and fan-command input trace")
+    print(
+        "[1/4] Generating nominal coolant, fan-command, and calibration "
+        "input trace"
+    )
     source_rows = generate_source_trace(
         args.executable.resolve(),
         output_dir,
@@ -943,13 +1129,23 @@ def main() -> int:
                     target,
                 )
             )
-        else:
+        elif target.target_id == "ht2_fan_driver":
             run_fan_rtl(source_rows, rtl_trace)
             rtl_rows = read_rows(rtl_trace)
             clean_trace, trojan_trace, trigger_row = write_fan_replay_traces(
                 rtl_rows,
                 output_dir,
                 target,
+            )
+        else:
+            run_calibration_rtl(source_rows, rtl_trace)
+            rtl_rows = read_rows(rtl_trace)
+            clean_trace, trojan_trace, trigger_row = (
+                write_calibration_replay_traces(
+                    rtl_rows,
+                    output_dir,
+                    target,
+                )
             )
         target_runs.append(
             (target, clean_trace, trojan_trace, trigger_row)

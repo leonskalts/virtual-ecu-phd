@@ -1,5 +1,6 @@
 #include "control.h"
 
+#include "calibration_trace.h"
 #include "config.h"
 
 /* Control module: maps measured thermal conditions to normalized pump and fan
@@ -35,6 +36,17 @@ void control_step(ecu_state_t *state)
      * target stored in memory/register space, which delays cooling demand. */
     if (state->faults.enabled && state->faults.active_mode == FAULT_CALIBRATION_MEMORY_CORRUPTION) {
         effective_target_c += state->faults.control_target_offset_c;
+    }
+
+    /* An explicitly supplied RTL replay trace replaces only the stored
+     * control-target value. The trace is validated for complete, ordered
+     * control-period coverage before the scheduler starts. */
+    if (state->calibration_trace.enabled) {
+        (void)calibration_trace_get(
+            state,
+            state->time.time_ms,
+            &effective_target_c
+        );
     }
 
     temp_error = state->sensors.coolant_temp_meas_c - effective_target_c;
