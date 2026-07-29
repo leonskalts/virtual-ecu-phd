@@ -8,6 +8,7 @@ results/batch/
 results/gui_comparison_reports/
 results/gui_snapshots/
 results/rtl_hardware_trojan_study_v1/
+results/full_runtime_validation/
 logs/batch/
 __pycache__/
 .venv/
