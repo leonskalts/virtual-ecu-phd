@@ -98,11 +98,13 @@ RTL_SECURITY_TARGET_OPTIONS = (
     "Coolant Sensor Interface",
     "Fan Driver Interface",
     "Calibration Memory Interface",
+    "Multi-Stage RTL Chain",
 )
 RTL_SECURITY_TARGET_IDS = {
     "Coolant Sensor Interface": "coolant_sensor",
     "Fan Driver Interface": "fan_driver",
     "Calibration Memory Interface": "calibration_memory",
+    "Multi-Stage RTL Chain": "multi_stage_chain",
 }
 RUNTIME_STUDY_SOURCE_OPTIONS = (
     "Predefined runtime intervention study",
@@ -9153,7 +9155,9 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             description=(
                 "Choose one isolated Verilog target. Verilator generates the "
                 "clean and infected interface traces, then the existing "
-                "Virtual ECU detectors evaluate their runtime consequences."
+                "Virtual ECU detectors evaluate their runtime consequences. "
+                "The Multi-Stage RTL Chain composes the existing calibration, "
+                "sensor, and actuator RTL outputs in one replay."
             ),
         )
         analysis_card.grid(

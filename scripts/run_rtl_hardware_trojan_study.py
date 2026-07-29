@@ -51,6 +51,9 @@ COMPARISON_COLUMNS = (
     "rtl_trojan_triggered",
     "rtl_trojan_payload_active",
     "rtl_trojan_trigger_time_ms",
+    "stage_1_calibration_trigger_time_ms",
+    "stage_2_sensor_trigger_time_ms",
+    "stage_3_fan_trigger_time_ms",
     "rtl_clean_sensor_value_c",
     "rtl_trojan_sensor_value_c",
     "rtl_clean_fan_actual",
@@ -76,6 +79,7 @@ class TargetSpec:
     rtl_trace_name: str
     clean_replay_name: str
     trojan_replay_name: str
+    is_composite: bool = False
 
 
 TARGETS = {
@@ -109,7 +113,24 @@ TARGETS = {
         clean_replay_name="virtual_ecu_clean_calibration_trace.csv",
         trojan_replay_name="virtual_ecu_trojan_calibration_trace.csv",
     ),
+    "multi_stage_chain": TargetSpec(
+        target_id="ht4_multi_stage_chain",
+        display_name="Multi-Stage RTL Chain",
+        trojan_type="coordinated_multi_path_chain",
+        target_path="calibration_sensor_actuator_composition",
+        trace_option="",
+        rtl_trace_name="",
+        clean_replay_name="",
+        trojan_replay_name="",
+        is_composite=True,
+    ),
 }
+
+CHAIN_STAGE_KEYS = (
+    "calibration_memory",
+    "coolant_sensor",
+    "fan_driver",
+)
 
 COOLANT_VERILATOR_HARNESS = r"""
 #include <cstdint>
@@ -658,6 +679,81 @@ def write_calibration_replay_traces(
     return clean_path, trojan_path, trigger_row
 
 
+def prepare_individual_target(
+    source_rows: Sequence[Dict[str, str]],
+    output_dir: Path,
+    target: TargetSpec,
+) -> tuple[Path, Path, Dict[str, str]]:
+    if target.is_composite:
+        raise ValueError("Composite targets do not have an independent RTL model.")
+
+    rtl_trace = output_dir / target.rtl_trace_name
+    if target.target_id == "ht1_coolant_sensor":
+        run_coolant_rtl(source_rows, rtl_trace)
+        return write_coolant_replay_traces(
+            read_rows(rtl_trace),
+            output_dir,
+            target,
+        )
+    if target.target_id == "ht2_fan_driver":
+        run_fan_rtl(source_rows, rtl_trace)
+        return write_fan_replay_traces(
+            read_rows(rtl_trace),
+            output_dir,
+            target,
+        )
+
+    run_calibration_rtl(source_rows, rtl_trace)
+    return write_calibration_replay_traces(
+        read_rows(rtl_trace),
+        output_dir,
+        target,
+    )
+
+
+def write_multi_stage_trace_index(
+    output_dir: Path,
+    prepared: Dict[str, tuple[Path, Path, Dict[str, str]]],
+) -> None:
+    stage_labels = (
+        "stage_1_calibration",
+        "stage_2_sensor",
+        "stage_3_actuator",
+    )
+    rows = []
+
+    for stage_label, target_key in zip(stage_labels, CHAIN_STAGE_KEYS):
+        target = TARGETS[target_key]
+        clean_trace, trojan_trace, trigger_row = prepared[target_key]
+        rows.append(
+            {
+                "stage": stage_label,
+                "rtl_target_id": target.target_id,
+                "rtl_target_name": target.display_name,
+                "rtl_trigger_time_ms": trigger_row["time_ms"],
+                "direct_rtl_trace": relative_path(
+                    output_dir / target.rtl_trace_name
+                ),
+                "clean_replay_trace": relative_path(clean_trace),
+                "trojan_replay_trace": relative_path(trojan_trace),
+            }
+        )
+
+    write_rows(
+        output_dir / "multi_stage_chain_trace_index.csv",
+        (
+            "stage",
+            "rtl_target_id",
+            "rtl_target_name",
+            "rtl_trigger_time_ms",
+            "direct_rtl_trace",
+            "clean_replay_trace",
+            "trojan_replay_trace",
+        ),
+        rows,
+    )
+
+
 def first_dtc_after(
     raw_rows: Sequence[Dict[str, str]],
     start_ms: int,
@@ -685,10 +781,12 @@ def interface_values(
             int(trigger_row["clean_fan_actual_milli"]) / 1000.0,
             int(trigger_row["trojan_fan_actual_milli"]) / 1000.0,
         )
-    return (
-        int(trigger_row["clean_calibration_out_deci_c"]) / 10.0,
-        int(trigger_row["trojan_calibration_out_deci_c"]) / 10.0,
-    )
+    if target.target_id == "ht3_calibration_memory":
+        return (
+            int(trigger_row["clean_calibration_out_deci_c"]) / 10.0,
+            int(trigger_row["trojan_calibration_out_deci_c"]) / 10.0,
+        )
+    return 0.0, 0.0
 
 
 def run_detector_variant(
@@ -697,12 +795,18 @@ def run_detector_variant(
     detector: str,
     variant: str,
     target: TargetSpec,
-    replay_trace: Path,
+    replay_inputs: Sequence[tuple[str, Path]],
     duration_ms: int,
     trigger_row: Dict[str, str],
+    stage_trigger_times: tuple[int, int, int],
 ) -> Dict[str, object]:
     raw_path = (
         raw_dir / f"{target.target_id}__{variant}__{detector}.csv"
+    )
+    trace_arguments = tuple(
+        argument
+        for option, path in replay_inputs
+        for argument in (option, str(path))
     )
     run_checked(
         (
@@ -715,8 +819,7 @@ def run_detector_variant(
             "observe_only",
             "--simulation-duration-ms",
             str(duration_ms),
-            target.trace_option,
-            str(replay_trace),
+            *trace_arguments,
         ),
         PROJECT_ROOT,
     )
@@ -742,7 +845,11 @@ def run_detector_variant(
     clean_value, trojan_value = interface_values(target, trigger_row)
 
     return {
-        "experiment_kind": "rtl_hardware_trojan",
+        "experiment_kind": (
+            "rtl_multi_stage_chain"
+            if target.is_composite
+            else "rtl_hardware_trojan"
+        ),
         "rtl_target_id": target.target_id,
         "rtl_target_name": target.display_name,
         "variant": variant,
@@ -766,6 +873,21 @@ def run_detector_variant(
         "rtl_trojan_payload_active": int(attack_variant),
         "rtl_trojan_trigger_time_ms": (
             trigger_time_ms if attack_variant else -1
+        ),
+        "stage_1_calibration_trigger_time_ms": (
+            stage_trigger_times[0]
+            if attack_variant and target.is_composite
+            else ""
+        ),
+        "stage_2_sensor_trigger_time_ms": (
+            stage_trigger_times[1]
+            if attack_variant and target.is_composite
+            else ""
+        ),
+        "stage_3_fan_trigger_time_ms": (
+            stage_trigger_times[2]
+            if attack_variant and target.is_composite
+            else ""
         ),
         "rtl_clean_sensor_value_c": (
             clean_value if target.target_id == "ht1_coolant_sensor" else ""
@@ -843,7 +965,7 @@ def write_taxonomy(path: Path, targets: Sequence[TargetSpec]) -> None:
                     ),
                 }
             )
-        else:
+        elif target.target_id == "ht3_calibration_memory":
             rows.append(
                 {
                     "experiment_kind": "rtl_hardware_trojan",
@@ -856,6 +978,31 @@ def write_taxonomy(path: Path, targets: Sequence[TargetSpec]) -> None:
                     "activation": "sticky until reset",
                     "evaluation_scope": (
                         "Verilator RTL simulation plus Virtual ECU trace replay"
+                    ),
+                }
+            )
+        else:
+            rows.append(
+                {
+                    "experiment_kind": "rtl_multi_stage_chain",
+                    "rtl_target_id": target.target_id,
+                    "trojan_type": target.trojan_type,
+                    "insertion_level": "Composite existing RTL interfaces",
+                    "target": (
+                        "Calibration, coolant-sensor, and fan-driver paths"
+                    ),
+                    "trigger": (
+                        "HT3 counter, then HT1 temperature persistence, "
+                        "then HT2 fan-command persistence"
+                    ),
+                    "payload": (
+                        "raise control target, mask coolant sample, and "
+                        "suppress realized fan output"
+                    ),
+                    "activation": "each existing stage sticky until reset",
+                    "evaluation_scope": (
+                        "Trace-driven composition of three Verilator RTL "
+                        "outputs plus Virtual ECU replay"
                     ),
                 }
             )
@@ -913,6 +1060,63 @@ def target_metrics(
     }
 
 
+def write_multi_stage_summary(
+    output_dir: Path,
+    results: Sequence[Dict[str, object]],
+) -> None:
+    target = TARGETS["multi_stage_chain"]
+    metrics = target_metrics(results, target)
+    hybrid = metrics["hybrid"]
+
+    write_rows(
+        output_dir / "multi_stage_chain_summary.csv",
+        (
+            "experiment_kind",
+            "rtl_target_id",
+            "stage_1_calibration_trigger_time_ms",
+            "stage_2_sensor_trigger_time_ms",
+            "stage_3_fan_trigger_time_ms",
+            "detector_count",
+            "clean_detector_alarms",
+            "trojan_detections_after_stage_1",
+            "detected_detectors",
+            "hybrid_detection_latency_from_stage_1_ms",
+            "clean_max_coolant_temp_c",
+            "trojan_max_coolant_temp_c",
+        ),
+        (
+            {
+                "experiment_kind": "rtl_multi_stage_chain",
+                "rtl_target_id": target.target_id,
+                "stage_1_calibration_trigger_time_ms": (
+                    hybrid["stage_1_calibration_trigger_time_ms"]
+                ),
+                "stage_2_sensor_trigger_time_ms": (
+                    hybrid["stage_2_sensor_trigger_time_ms"]
+                ),
+                "stage_3_fan_trigger_time_ms": (
+                    hybrid["stage_3_fan_trigger_time_ms"]
+                ),
+                "detector_count": metrics["trojan_count"],
+                "clean_detector_alarms": metrics["clean_alarms"],
+                "trojan_detections_after_stage_1": metrics[
+                    "attack_detections"
+                ],
+                "detected_detectors": ";".join(metrics["detected_names"]),
+                "hybrid_detection_latency_from_stage_1_ms": hybrid[
+                    "detection_latency_from_payload_ms"
+                ],
+                "clean_max_coolant_temp_c": (
+                    f"{metrics['clean_max_coolant_c']:.2f}"
+                ),
+                "trojan_max_coolant_temp_c": (
+                    f"{metrics['trojan_max_coolant_c']:.2f}"
+                ),
+            },
+        ),
+    )
+
+
 def write_reports(
     output_dir: Path,
     results: Sequence[Dict[str, object]],
@@ -926,11 +1130,28 @@ def write_reports(
         metrics = target_metrics(results, target)
         hybrid = metrics["hybrid"]
         detected_names = metrics["detected_names"]
+        stage_lines = []
+        if target.is_composite:
+            stage_lines = [
+                (
+                    "- Stage 1 HT3 actual RTL activation: "
+                    f"{hybrid['stage_1_calibration_trigger_time_ms']} ms"
+                ),
+                (
+                    "- Stage 2 HT1 actual RTL activation: "
+                    f"{hybrid['stage_2_sensor_trigger_time_ms']} ms"
+                ),
+                (
+                    "- Stage 3 HT2 actual RTL activation: "
+                    f"{hybrid['stage_3_fan_trigger_time_ms']} ms"
+                ),
+            ]
         sections.extend(
             [
                 f"## {target.target_id.upper()}: {target.display_name}",
                 "",
                 f"- RTL payload activation: {metrics['trigger_time_ms']} ms",
+                *stage_lines,
                 (
                     f"- Clean detector alarms: {metrics['clean_alarms']}/"
                     f"{metrics['clean_count']}"
@@ -983,7 +1204,7 @@ def write_reports(
                     "inputs.",
                 ]
             )
-        else:
+        elif target.target_id == "ht3_calibration_memory":
             behavior = (
                 "counts 521 calibration-interface cycles, then adds 16.0 C "
                 "to the ECU cooling control target"
@@ -997,12 +1218,42 @@ def write_reports(
                     "inputs.",
                 ]
             )
+        else:
+            behavior = (
+                "composes the existing HT3 calibration shift, HT1 coolant "
+                "masking, and HT2 fan suppression outputs into one staged "
+                "replay without adding another RTL implant"
+            )
+            output_lines.extend(
+                [
+                    "- `multi_stage_chain_trace_index.csv`: actual RTL trace "
+                    "and trigger source for each stage.",
+                    "- `multi_stage_chain_summary.csv`: bounded composite "
+                    "detector outcomes.",
+                ]
+            )
 
+        claim_lead = (
+            f"The composite scenario {behavior}."
+            if target.is_composite
+            else f"The explicit RTL trigger-payload implementation {behavior}."
+        )
+        claim_stage_lines = []
+        if target.is_composite:
+            claim_stage_lines = [
+                (
+                    "The actual RTL stage activations were "
+                    f"{hybrid['stage_1_calibration_trigger_time_ms']} ms, "
+                    f"{hybrid['stage_2_sensor_trigger_time_ms']} ms, and "
+                    f"{hybrid['stage_3_fan_trigger_time_ms']} ms."
+                )
+            ]
         claim_sections.extend(
             [
                 f"## {target.target_id.upper()}: {target.display_name}",
                 "",
-                f"The explicit RTL trigger-payload implementation {behavior}.",
+                claim_lead,
+                *claim_stage_lines,
                 (
                     f"Verilator activated the payload at "
                     f"{metrics['trigger_time_ms']} ms. The unchanged Virtual "
@@ -1027,8 +1278,8 @@ def write_reports(
         "",
         "The analysis simulates actual clean and Trojan-infected Verilog "
         "sensor, actuator, and calibration interface modules with Verilator, "
-        "then replays each "
-        "RTL output through unchanged Virtual ECU detectors in `observe_only` "
+        "then replays individual or composed outputs through the "
+        "unchanged Virtual ECU detectors in `observe_only` "
         "mode.",
         "",
         *sections,
@@ -1042,7 +1293,7 @@ def write_reports(
         "",
         "The raw clean and Trojan Virtual ECU CSV files can be loaded in the "
         "existing Compare view. This remains deterministic trace-driven "
-        "co-simulation, not fabricated-chip evidence.",
+        "RTL/ECU replay, not fabricated-chip evidence.",
         "",
     ]
     (output_dir / "README.md").write_text(
@@ -1115,50 +1366,90 @@ def main() -> int:
     )
 
     target_runs = []
+    prepared: Dict[str, tuple[Path, Path, Dict[str, str]]] = {}
     print("[2/4] Building and simulating selected RTL targets with Verilator")
     for target in targets:
-        rtl_trace = output_dir / target.rtl_trace_name
         print(f"  - {target.display_name}")
-        if target.target_id == "ht1_coolant_sensor":
-            run_coolant_rtl(source_rows, rtl_trace)
-            rtl_rows = read_rows(rtl_trace)
-            clean_trace, trojan_trace, trigger_row = (
-                write_coolant_replay_traces(
-                    rtl_rows,
-                    output_dir,
-                    target,
+        if target.is_composite:
+            for target_key in CHAIN_STAGE_KEYS:
+                if target_key not in prepared:
+                    component = TARGETS[target_key]
+                    print(f"    * preparing {component.display_name}")
+                    prepared[target_key] = prepare_individual_target(
+                        source_rows,
+                        output_dir,
+                        component,
+                    )
+
+            clean_inputs = tuple(
+                (
+                    TARGETS[target_key].trace_option,
+                    prepared[target_key][0],
                 )
+                for target_key in CHAIN_STAGE_KEYS
             )
-        elif target.target_id == "ht2_fan_driver":
-            run_fan_rtl(source_rows, rtl_trace)
-            rtl_rows = read_rows(rtl_trace)
-            clean_trace, trojan_trace, trigger_row = write_fan_replay_traces(
-                rtl_rows,
-                output_dir,
-                target,
+            trojan_inputs = tuple(
+                (
+                    TARGETS[target_key].trace_option,
+                    prepared[target_key][1],
+                )
+                for target_key in CHAIN_STAGE_KEYS
+            )
+            trigger_rows = tuple(
+                prepared[target_key][2]
+                for target_key in CHAIN_STAGE_KEYS
+            )
+            stage_trigger_times = tuple(
+                int(trigger_row["time_ms"])
+                for trigger_row in trigger_rows
+            )
+            write_multi_stage_trace_index(output_dir, prepared)
+            target_runs.append(
+                (
+                    target,
+                    clean_inputs,
+                    trojan_inputs,
+                    trigger_rows[0],
+                    stage_trigger_times,
+                )
             )
         else:
-            run_calibration_rtl(source_rows, rtl_trace)
-            rtl_rows = read_rows(rtl_trace)
-            clean_trace, trojan_trace, trigger_row = (
-                write_calibration_replay_traces(
-                    rtl_rows,
+            target_key = next(
+                key
+                for key, value in TARGETS.items()
+                if value.target_id == target.target_id
+            )
+            if target_key not in prepared:
+                prepared[target_key] = prepare_individual_target(
+                    source_rows,
                     output_dir,
                     target,
                 )
+            clean_trace, trojan_trace, trigger_row = prepared[target_key]
+            target_runs.append(
+                (
+                    target,
+                    ((target.trace_option, clean_trace),),
+                    ((target.trace_option, trojan_trace),),
+                    trigger_row,
+                    (-1, -1, -1),
+                )
             )
-        target_runs.append(
-            (target, clean_trace, trojan_trace, trigger_row)
-        )
 
     print("[3/4] Replaying RTL outputs through unchanged Virtual ECU detectors")
     results = []
     total = len(target_runs) * len(DETECTORS) * 2
     run_index = 0
-    for target, clean_trace, trojan_trace, trigger_row in target_runs:
-        for variant, replay_trace in (
-            ("clean", clean_trace),
-            ("trojan", trojan_trace),
+    for (
+        target,
+        clean_inputs,
+        trojan_inputs,
+        trigger_row,
+        stage_trigger_times,
+    ) in target_runs:
+        for variant, replay_inputs in (
+            ("clean", clean_inputs),
+            ("trojan", trojan_inputs),
         ):
             for detector in DETECTORS:
                 run_index += 1
@@ -1173,9 +1464,10 @@ def main() -> int:
                         detector,
                         variant,
                         target,
-                        replay_trace,
+                        replay_inputs,
                         args.simulation_duration_ms,
                         trigger_row,
+                        stage_trigger_times,
                     )
                 )
 
@@ -1186,6 +1478,8 @@ def main() -> int:
         results,
     )
     write_taxonomy(output_dir / "attack_taxonomy_table.csv", targets)
+    if any(target.is_composite for target in targets):
+        write_multi_stage_summary(output_dir, results)
     write_reports(output_dir, results, targets)
     print(f"RTL security analysis complete: {output_dir}")
     return 0

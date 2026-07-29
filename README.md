@@ -213,6 +213,10 @@ HT3 shifts the cooling-target calibration after an RTL counter trigger. All
 three infected modules have explicit trigger and payload logic; none is a
 renaming of the C fault-injection campaigns.
 
+The **Multi-Stage RTL Chain** option composes the existing HT3 calibration,
+HT1 sensor, and HT2 actuator outputs into one coordinated trace-driven replay.
+It is a composite scenario, not a new independent RTL Trojan module.
+
 ```bash
 make rtl-trojan-study
 ```
@@ -222,10 +226,10 @@ detectors, and isolated outputs are written under
 `results/rtl_hardware_trojan_study_v1/`. Verilator is required only for this
 study, not for normal builds or GUI use.
 
-The GUI provides a small **Security / RTL Analysis** page with all three target
-choices, a run action, and a results-folder shortcut. It remains separate from
-the reliability/safety **Custom Faults** workflow. Verilator is not invoked
-during ordinary GUI use.
+The GUI provides a small **Security / RTL Analysis** page with the three
+individual targets and the multi-stage chain, a run action, and a
+results-folder shortcut. It remains separate from the reliability/safety
+**Custom Faults** workflow. Verilator is not invoked during ordinary GUI use.
 
 See [docs/rtl_hardware_trojan_model.md](docs/rtl_hardware_trojan_model.md) for
 the RTL scaling, trigger, payload, integration boundary, and claim limits.

@@ -12,6 +12,9 @@ The security extension provides three isolated trigger-payload RTL targets:
 - **HT2 — Fan Driver Interface Trojan**
 - **HT3 — Calibration Memory / Control Parameter Interface Trojan**
 
+It also provides **HT4 — Multi-Stage RTL Trojan Chain**, a composite scenario
+that reuses HT1, HT2, and HT3. HT4 does not add an independent RTL module.
+
 ```text
 nominal thermal trace
         +-> HT1 coolant RTL -> ECU-facing sensor trace --+
@@ -203,6 +206,56 @@ baseline campaign, obtains the modified value from an explicit Verilog
 trigger-payload module, and supplies only that value at the control boundary.
 The runtime detectors never receive the RTL debug/status fields.
 
+## HT4 — Multi-Stage RTL Trojan Chain
+
+### Composite scenario
+
+HT4 is a coordinated trigger-payload RTL security scenario built from the
+existing three Verilog targets. It represents a staged attack across the
+calibration/configuration, sensor, and actuator paths:
+
+1. **Stage 1 — HT3 calibration path:** raises the coolant-control target by
+   16.0 C, delaying cooling demand.
+2. **Stage 2 — HT1 sensor path:** subtracts 8.0 C from the ECU-facing coolant
+   sample after its temperature-persistence trigger.
+3. **Stage 3 — HT2 actuator path:** forces realized fan output to zero after
+   its fan-command-persistence trigger.
+
+No stage activation time is synthesized by Python or C. The study builds and
+runs each existing RTL module, locates the first asserted `payload_active` row,
+and records that RTL-produced time in `multi_stage_chain_trace_index.csv`. In
+the standard 120-second nominal input sequence, the current modules activate at
+52000 ms, 93200 ms, and 96000 ms respectively. These values are measured study
+outputs, not detector inputs.
+
+### Combined replay and runtime effect
+
+The clean chain replay supplies all three clean traces together. The infected
+chain replay supplies all three Trojan traces together using the existing
+explicit CLI boundaries:
+
+```text
+--calibration-trace
+--coolant-sensor-trace
+--fan-actual-trace
+```
+
+This composes a weakened cooling target, masked temperature observation, and
+suppressed realized fan output in one Virtual ECU baseline run. Existing
+detectors observe only ordinary runtime signals and consequences. They do not
+receive `multi_stage`, stage identifiers, trigger flags, payload flags, or
+activation times.
+
+### Trace-driven limitation
+
+Each RTL module consumes the same prerecorded nominal source sequence. The
+three resulting outputs are then replayed together; a change caused by Stage 1
+does not feed back into the prerecorded HT1 or HT2 RTL inputs. This is a
+deterministic trace-driven RTL/ECU replay, not fully bidirectional cycle-level
+co-simulation. Combined thermal consequences can therefore be stronger than an
+interactively coupled plant/RTL model and must be interpreted within this
+boundary.
+
 ## Verilator and trace-driven integration
 
 Run the complete study with:
@@ -217,9 +270,10 @@ or:
 python3 scripts/run_rtl_hardware_trojan_study.py
 ```
 
-The script defaults to all targets. A single target can be selected with
-`--target coolant_sensor`, `--target fan_driver`, or
-`--target calibration_memory`; `--target all` runs all three.
+The script defaults to all targets. A single target or scenario can be selected
+with `--target coolant_sensor`, `--target fan_driver`,
+`--target calibration_memory`, or `--target multi_stage_chain`.
+`--target all` runs the three individual targets and the composite chain.
 
 The script:
 
@@ -228,8 +282,9 @@ The script:
    commands to thousandths of full scale;
 3. builds and simulates each clean/infected RTL interface pair with Verilator;
 4. writes direct clean-versus-Trojan traces for HT1, HT2, and HT3;
-5. replays each RTL output through the existing Virtual ECU with every existing
-   detector in `observe_only` mode; and
+5. replays each individual RTL output and the three-path composition through
+   the existing Virtual ECU with every existing detector in `observe_only`
+   mode; and
 6. writes isolated security-study artifacts under
    `results/rtl_hardware_trojan_study_v1/`.
 
@@ -319,13 +374,29 @@ fault processing. The RTL study uses the baseline campaign and does not combine
 the replay with a C-level calibration fault. Without `--calibration-trace`,
 normal control behavior is byte-for-byte unchanged.
 
+### HT4 multi-stage replay
+
+The script invokes the three trace options together for both clean and infected
+chain variants. Direct manual replay is possible with the generated clean or
+Trojan trace triplet, but `--target multi_stage_chain` is the reproducible
+orchestration path:
+
+```bash
+python3 scripts/run_rtl_hardware_trojan_study.py \
+  --target multi_stage_chain
+```
+
+Normal runs remain unchanged because none of the three replay options is active
+unless supplied explicitly.
+
 ### GUI entry point
 
 The GUI page named **Security / RTL Analysis** provides a target selector,
 analysis button, output path, and results-folder action. It is deliberately
 separate from **Custom Faults**: the former runs actual RTL trigger-payload
 modules, while the latter remains the reliability/safety fault-injection
-workflow.
+workflow. The **Multi-Stage RTL Chain** selector choice composes all three
+existing paths; the other choices remain isolated single-path runs.
 
 Generated Virtual ECU replay CSVs remain compatible with the existing Compare
 view. Verilator is not imported or invoked during ordinary GUI use.
@@ -347,6 +418,9 @@ The generated directory contains:
   debug values;
 - `virtual_ecu_clean_calibration_trace.csv` and
   `virtual_ecu_trojan_calibration_trace.csv`: HT3 replay inputs;
+- `multi_stage_chain_trace_index.csv`: stage order, actual RTL trigger times,
+  direct RTL traces, and the clean/Trojan replay inputs used by HT4;
+- `multi_stage_chain_summary.csv`: compact composite detector outcomes;
 - `detector_comparison.csv`: clean and infected outcomes for all existing
   detectors, with RTL security metadata;
 - `attack_taxonomy_table.csv`: target, trigger, payload, and evaluation scope;
@@ -359,10 +433,10 @@ The directory is ignored by git because it contains generated evidence.
 ## Detection interpretation
 
 The detectors are not rewritten and receive no `trojan_triggered`,
-`payload_active`, attack label, trigger time, or scenario identifier. They see
-only their existing runtime-observable Virtual ECU signals. The study script
-uses the RTL trigger time after the run to classify alarms as pre-activation or
-post-activation evaluation outcomes.
+`payload_active`, `multi_stage`, stage flag, attack label, trigger time, or
+scenario identifier. They see only their existing runtime-observable Virtual
+ECU signals. The study script uses the RTL trigger times after the run to
+classify alarms as pre-activation or post-activation evaluation outcomes.
 
 Because the replay deliberately uses the ordinary `baseline` campaign rather
 than inventing a C-level Trojan fault, the generic raw runtime
@@ -375,6 +449,9 @@ reference and separately reports post-payload detection.
 - This version is deterministic and trace-driven. The RTL consumes prerecorded
   nominal coolant, fan-command, and calibration inputs; the Virtual ECU replay
   is not a bidirectional cycle-by-cycle plant/RTL co-simulation.
+- In the multi-stage chain, upstream runtime effects do not alter the
+  prerecorded downstream RTL inputs, so combined thermal severity is not a
+  closed-loop hardware prediction.
 - The three payloads and triggers are configured examples, not a representative
   sample of all Hardware Trojan designs.
 - Detection results apply only to this simulation, detector calibration, input
