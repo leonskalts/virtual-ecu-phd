@@ -9,6 +9,7 @@
 #include "logger.h"
 #include "metrics.h"
 #include "scheduler.h"
+#include "sensor_trace.h"
 
 /* Main entry point: initializes the ECU state, runs one deterministic
  * experiment, and writes the resulting CSV trace. */
@@ -25,6 +26,7 @@ static int parse_runtime_detection_options(
     detection_algorithm_t *selected_algorithm,
     detection_action_t *selected_action,
     const char **driving_profile_path,
+    const char **coolant_sensor_trace_path,
     unsigned int *simulation_duration_ms,
     int *custom_duration_enabled
 )
@@ -32,6 +34,7 @@ static int parse_runtime_detection_options(
     *selected_algorithm = DETECTION_ALGORITHM_BUILTIN_ECU;
     *selected_action = DETECTION_ACTION_OBSERVE_ONLY;
     *driving_profile_path = NULL;
+    *coolant_sensor_trace_path = NULL;
     *simulation_duration_ms = 0U;
     *custom_duration_enabled = 0;
 
@@ -83,6 +86,12 @@ static int parse_runtime_detection_options(
 
         if (strcmp(option, "--driving-profile") == 0) {
             *driving_profile_path = value;
+            *argc -= 2;
+            continue;
+        }
+
+        if (strcmp(option, "--coolant-sensor-trace") == 0) {
+            *coolant_sensor_trace_path = value;
             *argc -= 2;
             continue;
         }
@@ -239,6 +248,7 @@ int main(int argc, char **argv)
     detection_algorithm_t selected_algorithm;
     detection_action_t selected_action;
     const char *driving_profile_path;
+    const char *coolant_sensor_trace_path;
     unsigned int simulation_duration_ms;
     int custom_duration_enabled;
     int config_status;
@@ -251,6 +261,7 @@ int main(int argc, char **argv)
             &selected_algorithm,
             &selected_action,
             &driving_profile_path,
+            &coolant_sensor_trace_path,
             &simulation_duration_ms,
             &custom_duration_enabled
         ) != 0) {
@@ -271,20 +282,31 @@ int main(int argc, char **argv)
     if (experiment_validate_driving_profile_coverage(&state) != 0) {
         return 1;
     }
+    if (coolant_sensor_trace_path != NULL &&
+        coolant_sensor_trace_load(
+            &state,
+            coolant_sensor_trace_path,
+            state.simulation.duration_ms
+        ) != 0) {
+        return 1;
+    }
 
     state.detection.selected_algorithm = selected_algorithm;
     state.detection.selected_action = selected_action;
     scheduler_init(&state);
 
     if (logger_open(&state, log_path) != 0) {
+        coolant_sensor_trace_close(&state);
         return 1;
     }
 
     scheduler_run(&state);
     logger_close(&state);
     if (metrics_write_summary(&state, log_path, summary_path, sizeof(summary_path)) != 0) {
+        coolant_sensor_trace_close(&state);
         return 1;
     }
+    coolant_sensor_trace_close(&state);
 
     printf("Simulation complete. CSV log written to %s\n", log_path);
     printf("Summary metrics written to %s\n", summary_path);
@@ -296,6 +318,9 @@ int main(int argc, char **argv)
         "Driving profile: %s\n",
         state.driving_profile.enabled ? state.driving_profile.source_path : "default thermal plant"
     );
+    if (coolant_sensor_trace_path != NULL) {
+        printf("Coolant sensor trace: %s\n", coolant_sensor_trace_path);
+    }
     if (state.simulation.custom_duration_enabled) {
         printf("Simulation duration: %u ms\n", state.simulation.duration_ms);
     } else {

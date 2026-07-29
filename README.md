@@ -205,6 +205,25 @@ start_ms,end_ms,vehicle_speed_kph,engine_load,ambient_temp_c,external_airflow_fa
 aerodynamic wind model. `road_slope_percent` is a simplified load modifier.
 More detail is in [docs/driving_environment_profiles.md](docs/driving_environment_profiles.md).
 
+## RTL Hardware Trojan Security Study
+
+The optional security study contains separate clean and Trojan-infected
+Verilog coolant-sensor interfaces. The infected RTL has an explicit
+consecutive-temperature trigger and a temperature-masking payload; it is not a
+renaming of the C fault-injection campaigns.
+
+```bash
+make rtl-trojan-study
+```
+
+The Verilator-generated trace is replayed through the unchanged Virtual ECU
+detectors, and isolated outputs are written under
+`results/rtl_hardware_trojan_study_v1/`. Verilator is required only for this
+study, not for normal builds or GUI use.
+
+See [docs/rtl_hardware_trojan_model.md](docs/rtl_hardware_trojan_model.md) for
+the RTL scaling, trigger, payload, integration boundary, and claim limits.
+
 ## GUI
 
 Launch the Python/Tkinter desktop GUI:

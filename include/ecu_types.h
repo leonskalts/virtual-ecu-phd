@@ -106,6 +106,18 @@ typedef struct {
 } simulation_config_t;
 
 typedef struct {
+    unsigned int time_ms;
+    float coolant_temp_c;
+} coolant_sensor_trace_sample_t;
+
+typedef struct {
+    bool enabled;
+    char source_path[ECU_PATH_BUFFER_SIZE];
+    coolant_sensor_trace_sample_t *samples;
+    unsigned int sample_count;
+} coolant_sensor_trace_t;
+
+typedef struct {
     scenario_phase_t scenario_phase;
     float ambient_temp_c;
     float engine_load;
@@ -232,6 +244,7 @@ typedef struct ecu_state {
     experiment_config_t experiment;
     driving_profile_config_t driving_profile;
     simulation_config_t simulation;
+    coolant_sensor_trace_t coolant_sensor_trace;
     fault_state_t faults;
     experiment_metrics_t metrics;
     detection_algorithm_state_t detection;

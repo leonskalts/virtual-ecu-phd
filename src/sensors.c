@@ -1,6 +1,7 @@
 #include "sensors.h"
 
 #include "config.h"
+#include "sensor_trace.h"
 
 /* Sensor module: exposes the plant through measured channels so experiments can
  * compare true and measured signals while keeping the ECU interfaces explicit.
@@ -88,6 +89,25 @@ void sensors_step(ecu_state_t *state)
         }
 
         coolant_meas = state->faults.stale_coolant_temp_c;
+    }
+
+    /* Explicit trace replay is an opt-in sensor-interface source used by
+     * external RTL studies. It replaces only the ECU-facing coolant sample and
+     * is inactive in all ordinary simulation and fault-injection runs. */
+    if (state->coolant_sensor_trace.enabled) {
+        if (coolant_sensor_trace_get(
+                state,
+                state->time.time_ms,
+                &coolant_meas
+            ) != 0) {
+            fprintf(
+                stderr,
+                "Coolant sensor trace has no sample for %u ms.\n",
+                state->time.time_ms
+            );
+            coolant_meas = state->plant.coolant_temp_true_c;
+        }
+        coolant_refreshed = true;
     }
 
     state->sensors.coolant_temp_meas_c = coolant_meas;

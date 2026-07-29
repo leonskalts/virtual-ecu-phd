@@ -7,7 +7,7 @@ SRC := $(wildcard src/*.c)
 OBJ := $(SRC:.c=.o)
 DEP := $(OBJ:.o=.d)
 
-.PHONY: all clean run recommended-study paper-bundle
+.PHONY: all clean run recommended-study paper-bundle rtl-trojan-study
 
 all: $(TARGET)
 
@@ -24,6 +24,9 @@ recommended-study: $(TARGET)
 	python3 scripts/run_recommended_study.py
 
 paper-bundle: recommended-study
+
+rtl-trojan-study: $(TARGET)
+	python3 scripts/run_rtl_hardware_trojan_study.py
 
 clean:
 	rm -f $(OBJ) $(DEP) $(TARGET)
