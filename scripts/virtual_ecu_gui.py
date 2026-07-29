@@ -88,6 +88,20 @@ RUNTIME_CUSTOM_MATRIX_REPORT_HTML = (
     RUNTIME_CUSTOM_MATRIX_DIR / "runtime_custom_matrix_report.html"
 )
 RUNTIME_CUSTOM_MATRIX_SCRIPT = PROJECT_ROOT / "scripts" / "run_runtime_custom_matrix.py"
+RTL_SECURITY_STUDY_DIR = (
+    PROJECT_ROOT / "results" / "rtl_hardware_trojan_study_v1"
+)
+RTL_SECURITY_STUDY_SCRIPT = (
+    PROJECT_ROOT / "scripts" / "run_rtl_hardware_trojan_study.py"
+)
+RTL_SECURITY_TARGET_OPTIONS = (
+    "Coolant Sensor Interface",
+    "Fan Driver Interface",
+)
+RTL_SECURITY_TARGET_IDS = {
+    "Coolant Sensor Interface": "coolant_sensor",
+    "Fan Driver Interface": "fan_driver",
+}
 RUNTIME_STUDY_SOURCE_OPTIONS = (
     "Predefined runtime intervention study",
     "Latest custom scenario matrix",
@@ -5651,6 +5665,15 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.runtime_study_findings_var = tk.StringVar(
             value="Generate or load the study to view detector and intervention findings."
         )
+        self.rtl_security_target_choice = tk.StringVar(
+            value=RTL_SECURITY_TARGET_OPTIONS[0]
+        )
+        self.rtl_security_output_text = tk.StringVar(
+            value=str(RTL_SECURITY_STUDY_DIR.relative_to(PROJECT_ROOT))
+        )
+        self.rtl_security_status_text = tk.StringVar(
+            value="Ready to run an isolated RTL security analysis."
+        )
         self.runtime_study_summary_vars = {
             name: tk.StringVar(value="-")
             for name in (
@@ -5798,6 +5821,8 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.runtime_study_reload_button: ttk.Button | None = None
         self.runtime_study_report_button: ttk.Button | None = None
         self.runtime_study_folder_button: ttk.Button | None = None
+        self.rtl_security_run_button: tk.Widget | None = None
+        self.rtl_security_folder_button: tk.Widget | None = None
         self.runtime_study_figures_content: ttk.Frame | None = None
         self.runtime_study_figure_buttons: Dict[Path, ttk.Button] = {}
         self.batch_plot: PlotCanvas | None = None
@@ -6091,6 +6116,15 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             runtime_study_tab,
         )
 
+        rtl_security_tab = ScrollableTabFrame(notebook)
+        rtl_security_tab.content.columnconfigure(0, weight=1)
+        notebook.add(rtl_security_tab, text="Security / RTL Analysis")
+        self._register_page(
+            "rtl_security",
+            "Security / RTL Analysis",
+            rtl_security_tab,
+        )
+
         exports_tab = ScrollableTabFrame(notebook)
         exports_tab.content.columnconfigure(0, weight=1)
         notebook.add(exports_tab, text="Export Reports")
@@ -6103,6 +6137,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self._build_fault_path_tab(fault_path_tab.content)
         self._build_batch_tab(batch_tab.content)
         self._build_runtime_study_tab(runtime_study_tab.content)
+        self._build_rtl_security_tab(rtl_security_tab.content)
         self._build_exports_tab(exports_tab.content)
         self._set_active_nav("dashboard")
 
@@ -6154,6 +6189,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             ("fault_path", "3. Fault Path"),
             ("batch", "4. Batch Results"),
             ("runtime_study", "5. Runtime Study"),
+            ("rtl_security", "Security / RTL Analysis"),
             ("exports", "6. Exports"),
             ("custom", "Custom Faults"),
         )
@@ -9097,6 +9133,139 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.runtime_study_figures_content.columnconfigure(1, weight=0)
         self._refresh_runtime_study_figure_buttons()
 
+    def _build_rtl_security_tab(self, parent: ttk.Frame) -> None:
+        self._build_tab_header(
+            parent,
+            row=0,
+            title="Security / RTL Analysis",
+            description=(
+                "This section evaluates RTL-level trigger-payload security "
+                "modules inserted into Virtual ECU sensor/actuator interfaces."
+            ),
+        )
+
+        analysis_card = self._section_card(
+            parent,
+            title="RTL Interface Target",
+            description=(
+                "Choose one isolated Verilog target. Verilator generates the "
+                "clean and infected interface traces, then the existing "
+                "Virtual ECU detectors evaluate their runtime consequences."
+            ),
+        )
+        analysis_card.grid(
+            row=1,
+            column=0,
+            sticky="ew",
+            padx=12,
+            pady=(0, 12),
+        )
+        content = self._card_content(analysis_card)
+        content.columnconfigure(1, weight=1)
+
+        ttk.Label(
+            content,
+            text="Target",
+            style="CardFieldName.TLabel",
+        ).grid(row=0, column=0, sticky="w")
+        target_selector = ttk.Combobox(
+            content,
+            textvariable=self.rtl_security_target_choice,
+            values=RTL_SECURITY_TARGET_OPTIONS,
+            state="readonly",
+            width=31,
+        )
+        target_selector.grid(row=0, column=1, sticky="w", padx=(10, 0))
+
+        ttk.Label(
+            content,
+            text="Output directory",
+            style="CardFieldName.TLabel",
+        ).grid(row=1, column=0, sticky="nw", pady=(12, 0))
+        ttk.Label(
+            content,
+            textvariable=self.rtl_security_output_text,
+            style="CardHint.TLabel",
+            wraplength=760,
+            justify="left",
+        ).grid(
+            row=1,
+            column=1,
+            sticky="w",
+            padx=(10, 0),
+            pady=(12, 0),
+        )
+
+        ttk.Label(
+            content,
+            textvariable=self.rtl_security_status_text,
+            style="CardHint.TLabel",
+            wraplength=850,
+            justify="left",
+        ).grid(
+            row=2,
+            column=0,
+            columnspan=2,
+            sticky="w",
+            pady=(12, 0),
+        )
+
+        actions = ttk.Frame(content, style="Card.TFrame")
+        actions.grid(
+            row=3,
+            column=0,
+            columnspan=2,
+            sticky="w",
+            pady=(16, 0),
+        )
+        self.rtl_security_run_button = self._modern_button(
+            actions,
+            "Run RTL Security Analysis",
+            self.run_rtl_security_analysis,
+        )
+        self.rtl_security_run_button.grid(row=0, column=0, sticky="w")
+        self.rtl_security_folder_button = self._modern_button(
+            actions,
+            "Open Results Folder",
+            self.open_rtl_security_output_folder,
+            color=THEME_COLORS["secondary"],
+        )
+        self.rtl_security_folder_button.grid(
+            row=0,
+            column=1,
+            sticky="w",
+            padx=(10, 0),
+        )
+
+        boundary_card = self._section_card(
+            parent,
+            title="Experiment Boundary",
+            description=(
+                "Fault Injection remains the reliability and safety workflow. "
+                "This page runs actual RTL trigger-payload modules and keeps "
+                "their generated evidence in a separate results directory."
+            ),
+        )
+        boundary_card.grid(
+            row=2,
+            column=0,
+            sticky="ew",
+            padx=12,
+            pady=(0, 12),
+        )
+        boundary_content = self._card_content(boundary_card)
+        ttk.Label(
+            boundary_content,
+            text=(
+                "Verilator is optional and is invoked only by this analysis. "
+                "Trojan trigger and payload status are used for reporting and "
+                "latency calculation, never as runtime detector evidence."
+            ),
+            style="CardHint.TLabel",
+            wraplength=1040,
+            justify="left",
+        ).grid(row=0, column=0, sticky="ew")
+
     def _apply_runtime_study_table_alignment(self) -> None:
         if self.runtime_study_table is None:
             return
@@ -11827,6 +11996,76 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             on_error=on_error,
             buttons_to_disable=(self.runtime_study_reload_button,),
             success_action="Reload Results",
+        )
+
+    def run_rtl_security_analysis(self) -> None:
+        target_label = self.rtl_security_target_choice.get()
+        target_id = RTL_SECURITY_TARGET_IDS.get(target_label)
+        if target_id is None:
+            messagebox.showerror(
+                "RTL Security Target Invalid",
+                f"Unknown RTL security target: {target_label}",
+            )
+            return
+
+        self.rtl_security_status_text.set(
+            f"Running RTL security analysis for {target_label}..."
+        )
+        self.status_text.set(
+            f"Running RTL security analysis for {target_label}..."
+        )
+
+        def run_task() -> str:
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(RTL_SECURITY_STUDY_SCRIPT),
+                    "--target",
+                    target_id,
+                ],
+                cwd=PROJECT_ROOT,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            if completed.returncode != 0:
+                detail = completed.stderr.strip() or completed.stdout.strip()
+                raise RuntimeError(
+                    detail or "Unknown RTL security analysis failure."
+                )
+            return target_label
+
+        def on_success(result: object) -> None:
+            completed_target = str(result)
+            self.rtl_security_status_text.set(
+                f"{completed_target} analysis complete. Results are ready."
+            )
+            self.status_text.set(
+                "RTL security analysis complete. "
+                "Use Open Results Folder to inspect generated evidence."
+            )
+
+        def on_error(exc: Exception) -> None:
+            self.rtl_security_status_text.set(
+                "RTL security analysis failed. Review the error dialog."
+            )
+            self.status_text.set("RTL security analysis failed.")
+            messagebox.showerror("RTL Security Analysis Failed", str(exc))
+
+        self.run_background_task(
+            "Running RTL security analysis...",
+            f"Target: {target_label}",
+            run_task,
+            on_success=on_success,
+            on_error=on_error,
+            buttons_to_disable=(self.rtl_security_run_button,),
+            success_action="RTL Security Analysis",
+        )
+
+    def open_rtl_security_output_folder(self) -> None:
+        self.open_runtime_study_artifact(
+            RTL_SECURITY_STUDY_DIR,
+            "RTL Security Analysis Output",
         )
 
     def run_runtime_intervention_study(self) -> None:

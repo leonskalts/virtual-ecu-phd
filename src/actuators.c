@@ -1,5 +1,7 @@
 #include "actuators.h"
 
+#include "actuator_trace.h"
+
 /* Actuator module: converts controller requests into realized pump and fan action,
  * while injecting simple actuator-side degradations for repeatable experiments. */
 static float clamp_unit(float value)
@@ -90,6 +92,23 @@ void actuators_step(ecu_state_t *state)
 
     if (state->faults.enabled && state->faults.active_mode == FAULT_FAN_STUCK_OFF) {
         fan_actual = 0.0f;
+    }
+
+    /* Explicit trace replay is an opt-in actuator-interface source for RTL
+     * security studies. Ordinary control and fault workflows never enter this
+     * branch. */
+    if (state->fan_actual_trace.enabled &&
+        fan_actual_trace_get(
+            state,
+            state->time.time_ms,
+            &fan_actual
+        ) != 0) {
+        fprintf(
+            stderr,
+            "Fan actual trace has no sample for %u ms.\n",
+            state->time.time_ms
+        );
+        fan_actual = clamp_unit(state->control.fan_command);
     }
 
     state->actuators.pump_actual = pump_actual;
