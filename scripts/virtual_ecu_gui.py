@@ -94,6 +94,15 @@ RTL_SECURITY_STUDY_DIR = (
 RTL_SECURITY_STUDY_SCRIPT = (
     PROJECT_ROOT / "scripts" / "run_rtl_hardware_trojan_study.py"
 )
+FULL_RUNTIME_VALIDATION_DIR = (
+    PROJECT_ROOT / "results" / "full_runtime_validation"
+)
+EXPANDED_RUNTIME_VALIDATION_DIR = (
+    PROJECT_ROOT / "results" / "expanded_runtime_validation"
+)
+EXPANDED_VALIDATION_CLAIM_SUMMARY = (
+    EXPANDED_RUNTIME_VALIDATION_DIR / "expanded_validation_claim_summary.md"
+)
 RTL_SECURITY_TARGET_OPTIONS = (
     "Coolant Sensor Interface",
     "Fan Driver Interface",
@@ -105,6 +114,56 @@ RTL_SECURITY_TARGET_IDS = {
     "Fan Driver Interface": "fan_driver",
     "Calibration Memory Interface": "calibration_memory",
     "Multi-Stage RTL Chain": "multi_stage_chain",
+}
+RTL_SECURITY_VIEWER_TARGET_IDS = {
+    "Coolant Sensor Interface": "ht1_coolant_sensor",
+    "Fan Driver Interface": "ht2_fan_driver",
+    "Calibration Memory Interface": "ht3_calibration_memory",
+    "Multi-Stage RTL Chain": "ht4_multi_stage_chain",
+}
+RTL_SECURITY_PLOT_SOURCE_OPTIONS = (
+    "Latest RTL Trojan study results",
+    "Full runtime validation RTL rows",
+    "Expanded runtime validation RTL rows",
+)
+RTL_SECURITY_PLOT_SOURCE_PATHS = {
+    "Latest RTL Trojan study results": (
+        RTL_SECURITY_STUDY_DIR / "detector_comparison.csv",
+    ),
+    "Full runtime validation RTL rows": (
+        FULL_RUNTIME_VALIDATION_DIR
+        / "rtl_security"
+        / "detector_comparison.csv",
+        FULL_RUNTIME_VALIDATION_DIR / "combined_detection_latency_matrix.csv",
+    ),
+    "Expanded runtime validation RTL rows": (
+        EXPANDED_RUNTIME_VALIDATION_DIR
+        / "rtl_security"
+        / "detector_comparison.csv",
+        EXPANDED_RUNTIME_VALIDATION_DIR
+        / "expanded_combined_detection_latency_matrix.csv",
+    ),
+}
+RTL_SECURITY_SUMMARY_TABLE_SPECS: Sequence[Tuple[str, str, int]] = (
+    ("rtl_target_name", "Target", 165),
+    ("variant", "Variant", 70),
+    ("detector", "Detector", 150),
+    ("rtl_trojan_trigger_time_ms", "Payload [ms]", 90),
+    ("runtime_detection_first_detection_ms", "First Detection [ms]", 125),
+    ("detection_latency_from_payload_ms", "Latency [ms]", 90),
+    ("runtime_detection_label", "Detection Label", 135),
+    ("max_coolant_temp_c", "Max Coolant [C]", 105),
+    ("final_safe_state", "Final Safe State", 115),
+)
+RTL_SECURITY_DETECTOR_SHORT_LABELS = {
+    "builtin_ecu": "builtin",
+    "threshold": "threshold",
+    "ewma": "ewma",
+    "cusum": "cusum",
+    "thermal_observer": "thermal",
+    "kalman_filter": "kalman",
+    "adaptive_kalman_filter": "adaptive",
+    "hybrid_adaptive_kalman": "hybrid",
 }
 RUNTIME_STUDY_SOURCE_OPTIONS = (
     "Predefined runtime intervention study",
@@ -2963,6 +3022,7 @@ class PlotCanvas(ttk.Frame):
         event_overlays: Sequence[Dict[str, object]] = (),
         evidence_markers: Sequence[Dict[str, object]] = (),
         marker_key_entries: Sequence[Tuple[str, str]] = (),
+        marker_lane: bool = False,
     ) -> None:
         self._drawer = self._draw_line_plot
         self._payload = {
@@ -2977,6 +3037,7 @@ class PlotCanvas(ttk.Frame):
             "event_overlays": [dict(item) for item in event_overlays],
             "evidence_markers": [dict(item) for item in evidence_markers],
             "marker_key_entries": list(marker_key_entries),
+            "marker_lane": marker_lane,
         }
         self.redraw()
 
@@ -3022,6 +3083,10 @@ class PlotCanvas(ttk.Frame):
         *,
         y_label: str,
         bar_color: str = "#4c78a8",
+        x_label: str = "Fault Type",
+        missing_label: str = "n/a",
+        show_missing_only: bool = False,
+        value_scale: str = "linear",
     ) -> None:
         self._drawer = self._draw_bar_plot
         self._payload = {
@@ -3029,6 +3094,10 @@ class PlotCanvas(ttk.Frame):
             "values": list(values),
             "y_label": y_label,
             "bar_color": bar_color,
+            "x_label": x_label,
+            "missing_label": missing_label,
+            "show_missing_only": show_missing_only,
+            "value_scale": value_scale,
         }
         self.redraw()
 
@@ -3727,6 +3796,7 @@ class PlotCanvas(ttk.Frame):
         event_overlays = data.get("event_overlays", [])
         evidence_markers = data.get("evidence_markers", [])
         marker_key_entries = data.get("marker_key_entries", [])
+        marker_lane = bool(data.get("marker_lane", False))
 
         if not series:
             self._draw_message("No plot data available.")
@@ -3769,10 +3839,13 @@ class PlotCanvas(ttk.Frame):
         legend_entries = [(label, color, dash) for label, color, _, _, dash in series]
         legend_height = self._draw_legend(legend_entries, left=96, top=10, right=self._canvas_size()[0] - 24)
         key_height = self._marker_key_height(marker_key_entries, available_width=self._canvas_size()[0] - 120)
+        marker_lane_height = (
+            52 if marker_lane and (event_overlays or evidence_markers) else 0
+        )
         left, top, right, bottom = self._draw_axes(
             y_label,
             y_tick_labels=y_tick_labels,
-            top_margin=18 + legend_height,
+            top_margin=18 + legend_height + marker_lane_height,
             bottom_margin=76 + key_height,
             right_margin=52 if threshold_lines else 34,
         )
@@ -3781,6 +3854,68 @@ class PlotCanvas(ttk.Frame):
 
         def map_y(value: float) -> float:
             return bottom - (value - min_y) * (bottom - top) / (max_y - min_y)
+
+        lane_positions: Dict[Tuple[str, int], int] = {}
+        if marker_lane_height:
+            self.canvas.create_rectangle(
+                left,
+                top - marker_lane_height + 4,
+                right,
+                top - 5,
+                fill="#f4f8fb",
+                outline="#d8e2ea",
+            )
+            lane_items: List[Tuple[float, str, int]] = []
+            for index, overlay in enumerate(event_overlays):
+                time_s = float_or_none(overlay.get("time_s"))
+                if time_s is not None:
+                    lane_items.append((time_s, "event", index))
+            for index, marker in enumerate(evidence_markers):
+                time_s = float_or_none(marker.get("time_s"))
+                if time_s is not None:
+                    lane_items.append((time_s, "evidence", index))
+            last_x_by_level = [-1000.0, -1000.0, -1000.0]
+            for time_s, kind, index in sorted(lane_items):
+                x_pos = map_x(time_s)
+                level = next(
+                    (
+                        candidate
+                        for candidate, last_x in enumerate(last_x_by_level)
+                        if x_pos - last_x >= 48.0
+                    ),
+                    min(
+                        range(len(last_x_by_level)),
+                        key=lambda candidate: last_x_by_level[candidate],
+                    ),
+                )
+                lane_positions[(kind, index)] = level
+                last_x_by_level[level] = x_pos
+
+        def draw_lane_label(
+            x_pos: float,
+            label: str,
+            color: str,
+            level: int,
+        ) -> None:
+            y_pos = top - marker_lane_height + 13 + level * 15
+            text_id = self.canvas.create_text(
+                x_pos,
+                y_pos,
+                text=label,
+                fill=color,
+                font=self._font("tick"),
+            )
+            bounds = self.canvas.bbox(text_id)
+            if bounds is not None:
+                background_id = self.canvas.create_rectangle(
+                    bounds[0] - 3,
+                    bounds[1] - 1,
+                    bounds[2] + 3,
+                    bounds[3] + 1,
+                    fill="#ffffff",
+                    outline=color,
+                )
+                self.canvas.tag_lower(background_id, text_id)
 
         for tick in range(5):
             y_value = min_y + tick * (max_y - min_y) / 4.0
@@ -3824,27 +3959,35 @@ class PlotCanvas(ttk.Frame):
                 self.canvas.create_line(x_end, top, x_end, bottom, fill=color, dash=(2, 3), width=self._line_width())
             self.canvas.create_line(x_pos, top, x_pos, bottom, fill=color, dash=dash, width=self._line_width())
             label = str(overlay.get("label", "Fault"))
-            label_x, label_y, label_anchor = self._place_annotation_label(
-                x_pos,
-                top + 12,
-                left=left,
-                right=right,
-                top=top,
-                bottom=bottom,
-                width=38 if self.presentation_mode else 30,
-                height=18 if self.presentation_mode else 15,
-                used_boxes=used_label_boxes,
-                prefer_above=True,
-            )
-            self.canvas.create_text(
-                label_x,
-                label_y,
-                text=label,
-                anchor=label_anchor,
-                fill=color,
-                font=self._font("tick"),
-                width=38 if self.presentation_mode else 30,
-            )
+            if marker_lane_height:
+                draw_lane_label(
+                    x_pos,
+                    label,
+                    color,
+                    lane_positions.get(("event", index), 0),
+                )
+            else:
+                label_x, label_y, label_anchor = self._place_annotation_label(
+                    x_pos,
+                    top + 12,
+                    left=left,
+                    right=right,
+                    top=top,
+                    bottom=bottom,
+                    width=38 if self.presentation_mode else 30,
+                    height=18 if self.presentation_mode else 15,
+                    used_boxes=used_label_boxes,
+                    prefer_above=True,
+                )
+                self.canvas.create_text(
+                    label_x,
+                    label_y,
+                    text=label,
+                    anchor=label_anchor,
+                    fill=color,
+                    font=self._font("tick"),
+                    width=38 if self.presentation_mode else 30,
+                )
 
         for label, color, x_values, y_values, dash in series:
             points = []
@@ -3873,27 +4016,36 @@ class PlotCanvas(ttk.Frame):
                 fill=color,
                 outline=color,
             )
-            label_x, label_y, label_anchor = self._place_annotation_label(
-                x_pos,
-                bottom - 18,
-                left=left,
-                right=right,
-                top=top,
-                bottom=bottom,
-                width=48 if self.presentation_mode else 40,
-                height=18 if self.presentation_mode else 15,
-                used_boxes=used_label_boxes,
-                prefer_above=False,
-            )
-            self.canvas.create_text(
-                label_x,
-                label_y,
-                text=str(marker.get("label", "Event")),
-                anchor=label_anchor,
-                fill=color,
-                font=self._font("tick"),
-                width=48 if self.presentation_mode else 40,
-            )
+            marker_label = str(marker.get("label", "Event"))
+            if marker_lane_height:
+                draw_lane_label(
+                    x_pos,
+                    marker_label,
+                    color,
+                    lane_positions.get(("evidence", index), 0),
+                )
+            else:
+                label_x, label_y, label_anchor = self._place_annotation_label(
+                    x_pos,
+                    bottom - 18,
+                    left=left,
+                    right=right,
+                    top=top,
+                    bottom=bottom,
+                    width=48 if self.presentation_mode else 40,
+                    height=18 if self.presentation_mode else 15,
+                    used_boxes=used_label_boxes,
+                    prefer_above=False,
+                )
+                self.canvas.create_text(
+                    label_x,
+                    label_y,
+                    text=marker_label,
+                    anchor=label_anchor,
+                    fill=color,
+                    font=self._font("tick"),
+                    width=48 if self.presentation_mode else 40,
+                )
 
         self._draw_marker_key(marker_key_entries, left=left, top=bottom + 52, right=right)
 
@@ -4031,25 +4183,41 @@ class PlotCanvas(ttk.Frame):
         values = data["values"]
         y_label = data["y_label"]
         bar_color = data["bar_color"]
+        x_label = data.get("x_label", "Fault Type")
+        missing_label = data.get("missing_label", "n/a")
+        show_missing_only = data.get("show_missing_only", False)
+        value_scale = data.get("value_scale", "linear")
 
         if not categories or not values:
             self._draw_message("No plot data available.")
             return
 
         valid_values = [value for value in values if value is not None]
-        if not valid_values:
+        if not valid_values and not show_missing_only:
             self._draw_message("No valid values available for this batch plot.")
             return
 
         bottom_margin = self._bottom_margin_for_categories(categories)
-        max_value = max(valid_values)
+        max_value = max(valid_values) if valid_values else 1.0
         if max_value <= 0.0:
             max_value = 1.0
-        max_value *= 1.12
-        y_tick_labels = [f"{(tick * max_value / 4.0):.0f}" for tick in range(5)]
+
+        def scale_value(value: float) -> float:
+            if value_scale == "sqrt":
+                return max(value, 0.0) ** 0.5
+            return value
+
+        max_scaled_value = scale_value(max_value) * 1.12
+        y_tick_values = [
+            tick * max_scaled_value / 4.0 for tick in range(5)
+        ]
+        y_tick_labels = [
+            f"{(value * value if value_scale == 'sqrt' else value):.0f}"
+            for value in y_tick_values
+        ]
         left, top, right, bottom = self._draw_axes(
             y_label,
-            x_label="Fault Type",
+            x_label=x_label,
             y_tick_labels=y_tick_labels,
             bottom_margin=bottom_margin,
             extra_left_margin=20,
@@ -4058,15 +4226,25 @@ class PlotCanvas(ttk.Frame):
         )
 
         def map_y(value: float) -> float:
-            return bottom - value * (bottom - top) / max_value
+            return (
+                bottom
+                - scale_value(value)
+                * (bottom - top)
+                / max_scaled_value
+            )
 
         bar_count = len(categories)
         slot_width = (right - left) / max(bar_count, 1)
         bar_width = slot_width * 0.58
 
         for tick in range(5):
-            y_value = tick * max_value / 4.0
-            y_pos = map_y(y_value)
+            scaled_value = y_tick_values[tick]
+            y_value = (
+                scaled_value * scaled_value
+                if value_scale == "sqrt"
+                else scaled_value
+            )
+            y_pos = bottom - scaled_value * (bottom - top) / max_scaled_value
             self.canvas.create_line(left - 4, y_pos, right, y_pos, fill="#e7edf2", dash=(2, 4))
             self.canvas.create_text(left - 10, y_pos, text=f"{y_value:.0f}", anchor="e", fill="#506070", font=self._font("tick"))
 
@@ -4075,7 +4253,13 @@ class PlotCanvas(ttk.Frame):
             x0 = center_x - bar_width / 2.0
             x1 = center_x + bar_width / 2.0
             if value is None:
-                self.canvas.create_text(center_x, bottom - 8, text="n/a", fill="#6a6a6a", font=self._font("bar_value"))
+                self.canvas.create_text(
+                    center_x,
+                    bottom - 8,
+                    text=missing_label,
+                    fill="#a12626",
+                    font=self._font("bar_value"),
+                )
             else:
                 y_top = map_y(value)
                 self.canvas.create_rectangle(x0, y_top, x1, bottom, fill=bar_color, outline="#2f2f2f")
@@ -5678,6 +5862,26 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.rtl_security_status_text = tk.StringVar(
             value="Ready to run an isolated RTL security analysis."
         )
+        self.rtl_plot_source_choice = tk.StringVar(
+            value=RTL_SECURITY_PLOT_SOURCE_OPTIONS[0]
+        )
+        self.rtl_plot_target_choice = tk.StringVar(
+            value=RTL_SECURITY_TARGET_OPTIONS[0]
+        )
+        self.rtl_plot_detector_choice = tk.StringVar(
+            value="hybrid_adaptive_kalman"
+        )
+        self.rtl_plot_status_text = tk.StringVar(
+            value="Select an RTL target and detector, then load the latest analysis plots."
+        )
+        self.rtl_advanced_results_expanded = tk.BooleanVar(value=False)
+        self.rtl_paths_expanded = tk.BooleanVar(value=False)
+        self.rtl_advanced_status_text = tk.StringVar(
+            value="Validation results are larger benchmark matrices for detector comparison."
+        )
+        self.rtl_paths_text = tk.StringVar(
+            value="Load plots to view raw and summary CSV paths."
+        )
         self.runtime_study_summary_vars = {
             name: tk.StringVar(value="-")
             for name in (
@@ -5827,6 +6031,16 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.runtime_study_folder_button: ttk.Button | None = None
         self.rtl_security_run_button: tk.Widget | None = None
         self.rtl_security_folder_button: tk.Widget | None = None
+        self.rtl_plot_reload_button: tk.Widget | None = None
+        self.rtl_timeline_plot: PlotCanvas | None = None
+        self.rtl_target_plot: PlotCanvas | None = None
+        self.rtl_third_plot: PlotCanvas | None = None
+        self.rtl_latency_plot: PlotCanvas | None = None
+        self.rtl_summary_table: ttk.Treeview | None = None
+        self.rtl_paths_body: ttk.Frame | None = None
+        self.rtl_paths_toggle_button: tk.Widget | None = None
+        self.rtl_advanced_results_body: ttk.Frame | None = None
+        self.rtl_advanced_results_toggle_button: tk.Widget | None = None
         self.runtime_study_figures_content: ttk.Frame | None = None
         self.runtime_study_figure_buttons: Dict[Path, ttk.Button] = {}
         self.batch_plot: PlotCanvas | None = None
@@ -9244,6 +9458,325 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             padx=(10, 0),
         )
 
+        viewer_card = self._section_card(
+            parent,
+            title="RTL Trojan Plot Viewer",
+            description=(
+                "Compare clean and Trojan runtime traces, inspect payload and "
+                "detection markers, and compare detector latency. CSV columns "
+                "are discovered at load time, so unavailable series are skipped."
+            ),
+        )
+        viewer_card.grid(
+            row=2,
+            column=0,
+            sticky="ew",
+            padx=12,
+            pady=(0, 12),
+        )
+        viewer_content = self._card_content(viewer_card)
+        viewer_content.columnconfigure(0, weight=1)
+
+        ttk.Label(
+            viewer_content,
+            text=(
+                "Main plots use the latest RTL analysis run from this page. "
+                "Choose a target and detector, then load its clean and Trojan traces."
+            ),
+            style="CardHint.TLabel",
+            wraplength=1020,
+            justify="left",
+        ).grid(row=0, column=0, sticky="ew", pady=(0, 10))
+
+        selectors = ttk.Frame(viewer_content, style="Card.TFrame")
+        selectors.grid(row=1, column=0, sticky="ew")
+        for column in range(2):
+            selectors.columnconfigure(column, weight=1)
+
+        selector_specs = (
+            (
+                0,
+                "RTL target",
+                self.rtl_plot_target_choice,
+                RTL_SECURITY_TARGET_OPTIONS,
+                31,
+            ),
+            (
+                1,
+                "Detector",
+                self.rtl_plot_detector_choice,
+                tuple(SUPPORTED_ALGORITHMS),
+                31,
+            ),
+        )
+        for column, label, variable, values, width in selector_specs:
+            ttk.Label(
+                selectors,
+                text=label,
+                style="CardFieldName.TLabel",
+            ).grid(row=0, column=column, sticky="w", padx=(0, 10))
+            selector = ttk.Combobox(
+                selectors,
+                textvariable=variable,
+                values=values,
+                state="readonly",
+                width=width,
+            )
+            selector.grid(
+                row=1,
+                column=column,
+                sticky="ew",
+                padx=(0, 10),
+                pady=(4, 0),
+            )
+
+        viewer_actions = ttk.Frame(viewer_content, style="Card.TFrame")
+        viewer_actions.grid(row=2, column=0, sticky="w", pady=(12, 0))
+        self.rtl_plot_reload_button = self._modern_button(
+            viewer_actions,
+            "Load Plots",
+            self.reload_rtl_security_plot_viewer,
+        )
+        self.rtl_plot_reload_button.grid(
+            row=0,
+            column=0,
+            sticky="w",
+        )
+        self.rtl_advanced_results_toggle_button = self._modern_button(
+            viewer_actions,
+            "Advanced Validation Results",
+            self._toggle_rtl_advanced_results,
+            color=THEME_COLORS["secondary"],
+        )
+        self.rtl_advanced_results_toggle_button.grid(
+            row=0,
+            column=1,
+            sticky="w",
+            padx=(10, 0),
+        )
+        ttk.Label(
+            viewer_content,
+            textvariable=self.rtl_plot_status_text,
+            style="CardHint.TLabel",
+            wraplength=1020,
+            justify="left",
+        ).grid(row=3, column=0, sticky="ew", pady=(10, 6))
+
+        self.rtl_timeline_plot = PlotCanvas(
+            viewer_content,
+            "Target-Specific Runtime Signals",
+            canvas_height=270,
+        )
+        self.rtl_timeline_plot.grid(
+            row=4,
+            column=0,
+            sticky="ew",
+            pady=(10, 18),
+        )
+        self.rtl_target_plot = PlotCanvas(
+            viewer_content,
+            "Thermal Consequence",
+            canvas_height=270,
+        )
+        self.rtl_target_plot.grid(
+            row=5,
+            column=0,
+            sticky="ew",
+            pady=(0, 18),
+        )
+        self.rtl_third_plot = PlotCanvas(
+            viewer_content,
+            "HT4 Fan / Actuator View",
+            canvas_height=270,
+        )
+        self.rtl_third_plot.grid(
+            row=6,
+            column=0,
+            sticky="ew",
+            pady=(0, 18),
+        )
+        self.rtl_third_plot.grid_remove()
+        self.rtl_latency_plot = PlotCanvas(
+            viewer_content,
+            "Detector Latency Comparison",
+            canvas_height=260,
+        )
+        self.rtl_latency_plot.grid(
+            row=7,
+            column=0,
+            sticky="ew",
+            pady=(0, 18),
+        )
+
+        ttk.Label(
+            viewer_content,
+            text="Selected-Detector Run Summary",
+            style="Section.TLabel",
+        ).grid(row=8, column=0, sticky="w", padx=6, pady=(0, 4))
+        table_frame = ttk.Frame(viewer_content, style="Card.TFrame")
+        table_frame.grid(row=9, column=0, sticky="nsew")
+        table_frame.columnconfigure(0, weight=1)
+        table_frame.rowconfigure(0, weight=1)
+        summary_columns = tuple(
+            column for column, _label, _width in RTL_SECURITY_SUMMARY_TABLE_SPECS
+        )
+        self.rtl_summary_table = ttk.Treeview(
+            table_frame,
+            columns=summary_columns,
+            show="headings",
+            height=3,
+        )
+        for column, label, width in RTL_SECURITY_SUMMARY_TABLE_SPECS:
+            self.rtl_summary_table.heading(
+                column,
+                text=label,
+                anchor=tk.CENTER,
+            )
+            self.rtl_summary_table.column(
+                column,
+                width=width,
+                minwidth=75,
+                anchor=tk.W if column == "rtl_target_name" else tk.CENTER,
+                stretch=False,
+            )
+        self._configure_table_tags(self.rtl_summary_table)
+        summary_y_scroll = ttk.Scrollbar(
+            table_frame,
+            orient="vertical",
+            command=self.rtl_summary_table.yview,
+        )
+        summary_x_scroll = ttk.Scrollbar(
+            table_frame,
+            orient="horizontal",
+            command=self.rtl_summary_table.xview,
+        )
+        self.rtl_summary_table.configure(
+            yscrollcommand=summary_y_scroll.set,
+            xscrollcommand=summary_x_scroll.set,
+        )
+        self.rtl_summary_table.grid(row=0, column=0, sticky="nsew")
+        summary_y_scroll.grid(row=0, column=1, sticky="ns")
+        summary_x_scroll.grid(row=1, column=0, sticky="ew")
+
+        self.rtl_paths_toggle_button = self._modern_button(
+            viewer_content,
+            "Details / Paths",
+            self._toggle_rtl_paths,
+            color=THEME_COLORS["secondary"],
+        )
+        self.rtl_paths_toggle_button.grid(
+            row=10,
+            column=0,
+            sticky="w",
+            pady=(10, 0),
+        )
+        self.rtl_paths_body = ttk.Frame(
+            viewer_content,
+            style="SoftCard.TFrame",
+            padding=10,
+        )
+        self.rtl_paths_body.grid(
+            row=11,
+            column=0,
+            sticky="ew",
+            pady=(8, 0),
+        )
+        self.rtl_paths_body.columnconfigure(0, weight=1)
+        ttk.Label(
+            self.rtl_paths_body,
+            textvariable=self.rtl_paths_text,
+            style="CardHint.TLabel",
+            wraplength=1000,
+            justify="left",
+        ).grid(row=0, column=0, sticky="ew")
+
+        self.rtl_advanced_results_body = ttk.Frame(
+            viewer_content,
+            style="SoftCard.TFrame",
+            padding=12,
+        )
+        self.rtl_advanced_results_body.grid(
+            row=12,
+            column=0,
+            sticky="ew",
+            pady=(14, 0),
+        )
+        self.rtl_advanced_results_body.columnconfigure(0, weight=1)
+        ttk.Label(
+            self.rtl_advanced_results_body,
+            text=(
+                "Validation results are larger benchmark matrices for detector "
+                "comparison. Loading one replaces the displayed plots until "
+                "Load Plots is clicked again."
+            ),
+            style="CardHint.TLabel",
+            wraplength=1000,
+            justify="left",
+        ).grid(row=0, column=0, sticky="ew", pady=(0, 10))
+        advanced_actions = ttk.Frame(
+            self.rtl_advanced_results_body,
+            style="SoftCard.TFrame",
+        )
+        advanced_actions.grid(row=1, column=0, sticky="ew")
+        advanced_button_specs = (
+            (
+                "Load Full Runtime Validation RTL Rows",
+                lambda: self.load_rtl_validation_results(
+                    RTL_SECURITY_PLOT_SOURCE_OPTIONS[1]
+                ),
+            ),
+            (
+                "Load Expanded Runtime Validation RTL Rows",
+                lambda: self.load_rtl_validation_results(
+                    RTL_SECURITY_PLOT_SOURCE_OPTIONS[2]
+                ),
+            ),
+            (
+                "Open Full Validation Results Folder",
+                lambda: self.open_rtl_validation_artifact(
+                    FULL_RUNTIME_VALIDATION_DIR,
+                    "Full Validation Results",
+                ),
+            ),
+            (
+                "Open Expanded Validation Results Folder",
+                lambda: self.open_rtl_validation_artifact(
+                    EXPANDED_RUNTIME_VALIDATION_DIR,
+                    "Expanded Validation Results",
+                ),
+            ),
+            (
+                "Open Expanded Validation Claim Summary",
+                lambda: self.open_rtl_validation_artifact(
+                    EXPANDED_VALIDATION_CLAIM_SUMMARY,
+                    "Expanded Validation Claim Summary",
+                ),
+            ),
+        )
+        for index, (label, command) in enumerate(advanced_button_specs):
+            button = self._modern_button(
+                advanced_actions,
+                label,
+                command,
+                color=THEME_COLORS["secondary"],
+            )
+            button.grid(
+                row=index // 2,
+                column=index % 2,
+                sticky="w",
+                padx=(0 if index % 2 == 0 else 10, 0),
+                pady=(0 if index < 2 else 8, 0),
+            )
+        ttk.Label(
+            self.rtl_advanced_results_body,
+            textvariable=self.rtl_advanced_status_text,
+            style="CardHint.TLabel",
+            wraplength=1000,
+            justify="left",
+        ).grid(row=2, column=0, sticky="ew", pady=(10, 0))
+        self._refresh_rtl_paths_panel()
+        self._refresh_rtl_advanced_results_panel()
+
         boundary_card = self._section_card(
             parent,
             title="Experiment Boundary",
@@ -9254,7 +9787,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             ),
         )
         boundary_card.grid(
-            row=2,
+            row=3,
             column=0,
             sticky="ew",
             padx=12,
@@ -9272,6 +9805,10 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             wraplength=1040,
             justify="left",
         ).grid(row=0, column=0, sticky="ew")
+        self.after(
+            0,
+            lambda: self.reload_rtl_security_plot_viewer(show_error=False),
+        )
 
     def _apply_runtime_study_table_alignment(self) -> None:
         if self.runtime_study_table is None:
@@ -12005,6 +12542,777 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             success_action="Reload Results",
         )
 
+    def _toggle_rtl_paths(self) -> None:
+        self.rtl_paths_expanded.set(not self.rtl_paths_expanded.get())
+        self._refresh_rtl_paths_panel()
+
+    def _refresh_rtl_paths_panel(self) -> None:
+        if (
+            self.rtl_paths_body is None
+            or self.rtl_paths_toggle_button is None
+        ):
+            return
+        expanded = self.rtl_paths_expanded.get()
+        self.rtl_paths_toggle_button.configure(
+            text="Hide Details / Paths" if expanded else "Details / Paths"
+        )
+        if expanded:
+            self.rtl_paths_body.grid()
+        else:
+            self.rtl_paths_body.grid_remove()
+
+    def _toggle_rtl_advanced_results(self) -> None:
+        self.rtl_advanced_results_expanded.set(
+            not self.rtl_advanced_results_expanded.get()
+        )
+        self._refresh_rtl_advanced_results_panel()
+
+    def _refresh_rtl_advanced_results_panel(self) -> None:
+        if (
+            self.rtl_advanced_results_body is None
+            or self.rtl_advanced_results_toggle_button is None
+        ):
+            return
+        expanded = self.rtl_advanced_results_expanded.get()
+        self.rtl_advanced_results_toggle_button.configure(
+            text=(
+                "Hide Advanced Validation Results"
+                if expanded
+                else "Advanced Validation Results"
+            )
+        )
+        if expanded:
+            self.rtl_advanced_results_body.grid()
+        else:
+            self.rtl_advanced_results_body.grid_remove()
+
+    def load_rtl_validation_results(self, source_label: str) -> None:
+        self.rtl_plot_source_choice.set(source_label)
+        self.reload_rtl_security_plot_viewer(
+            show_error=True,
+            source_label=source_label,
+        )
+
+    def open_rtl_validation_artifact(
+        self,
+        path: Path,
+        title: str,
+    ) -> None:
+        if not path.exists():
+            message = "Run full/expanded validation first."
+            self.rtl_advanced_status_text.set(message)
+            messagebox.showinfo(f"{title} Unavailable", message)
+            return
+        self.rtl_advanced_status_text.set(f"Opening {title}.")
+        self.open_runtime_study_artifact(path, title)
+
+    @staticmethod
+    def _normalize_rtl_plot_rows(
+        rows: Sequence[Dict[str, str]],
+    ) -> List[Dict[str, str]]:
+        normalized: List[Dict[str, str]] = []
+        for row in rows:
+            if row.get("rtl_target_id"):
+                normalized.append(dict(row))
+                continue
+            if row.get("experiment_family") != "rtl_security":
+                continue
+            normalized.append(
+                {
+                    "experiment_kind": "rtl_hardware_trojan",
+                    "rtl_target_id": row.get("scenario_id", ""),
+                    "rtl_target_name": row.get("scenario_name", ""),
+                    "variant": row.get("variant", ""),
+                    "detector": row.get("detector", ""),
+                    "detected_after_payload": row.get(
+                        "detected_after_event",
+                        "",
+                    ),
+                    "runtime_detection_first_detection_ms": row.get(
+                        "first_detection_ms",
+                        "",
+                    ),
+                    "detection_latency_from_payload_ms": row.get(
+                        "detection_latency_ms",
+                        "",
+                    ),
+                    "runtime_detection_label": row.get(
+                        "detection_label",
+                        "",
+                    ),
+                    "rtl_trojan_trigger_time_ms": row.get(
+                        "event_start_ms",
+                        "",
+                    ),
+                    "stage_1_calibration_trigger_time_ms": "",
+                    "stage_2_sensor_trigger_time_ms": "",
+                    "stage_3_fan_trigger_time_ms": "",
+                    "first_ecu_dtc_label_after_payload": "",
+                    "first_ecu_dtc_time_ms": "",
+                    "max_coolant_temp_c": row.get(
+                        "max_coolant_temp_c",
+                        "",
+                    ),
+                    "final_safe_state": row.get("final_safe_state", ""),
+                    "raw_csv": row.get("raw_csv", ""),
+                    "summary_csv": row.get("summary_csv", ""),
+                }
+            )
+        return normalized
+
+    @staticmethod
+    def _rtl_result_path(value: str) -> Path | None:
+        if not value:
+            return None
+        path = Path(value)
+        return path if path.is_absolute() else PROJECT_ROOT / path
+
+    @staticmethod
+    def _rtl_numeric_series(
+        rows: Sequence[Dict[str, str]],
+        column: str,
+    ) -> Tuple[List[float], List[float]]:
+        x_values: List[float] = []
+        y_values: List[float] = []
+        for row in rows:
+            time_s = float_or_none(row.get("time_s", ""))
+            if time_s is None:
+                time_ms = float_or_none(row.get("time_ms", ""))
+                time_s = None if time_ms is None else time_ms / 1000.0
+            value = float_or_none(row.get(column, ""))
+            if time_s is None or value is None:
+                continue
+            x_values.append(time_s)
+            y_values.append(value)
+        return x_values, y_values
+
+    @staticmethod
+    def _rtl_transition_time_s(
+        rows: Sequence[Dict[str, str]],
+        column: str,
+        payload_time_s: float | None,
+    ) -> float | None:
+        for row in rows:
+            time_s = float_or_none(row.get("time_s", ""))
+            if time_s is None:
+                time_ms = float_or_none(row.get("time_ms", ""))
+                time_s = None if time_ms is None else time_ms / 1000.0
+            value = int_or_none(row.get(column, ""))
+            if (
+                time_s is not None
+                and (payload_time_s is None or time_s >= payload_time_s)
+                and value is not None
+                and value > 0
+            ):
+                return time_s
+        return None
+
+    @staticmethod
+    def _rtl_append_series(
+        destination: List[
+            Tuple[str, str, Sequence[float], Sequence[float], Tuple[int, ...] | None]
+        ],
+        rows: Sequence[Dict[str, str]],
+        column: str,
+        label: str,
+        color: str,
+        dash: Tuple[int, ...] | None = None,
+    ) -> bool:
+        x_values, y_values = VirtualECUGui._rtl_numeric_series(rows, column)
+        if not x_values:
+            return False
+        destination.append((label, color, x_values, y_values, dash))
+        return True
+
+    def _clear_rtl_plot_viewer(self, message: str) -> None:
+        self.rtl_plot_status_text.set(message)
+        for plot in (
+            self.rtl_timeline_plot,
+            self.rtl_target_plot,
+            self.rtl_third_plot,
+            self.rtl_latency_plot,
+        ):
+            if plot is not None:
+                plot.show_message(message)
+        if self.rtl_summary_table is not None:
+            for item_id in self.rtl_summary_table.get_children():
+                self.rtl_summary_table.delete(item_id)
+        self.rtl_paths_text.set(
+            "Load plots to view raw and summary CSV paths."
+        )
+
+    def _rtl_plot_markers(
+        self,
+        trojan_row: Dict[str, str],
+        trojan_raw_rows: Sequence[Dict[str, str]],
+    ) -> Tuple[
+        List[Dict[str, object]],
+        List[Dict[str, object]],
+        List[Tuple[str, str]],
+    ]:
+        event_overlays: List[Dict[str, object]] = []
+        evidence_markers: List[Dict[str, object]] = []
+        marker_key: List[Tuple[str, str]] = []
+
+        payload_ms = int_or_none(
+            trojan_row.get("rtl_trojan_trigger_time_ms", "")
+        )
+        payload_time_s = None if payload_ms is None else payload_ms / 1000.0
+        if payload_time_s is not None:
+            event_overlays.append(
+                {
+                    "time_s": payload_time_s,
+                    "label": "P",
+                    "color": "#d97706",
+                    "dash": (6, 3),
+                }
+            )
+            marker_key.append(("P", "payload activation"))
+
+        stage_specs = (
+            (
+                "stage_1_calibration_trigger_time_ms",
+                "S1",
+                "HT4 calibration stage",
+                "#7c3aed",
+            ),
+            (
+                "stage_2_sensor_trigger_time_ms",
+                "S2",
+                "HT4 sensor masking stage",
+                "#db2777",
+            ),
+            (
+                "stage_3_fan_trigger_time_ms",
+                "S3",
+                "HT4 fan stage",
+                "#b91c1c",
+            ),
+        )
+        for column, code, label, color in stage_specs:
+            time_ms = int_or_none(trojan_row.get(column, ""))
+            if time_ms is None:
+                continue
+            event_overlays.append(
+                {
+                    "time_s": time_ms / 1000.0,
+                    "label": code,
+                    "color": color,
+                    "dash": (3, 3),
+                }
+            )
+            marker_key.append((code, label))
+
+        detection_ms = int_or_none(
+            trojan_row.get("runtime_detection_first_detection_ms", "")
+        )
+        if detection_ms is not None:
+            evidence_markers.append(
+                {
+                    "time_s": detection_ms / 1000.0,
+                    "label": "DET",
+                    "color": "#0891b2",
+                    "dash": (4, 2),
+                }
+            )
+            marker_key.append(("DET", "selected detector first alarm"))
+
+        dtc_ms = int_or_none(trojan_row.get("first_ecu_dtc_time_ms", ""))
+        dtc_time_s = None if dtc_ms is None else dtc_ms / 1000.0
+        if dtc_time_s is None:
+            dtc_time_s = self._rtl_transition_time_s(
+                trojan_raw_rows,
+                "primary_dtc_id",
+                payload_time_s,
+            )
+        if dtc_time_s is not None:
+            evidence_markers.append(
+                {
+                    "time_s": dtc_time_s,
+                    "label": "DTC",
+                    "color": "#2563eb",
+                    "dash": (2, 2),
+                }
+            )
+            marker_key.append(("DTC", "first ECU DTC after payload"))
+
+        safe_time_s = self._rtl_transition_time_s(
+            trojan_raw_rows,
+            "safe_state_id",
+            payload_time_s,
+        )
+        if safe_time_s is not None:
+            evidence_markers.append(
+                {
+                    "time_s": safe_time_s,
+                    "label": "SAFE",
+                    "color": "#059669",
+                    "dash": (5, 2),
+                }
+            )
+            marker_key.append(("SAFE", "first safe-state transition"))
+
+        return event_overlays, evidence_markers, marker_key
+
+    def _populate_rtl_summary_table(
+        self,
+        rows: Sequence[Dict[str, str]],
+    ) -> None:
+        if self.rtl_summary_table is None:
+            return
+        for item_id in self.rtl_summary_table.get_children():
+            self.rtl_summary_table.delete(item_id)
+        for index, row in enumerate(rows):
+            variant = row.get("variant", "")
+            values: List[str] = []
+            for column, _label, _width in RTL_SECURITY_SUMMARY_TABLE_SPECS:
+                value = row.get(column, "")
+                if column == "rtl_trojan_trigger_time_ms" and variant != "trojan":
+                    value = "-"
+                if column in {
+                    "runtime_detection_first_detection_ms",
+                    "detection_latency_from_payload_ms",
+                }:
+                    parsed = int_or_none(value)
+                    value = (
+                        "missed"
+                        if variant == "trojan" and parsed is None
+                        else "-" if parsed is None else str(parsed)
+                    )
+                if not value:
+                    value = "-"
+                values.append(value)
+            self.rtl_summary_table.insert(
+                "",
+                tk.END,
+                values=values,
+                tags=("even" if index % 2 == 0 else "odd",),
+            )
+        path_lines: List[str] = []
+        for row in rows:
+            variant = row.get("variant", "run").title()
+            path_lines.append(
+                f"{variant} raw CSV: {row.get('raw_csv', '') or '-'}"
+            )
+            path_lines.append(
+                f"{variant} summary CSV: {row.get('summary_csv', '') or '-'}"
+            )
+        self.rtl_paths_text.set("\n".join(path_lines))
+
+    def reload_rtl_security_plot_viewer(
+        self,
+        show_error: bool = True,
+        source_label: str | None = None,
+    ) -> None:
+        if source_label is None:
+            source_label = RTL_SECURITY_PLOT_SOURCE_OPTIONS[0]
+            self.rtl_plot_source_choice.set(source_label)
+        source_candidates = RTL_SECURITY_PLOT_SOURCE_PATHS.get(
+            source_label,
+            (),
+        )
+        comparison_path = next(
+            (path for path in source_candidates if path.exists()),
+            None,
+        )
+        if comparison_path is None:
+            missing_message = (
+                "Run RTL Security Analysis first."
+                if source_label == RTL_SECURITY_PLOT_SOURCE_OPTIONS[0]
+                else "Run full/expanded validation first."
+            )
+            self._clear_rtl_plot_viewer(
+                missing_message
+            )
+            if source_label != RTL_SECURITY_PLOT_SOURCE_OPTIONS[0]:
+                self.rtl_advanced_status_text.set(missing_message)
+            return
+
+        try:
+            rows = self._normalize_rtl_plot_rows(
+                read_csv_rows(comparison_path)
+            )
+            target_label = self.rtl_plot_target_choice.get()
+            target_id = RTL_SECURITY_VIEWER_TARGET_IDS.get(target_label, "")
+            target_rows = [
+                row for row in rows if row.get("rtl_target_id") == target_id
+            ]
+            detector = self.rtl_plot_detector_choice.get()
+            selected_rows = [
+                row
+                for row in target_rows
+                if row.get("detector") == detector
+            ]
+            clean_row = next(
+                (
+                    row
+                    for row in selected_rows
+                    if row.get("variant") == "clean"
+                ),
+                None,
+            )
+            trojan_row = next(
+                (
+                    row
+                    for row in selected_rows
+                    if row.get("variant") == "trojan"
+                ),
+                None,
+            )
+            if not target_rows or clean_row is None or trojan_row is None:
+                self._clear_rtl_plot_viewer(
+                    f"No {target_label} rows are available in this source. "
+                    + (
+                        "Run RTL Security Analysis first."
+                        if source_label == RTL_SECURITY_PLOT_SOURCE_OPTIONS[0]
+                        else "Run full/expanded validation first."
+                    )
+                )
+                return
+
+            raw_rows: Dict[str, List[Dict[str, str]]] = {}
+            missing_paths: List[str] = []
+            for variant, comparison_row in (
+                ("clean", clean_row),
+                ("trojan", trojan_row),
+            ):
+                raw_path = self._rtl_result_path(
+                    comparison_row.get("raw_csv", "")
+                )
+                if raw_path is None or not raw_path.exists():
+                    raw_rows[variant] = []
+                    missing_paths.append(f"{variant} raw CSV")
+                else:
+                    raw_rows[variant] = read_csv_rows(raw_path)
+
+            event_overlays, evidence_markers, marker_key = (
+                self._rtl_plot_markers(
+                    trojan_row,
+                    raw_rows["trojan"],
+                )
+            )
+            clean_raw = raw_rows["clean"]
+            trojan_raw = raw_rows["trojan"]
+            skipped_series: List[str] = []
+
+            def render_signal_plot(
+                plot: PlotCanvas | None,
+                title: str,
+                y_label: str,
+                specs: Sequence[
+                    Tuple[
+                        Sequence[Dict[str, str]],
+                        str,
+                        str,
+                        str,
+                        Tuple[int, ...] | None,
+                    ]
+                ],
+            ) -> None:
+                if plot is None:
+                    return
+                series: List[
+                    Tuple[
+                        str,
+                        str,
+                        Sequence[float],
+                        Sequence[float],
+                        Tuple[int, ...] | None,
+                    ]
+                ] = []
+                for data_rows, column, label, color, dash in specs:
+                    if not self._rtl_append_series(
+                        series,
+                        data_rows,
+                        column,
+                        label,
+                        color,
+                        dash,
+                    ):
+                        skipped_series.append(label)
+                plot.set_title(title)
+                if not series:
+                    plot.show_message(
+                        "No compatible columns are available for this view."
+                    )
+                    return
+                plot.plot_lines(
+                    series,
+                    y_label=y_label,
+                    event_overlays=event_overlays,
+                    evidence_markers=evidence_markers,
+                    marker_key_entries=marker_key,
+                    marker_lane=True,
+                )
+
+            thermal_specs = (
+                (
+                    clean_raw,
+                    "coolant_temp_true_c",
+                    "Clean coolant",
+                    "#2563eb",
+                    None,
+                ),
+                (
+                    trojan_raw,
+                    "coolant_temp_true_c",
+                    "Trojan coolant",
+                    "#dc2626",
+                    (6, 3),
+                ),
+            )
+            sensor_specs = (
+                (
+                    clean_raw,
+                    "coolant_temp_meas_c",
+                    "Clean ECU sensor",
+                    "#2563eb",
+                    None,
+                ),
+                (
+                    trojan_raw,
+                    "coolant_temp_meas_c",
+                    "Trojan ECU sensor",
+                    "#dc2626",
+                    (6, 3),
+                ),
+            )
+            fan_specs = (
+                (
+                    trojan_raw,
+                    "fan_command",
+                    "Fan command",
+                    "#0891b2",
+                    None,
+                ),
+                (
+                    clean_raw,
+                    "fan_actual",
+                    "Clean fan output",
+                    "#2563eb",
+                    None,
+                ),
+                (
+                    trojan_raw,
+                    "fan_actual",
+                    "Trojan fan output",
+                    "#dc2626",
+                    (6, 3),
+                ),
+            )
+            calibration_specs = (
+                (
+                    clean_raw,
+                    "active_control_target_c",
+                    "Clean target",
+                    "#2563eb",
+                    None,
+                ),
+                (
+                    trojan_raw,
+                    "active_control_target_c",
+                    "Trojan target",
+                    "#dc2626",
+                    (6, 3),
+                ),
+                (
+                    trojan_raw,
+                    "nominal_control_target_c",
+                    "Nominal target",
+                    "#64748b",
+                    (2, 2),
+                ),
+            )
+
+            if self.rtl_third_plot is not None:
+                self.rtl_third_plot.grid_remove()
+            if target_id == "ht1_coolant_sensor":
+                render_signal_plot(
+                    self.rtl_timeline_plot,
+                    "HT1 Sensor Masking View",
+                    "Temperature [C]",
+                    (
+                        *sensor_specs,
+                        (
+                            trojan_raw,
+                            "coolant_temp_true_c",
+                            "True coolant",
+                            "#f59e0b",
+                            (2, 2),
+                        ),
+                    ),
+                )
+                render_signal_plot(
+                    self.rtl_target_plot,
+                    "HT1 Thermal Consequence",
+                    "Temperature [C]",
+                    thermal_specs,
+                )
+            elif target_id == "ht2_fan_driver":
+                render_signal_plot(
+                    self.rtl_timeline_plot,
+                    "HT2 Fan Command vs Output",
+                    "Normalized output [-]",
+                    fan_specs,
+                )
+                render_signal_plot(
+                    self.rtl_target_plot,
+                    "HT2 Thermal Consequence",
+                    "Temperature [C]",
+                    thermal_specs,
+                )
+            elif target_id == "ht3_calibration_memory":
+                render_signal_plot(
+                    self.rtl_timeline_plot,
+                    "HT3 Calibration / Control Target",
+                    "Control target [C]",
+                    calibration_specs,
+                )
+                render_signal_plot(
+                    self.rtl_target_plot,
+                    "HT3 Thermal Consequence",
+                    "Temperature [C]",
+                    thermal_specs,
+                )
+            else:
+                render_signal_plot(
+                    self.rtl_timeline_plot,
+                    "HT4 Thermal / Control View",
+                    "Temperature [C]",
+                    (
+                        *thermal_specs,
+                        (
+                            clean_raw,
+                            "active_control_target_c",
+                            "Clean target",
+                            "#64748b",
+                            None,
+                        ),
+                        (
+                            trojan_raw,
+                            "active_control_target_c",
+                            "Trojan target",
+                            "#7c3aed",
+                            (3, 2),
+                        ),
+                    ),
+                )
+                render_signal_plot(
+                    self.rtl_target_plot,
+                    "HT4 Sensor Masking View",
+                    "Temperature [C]",
+                    sensor_specs,
+                )
+                if self.rtl_third_plot is not None:
+                    self.rtl_third_plot.grid()
+                render_signal_plot(
+                    self.rtl_third_plot,
+                    "HT4 Fan / Actuator View",
+                    "Normalized output [-]",
+                    fan_specs,
+                )
+
+            trojan_detector_rows = {
+                row.get("detector", ""): row
+                for row in target_rows
+                if row.get("variant") == "trojan"
+            }
+            latency_values: List[float | None] = []
+            missed_detectors: List[str] = []
+            latency_categories: List[str] = []
+            for algorithm in SUPPORTED_ALGORITHMS:
+                latency_categories.append(
+                    RTL_SECURITY_DETECTOR_SHORT_LABELS.get(
+                        algorithm,
+                        algorithm,
+                    )
+                )
+                detector_row = trojan_detector_rows.get(algorithm)
+                latency = (
+                    None
+                    if detector_row is None
+                    else float_or_none(
+                        detector_row.get(
+                            "detection_latency_from_payload_ms",
+                            "",
+                        )
+                    )
+                )
+                if latency is None or latency < 0.0:
+                    latency_values.append(None)
+                    missed_detectors.append(algorithm)
+                else:
+                    latency_values.append(latency)
+            positive_latencies = [
+                value
+                for value in latency_values
+                if value is not None and value > 0.0
+            ]
+            compact_latency_scale = (
+                len(positive_latencies) >= 2
+                and max(positive_latencies) / min(positive_latencies) >= 8.0
+            )
+            if self.rtl_latency_plot is not None:
+                self.rtl_latency_plot.set_title(
+                    f"{target_label}: Detector Latency"
+                )
+                self.rtl_latency_plot.plot_bars(
+                    latency_categories,
+                    latency_values,
+                    y_label=(
+                        "Latency [ms] (sqrt scale)"
+                        if compact_latency_scale
+                        else "Latency [ms]"
+                    ),
+                    bar_color="#06b6d4",
+                    x_label="Detector",
+                    missing_label="missed",
+                    show_missing_only=True,
+                    value_scale=(
+                        "sqrt" if compact_latency_scale else "linear"
+                    ),
+                )
+
+            self._populate_rtl_summary_table((clean_row, trojan_row))
+            relative_path = (
+                comparison_path.relative_to(PROJECT_ROOT)
+                if comparison_path.is_relative_to(PROJECT_ROOT)
+                else comparison_path
+            )
+            status_parts = [
+                f"Loaded {target_label} / {detector} from {relative_path}."
+            ]
+            if missed_detectors:
+                status_parts.append(
+                    "Missed detectors: " + ", ".join(missed_detectors) + "."
+                )
+            if compact_latency_scale:
+                status_parts.append(
+                    "Latency bars use a labeled square-root scale so shorter "
+                    "latencies remain readable; value labels remain exact."
+                )
+            if missing_paths:
+                status_parts.append(
+                    "Unavailable: " + ", ".join(missing_paths) + "."
+                )
+            if skipped_series:
+                status_parts.append(
+                    "Skipped missing series: "
+                    + ", ".join(dict.fromkeys(skipped_series))
+                    + "."
+                )
+            self.rtl_plot_status_text.set(" ".join(status_parts))
+            if source_label != RTL_SECURITY_PLOT_SOURCE_OPTIONS[0]:
+                self.rtl_advanced_status_text.set(
+                    f"Loaded {source_label} for benchmark inspection."
+                )
+        except (OSError, csv.Error, ValueError) as exc:
+            self._clear_rtl_plot_viewer(
+                f"Unable to load RTL plot data: {exc}"
+            )
+            if show_error:
+                messagebox.showerror("RTL Plot Viewer Load Failed", str(exc))
+
     def run_rtl_security_analysis(self) -> None:
         target_label = self.rtl_security_target_choice.get()
         target_id = RTL_SECURITY_TARGET_IDS.get(target_label)
@@ -12051,6 +13359,11 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                 "RTL security analysis complete. "
                 "Use Open Results Folder to inspect generated evidence."
             )
+            self.rtl_plot_source_choice.set(
+                RTL_SECURITY_PLOT_SOURCE_OPTIONS[0]
+            )
+            self.rtl_plot_target_choice.set(completed_target)
+            self.reload_rtl_security_plot_viewer(show_error=False)
 
         def on_error(exc: Exception) -> None:
             self.rtl_security_status_text.set(
