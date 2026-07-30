@@ -105,6 +105,8 @@
 #define HYBRID_KALMAN_FRESHNESS_SCORE_WEIGHT 1.050f
 #define HYBRID_KALMAN_FRESHNESS_SCORE_MAX 1.100f
 #define HYBRID_KALMAN_FRESHNESS_MEDIUM_SCORE 0.950f
+#define HYBRID_KALMAN_FRESHNESS_FAST_SCORE 1.000f
+#define HYBRID_KALMAN_FRESHNESS_FAST_PERIODS 3U
 #define HYBRID_KALMAN_FAN_HEALTH_SCORE_WEIGHT 1.050f
 #define HYBRID_KALMAN_FAN_HEALTH_SCORE_MAX 1.100f
 #define HYBRID_KALMAN_FAN_HEALTH_MEDIUM_SCORE 0.950f
@@ -537,6 +539,7 @@ static void kalman_filter_step(
             bool hybrid_fast_alarm = false;
             bool hybrid_medium_evidence = false;
             bool hybrid_sensor_fast_alarm = false;
+            bool hybrid_freshness_fast_alarm = false;
             bool hybrid_calibration_integrity_alarm = false;
             unsigned int required_samples;
 
@@ -610,6 +613,18 @@ static void kalman_filter_step(
                     combined_score >=
                         HYBRID_KALMAN_SENSOR_FAST_COMBINED_SUPPORT_SCORE &&
                     (kalman_support || trend_support);
+                /* A failed freshness status confirms immediately only when
+                 * both the bounded score and ECU-visible update-age ratio
+                 * consistently reach the stale envelope. */
+                hybrid_freshness_fast_alarm =
+                    !state->sensors.coolant_sensor_freshness_ok &&
+                    state->sensors.coolant_sensor_expected_period_ms > 0U &&
+                    (
+                        state->sensors.coolant_sensor_update_age_ms /
+                        state->sensors.coolant_sensor_expected_period_ms
+                    ) >= HYBRID_KALMAN_FRESHNESS_FAST_PERIODS &&
+                    state->sensors.coolant_sensor_freshness_score >=
+                        HYBRID_KALMAN_FRESHNESS_FAST_SCORE;
                 hybrid_medium_evidence =
                     hybrid_fast_score >= HYBRID_KALMAN_FAST_MEDIUM_SCORE &&
                     (kalman_support || trend_support);
@@ -735,6 +750,13 @@ static void kalman_filter_step(
                         "%s",
                         "hybrid_adaptive_kalman_calibration_integrity"
                     );
+                } else if (hybrid_freshness_fast_alarm) {
+                    snprintf(
+                        detector->runtime_label,
+                        sizeof(detector->runtime_label),
+                        "%s",
+                        "hybrid_adaptive_kalman_sensor_freshness_fast_evidence"
+                    );
                 } else if (hybrid_fast_alarm || hybrid_sensor_fast_alarm) {
                     combined_score = (combined_score > hybrid_fast_score) ?
                         combined_score : hybrid_fast_score;
@@ -811,6 +833,7 @@ static void kalman_filter_step(
             if (hybrid_calibration_integrity_alarm ||
                 hybrid_fast_alarm ||
                 hybrid_sensor_fast_alarm ||
+                hybrid_freshness_fast_alarm ||
                 combined_score >= ADAPTIVE_KALMAN_STRONG_SCORE ||
                 actuator_score >= 1.0f ||
                 raw_kalman_alarm) {
@@ -844,6 +867,7 @@ static void kalman_filter_step(
                 hybrid_calibration_integrity_alarm ||
                 hybrid_fast_alarm ||
                 hybrid_sensor_fast_alarm ||
+                hybrid_freshness_fast_alarm ||
                 (
                     detector->adaptive_kalman_filter_confirmation_count >=
                     required_samples

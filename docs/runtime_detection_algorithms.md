@@ -221,13 +221,17 @@ telemetry is `nominal_control_target_c`, `active_control_target_c`, and
 `control_target_deviation_c`.
 
 Coolant sensor freshness and fan actuator health are fused into the same
-hybrid confidence score. A stale freshness signal or failed fan health signal
-can provide bounded evidence and must pass the same dynamic confirmation path;
-neither is ORed into the alarm result as a separate threshold detector.
+hybrid confidence score. Medium stale-freshness or failed-fan-health evidence
+passes through the dynamic confirmation path. Freshness can use the guarded
+fast path only when three ECU-visible observations agree: the freshness status
+has failed, update age spans at least three expected sample periods, and the
+bounded freshness score reaches its stale limit. This matches the safe direct
+freshness timing without lowering global Kalman thresholds.
 
 Hybrid runtime labels describe the dominant evidence:
 `hybrid_adaptive_kalman_fast_actuator_evidence`,
 `hybrid_adaptive_kalman_fast_sensor_evidence`,
+`hybrid_adaptive_kalman_sensor_freshness_fast_evidence`,
 `hybrid_adaptive_kalman_contextual_innovation`,
 `hybrid_adaptive_kalman_sensor_freshness_fusion`,
 `hybrid_adaptive_kalman_fan_feedback_fusion`,

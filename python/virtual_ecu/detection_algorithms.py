@@ -136,6 +136,8 @@ HYBRID_KALMAN_PUMP_MEMORY_MEDIUM_SCORE = 0.950
 HYBRID_KALMAN_FRESHNESS_SCORE_WEIGHT = 1.050
 HYBRID_KALMAN_FRESHNESS_SCORE_MAX = 1.100
 HYBRID_KALMAN_FRESHNESS_MEDIUM_SCORE = 0.950
+HYBRID_KALMAN_FRESHNESS_FAST_SCORE = 1.000
+HYBRID_KALMAN_FRESHNESS_FAST_PERIODS = 3
 HYBRID_KALMAN_FAN_HEALTH_SCORE_WEIGHT = 1.050
 HYBRID_KALMAN_FAN_HEALTH_SCORE_MAX = 1.100
 HYBRID_KALMAN_FAN_HEALTH_MEDIUM_SCORE = 0.950
@@ -409,6 +411,24 @@ def coolant_sensor_freshness_score(row: Dict[str, str]) -> float:
     return parse_float(row, "coolant_sensor_freshness_score")
 
 
+def hybrid_kalman_freshness_fast_evidence(row: Dict[str, str]) -> bool:
+    expected_period_ms = parse_int(
+        row, "coolant_sensor_expected_period_ms"
+    )
+    if expected_period_ms <= 0:
+        return False
+    return (
+        parse_int(row, "coolant_sensor_freshness_ok", 1) == 0
+        and (
+            parse_int(row, "coolant_sensor_update_age_ms")
+            // expected_period_ms
+        )
+        >= HYBRID_KALMAN_FRESHNESS_FAST_PERIODS
+        and coolant_sensor_freshness_score(row)
+        >= HYBRID_KALMAN_FRESHNESS_FAST_SCORE
+    )
+
+
 def fan_actuator_health_score(row: Dict[str, str]) -> float:
     return parse_float(row, "fan_actuator_health_score") / THRESHOLD_LIMITS[
         "fan_actuator_health_score"
@@ -620,6 +640,7 @@ def detector_alarms(rows: Sequence[Dict[str, str]], algorithm_name: str) -> List
                 combined_score = max(combined_score, fan_health_component)
                 hybrid_fast_alarm = False
                 hybrid_sensor_fast_alarm = False
+                hybrid_freshness_fast_alarm = False
                 hybrid_medium_evidence = False
                 hybrid_calibration_integrity_alarm = False
                 if algorithm_name == "hybrid_adaptive_kalman":
@@ -717,6 +738,9 @@ def detector_alarms(rows: Sequence[Dict[str, str]], algorithm_name: str) -> List
                         >= HYBRID_KALMAN_SENSOR_FAST_COMBINED_SUPPORT_SCORE
                         and (kalman_support or trend_support)
                     )
+                    hybrid_freshness_fast_alarm = (
+                        hybrid_kalman_freshness_fast_evidence(row)
+                    )
                     hybrid_medium_evidence = (
                         hybrid_fast_score >= HYBRID_KALMAN_FAST_MEDIUM_SCORE
                         and (kalman_support or trend_support)
@@ -813,6 +837,7 @@ def detector_alarms(rows: Sequence[Dict[str, str]], algorithm_name: str) -> List
                     hybrid_calibration_integrity_alarm
                     or hybrid_fast_alarm
                     or hybrid_sensor_fast_alarm
+                    or hybrid_freshness_fast_alarm
                     or combined_score >= ADAPTIVE_KALMAN_STRONG_SCORE
                     or actuator_score >= 1.0
                     or raw_alarm
@@ -846,6 +871,7 @@ def detector_alarms(rows: Sequence[Dict[str, str]], algorithm_name: str) -> List
                     or hybrid_calibration_integrity_alarm
                     or hybrid_fast_alarm
                     or hybrid_sensor_fast_alarm
+                    or hybrid_freshness_fast_alarm
                     or confirmation_count >= required_samples
                 )
             else:
