@@ -103,24 +103,44 @@ EXPANDED_RUNTIME_VALIDATION_DIR = (
 EXPANDED_VALIDATION_CLAIM_SUMMARY = (
     EXPANDED_RUNTIME_VALIDATION_DIR / "expanded_validation_claim_summary.md"
 )
-RTL_SECURITY_TARGET_OPTIONS = (
-    "Coolant Sensor Interface",
-    "Fan Driver Interface",
-    "Calibration Memory Interface",
-    "Multi-Stage RTL Chain",
+RTL_SECURITY_TARGET_LABELS_BY_ID = {
+    "ht1_coolant_sensor": "HT1 — Coolant Sensor Interface",
+    "ht2_fan_driver": "HT2 — Fan Driver Interface",
+    "ht3_calibration_memory": "HT3 — Calibration Memory Interface",
+    "ht4_multi_stage_chain": "HT4 — Multi-Stage RTL Chain",
+}
+RTL_SECURITY_TARGET_OPTIONS = tuple(
+    RTL_SECURITY_TARGET_LABELS_BY_ID.values()
 )
 RTL_SECURITY_TARGET_IDS = {
-    "Coolant Sensor Interface": "coolant_sensor",
-    "Fan Driver Interface": "fan_driver",
-    "Calibration Memory Interface": "calibration_memory",
-    "Multi-Stage RTL Chain": "multi_stage_chain",
+    RTL_SECURITY_TARGET_LABELS_BY_ID["ht1_coolant_sensor"]: "coolant_sensor",
+    RTL_SECURITY_TARGET_LABELS_BY_ID["ht2_fan_driver"]: "fan_driver",
+    RTL_SECURITY_TARGET_LABELS_BY_ID["ht3_calibration_memory"]: "calibration_memory",
+    RTL_SECURITY_TARGET_LABELS_BY_ID["ht4_multi_stage_chain"]: "multi_stage_chain",
 }
 RTL_SECURITY_VIEWER_TARGET_IDS = {
-    "Coolant Sensor Interface": "ht1_coolant_sensor",
-    "Fan Driver Interface": "ht2_fan_driver",
-    "Calibration Memory Interface": "ht3_calibration_memory",
-    "Multi-Stage RTL Chain": "ht4_multi_stage_chain",
+    label: target_id
+    for target_id, label in RTL_SECURITY_TARGET_LABELS_BY_ID.items()
 }
+RTL_SECURITY_TARGET_LABELS_BY_NAME = {
+    label.partition(" — ")[2]: label
+    for label in RTL_SECURITY_TARGET_OPTIONS
+}
+
+
+def rtl_security_target_display_label(
+    target_id: str,
+    target_name: str = "",
+) -> str:
+    return (
+        RTL_SECURITY_TARGET_LABELS_BY_ID.get(target_id)
+        or RTL_SECURITY_TARGET_LABELS_BY_NAME.get(target_name)
+        or target_name
+        or target_id
+        or "-"
+    )
+
+
 RTL_SECURITY_PLOT_SOURCE_OPTIONS = (
     "Latest RTL Trojan study results",
     "Full runtime validation RTL rows",
@@ -149,7 +169,7 @@ RTL_TIME_VIEW_OPTIONS = (
     "Full run",
 )
 RTL_BENCHMARK_TABLE_SPECS: Sequence[Tuple[str, str, int]] = (
-    ("rtl_target_name", "RTL Target", 190),
+    ("rtl_target_name", "RTL Target", 255),
     ("detector", "Detector", 170),
     ("detection_latency_from_payload_ms", "Latency [ms]", 105),
     ("runtime_detection_label", "Detection Label", 155),
@@ -157,14 +177,14 @@ RTL_BENCHMARK_TABLE_SPECS: Sequence[Tuple[str, str, int]] = (
     ("final_safe_state", "Final Safe State", 130),
 )
 RTL_SECURITY_DETECTOR_SHORT_LABELS = {
-    "builtin_ecu": "builtin",
-    "threshold": "threshold",
-    "ewma": "ewma",
-    "cusum": "cusum",
-    "thermal_observer": "thermal",
-    "kalman_filter": "kalman",
-    "adaptive_kalman_filter": "adaptive",
-    "hybrid_adaptive_kalman": "hybrid",
+    "builtin_ecu": "ECU built-in",
+    "threshold": "Threshold",
+    "ewma": "EWMA",
+    "cusum": "CUSUM",
+    "thermal_observer": "Thermal obs.",
+    "kalman_filter": "Kalman",
+    "adaptive_kalman_filter": "Adaptive KF",
+    "hybrid_adaptive_kalman": "Hybrid AKF",
 }
 RUNTIME_STUDY_SOURCE_OPTIONS = (
     "Predefined runtime intervention study",
@@ -3117,6 +3137,25 @@ class PlotCanvas(ttk.Frame):
         }
         self.redraw()
 
+    def plot_horizontal_bars(
+        self,
+        categories: Sequence[str],
+        values: Sequence[float | None],
+        *,
+        x_label: str,
+        bar_color: str = "#4c78a8",
+        missing_label: str = "missed",
+    ) -> None:
+        self._drawer = self._draw_horizontal_bar_plot
+        self._payload = {
+            "categories": list(categories),
+            "values": list(values),
+            "x_label": x_label,
+            "bar_color": bar_color,
+            "missing_label": missing_label,
+        }
+        self.redraw()
+
     def plot_stacked_bars(
         self,
         categories: Sequence[str],
@@ -3817,7 +3856,8 @@ class PlotCanvas(ttk.Frame):
         width, height = self._canvas_size()
         left = 70
         right = max(width - 34, left + 80)
-        axis_y = max(82, int(height * 0.52))
+        lane_count = min(5, max(2, len(events)))
+        axis_y = max(96, int(height * 0.56))
         times = [float(event["time_s"]) for event in events]
         min_time = min(times)
         max_time = max(times)
@@ -3860,35 +3900,54 @@ class PlotCanvas(ttk.Frame):
                 font=self._font("tick"),
             )
 
-        last_x_by_level = [-1000.0, -1000.0, -1000.0, -1000.0]
+        last_right_by_level = [-1000.0] * lane_count
         for event in sorted(events, key=lambda item: float(item["time_s"])):
             time_s = float(event["time_s"])
-            x_pos = map_x(time_s)
+            guide_x = map_x(time_s)
+            label = str(event.get("label", "Event"))
+            chip_width = self._text_width(label, "bar_value") + 14
+            chip_x = min(
+                max(guide_x, left + chip_width / 2.0),
+                right - chip_width / 2.0,
+            )
+            chip_left = chip_x - chip_width / 2.0
             level = next(
                 (
-                    candidate
-                    for candidate, last_x in enumerate(last_x_by_level)
-                    if x_pos - last_x >= 54.0
+                    candidate for candidate, last_right in enumerate(last_right_by_level)
+                    if chip_left - last_right >= 7.0
                 ),
                 min(
-                    range(len(last_x_by_level)),
-                    key=lambda candidate: last_x_by_level[candidate],
+                    range(len(last_right_by_level)),
+                    key=lambda candidate: last_right_by_level[candidate],
                 ),
             )
-            last_x_by_level[level] = x_pos
+            if chip_left - last_right_by_level[level] < 7.0:
+                chip_x = min(
+                    right - chip_width / 2.0,
+                    last_right_by_level[level] + 7.0 + chip_width / 2.0,
+                )
+            last_right_by_level[level] = chip_x + chip_width / 2.0
             color = str(event.get("color", "#0891b2"))
-            label = str(event.get("label", "Event"))
-            chip_y = 18 + level * 20
+            chip_y = 17 + level * 19
             self.canvas.create_line(
-                x_pos,
+                guide_x,
                 chip_y + 10,
-                x_pos,
+                guide_x,
                 axis_y,
                 fill=color,
                 dash=(3, 3),
             )
+            if abs(chip_x - guide_x) > 2.0:
+                self.canvas.create_line(
+                    guide_x,
+                    chip_y + 10,
+                    chip_x,
+                    chip_y + 6,
+                    fill="#9aa9b7",
+                    dash=(2, 2),
+                )
             text_id = self.canvas.create_text(
-                x_pos,
+                chip_x,
                 chip_y,
                 text=label,
                 fill=color,
@@ -3975,12 +4034,12 @@ class PlotCanvas(ttk.Frame):
         key_height = self._marker_key_height(marker_key_entries, available_width=self._canvas_size()[0] - 120)
         marker_count = len(event_overlays) + len(evidence_markers)
         marker_lane_levels = (
-            min(4, max(2, (marker_count + 1) // 2))
+            min(4, max(2, marker_count))
             if marker_lane and marker_count
             else 0
         )
         marker_lane_height = (
-            12 + marker_lane_levels * 15
+            12 + marker_lane_levels * 19
             if marker_lane_levels
             else 0
         )
@@ -3997,7 +4056,7 @@ class PlotCanvas(ttk.Frame):
         def map_y(value: float) -> float:
             return bottom - (value - min_y) * (bottom - top) / (max_y - min_y)
 
-        lane_positions: Dict[Tuple[str, int], int] = {}
+        lane_positions: Dict[Tuple[str, int], Tuple[int, float]] = {}
         if marker_lane_height:
             self.canvas.create_rectangle(
                 left,
@@ -4007,41 +4066,62 @@ class PlotCanvas(ttk.Frame):
                 fill="#f4f8fb",
                 outline="#d8e2ea",
             )
-            lane_items: List[Tuple[float, str, int]] = []
+            lane_items: List[Tuple[float, str, int, str]] = []
             for index, overlay in enumerate(event_overlays):
                 time_s = float_or_none(overlay.get("time_s"))
                 if time_s is not None:
-                    lane_items.append((time_s, "event", index))
+                    lane_items.append(
+                        (time_s, "event", index, str(overlay.get("label", "Fault")))
+                    )
             for index, marker in enumerate(evidence_markers):
                 time_s = float_or_none(marker.get("time_s"))
                 if time_s is not None:
-                    lane_items.append((time_s, "evidence", index))
-            last_x_by_level = [-1000.0] * marker_lane_levels
-            for time_s, kind, index in sorted(lane_items):
-                x_pos = map_x(time_s)
+                    lane_items.append(
+                        (time_s, "evidence", index, str(marker.get("label", "Event")))
+                    )
+            last_right_by_level = [-1000.0] * marker_lane_levels
+            for time_s, kind, index, label in sorted(lane_items):
+                guide_x = map_x(time_s)
+                chip_width = self._text_width(label, "tick") + 12
+                chip_x = min(max(guide_x, left + chip_width / 2.0), right - chip_width / 2.0)
+                chip_left = chip_x - chip_width / 2.0
                 level = next(
                     (
-                        candidate
-                        for candidate, last_x in enumerate(last_x_by_level)
-                        if x_pos - last_x >= 48.0
+                        candidate for candidate, last_right in enumerate(last_right_by_level)
+                        if chip_left - last_right >= 7.0
                     ),
                     min(
-                        range(len(last_x_by_level)),
-                        key=lambda candidate: last_x_by_level[candidate],
+                        range(len(last_right_by_level)),
+                        key=lambda candidate: last_right_by_level[candidate],
                     ),
                 )
-                lane_positions[(kind, index)] = level
-                last_x_by_level[level] = x_pos
+                if chip_left - last_right_by_level[level] < 7.0:
+                    chip_x = min(
+                        right - chip_width / 2.0,
+                        last_right_by_level[level] + 7.0 + chip_width / 2.0,
+                    )
+                lane_positions[(kind, index)] = (level, chip_x)
+                last_right_by_level[level] = chip_x + chip_width / 2.0
 
         def draw_lane_label(
-            x_pos: float,
+            guide_x: float,
+            chip_x: float,
             label: str,
             color: str,
             level: int,
         ) -> None:
-            y_pos = top - marker_lane_height + 13 + level * 15
+            y_pos = top - marker_lane_height + 14 + level * 19
+            if abs(chip_x - guide_x) > 2.0:
+                self.canvas.create_line(
+                    guide_x,
+                    top - 5,
+                    chip_x,
+                    y_pos + 7,
+                    fill="#9aa9b7",
+                    dash=(2, 2),
+                )
             text_id = self.canvas.create_text(
-                x_pos,
+                chip_x,
                 y_pos,
                 text=label,
                 fill=color,
@@ -4099,14 +4179,27 @@ class PlotCanvas(ttk.Frame):
                 )
                 self.canvas.tag_lower(span_id)
                 self.canvas.create_line(x_end, top, x_end, bottom, fill=color, dash=(2, 3), width=self._line_width())
-            self.canvas.create_line(x_pos, top, x_pos, bottom, fill=color, dash=dash, width=self._line_width())
+            self.canvas.create_line(
+                x_pos,
+                top - 5,
+                x_pos,
+                bottom,
+                fill="#aab6c2" if marker_lane_height else color,
+                dash=(2, 3) if marker_lane_height else dash,
+                width=1 if marker_lane_height else self._line_width(),
+            )
             label = str(overlay.get("label", "Fault"))
             if marker_lane_height:
+                level, chip_x = lane_positions.get(
+                    ("event", index),
+                    (0, x_pos),
+                )
                 draw_lane_label(
                     x_pos,
+                    chip_x,
                     label,
                     color,
-                    lane_positions.get(("event", index), 0),
+                    level,
                 )
             else:
                 label_x, label_y, label_anchor = self._place_annotation_label(
@@ -4147,24 +4240,27 @@ class PlotCanvas(ttk.Frame):
             dash_value = marker.get("dash")
             dash = tuple(dash_value) if isinstance(dash_value, tuple) else (3, 2)
             x_pos = map_x(time_s)
-            self.canvas.create_line(x_pos, top, x_pos, bottom, fill=color, dash=dash, width=self._line_width(emphasis=True))
-            self.canvas.create_polygon(
-                x_pos - 4,
-                bottom - 2,
-                x_pos + 4,
-                bottom - 2,
+            self.canvas.create_line(
                 x_pos,
-                bottom - 10,
-                fill=color,
-                outline=color,
+                top - 5,
+                x_pos,
+                bottom,
+                fill="#aab6c2" if marker_lane_height else color,
+                dash=(2, 3) if marker_lane_height else dash,
+                width=1 if marker_lane_height else self._line_width(emphasis=True),
             )
             marker_label = str(marker.get("label", "Event"))
             if marker_lane_height:
+                level, chip_x = lane_positions.get(
+                    ("evidence", index),
+                    (0, x_pos),
+                )
                 draw_lane_label(
                     x_pos,
+                    chip_x,
                     marker_label,
                     color,
-                    lane_positions.get(("evidence", index), 0),
+                    level,
                 )
             else:
                 label_x, label_y, label_anchor = self._place_annotation_label(
@@ -4422,6 +4518,97 @@ class PlotCanvas(ttk.Frame):
                 font=self._font("category_tick"),
                 width=slot_width * 0.9,
             )
+
+    def _draw_horizontal_bar_plot(self, payload: object) -> None:
+        data = payload  # type: ignore[assignment]
+        categories = data["categories"]
+        values = data["values"]
+        x_label = data["x_label"]
+        bar_color = data["bar_color"]
+        missing_label = data["missing_label"]
+
+        if not categories or not values:
+            self._draw_message("No plot data available.")
+            return
+
+        width, height = self._canvas_size()
+        label_width = max(
+            (self._text_width(category, "category_tick") for category in categories),
+            default=70,
+        )
+        left = min(max(label_width + 28, 105), max(int(width * 0.30), 105))
+        right = max(width - 78, left + 80)
+        top = 22
+        bottom = max(height - 50, top + 80)
+        valid_values = [value for value in values if value is not None and value >= 0.0]
+        max_value = max(valid_values, default=1.0)
+        axis_max = max(max_value * 1.12, 1.0)
+
+        self.canvas.create_line(left, bottom, right, bottom, fill="#4a5560", width=self._line_width())
+        self.canvas.create_line(left, top, left, bottom, fill="#4a5560", width=self._line_width())
+        for tick in range(5):
+            value = tick * axis_max / 4.0
+            x_pos = left + value * (right - left) / axis_max
+            self.canvas.create_line(x_pos, top, x_pos, bottom + 4, fill="#e7edf2", dash=(2, 4))
+            self.canvas.create_text(
+                x_pos,
+                bottom + 14,
+                text=f"{value:.0f}",
+                anchor="n",
+                fill="#506070",
+                font=self._font("tick"),
+            )
+
+        row_height = (bottom - top) / max(len(categories), 1)
+        bar_height = min(24 if self.presentation_mode else 20, row_height * 0.58)
+        for index, (category, value) in enumerate(zip(categories, values)):
+            center_y = top + (index + 0.5) * row_height
+            self.canvas.create_text(
+                left - 10,
+                center_y,
+                text=category,
+                anchor="e",
+                fill="#33404d",
+                font=self._font("category_tick"),
+            )
+            if value is None or value < 0.0:
+                self.canvas.create_text(
+                    left + 8,
+                    center_y,
+                    text=missing_label,
+                    anchor="w",
+                    fill="#a12626",
+                    font=self._font("bar_value"),
+                )
+                continue
+            x_end = left + value * (right - left) / axis_max
+            self.canvas.create_rectangle(
+                left,
+                center_y - bar_height / 2.0,
+                x_end,
+                center_y + bar_height / 2.0,
+                fill=bar_color,
+                outline="#2f4858",
+            )
+            value_x = min(x_end + 7, width - 8)
+            value_anchor = "w" if value_x < width - 8 else "e"
+            self.canvas.create_text(
+                value_x,
+                center_y,
+                text=f"{value:.0f} ms",
+                anchor=value_anchor,
+                fill="#33404d",
+                font=self._font("bar_value"),
+            )
+
+        self.canvas.create_text(
+            (left + right) / 2,
+            height - 8,
+            text=x_label,
+            anchor="s",
+            fill="#33404d",
+            font=self._font("axis_label"),
+        )
 
     def _draw_stacked_bar_plot(self, payload: object) -> None:
         data = payload  # type: ignore[assignment]
@@ -6022,6 +6209,17 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.rtl_time_view_choice = tk.StringVar(
             value=RTL_TIME_VIEW_OPTIONS[0]
         )
+        self.rtl_signal_view_choice = tk.StringVar(value="main")
+        self.rtl_signal_main_label = tk.StringVar(value="Sensor Path")
+        self.rtl_signal_actuator_label = tk.StringVar(
+            value="Fan / Actuator Path"
+        )
+        self.rtl_signal_helper_text = tk.StringVar(
+            value=(
+                "Sensor Path compares the clean and Trojan ECU-visible "
+                "coolant sensor traces."
+            )
+        )
         self.rtl_plot_status_text = tk.StringVar(
             value="Select an RTL target and detector, then load the latest analysis plots."
         )
@@ -6036,6 +6234,9 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.rtl_latency_notes_text = tk.StringVar(
             value="Latency annotations will appear after plots are loaded."
         )
+        self.rtl_event_times_text = tk.StringVar(
+            value="Load plots to view the available event timestamps."
+        )
         self.rtl_overview_vars = {
             label: tk.StringVar(value="-")
             for label in (
@@ -6049,6 +6250,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             variant: {
                 label: tk.StringVar(value="-")
                 for label in (
+                    "RTL Target",
                     "Variant",
                     "Detector",
                     "Payload Time",
@@ -6213,11 +6415,10 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.rtl_plot_reload_button: tk.Widget | None = None
         self.rtl_timeline_plot: PlotCanvas | None = None
         self.rtl_target_plot: PlotCanvas | None = None
-        self.rtl_delta_plot: PlotCanvas | None = None
-        self.rtl_third_plot: PlotCanvas | None = None
         self.rtl_overview_plot: PlotCanvas | None = None
         self.rtl_latency_plot: PlotCanvas | None = None
         self.rtl_plot_notebook: ttk.Notebook | None = None
+        self.rtl_signal_actuator_button: ttk.Radiobutton | None = None
         self.rtl_benchmark_table: ttk.Treeview | None = None
         self.rtl_paths_body: ttk.Frame | None = None
         self.rtl_paths_toggle_button: tk.Widget | None = None
@@ -6344,6 +6545,10 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         style.configure("CardFieldName.TLabel", font=THEME_FONTS["button"], foreground=TEXT_DARK, background=CARD_BG)
         style.configure("SoftCardTitle.TLabel", font=THEME_FONTS["button"], foreground=TEXT_DARK, background=SOFT_CARD_BG)
         style.configure("SoftCardHint.TLabel", font=THEME_FONTS["small"], foreground=TEXT_MUTED, background=SOFT_CARD_BG)
+        style.configure("SoftCardFieldName.TLabel", font=THEME_FONTS["button"], foreground=TEXT_DARK, background=SOFT_CARD_BG)
+        style.configure("SoftCardValue.TLabel", font=THEME_FONTS["main"], foreground=TEXT_DARK, background=SOFT_CARD_BG)
+        style.configure("SoftCard.TRadiobutton", background=SOFT_CARD_BG, foreground=TEXT_DARK)
+        style.configure("Card.TCheckbutton", background=CARD_BG, foreground=TEXT_DARK)
         style.configure("FieldName.TLabel", font=THEME_FONTS["button"], foreground=TEXT_DARK, background=CARD_BG)
         style.configure("FieldValue.TLabel", font=THEME_FONTS["main"], foreground=TEXT_DARK, background=CARD_BG)
         style.configure("Hint.TLabel", font=THEME_FONTS["small"], foreground=TEXT_MUTED, background=APP_BG)
@@ -9552,7 +9757,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                 "Choose one isolated Verilog target. Verilator generates the "
                 "clean and infected interface traces, then the existing "
                 "Virtual ECU detectors evaluate their runtime consequences. "
-                "The Multi-Stage RTL Chain composes the existing calibration, "
+                "HT4 — Multi-Stage RTL Chain composes the existing calibration, "
                 "sensor, and actuator RTL outputs in one replay."
             ),
         )
@@ -9576,7 +9781,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             textvariable=self.rtl_security_target_choice,
             values=RTL_SECURITY_TARGET_OPTIONS,
             state="readonly",
-            width=31,
+            width=38,
         )
         target_selector.grid(row=0, column=1, sticky="w", padx=(10, 0))
 
@@ -9677,7 +9882,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                 "RTL target",
                 self.rtl_plot_target_choice,
                 RTL_SECURITY_TARGET_OPTIONS,
-                31,
+                38,
             ),
             (
                 1,
@@ -9685,13 +9890,6 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                 self.rtl_plot_detector_choice,
                 tuple(SUPPORTED_ALGORITHMS),
                 31,
-            ),
-            (
-                2,
-                "Timeline",
-                self.rtl_time_view_choice,
-                RTL_TIME_VIEW_OPTIONS,
-                24,
             ),
         )
         for column, label, variable, values, width in selector_specs:
@@ -9714,6 +9912,43 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                 padx=(0, 10),
                 pady=(4, 0),
             )
+            if column == 0:
+                selector.bind(
+                    "<<ComboboxSelected>>",
+                    lambda _event: self._refresh_rtl_signal_perspective_labels(),
+                )
+        ttk.Label(
+            selectors,
+            text="Time range",
+            style="CardFieldName.TLabel",
+        ).grid(row=0, column=2, sticky="w")
+        ttk.Checkbutton(
+            selectors,
+            text="Full Run",
+            style="Card.TCheckbutton",
+            variable=self.rtl_time_view_choice,
+            onvalue=RTL_TIME_VIEW_OPTIONS[1],
+            offvalue=RTL_TIME_VIEW_OPTIONS[0],
+            command=lambda: self.reload_rtl_security_plot_viewer(
+                show_error=False
+            ),
+        ).grid(row=1, column=2, sticky="w", pady=(4, 0))
+        ttk.Label(
+            selectors,
+            text=(
+                "HT1–HT4 are the four RTL Hardware Trojan examples "
+                "evaluated by this page."
+            ),
+            style="CardHint.TLabel",
+            justify="left",
+            wraplength=940,
+        ).grid(
+            row=2,
+            column=0,
+            columnspan=3,
+            sticky="ew",
+            pady=(8, 0),
+        )
 
         viewer_actions = ttk.Frame(viewer_content, style="Card.TFrame")
         viewer_actions.grid(row=2, column=0, sticky="w", pady=(12, 0))
@@ -9726,18 +9961,6 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             row=0,
             column=0,
             sticky="w",
-        )
-        self.rtl_advanced_results_toggle_button = self._modern_button(
-            viewer_actions,
-            "Open Benchmark Results",
-            self._toggle_rtl_advanced_results,
-            color=THEME_COLORS["secondary"],
-        )
-        self.rtl_advanced_results_toggle_button.grid(
-            row=0,
-            column=1,
-            sticky="w",
-            padx=(10, 0),
         )
         ttk.Label(
             viewer_content,
@@ -9822,54 +10045,105 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             ttk.Label(
                 metric_card,
                 text=label,
-                style="CardFieldName.TLabel",
+                style="SoftCardFieldName.TLabel",
             ).grid(row=0, column=0, sticky="w")
             ttk.Label(
                 metric_card,
                 textvariable=variable,
-                style="CardValue.TLabel",
+                style="SoftCardValue.TLabel",
             ).grid(row=1, column=0, sticky="w", pady=(5, 0))
 
         self.rtl_overview_plot = PlotCanvas(
             overview_tab,
             "Event / Stage Overview",
-            canvas_height=210,
+            canvas_height=250,
         )
         self.rtl_overview_plot.grid(row=1, column=0, sticky="ew")
+
+        event_times_card = ttk.Frame(
+            overview_tab,
+            style="SoftCard.TFrame",
+            padding=12,
+        )
+        event_times_card.grid(
+            row=2,
+            column=0,
+            sticky="ew",
+            pady=(10, 0),
+        )
+        event_times_card.columnconfigure(1, weight=1)
+        ttk.Label(
+            event_times_card,
+            text="Event Times",
+            style="SoftCardTitle.TLabel",
+        ).grid(row=0, column=0, sticky="nw", padx=(0, 18))
+        ttk.Label(
+            event_times_card,
+            textvariable=self.rtl_event_times_text,
+            style="SoftCardValue.TLabel",
+            justify="left",
+            wraplength=900,
+        ).grid(row=0, column=1, sticky="ew")
+
+        signal_selector = ttk.Frame(signal_tab, style="SoftCard.TFrame", padding=10)
+        signal_selector.grid(row=0, column=0, sticky="ew", pady=(0, 10))
+        ttk.Label(
+            signal_selector,
+            text="Signal perspective",
+            style="SoftCardFieldName.TLabel",
+        ).grid(row=0, column=0, sticky="w", padx=(0, 14))
+        ttk.Radiobutton(
+            signal_selector,
+            textvariable=self.rtl_signal_main_label,
+            style="SoftCard.TRadiobutton",
+            value="main",
+            variable=self.rtl_signal_view_choice,
+            command=self._on_rtl_signal_perspective_changed,
+        ).grid(row=0, column=1, sticky="w")
+        ttk.Radiobutton(
+            signal_selector,
+            text="Difference (Trojan - Clean)",
+            style="SoftCard.TRadiobutton",
+            value="difference",
+            variable=self.rtl_signal_view_choice,
+            command=self._on_rtl_signal_perspective_changed,
+        ).grid(row=0, column=2, sticky="w", padx=(12, 0))
+        self.rtl_signal_actuator_button = ttk.Radiobutton(
+            signal_selector,
+            textvariable=self.rtl_signal_actuator_label,
+            style="SoftCard.TRadiobutton",
+            value="actuator",
+            variable=self.rtl_signal_view_choice,
+            command=self._on_rtl_signal_perspective_changed,
+        )
+        self.rtl_signal_actuator_button.grid(
+            row=0,
+            column=3,
+            sticky="w",
+            padx=(12, 0),
+        )
+        self.rtl_signal_actuator_button.grid_remove()
+        ttk.Label(
+            signal_selector,
+            textvariable=self.rtl_signal_helper_text,
+            style="SoftCardHint.TLabel",
+            justify="left",
+            wraplength=940,
+        ).grid(
+            row=1,
+            column=0,
+            columnspan=4,
+            sticky="ew",
+            pady=(8, 0),
+        )
+        self._refresh_rtl_signal_perspective_labels()
 
         self.rtl_timeline_plot = PlotCanvas(
             signal_tab,
             "Target-Specific Runtime Signals",
-            canvas_height=320,
+            canvas_height=360,
         )
-        self.rtl_timeline_plot.grid(
-            row=0,
-            column=0,
-            sticky="ew",
-            pady=(0, 16),
-        )
-        self.rtl_delta_plot = PlotCanvas(
-            signal_tab,
-            "Payload Effect Delta",
-            canvas_height=250,
-        )
-        self.rtl_delta_plot.grid(
-            row=1,
-            column=0,
-            sticky="ew",
-            pady=(0, 16),
-        )
-        self.rtl_third_plot = PlotCanvas(
-            signal_tab,
-            "HT4 Fan / Actuator View",
-            canvas_height=320,
-        )
-        self.rtl_third_plot.grid(
-            row=2,
-            column=0,
-            sticky="ew",
-        )
-        self.rtl_third_plot.grid_remove()
+        self.rtl_timeline_plot.grid(row=1, column=0, sticky="ew")
 
         self.rtl_target_plot = PlotCanvas(
             thermal_tab,
@@ -9912,10 +10186,11 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                 sticky="nsew",
                 padx=(0, 10 if column == 0 else 0),
             )
+            run_card.columnconfigure(1, weight=1)
             ttk.Label(
                 run_card,
                 text=f"{variant.title()} Run",
-                style="Section.TLabel",
+                style="SoftCardTitle.TLabel",
             ).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 8))
             for row_index, (label, variable) in enumerate(
                 self.rtl_run_summary_vars[variant].items(),
@@ -9924,18 +10199,20 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                 ttk.Label(
                     run_card,
                     text=label,
-                    style="CardFieldName.TLabel",
-                ).grid(row=row_index, column=0, sticky="w", pady=2)
+                    style="SoftCardFieldName.TLabel",
+                ).grid(row=row_index, column=0, sticky="nw", pady=3)
                 ttk.Label(
                     run_card,
                     textvariable=variable,
-                    style="CardValue.TLabel",
+                    style="SoftCardValue.TLabel",
+                    wraplength=320,
+                    justify="left",
                 ).grid(
                     row=row_index,
                     column=1,
-                    sticky="w",
+                    sticky="ew",
                     padx=(12, 0),
-                    pady=2,
+                    pady=3,
                 )
 
         self.rtl_paths_toggle_button = self._modern_button(
@@ -9987,12 +10264,34 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         )
         benchmark_content = self._card_content(benchmark_card)
         benchmark_content.columnconfigure(0, weight=1)
+        benchmark_header = ttk.Frame(
+            benchmark_content,
+            style="Card.TFrame",
+        )
+        benchmark_header.grid(row=0, column=0, sticky="ew", pady=(0, 8))
+        benchmark_header.columnconfigure(0, weight=1)
+        ttk.Label(
+            benchmark_header,
+            text="Full and expanded validation matrices",
+            style="CardFieldName.TLabel",
+        ).grid(row=0, column=0, sticky="w")
+        self.rtl_advanced_results_toggle_button = self._modern_button(
+            benchmark_header,
+            "Open Benchmark Results",
+            self._toggle_rtl_advanced_results,
+            color=THEME_COLORS["secondary"],
+        )
+        self.rtl_advanced_results_toggle_button.grid(
+            row=0,
+            column=1,
+            sticky="e",
+        )
         self.rtl_advanced_results_body = ttk.Frame(
             benchmark_content,
             style="Card.TFrame",
         )
         self.rtl_advanced_results_body.grid(
-            row=0,
+            row=1,
             column=0,
             sticky="ew",
         )
@@ -12901,6 +13200,74 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             success_action="Reload Results",
         )
 
+    def _refresh_rtl_signal_perspective_labels(self) -> None:
+        target_id = RTL_SECURITY_VIEWER_TARGET_IDS.get(
+            self.rtl_plot_target_choice.get(),
+            "",
+        )
+        main_labels = {
+            "ht1_coolant_sensor": "Sensor Path",
+            "ht2_fan_driver": "Fan / Actuator Path",
+            "ht3_calibration_memory": "Control / Calibration Path",
+            "ht4_multi_stage_chain": "Sensor Path",
+        }
+        main_descriptions = {
+            "ht1_coolant_sensor": (
+                "Sensor Path compares the clean and Trojan ECU-visible "
+                "coolant sensor traces."
+            ),
+            "ht2_fan_driver": (
+                "Fan / Actuator Path compares the fan command with clean "
+                "and Trojan fan output."
+            ),
+            "ht3_calibration_memory": (
+                "Control / Calibration Path compares clean, Trojan, and "
+                "nominal control targets."
+            ),
+            "ht4_multi_stage_chain": (
+                "Sensor Path focuses on the sensor-masking stage of the "
+                "multi-stage chain."
+            ),
+        }
+        self.rtl_signal_main_label.set(
+            main_labels.get(target_id, "Main Signal")
+        )
+        self.rtl_signal_actuator_label.set("Fan / Actuator Path")
+
+        actuator_supported = target_id == "ht4_multi_stage_chain"
+        if self.rtl_signal_actuator_button is not None:
+            if actuator_supported:
+                self.rtl_signal_actuator_button.grid()
+            else:
+                self.rtl_signal_actuator_button.grid_remove()
+        if (
+            self.rtl_signal_view_choice.get() == "actuator"
+            and not actuator_supported
+        ):
+            self.rtl_signal_view_choice.set("main")
+
+        selected_view = self.rtl_signal_view_choice.get()
+        if selected_view == "difference":
+            helper_text = (
+                "Difference (Trojan - Clean) shows the point-by-point effect "
+                "of the payload on the target-specific main signal."
+            )
+        elif selected_view == "actuator":
+            helper_text = (
+                "Fan / Actuator Path compares fan command with clean and "
+                "Trojan fan output for the multi-stage chain."
+            )
+        else:
+            helper_text = main_descriptions.get(
+                target_id,
+                "Main Signal shows the target-specific clean and Trojan traces.",
+            )
+        self.rtl_signal_helper_text.set(helper_text)
+
+    def _on_rtl_signal_perspective_changed(self) -> None:
+        self._refresh_rtl_signal_perspective_labels()
+        self.reload_rtl_security_plot_viewer(show_error=False)
+
     def _toggle_rtl_paths(self) -> None:
         self.rtl_paths_expanded.set(not self.rtl_paths_expanded.get())
         self._refresh_rtl_paths_panel()
@@ -12983,9 +13350,9 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                         row.get("max_coolant_temp_c", "")
                     )
                     values = {
-                        "rtl_target_name": row.get(
-                            "rtl_target_name",
-                            row.get("rtl_target_id", "-"),
+                        "rtl_target_name": rtl_security_target_display_label(
+                            row.get("rtl_target_id", ""),
+                            row.get("rtl_target_name", ""),
                         ),
                         "detector": row.get("detector", "-"),
                         "detection_latency_from_payload_ms": (
@@ -13213,8 +13580,6 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             self.rtl_overview_plot,
             self.rtl_timeline_plot,
             self.rtl_target_plot,
-            self.rtl_delta_plot,
-            self.rtl_third_plot,
             self.rtl_latency_plot,
         ):
             if plot is not None:
@@ -13226,6 +13591,9 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                 variable.set("-")
         self.rtl_latency_notes_text.set(
             "Latency annotations will appear after plots are loaded."
+        )
+        self.rtl_event_times_text.set(
+            "Load plots to view the available event timestamps."
         )
         self.rtl_paths_text.set(
             "Load plots to view raw and summary CSV paths."
@@ -13242,8 +13610,6 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
     ]:
         event_overlays: List[Dict[str, object]] = []
         evidence_markers: List[Dict[str, object]] = []
-        marker_key: List[Tuple[str, str]] = []
-
         payload_ms = int_or_none(
             trojan_row.get("rtl_trojan_trigger_time_ms", "")
         )
@@ -13253,12 +13619,12 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                 {
                     "time_s": payload_time_s,
                     "label": "P",
+                    "key_label": "payload activation",
+                    "time_ms": payload_ms,
                     "color": "#d97706",
                     "dash": (6, 3),
                 }
             )
-            marker_key.append(("P", "payload activation"))
-
         stage_specs = (
             (
                 "stage_1_calibration_trigger_time_ms",
@@ -13287,12 +13653,12 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                 {
                     "time_s": time_ms / 1000.0,
                     "label": code,
+                    "key_label": label,
+                    "time_ms": time_ms,
                     "color": color,
                     "dash": (3, 3),
                 }
             )
-            marker_key.append((code, label))
-
         detection_ms = int_or_none(
             trojan_row.get("runtime_detection_first_detection_ms", "")
         )
@@ -13301,12 +13667,12 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                 {
                     "time_s": detection_ms / 1000.0,
                     "label": "DET",
+                    "key_label": "selected detector first alarm",
+                    "time_ms": detection_ms,
                     "color": "#0891b2",
                     "dash": (4, 2),
                 }
             )
-            marker_key.append(("DET", "selected detector first alarm"))
-
         dtc_ms = int_or_none(trojan_row.get("first_ecu_dtc_time_ms", ""))
         dtc_time_s = None if dtc_ms is None else dtc_ms / 1000.0
         if dtc_time_s is None:
@@ -13316,34 +13682,47 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                 payload_time_s,
             )
         if dtc_time_s is not None:
+            resolved_dtc_ms = int(round(dtc_time_s * 1000.0))
             evidence_markers.append(
                 {
                     "time_s": dtc_time_s,
                     "label": "DTC",
+                    "key_label": (
+                        "first ECU diagnostic event after payload"
+                    ),
+                    "time_ms": resolved_dtc_ms,
                     "color": "#2563eb",
                     "dash": (2, 2),
                 }
             )
-            marker_key.append(
-                ("DTC", "first ECU diagnostic event after payload")
-            )
-
         safe_time_s = self._rtl_transition_time_s(
             trojan_raw_rows,
             "safe_state_id",
             payload_time_s,
         )
         if safe_time_s is not None:
+            safe_time_ms = int(round(safe_time_s * 1000.0))
             evidence_markers.append(
                 {
                     "time_s": safe_time_s,
                     "label": "SAFE",
+                    "key_label": "safe-state transition",
+                    "time_ms": safe_time_ms,
                     "color": "#059669",
                     "dash": (5, 2),
                 }
             )
-            marker_key.append(("SAFE", "safe-state transition"))
-
+        ordered_markers = sorted(
+            (*event_overlays, *evidence_markers),
+            key=lambda marker: float(marker["time_s"]),
+        )
+        marker_key = [
+            (
+                str(marker["label"]),
+                f"{marker['key_label']} ({int(marker['time_ms'])} ms)",
+            )
+            for marker in ordered_markers
+        ]
         return event_overlays, evidence_markers, marker_key
 
     def _update_rtl_summary_panels(
@@ -13367,6 +13746,10 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                 row.get("max_coolant_temp_c", "")
             )
             values = {
+                "RTL Target": rtl_security_target_display_label(
+                    row.get("rtl_target_id", ""),
+                    row.get("rtl_target_name", ""),
+                ),
                 "Variant": variant.title(),
                 "Detector": row.get("detector", "-"),
                 "Payload Time": (
@@ -13459,6 +13842,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             )
             target_label = self.rtl_plot_target_choice.get()
             target_id = RTL_SECURITY_VIEWER_TARGET_IDS.get(target_label, "")
+            self._refresh_rtl_signal_perspective_labels()
             target_rows = [
                 row for row in rows if row.get("rtl_target_id") == target_id
             ]
@@ -13539,8 +13923,8 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             ):
                 focus_anchor_s = focus_anchor_ms / 1000.0
                 x_window = (
-                    max(0.0, focus_anchor_s - 10.0),
-                    focus_anchor_s + 30.0,
+                    max(0.0, focus_anchor_s - 5.0),
+                    focus_anchor_s + 25.0,
                 )
 
             def marker_in_window(item: Dict[str, object]) -> bool:
@@ -13571,10 +13955,18 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                 for entry in marker_key
                 if entry[0] in displayed_marker_codes
             ]
+            self.rtl_event_times_text.set(
+                "\n".join(
+                    f"{code}  —  {description}"
+                    for code, description in marker_key
+                )
+                if marker_key
+                else "No event timestamps are available for this run."
+            )
             if self.rtl_overview_plot is not None:
                 self.rtl_overview_plot.set_title(
                     (
-                        "HT4 Stage Overview"
+                        f"{target_label}: Stage Overview"
                         if target_id == "ht4_multi_stage_chain"
                         else f"{target_label}: Event Overview"
                     )
@@ -13720,16 +14112,19 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                 "ht3_calibration_memory": "active_control_target_c",
                 "ht4_multi_stage_chain": "coolant_temp_meas_c",
             }.get(target_id, "")
-            delta_title = {
-                "ht1_coolant_sensor": "HT1 Sensor Payload Effect Delta",
-                "ht2_fan_driver": "HT2 Fan Output Payload Effect Delta",
-                "ht3_calibration_memory": "HT3 Control Target Payload Effect Delta",
-                "ht4_multi_stage_chain": "HT4 Sensor Masking Delta",
-            }.get(target_id, "Payload Effect Delta")
+            delta_view_label = {
+                "ht1_coolant_sensor": "Sensor Difference (Trojan - Clean)",
+                "ht2_fan_driver": "Fan Output Difference (Trojan - Clean)",
+                "ht3_calibration_memory": (
+                    "Control Target Difference (Trojan - Clean)"
+                ),
+                "ht4_multi_stage_chain": "Sensor Difference (Trojan - Clean)",
+            }.get(target_id, "Difference (Trojan - Clean)")
+            delta_title = f"{target_label}: {delta_view_label}"
             delta_y_label = (
-                "Output delta [-]"
+                "Output difference [-]"
                 if target_id == "ht2_fan_driver"
-                else "Delta [C]"
+                else "Difference [C]"
             )
             delta_x, delta_y = self._rtl_delta_series(
                 clean_raw,
@@ -13737,109 +14132,73 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                 delta_column,
                 x_window,
             )
-            if self.rtl_delta_plot is not None:
-                self.rtl_delta_plot.set_title(delta_title)
-                if delta_x:
-                    self.rtl_delta_plot.plot_lines(
-                        (
-                            (
-                                "Trojan - clean",
-                                "#a21caf",
-                                delta_x,
-                                delta_y,
-                                None,
-                            ),
-                        ),
-                        y_label=delta_y_label,
-                        event_overlays=displayed_event_overlays,
-                        evidence_markers=displayed_evidence_markers,
-                        marker_key_entries=displayed_marker_key,
-                        marker_lane=True,
-                    )
-                else:
-                    self.rtl_delta_plot.show_message(
-                        "Delta unavailable because the required clean and "
-                        "Trojan columns do not overlap."
-                    )
-
-            if self.rtl_third_plot is not None:
-                self.rtl_third_plot.grid_remove()
+            signal_view = self.rtl_signal_view_choice.get()
+            primary_title = "Target-Specific Runtime Signals"
+            primary_y_label = "Value"
+            primary_specs = sensor_specs
             if target_id == "ht1_coolant_sensor":
-                render_signal_plot(
-                    self.rtl_timeline_plot,
-                    "HT1 Sensor Masking View",
-                    "Temperature [C]",
-                    sensor_specs,
-                )
-                render_signal_plot(
-                    self.rtl_target_plot,
-                    "HT1 Thermal Consequence",
-                    "Temperature [C]",
-                    thermal_specs,
-                )
+                primary_title = f"{target_label}: Sensor Path View"
+                primary_y_label = "Temperature [C]"
+                primary_specs = sensor_specs
             elif target_id == "ht2_fan_driver":
+                primary_title = f"{target_label}: Fan Command vs Output"
+                primary_y_label = "Normalized output [-]"
+                primary_specs = fan_specs
+            elif target_id == "ht3_calibration_memory":
+                primary_title = f"{target_label}: Control Target View"
+                primary_y_label = "Control target [C]"
+                primary_specs = calibration_specs
+            else:
+                primary_title = f"{target_label}: Sensor Path View"
+                primary_y_label = "Temperature [C]"
+                primary_specs = sensor_specs
+
+            if signal_view == "difference":
+                if self.rtl_timeline_plot is not None:
+                    self.rtl_timeline_plot.set_title(delta_title)
+                    if delta_x:
+                        self.rtl_timeline_plot.plot_lines(
+                            (
+                                (
+                                    "Trojan - clean",
+                                    "#a21caf",
+                                    delta_x,
+                                    delta_y,
+                                    None,
+                                ),
+                            ),
+                            y_label=delta_y_label,
+                            event_overlays=displayed_event_overlays,
+                            evidence_markers=displayed_evidence_markers,
+                            marker_key_entries=displayed_marker_key,
+                            marker_lane=True,
+                        )
+                    else:
+                        self.rtl_timeline_plot.show_message(
+                            "Difference unavailable because the required clean and "
+                            "Trojan columns do not overlap."
+                        )
+            elif signal_view == "actuator" and target_id == "ht4_multi_stage_chain":
                 render_signal_plot(
                     self.rtl_timeline_plot,
-                    "HT2 Fan Command vs Output",
+                    f"{target_label}: Fan / Actuator View",
                     "Normalized output [-]",
                     fan_specs,
-                )
-                render_signal_plot(
-                    self.rtl_target_plot,
-                    "HT2 Thermal Consequence",
-                    "Temperature [C]",
-                    thermal_specs,
-                )
-            elif target_id == "ht3_calibration_memory":
-                render_signal_plot(
-                    self.rtl_timeline_plot,
-                    "HT3 Calibration / Control Target",
-                    "Control target [C]",
-                    calibration_specs,
-                )
-                render_signal_plot(
-                    self.rtl_target_plot,
-                    "HT3 Thermal Consequence",
-                    "Temperature [C]",
-                    thermal_specs,
                 )
             else:
                 render_signal_plot(
                     self.rtl_timeline_plot,
-                    "HT4 Sensor Masking View",
-                    "Temperature [C]",
-                    sensor_specs,
+                    primary_title,
+                    primary_y_label,
+                    primary_specs,
                 )
-                render_signal_plot(
-                    self.rtl_target_plot,
-                    "HT4 Thermal / Control View",
-                    "Temperature [C]",
-                    (
-                        *thermal_specs,
-                        (
-                            clean_raw,
-                            "active_control_target_c",
-                            "Clean target",
-                            "#64748b",
-                            None,
-                        ),
-                        (
-                            trojan_raw,
-                            "active_control_target_c",
-                            "Trojan target",
-                            "#7c3aed",
-                            (3, 2),
-                        ),
-                    ),
-                )
-                if self.rtl_third_plot is not None:
-                    self.rtl_third_plot.grid()
-                render_signal_plot(
-                    self.rtl_third_plot,
-                    "HT4 Fan / Actuator View",
-                    "Normalized output [-]",
-                    fan_specs,
-                )
+
+            render_signal_plot(
+                self.rtl_target_plot,
+                f"{target_label}: Thermal Consequence",
+                "Temperature [C]",
+                thermal_specs,
+            )
 
             trojan_detector_rows = {
                 row.get("detector", ""): row
@@ -13872,48 +14231,18 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                     missed_detectors.append(algorithm)
                 else:
                     latency_values.append(latency)
-            late_threshold_ms = 10000.0
-            chart_latency_values: List[float | None] = []
-            latency_missing_labels: List[str] = []
-            late_detectors: List[Tuple[str, float]] = []
-            for algorithm, latency in zip(
-                SUPPORTED_ALGORITHMS,
-                latency_values,
-            ):
-                if latency is None:
-                    chart_latency_values.append(None)
-                    latency_missing_labels.append("missed")
-                elif latency > late_threshold_ms:
-                    chart_latency_values.append(None)
-                    latency_missing_labels.append("late")
-                    late_detectors.append((algorithm, latency))
-                else:
-                    chart_latency_values.append(latency)
-                    latency_missing_labels.append("")
             if self.rtl_latency_plot is not None:
                 self.rtl_latency_plot.set_title(
                     f"{target_label}: Detector Latency"
                 )
-                self.rtl_latency_plot.plot_bars(
+                self.rtl_latency_plot.plot_horizontal_bars(
                     latency_categories,
-                    chart_latency_values,
-                    y_label="Latency [ms]",
+                    latency_values,
+                    x_label="Detection latency from payload [ms]",
                     bar_color="#06b6d4",
-                    x_label="Detector",
                     missing_label="missed",
-                    missing_labels=latency_missing_labels,
-                    show_missing_only=True,
                 )
             latency_notes: List[str] = []
-            if late_detectors:
-                latency_notes.append(
-                    "Very late: "
-                    + ", ".join(
-                        f"{RTL_SECURITY_DETECTOR_SHORT_LABELS.get(detector, detector)}: "
-                        f"{latency / 1000.0:.1f} s"
-                        for detector, latency in late_detectors
-                    )
-                )
             if missed_detectors:
                 latency_notes.append(
                     "Missed: "
@@ -13928,7 +14257,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             self.rtl_latency_notes_text.set(
                 " | ".join(latency_notes)
                 if latency_notes
-                else "All detector latencies fit the primary chart."
+                else "All detectors reported a post-payload latency."
             )
 
             self._update_rtl_summary_panels((clean_row, trojan_row))
