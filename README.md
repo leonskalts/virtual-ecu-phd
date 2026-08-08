@@ -73,6 +73,7 @@ Current runtime detection algorithms:
 - thermal observer
 - Kalman filter
 - adaptive Kalman filter
+- Hybrid Adaptive Kalman
 
 Runtime detectors observe evidence inside the simulator loop. They can remain
 observe-only or request a configured safe-state response, depending on the
@@ -230,6 +231,11 @@ The GUI provides a small **Security / RTL Analysis** page with the three
 individual targets and the multi-stage chain, a run action, and a
 results-folder shortcut. It remains separate from the reliability/safety
 **Custom Faults** workflow. Verilator is not invoked during ordinary GUI use.
+
+Adversarial fake-fault spoofing of observation channels is treated as a
+limitation/future-work direction because distinguishing physical truth from
+spoofed but physically plausible telemetry requires trusted or redundant
+evidence channels.
 
 See [docs/rtl_hardware_trojan_model.md](docs/rtl_hardware_trojan_model.md) for
 the RTL scaling, trigger, payload, integration boundary, and claim limits.

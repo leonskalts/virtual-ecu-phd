@@ -246,6 +246,13 @@ read fault type, scenario ID, fault start time, fault duration, injected-fault
 state, RTL target/type, Trojan trigger state, multi-stage status, or
 ground-truth labels.
 
+## Adversarial Fake-Fault Limitation
+
+Adversarial fake-fault spoofing of observation channels is treated as a
+limitation/future-work direction because distinguishing physical truth from
+spoofed but physically plausible telemetry requires trusted or redundant
+evidence channels.
+
 ## Terminal Use
 
 The default remains `builtin_ecu`, so existing commands continue to work:
@@ -359,7 +366,7 @@ make
 python3 scripts/run_runtime_intervention_study.py
 ```
 
-The study runs five custom single-fault scenarios across all seven runtime
+The study runs five custom single-fault scenarios across all eight runtime
 detectors and all three detector actions. Its simulator runs are written to:
 
 ```text
