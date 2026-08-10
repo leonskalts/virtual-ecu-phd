@@ -12,6 +12,8 @@ results/full_runtime_validation/
 results/expanded_runtime_validation/
 results/negative_stress_validation/
 results/fake_fault_attack_validation/
+results/simulation_realtime_benchmark/
+results/online_detector_timing_audit/
 logs/batch/
 __pycache__/
 .venv/
