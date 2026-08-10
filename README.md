@@ -253,7 +253,7 @@ Main pages:
 - Dashboard
 - Run / Load
 - Compare
-- Fault Path
+- Fault / Trojan Path
 - Batch Results
 - Runtime Study
 - Security / RTL Analysis
@@ -264,7 +264,7 @@ The GUI can:
 
 - run and load experiments
 - compare results
-- inspect fault-path visualizations
+- inspect conventional fault-path and RTL Hardware Trojan path visualizations
 - load batch results
 - run runtime studies
 - export reports and figures
@@ -274,6 +274,10 @@ The GUI can:
 - set custom simulation duration for custom driving profiles
 - show running/ready status in the sidebar
 - use persistent Virtual ECU sidebar branding and attribution
+
+The **Fault / Trojan Path** page visualizes both conventional fault propagation
+and RTL Hardware Trojan propagation across sensing, timing/link,
+control/memory, actuation, and plant-outcome stages.
 
 ## Runtime Study / Batch Results
 

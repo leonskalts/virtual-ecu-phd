@@ -122,6 +122,63 @@ RTL_SECURITY_VIEWER_TARGET_IDS = {
     label: target_id
     for target_id, label in RTL_SECURITY_TARGET_LABELS_BY_ID.items()
 }
+RTL_TROJAN_PATH_RESULT_IDS = {
+    "coolant_sensor": "ht1_coolant_sensor",
+    "fan_driver": "ht2_fan_driver",
+    "calibration_memory": "ht3_calibration_memory",
+    "multi_stage_chain": "ht4_multi_stage_chain",
+}
+RTL_TROJAN_PATH_SPECS: Dict[str, Dict[str, object]] = {
+    "coolant_sensor": {
+        "affected_blocks": ("sensor_adc",),
+        "origin": "Sensing Path",
+        "symptom": "Masked or manipulated ECU-facing coolant measurement",
+        "effect": "Delayed or altered cooling response",
+    },
+    "fan_driver": {
+        "affected_blocks": ("actuator_power",),
+        "origin": "Actuation Path",
+        "symptom": "Commanded fan differs from realized fan output",
+        "effect": "Altered cooling effectiveness",
+    },
+    "calibration_memory": {
+        "affected_blocks": ("ecu_control_memory",),
+        "origin": "Control / Memory",
+        "symptom": "Control target shifted through the calibration path",
+        "effect": "Higher regulated coolant temperature",
+    },
+    "multi_stage_chain": {
+        "affected_blocks": (
+            "ecu_control_memory",
+            "sensor_adc",
+            "actuator_power",
+        ),
+        "origin": "Multi-stage path",
+        "symptom": "Chained calibration, sensor, and actuator manipulation",
+        "effect": "Compounded plant-level outcome",
+    },
+}
+RTL_TROJAN_PATH_ALL_DETECTORS = "All Detectors Overview"
+RTL_TROJAN_PATH_DETECTOR_OPTIONS: Sequence[Tuple[str, str]] = (
+    (RTL_TROJAN_PATH_ALL_DETECTORS, ""),
+    ("Built-in ECU Diagnostics", "builtin_ecu"),
+    ("Threshold", "threshold"),
+    ("EWMA", "ewma"),
+    ("CUSUM", "cusum"),
+    ("Thermal Observer", "thermal_observer"),
+    ("Kalman Filter", "kalman_filter"),
+    ("Adaptive Kalman Filter", "adaptive_kalman_filter"),
+    ("Hybrid Adaptive Kalman", "hybrid_adaptive_kalman"),
+)
+RTL_TROJAN_PATH_DETECTOR_IDS = {
+    display_name: detector_id
+    for display_name, detector_id in RTL_TROJAN_PATH_DETECTOR_OPTIONS
+}
+RTL_TROJAN_PATH_DETECTOR_LABELS = {
+    detector_id: display_name
+    for display_name, detector_id in RTL_TROJAN_PATH_DETECTOR_OPTIONS
+    if detector_id
+}
 RTL_SECURITY_TARGET_LABELS_BY_NAME = {
     label.partition(" — ")[2]: label
     for label in RTL_SECURITY_TARGET_OPTIONS
@@ -5366,6 +5423,9 @@ class FaultPathDiagram(ttk.Frame):
         self.first_row: Dict[str, str] | None = None
         self.summary_row: Dict[str, str] | None = None
         self.affected_blocks: Tuple[str, ...] = ()
+        self.highlight_all_affected = False
+        self.origin_marker_text = "Fault origin"
+        self.flow_badge_text = "5-stage ECU flow"
         self.fault_class_var = tk.StringVar(value="-")
         self.subsystem_var = tk.StringVar(value="-")
         self.outcome_var = tk.StringVar(value="-")
@@ -5719,7 +5779,7 @@ class FaultPathDiagram(ttk.Frame):
         self.canvas.create_text(
             width - margin_x - 69,
             14,
-            text="5-stage ECU flow",
+            text=self.flow_badge_text,
             fill=heading_color,
             font=("TkDefaultFont", 8),
         )
@@ -5731,12 +5791,16 @@ class FaultPathDiagram(ttk.Frame):
             x1 = x0 + block_width
             y1 = y0 + block_height
             is_origin = block_id == origin_block
+            is_highlighted = is_origin or (
+                self.highlight_all_affected
+                and block_id in self.affected_blocks
+            )
             is_outcome = block_id == "thermal_plant"
             is_reference = not has_fault
-            fill = "#fafbfd" if is_reference else "#eef4fd" if is_origin else outcome_fill if is_outcome and outcome_level != "Normal" else "#fbfcfe"
-            outline = "#dde4ea" if is_reference else self.accent_color if is_origin else outcome_color if is_outcome and outcome_level != "Normal" else "#d3dce4"
-            title_fill = "#8a97a3" if is_reference else self.accent_color if is_origin else outcome_color if is_outcome and outcome_level != "Normal" else "#5f707f"
-            line_width = 3 if is_origin else 2 if is_outcome and outcome_level != "Normal" else 1
+            fill = "#fafbfd" if is_reference else "#eef4fd" if is_highlighted else outcome_fill if is_outcome and outcome_level != "Normal" else "#fbfcfe"
+            outline = "#dde4ea" if is_reference else self.accent_color if is_highlighted else outcome_color if is_outcome and outcome_level != "Normal" else "#d3dce4"
+            title_fill = "#8a97a3" if is_reference else self.accent_color if is_highlighted else outcome_color if is_outcome and outcome_level != "Normal" else "#5f707f"
+            line_width = 3 if is_highlighted else 2 if is_outcome and outcome_level != "Normal" else 1
             label_text = FAULT_PATH_BLOCK_CLASS.get(block_id, "")
 
             self.canvas.create_rectangle(
@@ -5763,7 +5827,7 @@ class FaultPathDiagram(ttk.Frame):
                 y0 + 40,
                 x1 - 12,
                 y0 + 104,
-                highlight=is_origin,
+                highlight=is_highlighted,
                 severe_outcome=is_outcome and outcome_level != "Normal",
             )
             centers[block_id] = ((x0 + x1) / 2, (y0 + y1) / 2)
@@ -5784,11 +5848,15 @@ class FaultPathDiagram(ttk.Frame):
                     arrow=tk.LAST,
                 )
 
-            if is_origin:
+            if is_highlighted:
                 self.canvas.create_text(
                     (x0 + x1) / 2,
                     y1 + 14,
-                    text="Fault origin",
+                    text=(
+                        self.origin_marker_text
+                        if is_origin
+                        else "Payload stage"
+                    ),
                     fill=self.accent_color,
                     font=("TkDefaultFont", 8),
                     justify="center",
@@ -5804,6 +5872,239 @@ class FaultPathDiagram(ttk.Frame):
                     justify="center",
                     width=max(block_width - 10, 52),
                 )
+
+
+class RTLTrojanPathDiagram(FaultPathDiagram):
+    """Five-stage RTL path card with compact run metadata and event chips."""
+
+    EMPTY_VALUE = "not available"
+
+    def __init__(self, master: tk.Misc, side_label: str, accent_color: str) -> None:
+        super().__init__(master, side_label, accent_color)
+        self.highlight_all_affected = True
+        self.origin_marker_text = "RTL origin"
+        self.flow_badge_text = "RTL-to-plant flow"
+        self.metadata_title_vars = [
+            tk.StringVar(value=self.EMPTY_VALUE) for _index in range(7)
+        ]
+        self.metadata_value_vars = [
+            tk.StringVar(value=self.EMPTY_VALUE) for _index in range(7)
+        ]
+        self.event_title_vars = [
+            tk.StringVar(value=label)
+            for label in (
+                "Trigger",
+                "Payload Active",
+                "First Detector Alarm",
+                "Safe-State Entry",
+            )
+        ]
+        self.event_value_vars = [
+            tk.StringVar(value=self.EMPTY_VALUE) for _index in range(4)
+        ]
+
+        metadata = tk.Frame(
+            self,
+            bg="#f4f7fa",
+            bd=0,
+            highlightthickness=0,
+        )
+        metadata.grid(row=4, column=0, sticky="ew", padx=6, pady=(8, 0))
+        for column in range(3):
+            metadata.grid_columnconfigure(column, weight=1)
+        for index, (title_var, value_var) in enumerate(
+            zip(self.metadata_title_vars, self.metadata_value_vars)
+        ):
+            self._build_compact_value(
+                metadata,
+                row=index // 3,
+                column=index % 3,
+                title_var=title_var,
+                value_var=value_var,
+            )
+
+        events = tk.Frame(
+            self,
+            bg="#ffffff",
+            bd=1,
+            relief="solid",
+            highlightthickness=0,
+        )
+        events.grid(row=5, column=0, sticky="ew", padx=6, pady=(8, 0))
+        tk.Label(
+            events,
+            text="Event path",
+            bg="#ffffff",
+            fg="#5f707f",
+            font=("TkDefaultFont", 8, "bold"),
+            anchor="w",
+            padx=10,
+            pady=6,
+        ).grid(row=0, column=0, columnspan=4, sticky="ew")
+        for column, (title_var, value_var) in enumerate(
+            zip(self.event_title_vars, self.event_value_vars)
+        ):
+            events.grid_columnconfigure(column, weight=1)
+            chip = tk.Frame(events, bg="#f7f9fb", bd=0)
+            chip.grid(
+                row=1,
+                column=column,
+                sticky="nsew",
+                padx=(8 if column == 0 else 3, 8 if column == 3 else 3),
+                pady=(0, 8),
+            )
+            tk.Label(
+                chip,
+                textvariable=title_var,
+                bg="#f7f9fb",
+                fg="#748290",
+                font=("TkDefaultFont", 7, "bold"),
+                anchor="center",
+                pady=2,
+            ).pack(fill="x")
+            tk.Label(
+                chip,
+                textvariable=value_var,
+                bg="#f7f9fb",
+                fg="#22313f",
+                font=("TkDefaultFont", 8),
+                anchor="center",
+                pady=2,
+            ).pack(fill="x")
+
+    @staticmethod
+    def _build_compact_value(
+        parent: tk.Frame,
+        *,
+        row: int,
+        column: int,
+        title_var: tk.StringVar,
+        value_var: tk.StringVar,
+    ) -> None:
+        frame = tk.Frame(
+            parent,
+            bg="#ffffff",
+            bd=1,
+            relief="solid",
+            highlightthickness=0,
+        )
+        frame.grid(
+            row=row,
+            column=column,
+            sticky="nsew",
+            padx=(0 if column == 0 else 3, 0 if column == 2 else 3),
+            pady=(0 if row == 0 else 3, 3 if row == 0 else 0),
+        )
+        tk.Label(
+            frame,
+            textvariable=title_var,
+            bg="#ffffff",
+            fg="#748290",
+            font=("TkDefaultFont", 7, "bold"),
+            anchor="w",
+            padx=8,
+            pady=2,
+        ).pack(fill="x", pady=(5, 0))
+        tk.Label(
+            frame,
+            textvariable=value_var,
+            bg="#ffffff",
+            fg="#22313f",
+            font=("TkDefaultFont", 8),
+            anchor="w",
+            justify="left",
+            wraplength=145,
+            padx=8,
+            pady=2,
+        ).pack(fill="x", pady=(0, 5))
+
+    def _outcome_level(self) -> Tuple[str, str, str]:
+        if self.affected_blocks:
+            return ("Observed", "#b45309", "#fff7ed")
+        return ("Normal", "#3f7f52", "#ebf6ee")
+
+    def set_empty(self, title: str) -> None:
+        self.campaign_label = title
+        self.summary_row = None
+        self.affected_blocks = ()
+        self.fault_class_var.set(self.EMPTY_VALUE)
+        self.subsystem_var.set(self.EMPTY_VALUE)
+        self.outcome_var.set(self.EMPTY_VALUE)
+        self.title_var.set(title)
+        self.note_var.set(
+            "Load the latest Security / RTL study to view this path."
+        )
+        for variable in self.metadata_title_vars:
+            variable.set(self.EMPTY_VALUE)
+        for variable in self.metadata_value_vars:
+            variable.set(self.EMPTY_VALUE)
+        for variable in self.event_value_vars:
+            variable.set(self.EMPTY_VALUE)
+        self.redraw()
+
+    def set_rtl_case(
+        self,
+        *,
+        target_label: str,
+        is_trojan: bool,
+        affected_blocks: Sequence[str],
+        origin: str,
+        symptom: str,
+        effect: str,
+        metadata_entries: Sequence[Tuple[str, str]],
+        max_coolant_raw: str,
+        final_safe_state: str,
+        event_entries: Sequence[Tuple[str, str]],
+    ) -> None:
+        self.campaign_label = target_label
+        self.summary_row = {
+            "final_safe_state_label": final_safe_state,
+            "max_coolant_temp_c": max_coolant_raw,
+        }
+        self.affected_blocks = (
+            tuple(affected_blocks) if is_trojan else ()
+        )
+        self.fault_class_var.set(
+            "RTL Hardware Trojan" if is_trojan else "Clean RTL reference"
+        )
+        self.subsystem_var.set(origin if is_trojan else "Nominal path")
+        self.outcome_var.set(
+            textwrap.shorten(effect, width=54, placeholder="...")
+            if is_trojan
+            else "Nominal RTL replay"
+        )
+        self.title_var.set(
+            f"{'Trojan' if is_trojan else 'Clean'} — {target_label}"
+        )
+        if is_trojan:
+            self.note_var.set(
+                f"Dominant symptom: {symptom}. Possible downstream effect: {effect}."
+            )
+        else:
+            self.note_var.set(
+                "Reference case: clean RTL output propagates through all five ECU stages without an active Trojan payload."
+            )
+        for index, (title_var, value_var) in enumerate(
+            zip(self.metadata_title_vars, self.metadata_value_vars)
+        ):
+            if index < len(metadata_entries):
+                title, value = metadata_entries[index]
+                title_var.set(title)
+                value_var.set(value or self.EMPTY_VALUE)
+            else:
+                title_var.set(self.EMPTY_VALUE)
+                value_var.set(self.EMPTY_VALUE)
+        for index, (title_var, value_var) in enumerate(
+            zip(self.event_title_vars, self.event_value_vars)
+        ):
+            if index < len(event_entries):
+                title, value = event_entries[index]
+                title_var.set(title)
+                value_var.set(value or self.EMPTY_VALUE)
+            else:
+                title_var.set(self.EMPTY_VALUE)
+                value_var.set(self.EMPTY_VALUE)
+        self.redraw()
 
 
 class ScenarioTimelineView(ttk.Frame):
@@ -6229,6 +6530,18 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.rtl_security_status_text = tk.StringVar(
             value="Ready to run an isolated RTL security analysis."
         )
+        self.rtl_trojan_path_target_choice = tk.StringVar(
+            value=RTL_SECURITY_TARGET_OPTIONS[0]
+        )
+        self.rtl_trojan_path_detector_focus = tk.StringVar(
+            value=RTL_TROJAN_PATH_ALL_DETECTORS
+        )
+        self.rtl_trojan_path_status_text = tk.StringVar(
+            value=(
+                "Select an HT target and load the latest Security / RTL "
+                "analysis path."
+            )
+        )
         self.rtl_plot_source_choice = tk.StringVar(
             value=RTL_SECURITY_PLOT_SOURCE_OPTIONS[0]
         )
@@ -6469,6 +6782,11 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.propagation_evidence_table: ttk.Treeview | None = None
         self.left_fault_path_diagram: FaultPathDiagram | None = None
         self.right_fault_path_diagram: FaultPathDiagram | None = None
+        self.rtl_clean_path_diagram: RTLTrojanPathDiagram | None = None
+        self.rtl_trojan_path_diagram: RTLTrojanPathDiagram | None = None
+        self.rtl_trojan_path_detector_table: ttk.Treeview | None = None
+        self.fault_path_view_notebook: ttk.Notebook | None = None
+        self.rtl_trojan_path_tab: ttk.Frame | None = None
         self.multi_timeline_view: ScenarioTimelineView | None = None
         self.notebook: ttk.Notebook | None = None
         self.custom_builder_notebook: ttk.Notebook | None = None
@@ -6755,8 +7073,12 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
 
         fault_path_tab = ScrollableTabFrame(notebook)
         fault_path_tab.content.columnconfigure(0, weight=1)
-        notebook.add(fault_path_tab, text="Fault Path")
-        self._register_page("fault_path", "Fault Path", fault_path_tab)
+        notebook.add(fault_path_tab, text="Fault / Trojan Path")
+        self._register_page(
+            "fault_path",
+            "Fault / Trojan Path",
+            fault_path_tab,
+        )
 
         batch_tab = ScrollableTabFrame(notebook)
         batch_tab.content.columnconfigure(0, weight=1)
@@ -6844,7 +7166,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             ("page", "Dashboard", "dashboard"),
             ("page", "1. Run / Load", "summary"),
             ("page", "2. Compare", "figures"),
-            ("page", "3. Fault Path", "fault_path"),
+            ("page", "3. Fault / Trojan Path", "fault_path"),
             ("heading", "Research / Validation", ""),
             ("page", "4. Batch Results", "batch"),
             ("page", "5. Runtime Study", "runtime_study"),
@@ -7769,7 +8091,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         workflow_defs = (
             (
                 "Core Comparison Workflow",
-                "Run / Load  →  Compare  →  Fault Path  →  Exports",
+                "Run / Load  →  Compare  →  Fault / Trojan Path  →  Exports",
                 (
                     "Run or load a clean-run versus fault comparison, inspect "
                     "side-by-side behavior, trace hardware-origin effects to ECU-visible "
@@ -9785,15 +10107,49 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self._build_tab_header(
             parent,
             row=0,
-            title="Fault Path",
+            title="Fault / Trojan Path",
             description=(
-                "Read the five-stage path from hardware origin to ECU-visible symptom, "
+                "Trace conventional fault injection or RTL Hardware Trojan "
+                "behavior from its origin through ECU-visible symptoms, "
                 "control and actuation response, and final plant outcome."
             ),
         )
 
-        diagram_area = ttk.Frame(parent, padding=(12, 0, 12, 12), style="Root.TFrame")
-        diagram_area.grid(row=1, column=0, sticky="nsew")
+        self.fault_path_view_notebook = ttk.Notebook(parent)
+        self.fault_path_view_notebook.grid(
+            row=1,
+            column=0,
+            sticky="ew",
+            padx=12,
+            pady=(0, 12),
+        )
+        fault_view = ttk.Frame(
+            self.fault_path_view_notebook,
+            style="Root.TFrame",
+            padding=(0, 10, 0, 0),
+        )
+        self.rtl_trojan_path_tab = ttk.Frame(
+            self.fault_path_view_notebook,
+            style="Root.TFrame",
+            padding=(0, 10, 0, 0),
+        )
+        fault_view.columnconfigure(0, weight=1)
+        self.rtl_trojan_path_tab.columnconfigure(0, weight=1)
+        self.fault_path_view_notebook.add(
+            fault_view,
+            text="Fault Injection Path",
+        )
+        self.fault_path_view_notebook.add(
+            self.rtl_trojan_path_tab,
+            text="Security / RTL Trojan Path",
+        )
+
+        diagram_area = ttk.Frame(
+            fault_view,
+            padding=(0, 0, 0, 0),
+            style="Root.TFrame",
+        )
+        diagram_area.grid(row=0, column=0, sticky="nsew")
         diagram_area.columnconfigure(0, weight=1)
         diagram_area.columnconfigure(1, weight=1)
         diagram_area.rowconfigure(0, weight=1)
@@ -9824,6 +10180,700 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.right_fault_path_diagram = FaultPathDiagram(right_frame, "Right", RIGHT_COLOR)
         self.right_fault_path_diagram.grid(row=0, column=0, sticky="nsew")
         self._refresh_fault_path_diagrams()
+
+        self._build_rtl_trojan_path_view(self.rtl_trojan_path_tab)
+
+    def _build_rtl_trojan_path_view(self, parent: ttk.Frame) -> None:
+        controls_card = self._section_card(
+            parent,
+            title="Security / RTL Trojan Path Viewer",
+            description=(
+                "Load an existing RTL study and summarize how the selected "
+                "trigger and payload propagate through the Virtual ECU path."
+            ),
+        )
+        controls_card.grid(row=0, column=0, sticky="ew", pady=(0, 12))
+        controls = self._card_content(controls_card)
+        controls.columnconfigure(1, weight=1)
+        controls.columnconfigure(3, weight=1)
+
+        ttk.Label(
+            controls,
+            text="RTL target",
+            style="CardFieldName.TLabel",
+        ).grid(row=0, column=0, sticky="w")
+        selector = ttk.Combobox(
+            controls,
+            textvariable=self.rtl_trojan_path_target_choice,
+            values=RTL_SECURITY_TARGET_OPTIONS,
+            state="readonly",
+            width=40,
+        )
+        selector.grid(row=0, column=1, sticky="ew", padx=(10, 18))
+        selector.bind(
+            "<<ComboboxSelected>>",
+            lambda _event: self.load_rtl_trojan_path(show_error=False),
+        )
+        ttk.Label(
+            controls,
+            text="Detector focus",
+            style="CardFieldName.TLabel",
+        ).grid(row=0, column=2, sticky="w")
+        detector_selector = ttk.Combobox(
+            controls,
+            textvariable=self.rtl_trojan_path_detector_focus,
+            values=tuple(
+                display_name
+                for display_name, _detector_id
+                in RTL_TROJAN_PATH_DETECTOR_OPTIONS
+            ),
+            state="readonly",
+            width=31,
+        )
+        detector_selector.grid(
+            row=0,
+            column=3,
+            sticky="ew",
+            padx=(10, 18),
+        )
+        detector_selector.bind(
+            "<<ComboboxSelected>>",
+            lambda _event: self.load_rtl_trojan_path(show_error=False),
+        )
+        self._modern_button(
+            controls,
+            "Load Latest Trojan Path",
+            self.load_rtl_trojan_path,
+        ).grid(row=0, column=4, sticky="e")
+
+        ttk.Label(
+            controls,
+            text=(
+                "This view summarizes the path from RTL-level trigger/payload "
+                "behavior to ECU-visible symptoms and plant outcome. It "
+                "visualizes evaluated Security / RTL results; it does not run "
+                "a new simulation."
+            ),
+            style="CardHint.TLabel",
+            wraplength=980,
+            justify="left",
+        ).grid(
+            row=1,
+            column=0,
+            columnspan=5,
+            sticky="ew",
+            pady=(12, 0),
+        )
+        ttk.Label(
+            controls,
+            textvariable=self.rtl_trojan_path_status_text,
+            style="CardHint.TLabel",
+            wraplength=980,
+            justify="left",
+        ).grid(
+            row=2,
+            column=0,
+            columnspan=5,
+            sticky="ew",
+            pady=(8, 0),
+        )
+
+        diagram_area = ttk.Frame(parent, style="Root.TFrame")
+        diagram_area.grid(row=1, column=0, sticky="nsew")
+        diagram_area.columnconfigure(0, weight=1)
+        diagram_area.columnconfigure(1, weight=1)
+        diagram_area.rowconfigure(0, weight=1)
+
+        clean_card = self._section_card(
+            diagram_area,
+            title="Reference / Clean RTL Case",
+            description=(
+                "Clean RTL output replayed through the unchanged Virtual ECU "
+                "and all configured runtime detectors."
+            ),
+        )
+        clean_card.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
+        clean_frame = self._card_content(
+            clean_card,
+            padding=(10, 0, 10, 10),
+        )
+        clean_frame.columnconfigure(0, weight=1)
+        clean_frame.rowconfigure(0, weight=1)
+        self.rtl_clean_path_diagram = RTLTrojanPathDiagram(
+            clean_frame,
+            "Clean",
+            "#64748b",
+        )
+        self.rtl_clean_path_diagram.grid(row=0, column=0, sticky="nsew")
+
+        trojan_card = self._section_card(
+            diagram_area,
+            title="Security / RTL Trojan Case",
+            description=(
+                "Trojan-active RTL output with the target stage, propagation "
+                "path, detector evidence, and plant outcome highlighted."
+            ),
+        )
+        trojan_card.grid(row=0, column=1, sticky="nsew", padx=(8, 0))
+        trojan_frame = self._card_content(
+            trojan_card,
+            padding=(10, 0, 10, 10),
+        )
+        trojan_frame.columnconfigure(0, weight=1)
+        trojan_frame.rowconfigure(0, weight=1)
+        self.rtl_trojan_path_diagram = RTLTrojanPathDiagram(
+            trojan_frame,
+            "Trojan",
+            "#b45309",
+        )
+        self.rtl_trojan_path_diagram.grid(row=0, column=0, sticky="nsew")
+
+        table_card = self._section_card(
+            parent,
+            title="Detector Alarm Summary",
+            description=(
+                "Compact Trojan-case outcomes for the selected RTL target. "
+                "The detector focus above controls the card detail while this "
+                "table keeps all eight evaluated detectors visible."
+            ),
+        )
+        table_card.grid(row=2, column=0, sticky="ew", pady=(12, 0))
+        table_content = self._card_content(table_card)
+        table_content.columnconfigure(0, weight=1)
+        table_columns = (
+            "detector",
+            "alarm",
+            "first_alarm",
+            "latency",
+            "outcome",
+        )
+        self.rtl_trojan_path_detector_table = ttk.Treeview(
+            table_content,
+            columns=table_columns,
+            show="headings",
+            height=8,
+        )
+        for column, label, width, anchor in (
+            ("detector", "Detector", 230, tk.W),
+            ("alarm", "Alarm", 85, tk.CENTER),
+            ("first_alarm", "First Alarm", 120, tk.CENTER),
+            ("latency", "Latency", 105, tk.CENTER),
+            ("outcome", "Outcome", 310, tk.W),
+        ):
+            self.rtl_trojan_path_detector_table.heading(
+                column,
+                text=label,
+                anchor=anchor,
+            )
+            self.rtl_trojan_path_detector_table.column(
+                column,
+                width=width,
+                anchor=anchor,
+                stretch=column in {"detector", "outcome"},
+            )
+        self._configure_table_tags(self.rtl_trojan_path_detector_table)
+        self.rtl_trojan_path_detector_table.tag_configure(
+            "selected_detector",
+            background="#e8f1ff",
+        )
+        self.rtl_trojan_path_detector_table.grid(
+            row=0,
+            column=0,
+            sticky="ew",
+        )
+
+        self._clear_rtl_trojan_path_view()
+        self.after(
+            0,
+            lambda: self.load_rtl_trojan_path(show_error=False),
+        )
+
+    @staticmethod
+    def _rtl_path_time_label(value: object) -> str:
+        time_ms = int_or_none(value)
+        if time_ms is None or time_ms < 0:
+            return RTLTrojanPathDiagram.EMPTY_VALUE
+        return f"{time_ms} ms"
+
+    @staticmethod
+    def _rtl_path_detector_outcome(row: Dict[str, str] | None) -> str:
+        if row is None:
+            return RTLTrojanPathDiagram.EMPTY_VALUE
+        alarm = VirtualECUGui._rtl_path_row_alarm(
+            row,
+            row.get("variant", ""),
+        )
+        if alarm is None:
+            return RTLTrojanPathDiagram.EMPTY_VALUE
+        if not alarm:
+            return "No detector alarm"
+        label = row.get("runtime_detection_label", "").strip()
+        return (
+            f"Detected — {humanize_label(label)}"
+            if label and label != "none"
+            else "Detected"
+        )
+
+    @staticmethod
+    def _rtl_path_row_alarm(
+        row: Dict[str, str] | None,
+        variant: str,
+    ) -> bool | None:
+        if row is None:
+            return None
+        if variant == "trojan":
+            detected_after_payload = int_or_none(
+                row.get("detected_after_payload", "")
+            )
+            if detected_after_payload is not None:
+                return detected_after_payload > 0
+        detected = int_or_none(
+            row.get("runtime_detection_detected", "")
+        )
+        return None if detected is None else detected > 0
+
+    def _clear_rtl_trojan_path_view(self, message: str | None = None) -> None:
+        empty_message = message or (
+            "No Security / RTL analysis results found. Run Security / RTL "
+            "Analysis first, then return here to load the latest Trojan path."
+        )
+        self.rtl_trojan_path_status_text.set(empty_message)
+        if self.rtl_clean_path_diagram is not None:
+            self.rtl_clean_path_diagram.set_empty("Clean RTL reference")
+        if self.rtl_trojan_path_diagram is not None:
+            self.rtl_trojan_path_diagram.set_empty("Security / RTL Trojan")
+        if self.rtl_trojan_path_detector_table is not None:
+            for item_id in self.rtl_trojan_path_detector_table.get_children():
+                self.rtl_trojan_path_detector_table.delete(item_id)
+
+    def load_rtl_trojan_path(self, show_error: bool = True) -> None:
+        comparison_path = RTL_SECURITY_STUDY_DIR / "detector_comparison.csv"
+        if not comparison_path.exists():
+            self._clear_rtl_trojan_path_view()
+            return
+
+        target_label = self.rtl_trojan_path_target_choice.get()
+        target_key = RTL_SECURITY_TARGET_IDS.get(target_label, "")
+        result_target_id = RTL_TROJAN_PATH_RESULT_IDS.get(target_key, "")
+        spec = RTL_TROJAN_PATH_SPECS.get(target_key)
+        if not result_target_id or spec is None:
+            self._clear_rtl_trojan_path_view(
+                f"No path mapping is available for {target_label}."
+            )
+            return
+
+        try:
+            rows = self._normalize_rtl_plot_rows(
+                read_csv_rows(comparison_path)
+            )
+            detector_ids = tuple(
+                detector_id
+                for _display_name, detector_id
+                in RTL_TROJAN_PATH_DETECTOR_OPTIONS
+                if detector_id
+            )
+            target_rows = [
+                row
+                for row in rows
+                if row.get("rtl_target_id") == result_target_id
+                and row.get("detector") in detector_ids
+            ]
+            clean_by_detector = {
+                row.get("detector", ""): row
+                for row in target_rows
+                if row.get("variant") == "clean"
+            }
+            trojan_by_detector = {
+                row.get("detector", ""): row
+                for row in target_rows
+                if row.get("variant") == "trojan"
+            }
+            clean_base = next(
+                (
+                    clean_by_detector[detector_id]
+                    for detector_id in detector_ids
+                    if detector_id in clean_by_detector
+                ),
+                None,
+            )
+            trojan_base = next(
+                (
+                    trojan_by_detector[detector_id]
+                    for detector_id in detector_ids
+                    if detector_id in trojan_by_detector
+                ),
+                None,
+            )
+            if clean_base is None or trojan_base is None:
+                self._clear_rtl_trojan_path_view(
+                    f"No complete clean/Trojan result pair is available for {target_label}."
+                )
+                return
+
+            focus_display = self.rtl_trojan_path_detector_focus.get()
+            if focus_display not in RTL_TROJAN_PATH_DETECTOR_IDS:
+                focus_display = RTL_TROJAN_PATH_ALL_DETECTORS
+                self.rtl_trojan_path_detector_focus.set(focus_display)
+            focus_id = RTL_TROJAN_PATH_DETECTOR_IDS[focus_display]
+            all_detectors = not focus_id
+            clean_selected = clean_by_detector.get(focus_id) if focus_id else None
+            trojan_selected = (
+                trojan_by_detector.get(focus_id) if focus_id else None
+            )
+            clean_row = clean_selected or clean_base
+            trojan_row = trojan_selected or trojan_base
+
+            def alarm_time_ms(
+                row: Dict[str, str] | None,
+                variant: str,
+            ) -> int | None:
+                if self._rtl_path_row_alarm(row, variant) is not True:
+                    return None
+                if row is None:
+                    return None
+                return int_or_none(
+                    row.get("runtime_detection_first_detection_ms", "")
+                )
+
+            def overview(
+                rows_by_detector: Dict[str, Dict[str, str]],
+                variant: str,
+            ) -> Tuple[int, int, int | None, str]:
+                available = [
+                    rows_by_detector[detector_id]
+                    for detector_id in detector_ids
+                    if detector_id in rows_by_detector
+                ]
+                alarmed = [
+                    row
+                    for row in available
+                    if self._rtl_path_row_alarm(row, variant) is True
+                ]
+                timed = [
+                    (time_ms, row)
+                    for row in alarmed
+                    for time_ms in (alarm_time_ms(row, variant),)
+                    if time_ms is not None
+                ]
+                if not timed:
+                    return (
+                        len(alarmed),
+                        len(available),
+                        None,
+                        RTLTrojanPathDiagram.EMPTY_VALUE,
+                    )
+                first_time_ms, first_row = min(
+                    timed,
+                    key=lambda item: (
+                        item[0],
+                        detector_ids.index(item[1].get("detector", "")),
+                    ),
+                )
+                first_detector = RTL_TROJAN_PATH_DETECTOR_LABELS.get(
+                    first_row.get("detector", ""),
+                    first_row.get("detector", ""),
+                )
+                return (
+                    len(alarmed),
+                    len(available),
+                    first_time_ms,
+                    first_detector or RTLTrojanPathDiagram.EMPTY_VALUE,
+                )
+
+            clean_alarm_count, clean_detector_count, clean_first_ms, clean_first = (
+                overview(clean_by_detector, "clean")
+            )
+            trojan_alarm_count, trojan_detector_count, trojan_first_ms, trojan_first = (
+                overview(trojan_by_detector, "trojan")
+            )
+
+            trojan_raw_rows: List[Dict[str, str]] = []
+            trojan_raw_path = self._rtl_result_path(
+                trojan_row.get("raw_csv", "")
+            )
+            if trojan_raw_path is not None and trojan_raw_path.exists():
+                trojan_raw_rows = read_csv_rows(trojan_raw_path)
+
+            payload_ms = int_or_none(
+                trojan_row.get("rtl_trojan_trigger_time_ms", "")
+            )
+            payload_time_s = (
+                payload_ms / 1000.0
+                if payload_ms is not None and payload_ms >= 0
+                else None
+            )
+            safe_time_s = self._rtl_transition_time_s(
+                trojan_raw_rows,
+                "safe_state_id",
+                payload_time_s,
+            )
+            safe_time_ms = (
+                int(round(safe_time_s * 1000.0))
+                if safe_time_s is not None
+                else None
+            )
+
+            def max_coolant_values(
+                row: Dict[str, str] | None,
+            ) -> Tuple[str, str]:
+                if row is None:
+                    return (RTLTrojanPathDiagram.EMPTY_VALUE, "")
+                raw_value = row.get("max_coolant_temp_c", "")
+                numeric = float_or_none(raw_value)
+                return (
+                    (
+                        RTLTrojanPathDiagram.EMPTY_VALUE
+                        if numeric is None
+                        else f"{numeric:.2f} C"
+                    ),
+                    "" if numeric is None else str(numeric),
+                )
+
+            def final_state(row: Dict[str, str] | None) -> str:
+                if row is None:
+                    return RTLTrojanPathDiagram.EMPTY_VALUE
+                value = row.get("final_safe_state", "").strip()
+                return (
+                    RTLTrojanPathDiagram.EMPTY_VALUE
+                    if not value
+                    else safe_state_display_label(value)
+                )
+
+            clean_max_display, clean_max_raw = max_coolant_values(clean_row)
+            trojan_max_display, trojan_max_raw = max_coolant_values(trojan_row)
+            if all_detectors:
+                clean_summary = (
+                    "No detector alarm in clean reference case"
+                    if clean_alarm_count == 0
+                    else (
+                        f"{clean_alarm_count} of {clean_detector_count} "
+                        "detectors alarmed in the clean reference case"
+                    )
+                )
+                trojan_summary = (
+                    f"{trojan_alarm_count} of {trojan_detector_count} "
+                    "detectors reported post-payload alarms"
+                )
+                clean_metadata_entries = (
+                    ("Target", target_label),
+                    ("Max Coolant", clean_max_display),
+                    ("Final Safe State", final_state(clean_row)),
+                    (
+                        "Detector Alarms",
+                        f"{clean_alarm_count}/{clean_detector_count}",
+                    ),
+                    (
+                        "First Detector Alarm",
+                        self._rtl_path_time_label(clean_first_ms),
+                    ),
+                    ("First Detector", clean_first),
+                    ("Detector Summary", clean_summary),
+                )
+                trojan_metadata_entries = (
+                    ("Target", target_label),
+                    ("Max Coolant", trojan_max_display),
+                    ("Final Safe State", final_state(trojan_row)),
+                    (
+                        "Detector Alarms",
+                        f"{trojan_alarm_count}/{trojan_detector_count}",
+                    ),
+                    (
+                        "First Detector Alarm",
+                        self._rtl_path_time_label(trojan_first_ms),
+                    ),
+                    ("First Detector", trojan_first),
+                    ("Detector Summary", trojan_summary),
+                )
+                clean_alarm_event_ms = clean_first_ms
+                trojan_alarm_event_ms = trojan_first_ms
+                alarm_event_label = "First Detector Alarm"
+            else:
+                clean_alarm_ms = alarm_time_ms(clean_selected, "clean")
+                trojan_alarm_ms = alarm_time_ms(
+                    trojan_selected,
+                    "trojan",
+                )
+                clean_outcome = self._rtl_path_detector_outcome(
+                    clean_selected
+                )
+                trojan_outcome = self._rtl_path_detector_outcome(
+                    trojan_selected
+                )
+                if clean_outcome == "No detector alarm":
+                    clean_outcome = "Selected detector: no alarm"
+                if trojan_outcome == "No detector alarm":
+                    trojan_outcome = "Selected detector: no alarm"
+                clean_metadata_entries = (
+                    ("Target", target_label),
+                    ("Max Coolant", clean_max_display),
+                    ("Final Safe State", final_state(clean_row)),
+                    ("Selected Detector", focus_display),
+                    (
+                        "Selected Detector Alarm",
+                        self._rtl_path_time_label(clean_alarm_ms),
+                    ),
+                    (
+                        "Detection Latency",
+                        RTLTrojanPathDiagram.EMPTY_VALUE,
+                    ),
+                    ("Selected Detector Outcome", clean_outcome),
+                )
+                trojan_metadata_entries = (
+                    ("Target", target_label),
+                    ("Max Coolant", trojan_max_display),
+                    ("Final Safe State", final_state(trojan_row)),
+                    ("Selected Detector", focus_display),
+                    (
+                        "Selected Detector Alarm",
+                        self._rtl_path_time_label(trojan_alarm_ms),
+                    ),
+                    (
+                        "Detection Latency",
+                        self._rtl_path_time_label(
+                            trojan_selected.get(
+                                "detection_latency_from_payload_ms",
+                                "",
+                            )
+                            if trojan_alarm_ms is not None
+                            and trojan_selected is not None
+                            else ""
+                        ),
+                    ),
+                    ("Selected Detector Outcome", trojan_outcome),
+                )
+                clean_alarm_event_ms = clean_alarm_ms
+                trojan_alarm_event_ms = trojan_alarm_ms
+                alarm_event_label = "Selected Detector Alarm"
+
+            clean_event_entries = (
+                ("Trigger", RTLTrojanPathDiagram.EMPTY_VALUE),
+                ("Payload Active", RTLTrojanPathDiagram.EMPTY_VALUE),
+                (
+                    alarm_event_label,
+                    self._rtl_path_time_label(clean_alarm_event_ms),
+                ),
+                ("Safe-State Entry", RTLTrojanPathDiagram.EMPTY_VALUE),
+            )
+            trojan_event_entries = (
+                ("Trigger", self._rtl_path_time_label(payload_ms)),
+                ("Payload Active", self._rtl_path_time_label(payload_ms)),
+                (
+                    alarm_event_label,
+                    self._rtl_path_time_label(trojan_alarm_event_ms),
+                ),
+                (
+                    "Safe-State Entry",
+                    self._rtl_path_time_label(safe_time_ms),
+                ),
+            )
+            affected_blocks = tuple(
+                str(block_id)
+                for block_id in spec.get("affected_blocks", ())
+            )
+            origin = str(spec.get("origin", "RTL path"))
+            symptom = str(spec.get("symptom", "RTL-visible manipulation"))
+            effect = str(spec.get("effect", "Plant-level consequence"))
+            if self.rtl_clean_path_diagram is not None:
+                self.rtl_clean_path_diagram.set_rtl_case(
+                    target_label=target_label,
+                    is_trojan=False,
+                    affected_blocks=affected_blocks,
+                    origin=origin,
+                    symptom=symptom,
+                    effect=effect,
+                    metadata_entries=clean_metadata_entries,
+                    max_coolant_raw=clean_max_raw,
+                    final_safe_state=final_state(clean_row),
+                    event_entries=clean_event_entries,
+                )
+            if self.rtl_trojan_path_diagram is not None:
+                self.rtl_trojan_path_diagram.set_rtl_case(
+                    target_label=target_label,
+                    is_trojan=True,
+                    affected_blocks=affected_blocks,
+                    origin=origin,
+                    symptom=symptom,
+                    effect=effect,
+                    metadata_entries=trojan_metadata_entries,
+                    max_coolant_raw=trojan_max_raw,
+                    final_safe_state=final_state(trojan_row),
+                    event_entries=trojan_event_entries,
+                )
+            if self.rtl_trojan_path_detector_table is not None:
+                for item_id in self.rtl_trojan_path_detector_table.get_children():
+                    self.rtl_trojan_path_detector_table.delete(item_id)
+                for index, detector_id in enumerate(detector_ids):
+                    row = trojan_by_detector.get(detector_id)
+                    alarm = self._rtl_path_row_alarm(row, "trojan")
+                    first_alarm_ms = alarm_time_ms(row, "trojan")
+                    latency_ms = (
+                        int_or_none(
+                            row.get(
+                                "detection_latency_from_payload_ms",
+                                "",
+                            )
+                        )
+                        if row is not None and alarm is True
+                        else None
+                    )
+                    tags = (
+                        ("selected_detector",)
+                        if detector_id == focus_id
+                        else ("even" if index % 2 == 0 else "odd",)
+                    )
+                    self.rtl_trojan_path_detector_table.insert(
+                        "",
+                        tk.END,
+                        values=(
+                            RTL_TROJAN_PATH_DETECTOR_LABELS[detector_id],
+                            (
+                                RTLTrojanPathDiagram.EMPTY_VALUE
+                                if alarm is None
+                                else "Yes" if alarm else "No"
+                            ),
+                            self._rtl_path_time_label(first_alarm_ms),
+                            self._rtl_path_time_label(latency_ms),
+                            self._rtl_path_detector_outcome(row),
+                        ),
+                        tags=tags,
+                    )
+            relative_path = comparison_path.relative_to(PROJECT_ROOT)
+            self.rtl_trojan_path_status_text.set(
+                f"Loaded {target_label} clean and Trojan paths with "
+                f"{focus_display} from {relative_path}."
+            )
+        except (OSError, csv.Error, KeyError, ValueError) as exc:
+            self._clear_rtl_trojan_path_view(
+                f"Unable to load the latest Security / RTL path: {exc}"
+            )
+            if show_error:
+                messagebox.showerror(
+                    "RTL Trojan Path Load Failed",
+                    str(exc),
+                )
+
+    def open_selected_rtl_target_in_fault_path(self) -> None:
+        target_label = (
+            self.rtl_plot_target_choice.get()
+            or self.rtl_security_target_choice.get()
+        )
+        if target_label in RTL_SECURITY_TARGET_OPTIONS:
+            self.rtl_trojan_path_target_choice.set(target_label)
+        self.rtl_trojan_path_detector_focus.set(
+            RTL_TROJAN_PATH_ALL_DETECTORS
+        )
+        self._navigate_to_page("fault_path")
+        if (
+            self.fault_path_view_notebook is not None
+            and self.rtl_trojan_path_tab is not None
+        ):
+            self.fault_path_view_notebook.select(
+                self.rtl_trojan_path_tab
+            )
+        self.load_rtl_trojan_path(show_error=False)
+        self.status_text.set(
+            f"Opened {self.rtl_trojan_path_target_choice.get()} in Fault / Trojan Path."
+        )
 
     def _build_batch_tab(self, parent: ttk.Frame) -> None:
         self._build_tab_header(
@@ -10464,6 +11514,17 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             row=0,
             column=0,
             sticky="w",
+        )
+        self._modern_button(
+            viewer_actions,
+            "Open in Fault / Trojan Path",
+            self.open_selected_rtl_target_in_fault_path,
+            color=THEME_COLORS["secondary"],
+        ).grid(
+            row=0,
+            column=1,
+            sticky="w",
+            padx=(10, 0),
         )
         ttk.Label(
             viewer_content,
