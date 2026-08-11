@@ -15,7 +15,7 @@ sudo apt install -y git build-essential python3 python3-venv python3-pip
 Clone and set up the project:
 
 ```bash
-git clone <repository-url> virtual-ecu-phd
+git clone https://github.com/leonskalts/virtual-ecu-phd.git virtual-ecu-phd
 cd virtual-ecu-phd
 bash scripts/setup_local.sh
 ```
@@ -26,8 +26,35 @@ Launch the GUI:
 bash scripts/launch_gui.sh
 ```
 
+On Windows 11 with WSLg, the GUI should open directly from WSL. On older WSL
+setups, a separate X server may be required for graphical applications.
+
 Generated simulator logs are saved under `logs/`. GUI exports, figures, and
 study outputs are saved under `results/`.
+
+## Optional RTL / Security Study Support
+
+Verilator is **not required** for the standard Virtual ECU simulator or GUI. It
+is needed only when generating traces for the optional RTL Hardware Trojan
+security study.
+
+Install Verilator on Ubuntu/WSL:
+
+```bash
+sudo apt install -y verilator
+```
+
+Run the HT1–HT4 RTL study from the repository root:
+
+```bash
+make rtl-trojan-study
+```
+
+Generated study evidence is written under:
+
+```text
+results/rtl_hardware_trojan_study_v1/
+```
 
 ## Desktop Shortcut
 
@@ -55,7 +82,8 @@ bash scripts/create_desktop_shortcut.sh --linux
 ## Windows
 
 Recommended option: install WSL Ubuntu, clone the repository inside WSL, and
-follow the Linux instructions above.
+follow the WSL/Linux instructions above. Windows 11 users normally receive GUI
+support through WSLg; older WSL installations may require a separate X server.
 
 Optional native Windows launcher:
 
