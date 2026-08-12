@@ -6224,8 +6224,14 @@ class ScenarioTimelineView(ttk.Frame):
         row_gap = 96
         row_height = 64
         header_top = 26
-        chart_top = 96
-        bottom_padding = 58
+        # Keep the column heading, tick labels, and axis on separate rows. This
+        # prevents the leftmost 0.0s tick from colliding with "Timeline view"
+        # without changing the horizontal time mapping or overall card height.
+        column_header_y = 55
+        tick_label_y = 72
+        axis_y = 96
+        chart_top = 120
+        bottom_padding = 34
         height = max(360, chart_top + len(self.events) * row_gap + bottom_padding)
         self.canvas.configure(height=height)
         label_left = card_left + 14
@@ -6233,7 +6239,6 @@ class ScenarioTimelineView(ttk.Frame):
         label_right = label_left + label_width
         axis_left = label_right + 18
         axis_right = card_right - 18
-        axis_y = chart_top - 30
         row_line_left = axis_left
         row_line_right = axis_right
         span_ms = self._timeline_span_ms()
@@ -6270,7 +6275,7 @@ class ScenarioTimelineView(ttk.Frame):
         )
         self.canvas.create_text(
             label_left,
-            chart_top - 42,
+            column_header_y,
             anchor="w",
             text="Event",
             fill="#6d7b89",
@@ -6278,7 +6283,7 @@ class ScenarioTimelineView(ttk.Frame):
         )
         self.canvas.create_text(
             axis_left,
-            chart_top - 42,
+            column_header_y,
             anchor="w",
             text="Timeline view",
             fill="#6d7b89",
@@ -6303,14 +6308,14 @@ class ScenarioTimelineView(ttk.Frame):
             else:
                 self.canvas.create_line(x, axis_y, x, grid_bottom, fill=grid_color, dash=(2, 5))
             if x - last_label_x >= 58 or is_endpoint:
-                tick_anchor = "s"
+                tick_anchor = "n"
                 if tick_index == 0:
-                    tick_anchor = "sw"
+                    tick_anchor = "nw"
                 elif tick_index == len(tick_fractions) - 1:
-                    tick_anchor = "se"
+                    tick_anchor = "ne"
                 self.canvas.create_text(
                     x,
-                    axis_y - 12,
+                    tick_label_y,
                     anchor=tick_anchor,
                     text=self._format_time_label(tick_ms),
                     fill="#5f6f7d",
