@@ -141,7 +141,7 @@ make
 Set up and launch the project on a new Linux/WSL machine:
 
 ```bash
-git clone <repository-url> virtual-ecu-phd
+git clone https://github.com/leonskalts/virtual-ecu-phd.git virtual-ecu-phd
 cd virtual-ecu-phd
 bash scripts/setup_local.sh
 bash scripts/launch_gui.sh
