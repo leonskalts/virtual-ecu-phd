@@ -315,6 +315,19 @@ They do not demonstrate detection of every possible fault/Trojan, embedded
 worst-case execution time, production readiness, certification, or silicon
 validation.
 
+### Paper evidence package
+
+Generate or refresh the consolidated security-paper tables, figures, claims,
+limitations, and reproduction notes with:
+
+```bash
+python3 scripts/run_paper_security_results_v1.py
+```
+
+The generated package is written under
+`results/paper_evidence_security_v1/`. Use `--skip-existing` to export from
+available study results without rerunning completed validation matrices.
+
 ## Useful Scripts
 
 Core GUI and evidence runners:
