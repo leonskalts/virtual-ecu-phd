@@ -508,31 +508,59 @@ def configure_matplotlib() -> object:
 
     plt.rcParams.update(
         {
-            "font.size": 9,
-            "axes.titlesize": 11,
-            "axes.labelsize": 9,
-            "figure.dpi": 120,
-            "savefig.dpi": 300,
+            "font.family": "DejaVu Sans",
+            "font.size": 10,
+            "axes.titlesize": 13,
+            "axes.titleweight": "semibold",
+            "axes.labelsize": 10.5,
+            "axes.labelweight": "medium",
+            "xtick.labelsize": 9.5,
+            "ytick.labelsize": 9.5,
+            "legend.fontsize": 9.5,
+            "figure.dpi": 140,
+            "savefig.dpi": 360,
+            "figure.facecolor": "white",
+            "axes.facecolor": "white",
             "axes.grid": True,
-            "grid.alpha": 0.25,
+            "grid.alpha": 0.22,
             "grid.linestyle": ":",
+            "grid.linewidth": 0.8,
+            "axes.spines.top": False,
+            "axes.spines.right": False,
         }
     )
     return plt
 
 
 def save_figure(plt: object, fig: object, stem: str) -> List[Path]:
+    fig.tight_layout(pad=0.7)
     paths = []
     for suffix in ("png", "pdf"):
         path = FIGURE_DIR / f"{stem}.{suffix}"
-        fig.savefig(path, bbox_inches="tight")
+        fig.savefig(path, bbox_inches="tight", pad_inches=0.06, facecolor="white")
         paths.append(path)
     plt.close(fig)
     return paths
 
 
+def style_detector_ticks(ax: object, rotation: float = 24) -> None:
+    """Keep full detector names readable and subtly emphasize the proposed detector."""
+    ax.tick_params(axis="x", rotation=rotation, pad=5)
+    for tick_label in ax.get_xticklabels():
+        tick_label.set_ha("right")
+        if tick_label.get_text() == DETECTOR_LABELS["hybrid_adaptive_kalman"]:
+            tick_label.set_weight("bold")
+            tick_label.set_color("#0f766e")
+
+
+def emphasize_hybrid_bar(bars: Sequence[object]) -> None:
+    if bars:
+        bars[-1].set_edgecolor("#064e3b")
+        bars[-1].set_linewidth(2.2)
+
+
 def draw_flow_figure(plt: object) -> List[Path]:
-    fig, ax = plt.subplots(figsize=(14.0, 3.4))
+    fig, ax = plt.subplots(figsize=(13.5, 2.8))
     ax.axis("off")
     boxes = (
         ("Fault / Trojan\nscenario", "#dbeafe"),
@@ -542,19 +570,22 @@ def draw_flow_figure(plt: object) -> List[Path]:
         ("Thermal plant\noutcome", "#dcfce7"),
         ("CSV / results / GUI\nevidence export", "#f1f5f9"),
     )
-    xs = [0.02, 0.18, 0.40, 0.56, 0.73, 0.87]
-    widths = [0.12, 0.18, 0.12, 0.13, 0.11, 0.12]
+    widths = [0.13, 0.17, 0.14, 0.15, 0.12, 0.16]
+    gap = 0.018
+    xs = [0.02]
+    for width in widths[:-1]:
+        xs.append(xs[-1] + width + gap)
     for index, ((label, color), x, width) in enumerate(zip(boxes, xs, widths)):
-        ax.add_patch(plt.Rectangle((x, 0.35), width, 0.30, transform=ax.transAxes, facecolor=color, edgecolor="#475569", linewidth=1.2))
-        ax.text(x + width / 2, 0.50, label, transform=ax.transAxes, ha="center", va="center", fontsize=8.0, weight="bold" if index in {1, 2} else "normal")
+        ax.add_patch(plt.Rectangle((x, 0.22), width, 0.56, transform=ax.transAxes, facecolor=color, edgecolor="#475569", linewidth=1.35))
+        ax.text(x + width / 2, 0.50, label, transform=ax.transAxes, ha="center", va="center", fontsize=9.0, linespacing=1.25, weight="bold" if index in {1, 2} else "medium")
         if index < len(boxes) - 1:
-            ax.annotate("", xy=(xs[index + 1] - 0.004, 0.50), xytext=(x + width + 0.004, 0.50), xycoords=ax.transAxes, arrowprops={"arrowstyle": "->", "color": "#334155", "lw": 1.4})
-    ax.set_title("Virtual ECU Security-Oriented Evaluation Flow", pad=12, weight="bold")
+            ax.annotate("", xy=(xs[index + 1] - 0.003, 0.50), xytext=(x + width + 0.003, 0.50), xycoords=ax.transAxes, arrowprops={"arrowstyle": "-|>", "color": "#334155", "lw": 1.5, "mutation_scale": 11})
+    ax.set_title("Virtual ECU Security-Oriented Evaluation Flow", pad=5)
     return save_figure(plt, fig, "figure_1_virtual_ecu_security_evaluation_flow")
 
 
 def draw_hybrid_figure(plt: object) -> List[Path]:
-    fig, ax = plt.subplots(figsize=(10.5, 5.5))
+    fig, ax = plt.subplots(figsize=(11.5, 4.6))
     ax.axis("off")
     sources = (
         "Kalman-style\nresidual reasoning",
@@ -563,17 +594,17 @@ def draw_hybrid_figure(plt: object) -> List[Path]:
         "Thermal\nresponse",
         "Calibration / control-\ntarget deviation",
     )
-    ys = [0.82, 0.66, 0.50, 0.34, 0.18]
+    ys = [0.84, 0.67, 0.50, 0.33, 0.16]
     for label, y in zip(sources, ys):
-        ax.add_patch(plt.Rectangle((0.05, y - 0.055), 0.28, 0.11, transform=ax.transAxes, facecolor="#e0f2fe", edgecolor="#0369a1"))
-        ax.text(0.19, y, label, transform=ax.transAxes, ha="center", va="center", fontsize=9)
-        ax.annotate("", xy=(0.47, 0.50), xytext=(0.34, y), xycoords=ax.transAxes, arrowprops={"arrowstyle": "->", "color": "#475569", "lw": 1.2})
-    ax.add_patch(plt.Rectangle((0.47, 0.40), 0.22, 0.20, transform=ax.transAxes, facecolor="#ccfbf1", edgecolor="#0f766e", linewidth=1.8))
-    ax.text(0.58, 0.50, "Hybrid Adaptive Kalman\nevidence fusion", transform=ax.transAxes, ha="center", va="center", weight="bold")
-    ax.annotate("", xy=(0.78, 0.50), xytext=(0.70, 0.50), xycoords=ax.transAxes, arrowprops={"arrowstyle": "->", "color": "#475569", "lw": 1.5})
-    ax.add_patch(plt.Rectangle((0.78, 0.40), 0.18, 0.20, transform=ax.transAxes, facecolor="#fef3c7", edgecolor="#b45309", linewidth=1.4))
-    ax.text(0.87, 0.50, "Runtime anomaly alarm\n/ optional safe-state\nrequest", transform=ax.transAxes, ha="center", va="center", fontsize=9)
-    ax.set_title("Hybrid Adaptive Kalman Evidence Fusion", pad=12, weight="bold")
+        ax.add_patch(plt.Rectangle((0.025, y - 0.062), 0.30, 0.124, transform=ax.transAxes, facecolor="#e0f2fe", edgecolor="#0369a1", linewidth=1.2))
+        ax.text(0.175, y, label, transform=ax.transAxes, ha="center", va="center", fontsize=9.4, linespacing=1.18)
+        ax.annotate("", xy=(0.42, 0.50), xytext=(0.335, y), xycoords=ax.transAxes, arrowprops={"arrowstyle": "-|>", "color": "#475569", "lw": 1.25, "mutation_scale": 10})
+    ax.add_patch(plt.Rectangle((0.42, 0.35), 0.28, 0.30, transform=ax.transAxes, facecolor="#ccfbf1", edgecolor="#0f766e", linewidth=2.3))
+    ax.text(0.56, 0.50, "Hybrid Adaptive Kalman\nevidence fusion", transform=ax.transAxes, ha="center", va="center", fontsize=11.2, linespacing=1.3, weight="bold", color="#064e3b")
+    ax.annotate("", xy=(0.76, 0.50), xytext=(0.71, 0.50), xycoords=ax.transAxes, arrowprops={"arrowstyle": "-|>", "color": "#475569", "lw": 1.6, "mutation_scale": 11})
+    ax.add_patch(plt.Rectangle((0.76, 0.35), 0.22, 0.30, transform=ax.transAxes, facecolor="#fef3c7", edgecolor="#b45309", linewidth=1.5))
+    ax.text(0.87, 0.50, "Runtime anomaly alarm\n/ optional safe-state\nrequest", transform=ax.transAxes, ha="center", va="center", fontsize=9.5, linespacing=1.25)
+    ax.set_title("Hybrid Adaptive Kalman Evidence Fusion", pad=5)
     return save_figure(plt, fig, "figure_2_hybrid_adaptive_kalman_evidence_fusion")
 
 
@@ -591,17 +622,18 @@ def draw_data_figures(
     labels = [DETECTOR_LABELS[detector] for detector in DETECTORS]
     colors = [DETECTOR_COLORS[detector] for detector in DETECTORS]
 
-    fig, ax = plt.subplots(figsize=(10.5, 5.2))
+    fig, ax = plt.subplots(figsize=(12.0, 5.8))
     values = [float(metrics[detector]["coverage"]) for detector in DETECTORS]
-    bars = ax.bar(labels, values, color=colors)
+    bars = ax.bar(labels, values, color=colors, edgecolor="#ffffff", linewidth=0.8, width=0.72)
+    emphasize_hybrid_bar(bars)
     ax.set_ylim(0, 108)
     ax.set_ylabel("Event coverage [%]")
     ax.set_title("Detector Coverage — Expanded Deterministic Validation")
-    ax.tick_params(axis="x", rotation=24)
-    for label in ax.get_xticklabels():
-        label.set_ha("right")
+    ax.grid(axis="x", visible=False)
+    style_detector_ticks(ax, 24)
     for bar, value in zip(bars, values):
-        ax.text(bar.get_x() + bar.get_width() / 2, value + 1.2, f"{value:.1f}%", ha="center", fontsize=8)
+        ax.text(bar.get_x() + bar.get_width() / 2, value + 1.2, f"{value:.1f}%", ha="center", fontsize=9, weight="semibold" if bar is bars[-1] else "normal")
+    ax.text(0.015, 0.96, "31 evaluated event variants", transform=ax.transAxes, ha="left", va="top", color="#475569", fontsize=9)
     paths.extend(save_figure(plt, fig, "figure_3_detector_coverage_comparison"))
 
     event_rows = expanded["event_rows"]
@@ -609,45 +641,66 @@ def draw_data_figures(
         [as_int(row, "detection_latency_ms") for row in event_rows if row["detector"] == detector and as_int(row, "detected_after_event") != 0]
         for detector in DETECTORS
     ]
-    fig, ax = plt.subplots(figsize=(10.5, 5.6))
-    box = ax.boxplot(latency_sets, tick_labels=labels, patch_artist=True, showfliers=True)
-    for patch, color in zip(box["boxes"], colors):
+    fig, ax = plt.subplots(figsize=(12.2, 6.2))
+    box = ax.boxplot(
+        latency_sets,
+        tick_labels=labels,
+        patch_artist=True,
+        showfliers=True,
+        showmeans=True,
+        medianprops={"color": "#111827", "linewidth": 1.4},
+        meanprops={"marker": "D", "markerfacecolor": "white", "markeredgecolor": "#111827", "markersize": 4.5},
+        flierprops={"marker": "o", "markersize": 3.5, "markerfacecolor": "#94a3b8", "markeredgecolor": "#475569", "alpha": 0.65},
+    )
+    for index, (patch, color) in enumerate(zip(box["boxes"], colors)):
         patch.set_facecolor(color)
-        patch.set_alpha(0.75)
-    ax.set_ylabel("Detected-event latency [ms]")
+        patch.set_alpha(0.78)
+        patch.set_edgecolor("#064e3b" if index == len(DETECTORS) - 1 else "#334155")
+        patch.set_linewidth(2.2 if index == len(DETECTORS) - 1 else 1.0)
+    ax.set_yscale("symlog", linthresh=100, linscale=0.9, base=10)
+    ax.set_ylim(bottom=0)
+    ax.set_ylabel("Detected-event latency [ms, symlog scale]")
     ax.set_title("Detector Latency — Expanded Deterministic Validation")
-    ax.tick_params(axis="x", rotation=24)
-    for label in ax.get_xticklabels():
-        label.set_ha("right")
+    ax.grid(axis="x", visible=False)
+    style_detector_ticks(ax, 24)
+    ax.text(0.015, 0.97, "Linear from 0–100 ms; logarithmic above 100 ms • diamond = mean", transform=ax.transAxes, ha="left", va="top", fontsize=8.8, color="#475569", bbox={"facecolor": "white", "edgecolor": "#cbd5e1", "boxstyle": "round,pad=0.28", "alpha": 0.92})
     paths.extend(save_figure(plt, fig, "figure_4_detector_latency_comparison"))
 
     classes = [str(row["Fault class"]) for row in heatmap_rows]
     matrix = [[float(row[detector]) for detector in DETECTORS] for row in heatmap_rows]
-    fig, ax = plt.subplots(figsize=(11.2, max(4.5, 0.65 * len(classes) + 2.0)))
+    fig, ax = plt.subplots(figsize=(13.2, max(5.5, 0.72 * len(classes) + 2.0)))
     image = ax.imshow(matrix, cmap="YlGnBu", vmin=0, vmax=100, aspect="auto")
     ax.grid(False)
-    ax.set_xticks(range(len(DETECTORS)), labels=labels, rotation=28, ha="right")
+    ax.set_xticks(range(len(DETECTORS)), labels=labels)
     ax.set_yticks(range(len(classes)), labels=classes)
     ax.set_title("Per-Fault-Class Detector Coverage [%]")
+    style_detector_ticks(ax, 26)
     for y, values_row in enumerate(matrix):
         for x, value in enumerate(values_row):
-            ax.text(x, y, f"{value:.0f}", ha="center", va="center", color="white" if value >= 65 else "#0f172a", fontsize=8)
-    fig.colorbar(image, ax=ax, label="Coverage [%]")
+            ax.text(x, y, f"{value:.0f}", ha="center", va="center", color="white" if value >= 65 else "#0f172a", fontsize=9, weight="semibold" if x == len(DETECTORS) - 1 else "normal")
+    ax.add_patch(plt.Rectangle((len(DETECTORS) - 1.5, -0.5), 1.0, len(classes), fill=False, edgecolor="#0f766e", linewidth=2.4, clip_on=False))
+    colorbar = fig.colorbar(image, ax=ax, label="Event coverage [%]", fraction=0.032, pad=0.025)
+    colorbar.ax.tick_params(labelsize=9)
     paths.extend(save_figure(plt, fig, "figure_5_per_fault_class_coverage_heatmap"))
 
-    fig, ax = plt.subplots(figsize=(10.5, 5.2))
+    fig, ax = plt.subplots(figsize=(12.0, 5.5))
     rates = [float(str(row["False-positive rate"]).rstrip("%")) for row in negative_rows_data]
-    bars = ax.bar(labels, rates, color=colors)
-    ax.set_ylim(0, max(1.0, max(rates, default=0.0) * 1.2))
+    bars = ax.bar(labels, rates, color=colors, alpha=0.35, edgecolor=colors, linewidth=1.4, width=0.68)
+    emphasize_hybrid_bar(bars)
+    ax.scatter(range(len(labels)), rates, s=55, c=colors, edgecolors="white", linewidths=0.8, zorder=3)
+    ax.set_ylim(-0.005, max(0.08, max(rates, default=0.0) * 1.2))
     ax.set_ylabel("False-positive run rate [%]")
     ax.set_title("Negative-Stress False-Positive Summary")
-    ax.tick_params(axis="x", rotation=24)
-    for label in ax.get_xticklabels():
-        label.set_ha("right")
+    ax.grid(axis="x", visible=False)
+    style_detector_ticks(ax, 24)
+    profile_runs = sum(as_int(row, "Clean stress variants tested") for row in negative_rows_data)
+    profiles_per_detector = max((as_int(row, "Clean stress variants tested") for row in negative_rows_data), default=0)
     if max(rates, default=0.0) == 0.0:
-        ax.text(0.5, 0.88, "No alarm runs in the evaluated deterministic clean-stress matrix", transform=ax.transAxes, ha="center", va="center", fontsize=9, bbox={"facecolor": "white", "edgecolor": "#94a3b8", "boxstyle": "round,pad=0.4"})
+        ax.axhspan(0.0, 0.008, color="#dcfce7", alpha=0.65, zorder=0)
+        ax.text(0.5, 0.78, "0 alarm runs in the evaluated deterministic clean-stress matrix", transform=ax.transAxes, ha="center", va="center", fontsize=10.5, weight="semibold", color="#166534", bbox={"facecolor": "#f0fdf4", "edgecolor": "#86efac", "boxstyle": "round,pad=0.5"})
+        ax.text(0.5, 0.63, f"{profiles_per_detector} clean profiles per detector • {profile_runs} detector/profile runs", transform=ax.transAxes, ha="center", va="center", fontsize=9.4, color="#475569")
     for bar, rate in zip(bars, rates):
-        ax.text(bar.get_x() + bar.get_width() / 2, max(0.025, rate + 0.02), f"{rate:.3f}%", ha="center", fontsize=7.5)
+        ax.text(bar.get_x() + bar.get_width() / 2, max(0.008, rate + 0.008), f"{rate:.3f}%", ha="center", fontsize=8.5, weight="semibold" if bar is bars[-1] else "normal")
     paths.extend(save_figure(plt, fig, "figure_6_negative_stress_false_positive_summary"))
 
     target_ids = ["ht1_coolant_sensor", "ht2_fan_driver", "ht3_calibration_memory", "ht4_multi_stage_chain"]
@@ -657,46 +710,59 @@ def draw_data_figures(
             max((as_int(row, "detected_after_payload") for row in rtl_comparison if row.get("rtl_target_id") == target and row.get("variant") == "trojan" and row.get("detector") == detector), default=0)
             for detector in DETECTORS
         ])
-    fig, ax = plt.subplots(figsize=(10.5, 4.5))
+    fig, ax = plt.subplots(figsize=(12.2, 5.5))
     image = ax.imshow(outcome, cmap="Blues", vmin=0, vmax=1, aspect="auto")
     ax.grid(False)
-    ax.set_xticks(range(len(DETECTORS)), labels=labels, rotation=28, ha="right")
+    ax.set_xticks(range(len(DETECTORS)), labels=labels)
     ax.set_yticks(range(4), labels=("HT1 Sensor", "HT2 Fan", "HT3 Calibration", "HT4 Composite"))
-    ax.set_title("Representative RTL Trojan Case-Study Detection Outcome")
+    ax.set_title("Representative RTL Trojan Case-Study Detection Outcome", pad=24)
+    ax.text(0.5, 1.025, "Outcome after payload activation • HT4 is a trace-driven composite", transform=ax.transAxes, ha="center", va="bottom", fontsize=9.3, color="#475569")
+    style_detector_ticks(ax, 26)
     for y, row in enumerate(outcome):
         for x, value in enumerate(row):
-            ax.text(x, y, "Alarm" if value else "Miss", ha="center", va="center", fontsize=7.5, color="white" if value else "#0f172a")
-    fig.colorbar(image, ax=ax, ticks=(0, 1), label="Detected after payload")
+            ax.text(x, y, "ALARM" if value else "MISS", ha="center", va="center", fontsize=8.2, weight="semibold", color="white" if value else "#0f172a")
+    ax.add_patch(plt.Rectangle((len(DETECTORS) - 1.5, -0.5), 1.0, len(outcome), fill=False, edgecolor="#0f766e", linewidth=2.4, clip_on=False))
+    colorbar = fig.colorbar(image, ax=ax, ticks=(0, 1), label="Detection after payload activation", fraction=0.035, pad=0.025)
+    colorbar.ax.set_yticklabels(("Miss", "Alarm"))
     paths.extend(save_figure(plt, fig, "figure_7_rtl_ht1_ht4_detection_summary"))
 
     timing_by = {row["detector"]: row for row in online_timing}
     max_times = [as_float(timing_by[detector], "max_update_time_ms") for detector in DETECTORS]
     budget = as_float(timing_by[DETECTORS[0]], "timestep_budget_ms")
-    fig, ax = plt.subplots(figsize=(10.5, 5.4))
-    ax.bar(labels, max_times, color=colors)
+    fig, ax = plt.subplots(figsize=(12.0, 5.8))
+    bars = ax.bar(labels, max_times, color=colors, edgecolor="#ffffff", linewidth=0.8, width=0.72)
+    emphasize_hybrid_bar(bars)
     ax.axhline(budget, color="#dc2626", linestyle="--", linewidth=1.4, label=f"Simulated timestep budget ({budget:g} ms)")
     ax.set_yscale("log")
+    ax.set_ylim(max(min(max_times) / 3.0, 1e-5), budget * 3.0)
     ax.set_ylabel("Maximum observed update time [ms, log scale]")
     ax.set_title("Host-Side Detector Timing vs Simulated Timestep Budget")
-    ax.tick_params(axis="x", rotation=24)
-    for label in ax.get_xticklabels():
-        label.set_ha("right")
-    ax.legend(frameon=False)
+    ax.grid(axis="x", visible=False)
+    style_detector_ticks(ax, 24)
+    for bar, value in zip(bars, max_times):
+        ax.text(bar.get_x() + bar.get_width() / 2, value * 1.35, f"{value:.6f}", ha="center", va="bottom", rotation=90, fontsize=7.8, color="#334155")
+    ax.text(0.5, 0.90, "All evaluated detector updates remained below the simulated 100 ms timestep budget", transform=ax.transAxes, ha="center", va="center", fontsize=9.4, weight="semibold", color="#166534", bbox={"facecolor": "#f0fdf4", "edgecolor": "#86efac", "boxstyle": "round,pad=0.35"})
+    ax.legend(frameon=False, loc="upper right")
     paths.extend(save_figure(plt, fig, "figure_8_online_detector_timing_vs_budget"))
 
     factor_values = [
         statistics.mean(as_float(row, "real_time_factor_mean") for row in benchmark_source if row["detector"] == detector)
         for detector in DETECTORS
     ]
-    fig, ax = plt.subplots(figsize=(10.5, 5.2))
-    ax.bar(labels, factor_values, color=colors)
+    fig, ax = plt.subplots(figsize=(12.0, 5.8))
+    bars = ax.bar(labels, [value - 1.0 for value in factor_values], bottom=1.0, color=colors, edgecolor="#ffffff", linewidth=0.8, width=0.72)
+    emphasize_hybrid_bar(bars)
     ax.axhline(1.0, color="#dc2626", linestyle="--", linewidth=1.3, label="Wall-clock real time (1x)")
-    ax.set_ylabel("Mean host simulation real-time factor [x]")
+    ax.set_yscale("log")
+    ax.set_ylim(0.8, max(factor_values) * 2.0)
+    ax.set_ylabel("Mean host simulation real-time factor [x, log scale]")
     ax.set_title("Host-Side Simulation Throughput by Detector")
-    ax.tick_params(axis="x", rotation=24)
-    for label in ax.get_xticklabels():
-        label.set_ha("right")
-    ax.legend(frameon=False)
+    ax.grid(axis="x", visible=False)
+    style_detector_ticks(ax, 24)
+    for bar, value in zip(bars, factor_values):
+        ax.text(bar.get_x() + bar.get_width() / 2, value / 3.0, f"{value:,.0f}x", ha="center", va="center", fontsize=8.4, weight="semibold", color="white")
+    ax.text(0.5, 0.90, f"All {len(benchmark_source)} evaluated detector/scenario cases ran faster than wall-clock real time", transform=ax.transAxes, ha="center", va="center", fontsize=9.4, weight="semibold", color="#166534", bbox={"facecolor": "#f0fdf4", "edgecolor": "#86efac", "boxstyle": "round,pad=0.35"})
+    ax.legend(frameon=False, loc="upper right")
     paths.extend(save_figure(plt, fig, "figure_9_simulation_throughput_realtime_factor"))
     return paths
 
