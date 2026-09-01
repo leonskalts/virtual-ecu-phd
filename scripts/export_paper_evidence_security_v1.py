@@ -8,6 +8,7 @@ import json
 import math
 import os
 import platform
+import re
 import statistics
 import tempfile
 from collections import defaultdict
@@ -20,6 +21,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 RESULTS_ROOT = PROJECT_ROOT / "results"
 OUTPUT_DIR = RESULTS_ROOT / "paper_evidence_security_v1"
 TABLE_DIR = OUTPUT_DIR / "tables"
+PAPER_TABLE_DIR = OUTPUT_DIR / "tables_paper_ready"
 FIGURE_DIR = OUTPUT_DIR / "figures"
 
 DETECTORS = (
@@ -132,6 +134,386 @@ def write_table(
         lines.append("| " + " | ".join(markdown_cell(row.get(column, "")) for column in columns) + " |")
     md_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return csv_path, md_path
+
+
+def latex_cell(value: object) -> str:
+    replacements = {
+        "\\": r"\textbackslash{}",
+        "&": r"\&",
+        "%": r"\%",
+        "$": r"\$",
+        "#": r"\#",
+        "_": r"\_",
+        "{": r"\{",
+        "}": r"\}",
+        "~": r"\textasciitilde{}",
+        "^": r"\textasciicircum{}",
+        "≥": r"$\geq$",
+        "≤": r"$\leq$",
+        "°": r"$^\circ$",
+        "×": r"$\times$",
+        "–": "--",
+        "—": "---",
+    }
+    return "".join(replacements.get(character, character) for character in str(value).replace("\n", " "))
+
+
+def write_paper_ready_table(
+    stem: str,
+    title: str,
+    caption: str,
+    note: str,
+    columns: Sequence[str],
+    rows: Sequence[Mapping[str, object]],
+) -> tuple[Path, Path, Path]:
+    if not rows:
+        raise ValueError(f"Refusing to write empty paper-ready table: {stem}")
+    csv_path = PAPER_TABLE_DIR / f"{stem}.csv"
+    md_path = PAPER_TABLE_DIR / f"{stem}.md"
+    tex_path = PAPER_TABLE_DIR / f"{stem}.tex"
+
+    with csv_path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=columns)
+        writer.writeheader()
+        writer.writerows(rows)
+
+    markdown_lines = [
+        f"# {title}",
+        "",
+        f"*{caption}*",
+        "",
+        "| " + " | ".join(columns) + " |",
+        "| " + " | ".join("---" for _ in columns) + " |",
+    ]
+    for row in rows:
+        markdown_lines.append("| " + " | ".join(markdown_cell(row.get(column, "")) for column in columns) + " |")
+    markdown_lines.extend(("", f"> **Note:** {note}", ""))
+    md_path.write_text("\n".join(markdown_lines), encoding="utf-8")
+
+    latex_column = r">{\raggedright\arraybackslash}X"
+    latex_spec = "@{}" + latex_column * len(columns) + "@{}"
+    latex_label = stem.replace("_", "-")
+    latex_lines = [
+        r"% Requires \usepackage{booktabs,tabularx,array}",
+        r"\begin{table*}[t]",
+        r"\centering",
+        f"\\caption{{{latex_cell(caption)}}}",
+        f"\\label{{tab:{latex_label}}}",
+        r"\small",
+        f"\\begin{{tabularx}}{{\\textwidth}}{{{latex_spec}}}",
+        r"\toprule",
+        " & ".join(latex_cell(column) for column in columns) + " \\\\",
+        r"\midrule",
+    ]
+    for row in rows:
+        latex_lines.append(" & ".join(latex_cell(row.get(column, "")) for column in columns) + " \\\\")
+    latex_lines.extend(
+        (
+            r"\bottomrule",
+            r"\end{tabularx}",
+            r"\par\smallskip",
+            r"\begin{minipage}{\textwidth}",
+            f"\\footnotesize\\textit{{Note:}} {latex_cell(note)}",
+            r"\end{minipage}",
+            r"\end{table*}",
+            "",
+        )
+    )
+    tex_path.write_text("\n".join(latex_lines), encoding="utf-8")
+    return csv_path, md_path, tex_path
+
+
+def paper_ready_tables(
+    table1: Sequence[Mapping[str, object]],
+    table2: Sequence[Mapping[str, object]],
+    main_rows: Sequence[Mapping[str, object]],
+    class_rows: Sequence[Mapping[str, object]],
+    heatmap_rows: Sequence[Mapping[str, object]],
+    negative_rows: Sequence[Mapping[str, object]],
+    rtl_rows: Sequence[Mapping[str, object]],
+    timing_rows: Sequence[Mapping[str, object]],
+    throughput_rows: Sequence[Mapping[str, object]],
+    throughput_overall_rows: Sequence[Mapping[str, object]],
+    ablation_available: bool,
+) -> List[Path]:
+    """Write concise paper-facing views without changing the full evidence tables."""
+    paths: List[Path] = []
+
+    def add(
+        stem: str,
+        title: str,
+        caption: str,
+        note: str,
+        columns: Sequence[str],
+        rows: Sequence[Mapping[str, object]],
+    ) -> None:
+        paths.extend(write_paper_ready_table(stem, title, caption, note, columns, rows))
+
+    columns = ("Detector", "Runtime ID", "Family", "Main evidence")
+    add(
+        "paper_table_a_detector_families",
+        "Table A — Detector Families",
+        "Detector implementations and their principal runtime evidence.",
+        "All detectors are evaluated inside the simulated fixed-step ECU loop. This is a simulation/host-side evaluation, not embedded certification.",
+        columns,
+        [{column: row[column] for column in columns} for row in table1],
+    )
+
+    compact_columns = ("Detector", "Family", "Main evidence")
+    add(
+        "paper_table_a_compact_detector_families",
+        "Table A — Compact Detector Families",
+        "Compact detector-family summary for direct paper use.",
+        "All detectors are evaluated inside the simulated fixed-step ECU loop. This is a simulation/host-side evaluation, not embedded certification.",
+        compact_columns,
+        [{column: row[column] for column in compact_columns} for row in table1],
+    )
+
+    scenario_summaries = {
+        "Sensing-path faults": ("Sensor bias; intermittent sensor interface", "Sensor/interface measurement", "Corrupted or biased ECU-visible observations"),
+        "Actuator-path faults": ("Fan stuck off", "Fan command and realized output", "Command-to-actuation integrity"),
+        "Pump/fan degradation": ("Pump degradation; fan stuck off", "Cooling actuation", "Degraded or suppressed cooling response"),
+        "Stale sensor/timing faults": ("Stale sensor data", "Sampling and timing freshness", "Delayed or held sensor information"),
+        "Calibration/memory corruption": ("Calibration memory corruption", "Control target and calibration", "Internal control-data integrity"),
+        "Multi-event fault chains": ("Ordered sensor, pump, fan, and calibration events", "Multiple ECU paths", "Staged cross-path abnormal behavior"),
+        "Clean/no-fault stress": ("Ambient, load, speed, airflow, and duration profiles", "Nominal plant and ECU", "False-positive robustness"),
+        "RTL Trojan trace replay": ("HT1; HT2; HT3; HT4", "Sensor, actuator, calibration, and composite paths", "Representative RTL trigger/payload effects"),
+    }
+    scenario_rows = []
+    for row in table2:
+        scenario_class = str(row["Scenario class"])
+        examples, path, relevance = scenario_summaries.get(
+            scenario_class,
+            (str(row["Example faults"]), str(row["ECU path affected"]), str(row["Security relevance"])),
+        )
+        scenario_rows.append(
+            {
+                "Scenario class": scenario_class,
+                "Example faults / cases": examples,
+                "ECU path affected": path,
+                "Security relevance": relevance,
+            }
+        )
+    add(
+        "paper_table_b_fault_security_scenario_classes",
+        "Table B — Fault and Security Scenario Classes",
+        "Evaluated scenario classes and their principal ECU paths.",
+        "The categories summarize the bounded deterministic validation cases and are not an exhaustive automotive fault or attack taxonomy.",
+        tuple(scenario_rows[0]),
+        scenario_rows,
+    )
+
+    comparison_rows = []
+    for row in main_rows:
+        rank_text = str(row["Rank or notes"])
+        rank = next((token for token in rank_text.replace(";", " ").split() if token.isdigit()), "")
+        comparison_rows.append(
+            {
+                "Detector": row["Detector"],
+                "Coverage": row["Event coverage"],
+                "Misses": row["Missed detections"],
+                "Clean alarms": row["Clean-run alarms / false positives"],
+                "Mean latency ms": row["Mean latency ms"],
+                "Median latency ms": row["Median latency ms"],
+                "Fastest/tied-fastest": row["Fastest or tied-fastest count"],
+                "Rank": rank,
+            }
+        )
+    add(
+        "paper_table_c_main_detector_comparison",
+        "Table C — Main Detector Comparison",
+        "Detection coverage, clean alarms, and response latency across the expanded deterministic validation matrix.",
+        "Latency is computed over detected events only; missed detections are reported separately.",
+        tuple(comparison_rows[0]),
+        comparison_rows,
+    )
+
+    class_observations = {
+        "Sensing path": "Hybrid reached full coverage; Built-in ECU diagnostics and Thermal observer missed sensing cases.",
+        "Actuator path": "Hybrid reached full coverage; four comparison detectors recorded misses.",
+        "Calibration / memory": "Threshold, EWMA, and CUSUM missed calibration/memory cases.",
+        "Timing / stale data": "All detectors except Thermal observer reached full coverage.",
+        "Multi-event chain": "All detectors except Thermal observer reached full coverage.",
+        "RTL Trojan trace replay": "Hybrid reached full coverage; Thermal observer had reduced replay coverage.",
+    }
+    class_summary_rows = []
+    for row in heatmap_rows:
+        fault_class = str(row["Fault class"])
+        values = {detector: as_float(row, detector) for detector in DETECTORS}
+        missed_labels = [DETECTOR_LABELS[detector] for detector in DETECTORS if values[detector] < 100.0]
+        class_summary_rows.append(
+            {
+                "Fault class": fault_class,
+                "Hybrid Adaptive Kalman coverage": f"{values['hybrid_adaptive_kalman']:.1f}%",
+                "Detectors with misses": "; ".join(missed_labels) if missed_labels else "None",
+                "Key observation": class_observations.get(
+                    fault_class,
+                    "Hybrid coverage and detector misses are reported for the evaluated class.",
+                ),
+            }
+        )
+    add(
+        "paper_table_d1_per_fault_class_coverage_summary",
+        "Table D1 — Per-Fault-Class Coverage Summary",
+        "Hybrid Adaptive Kalman coverage and detector misses by fault class.",
+        "Coverage is computed from the evaluated deterministic matrix. Per-detector counts and detected-event latencies are retained in the appendix table.",
+        tuple(class_summary_rows[0]),
+        class_summary_rows,
+    )
+
+    appendix_class_columns = ("Fault class", "Detector", "Coverage", "Misses", "Mean latency ms", "Median latency ms")
+    add(
+        "appendix_table_full_per_fault_class_detector_breakdown",
+        "Appendix Table — Full Per-Fault-Class Detector Breakdown",
+        "Full detector coverage and detected-event latency breakdown for each evaluated fault class.",
+        "Mean and median latency values include detected events only; misses remain explicit.",
+        appendix_class_columns,
+        [{column: row[column] for column in appendix_class_columns} for row in class_rows],
+    )
+
+    negative_columns = ("Detector", "Clean profiles", "Alarm runs", "False-positive episodes", "False-positive rate")
+    negative_compact = [
+        {
+            "Detector": row["Detector"],
+            "Clean profiles": row["Clean stress variants tested"],
+            "Alarm runs": row["Alarm runs"],
+            "False-positive episodes": row["False-positive episodes"],
+            "False-positive rate": row["False-positive rate"],
+        }
+        for row in negative_rows
+    ]
+    add(
+        "paper_table_e_negative_stress_false_positive_validation",
+        "Table E — Negative-Stress False-Positive Validation",
+        "Alarm outcomes across deterministic clean stress profiles.",
+        "Deterministic no-fault stress profiles; absence of false positives in this matrix is not a universal guarantee.",
+        negative_columns,
+        negative_compact,
+    )
+
+    rtl_definition_text = {
+        "HT1": ("Sensor ≥ 95.0 °C for 8 consecutive cycles", "Subtract 8.0 °C from reported sample", "Verilator RTL simulation + Virtual ECU trace replay"),
+        "HT2": ("Fan command ≥ 0.500 for 8 consecutive cycles", "Force realized fan output to 0.000", "Verilator RTL simulation + Virtual ECU trace replay"),
+        "HT3": ("Counter reaches 521 interface cycles", "Add 16.0 °C to cooling control target", "Verilator RTL simulation + Virtual ECU trace replay"),
+        "HT4": ("HT3 counter, then HT1 and HT2 persistence triggers", "Raise target, mask coolant, suppress fan output", "Trace-driven composite of HT3, HT1, and HT2 outputs."),
+    }
+    rtl_definition_rows = []
+    for row in rtl_rows:
+        ht_id = str(row["HT ID"])
+        trigger, payload, boundary = rtl_definition_text[ht_id]
+        rtl_definition_rows.append(
+            {"HT ID": ht_id, "Target": row["Target"], "Trigger": trigger, "Payload": payload, "Trace/replay boundary": boundary}
+        )
+    add(
+        "paper_table_f1_rtl_trojan_case_definitions",
+        "Table F1 — RTL Trojan Case Definitions",
+        "Representative HT1–HT4 trigger, payload, and trace/replay boundaries.",
+        "HT1–HT3 are representative RTL trigger/payload interface case studies. HT4 is a trace-driven composite, not a new independent RTL module.",
+        tuple(rtl_definition_rows[0]),
+        rtl_definition_rows,
+    )
+
+    rtl_outcome_columns = ("HT ID", "Alarmed / total", "Missed detectors", "Hybrid latency ms", "Max coolant clean", "Max coolant Trojan")
+    rtl_outcome_rows = []
+    for row in rtl_rows:
+        alarmed_text = str(row["Detectors alarmed"])
+        alarmed_total = alarmed_text.split(" ", 1)[0]
+        alarmed_list = alarmed_text.partition("(")[2].rpartition(")")[0]
+        alarmed_detectors = {label.strip() for label in alarmed_list.split(";") if label.strip()}
+        missed_detectors = [label for label in DETECTOR_LABELS.values() if label not in alarmed_detectors]
+        rtl_outcome_rows.append(
+            {
+                "HT ID": row["HT ID"],
+                "Alarmed / total": alarmed_total,
+                "Missed detectors": "; ".join(missed_detectors) if missed_detectors else "none",
+                "Hybrid latency ms": row["Hybrid alarm latency ms"],
+                "Max coolant clean": row["Max coolant clean"],
+                "Max coolant Trojan": row["Max coolant Trojan"],
+            }
+        )
+    add(
+        "paper_table_f2_rtl_trojan_detection_outcomes",
+        "Table F2 — RTL Trojan Detection Outcomes",
+        "Detector alarms and Hybrid Adaptive Kalman latency for the representative RTL cases.",
+        "Alarm latency is measured after payload activation within the stated trace/replay boundary.",
+        rtl_outcome_columns,
+        rtl_outcome_rows,
+    )
+
+    timing_columns = ("Detector", "Future-sample access", "Causality audit", "Mean update ms", "Max update ms", "p99 update ms", "Budget passed")
+    timing_compact = [
+        {
+            "Detector": row["Detector"],
+            "Future-sample access": row["Future-sample access detected"],
+            "Causality audit": row["Causality audit result"],
+            "Mean update ms": f"{as_float(row, 'Mean update time ms'):.3g}",
+            "Max update ms": f"{as_float(row, 'Max update time ms'):.3g}",
+            "p99 update ms": f"{as_float(row, 'p99 update time ms'):.3g}",
+            "Budget passed": row["Budget passed"],
+        }
+        for row in timing_rows
+    ]
+    add(
+        "paper_table_g_online_timing_causality_audit",
+        "Table G — Online Timing and Causality Audit",
+        "Sampled causality and detector-update timing in the simulated fixed-step loop.",
+        "Budget is the 100 ms simulated ECU timestep. Timing is host-side update timing inside the simulated loop, not embedded certification.",
+        timing_columns,
+        timing_compact,
+    )
+
+    def format_realtime_factor(value: object) -> str:
+        return re.sub(
+            r"(?<![\w.])(\d+(?:\.\d+)?)x\b",
+            lambda match: f"{float(match.group(1)):,.3f}×",
+            str(value),
+        )
+
+    overall_columns = ("Metric", "Value")
+    throughput_summary_rows = [
+        {"Metric": row["Metric"], "Value": format_realtime_factor(row["Value"])}
+        for row in throughput_overall_rows
+    ]
+    add(
+        "paper_table_h_simulation_throughput_summary",
+        "Table H — Simulation Throughput Summary",
+        "Overall host-side simulation throughput summary.",
+        "Real-time factors describe the evaluated host simulator process and do not establish embedded or hard real-time performance.",
+        overall_columns,
+        throughput_summary_rows,
+    )
+
+    ablation_rows = [
+        {"Item": "Faithful component-disable ablation variants", "Status": "Not currently implemented" if not ablation_available else "Available"},
+        {"Item": "Quantitative ablation figure/table claimed", "Status": "No" if not ablation_available else "Available in source evidence"},
+        {"Item": "Research status", "Status": "Future work and current limitation" if not ablation_available else "See source evidence"},
+    ]
+    add(
+        "paper_table_i_hybrid_ablation_status",
+        "Table I — Hybrid Ablation Status",
+        "Status of quantitative Hybrid Adaptive Kalman component ablation.",
+        "No quantitative ablation is claimed without validated component-disable runtime variants; this remains future work and a limitation.",
+        tuple(ablation_rows[0]),
+        ablation_rows,
+    )
+
+    appendix_throughput_columns = (
+        "Scenario group",
+        "Detector",
+        "Mean real-time factor",
+        "Min real-time factor",
+        "Max real-time factor",
+        "Faster than wall-clock real time",
+    )
+    add(
+        "appendix_table_full_simulation_realtime_benchmark",
+        "Appendix Table — Full Simulation Real-Time Benchmark",
+        "Full host-side simulation throughput breakdown by scenario group and detector.",
+        "Real-time factors describe the evaluated host simulator process; they are not embedded timing certification or hard real-time guarantees.",
+        appendix_throughput_columns,
+        [{column: row[column] for column in appendix_throughput_columns} for row in throughput_rows],
+    )
+    return paths
 
 
 def classify_event(row: Mapping[str, object], warnings: List[str]) -> str:
@@ -869,10 +1251,19 @@ execution evidence, and clean negative-stress evidence.
 
 - `tables/`: CSV and Markdown versions of Tables 1–8, heatmap-ready coverage,
   throughput overall summary, and an ablation-status note.
+- `tables_paper_ready/`: compact CSV, Markdown, and LaTeX tables for direct
+  paper use, including appendix tables prefixed with `appendix_table_`.
 - `figures/`: publication-style PNG and PDF versions of Figures 1–9.
 - `claims_summary.md`: claims computed from the source tables.
 - `limitations.md`: explicit model, RTL, timing, and generalization boundaries.
 - `reproduction_commands.md`: exact study and export commands.
+
+## Paper-ready compact tables
+
+The complete evidence tables remain under `tables/`. Concise paper-facing views
+are generated separately under `tables_paper_ready/` in CSV, Markdown, and LaTeX
+formats. Files beginning with `appendix_table_` retain fuller breakdowns intended
+for supplementary or appendix use.
 
 ## Completion status
 
@@ -961,7 +1352,11 @@ python3 scripts/run_paper_security_results_v1.py --skip-existing
 
 
 def consistency_checks(
-    table_csvs: Sequence[Path], figure_paths: Sequence[Path], table1: Sequence[Mapping[str, object]], rtl_rows: Sequence[Mapping[str, object]]
+    table_csvs: Sequence[Path],
+    paper_table_paths: Sequence[Path],
+    figure_paths: Sequence[Path],
+    table1: Sequence[Mapping[str, object]],
+    rtl_rows: Sequence[Mapping[str, object]],
 ) -> List[str]:
     failures = []
     runtime_ids = {str(row["Runtime ID"]) for row in table1}
@@ -976,6 +1371,21 @@ def consistency_checks(
     for path in table_csvs:
         if not read_rows(path):
             failures.append(f"Generated table has no data rows: {path.name}")
+    paper_suffix_counts = {
+        suffix: sum(path.suffix == suffix for path in paper_table_paths)
+        for suffix in (".csv", ".md", ".tex")
+    }
+    if paper_suffix_counts != {".csv": 13, ".md": 13, ".tex": 13}:
+        failures.append(f"Expected 13 paper-ready tables in each format; found {paper_suffix_counts}.")
+    for path in paper_table_paths:
+        if not path.is_file() or path.stat().st_size == 0:
+            failures.append(f"Generated paper-ready table is missing or empty: {path.name}")
+        if path.suffix == ".csv":
+            rows = read_rows(path)
+            if not rows:
+                failures.append(f"Generated paper-ready CSV has no data rows: {path.name}")
+            elif "Notes" in rows[0]:
+                failures.append(f"Paper-ready CSV retained a Notes column: {path.name}")
     for path in figure_paths:
         if not path.is_file() or path.stat().st_size == 0:
             failures.append(f"Generated figure is missing or empty: {path.name}")
@@ -998,6 +1408,7 @@ def consistency_checks(
 
 def main() -> int:
     TABLE_DIR.mkdir(parents=True, exist_ok=True)
+    PAPER_TABLE_DIR.mkdir(parents=True, exist_ok=True)
     FIGURE_DIR.mkdir(parents=True, exist_ok=True)
     warnings: List[str] = []
     sources: Dict[str, Path] = {}
@@ -1098,6 +1509,20 @@ figure were inferred.
 """
     (TABLE_DIR / "hybrid_ablation_status.md").write_text(ablation_note, encoding="utf-8")
 
+    paper_table_paths = paper_ready_tables(
+        table1,
+        table2,
+        main_rows,
+        class_rows,
+        heatmap_rows,
+        negative_rows_data,
+        rtl_rows,
+        timing_rows,
+        throughput_rows,
+        throughput_overall_rows,
+        ablation_available,
+    )
+
     plt = configure_matplotlib()
     figure_paths = []
     figure_paths.extend(draw_flow_figure(plt))
@@ -1105,7 +1530,7 @@ figure were inferred.
     figure_paths.extend(draw_data_figures(plt, expanded, heatmap_rows, negative_rows_data, rtl_comparison, online_timing, benchmark_source))
 
     write_narratives(sources, warnings, expanded, negative, rtl, online, benchmark, ablation_available)
-    failures = consistency_checks(table_csvs, figure_paths, table1, rtl_rows)
+    failures = consistency_checks(table_csvs, paper_table_paths, figure_paths, table1, rtl_rows)
     if failures:
         raise RuntimeError("Consistency checks failed:\n- " + "\n- ".join(failures))
 
@@ -1117,6 +1542,9 @@ figure were inferred.
         "output_counts": {
             "csv_tables": len(table_csvs),
             "markdown_tables": len(table_mds) + 1,
+            "paper_ready_csv_tables": sum(path.suffix == ".csv" for path in paper_table_paths),
+            "paper_ready_markdown_tables": sum(path.suffix == ".md" for path in paper_table_paths),
+            "paper_ready_latex_tables": sum(path.suffix == ".tex" for path in paper_table_paths),
             "png_figures": sum(path.suffix == ".png" for path in figure_paths),
             "pdf_figures": sum(path.suffix == ".pdf" for path in figure_paths),
         },
@@ -1142,6 +1570,7 @@ figure were inferred.
     print("\nConsistency report: PASS")
     print(f"  Detectors: {len(DETECTORS)}")
     print(f"  Tables: {len(table_csvs)} CSV + {len(table_mds) + 1} Markdown")
+    print("  Paper-ready tables: 13 CSV + 13 Markdown + 13 LaTeX")
     print(f"  Figures: {len(figure_paths) // 2} PNG + PDF pairs")
     print(f"  HT targets: {rtl['targets']}")
     print(f"  Quantitative ablation: {'available' if ablation_available else 'not included (status documented)'}")
