@@ -16,6 +16,7 @@ results/simulation_realtime_benchmark/
 results/online_detector_timing_audit/
 results/paper_evidence_security_v1/
 results/hybrid_ablation_study/
+results/fault_injection_parameter_sweep/
 logs/batch/
 __pycache__/
 .venv/

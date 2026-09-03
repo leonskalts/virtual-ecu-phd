@@ -309,6 +309,10 @@ evaluated profiles and parameters:
 - **Simulation real-time benchmark:** repeated clean, conventional-fault,
   duration-scaling, and replay-only HT1–HT4 cases. On the evaluated host, all
   benchmarked cases completed faster than wall-clock real time.
+- **Parameter sensitivity study:** deterministic severity, duration, and
+  activation-timing variants evaluated across all eight runtime detectors.
+  Representative HT-like rows are Virtual ECU manifestation-level variants,
+  not new parameterized RTL simulations.
 
 These assets provide comparative host-side and deterministic-model evidence.
 They do not demonstrate detection of every possible fault/Trojan, embedded
@@ -328,6 +332,17 @@ The generated package is written under
 `results/paper_evidence_security_v1/`. Use `--skip-existing` to export from
 available study results without rerunning completed validation matrices.
 
+Run the parameter sensitivity study directly with:
+
+```bash
+python3 scripts/run_fault_injection_parameter_sweep.py
+```
+
+Its generated evidence is written under
+`results/fault_injection_parameter_sweep/`. The full paper workflow includes a
+quick parameter sweep by default; use `--parameter-sweep-full` for the larger
+grid.
+
 ## Useful Scripts
 
 Core GUI and evidence runners:
@@ -341,6 +356,7 @@ Core GUI and evidence runners:
 | `scripts/run_simulation_realtime_benchmark.py` | Host simulation real-time-factor benchmark |
 | `scripts/run_online_detector_timing_audit.py` | Online execution, prefix causality, and per-update timing audit |
 | `scripts/run_rtl_hardware_trojan_study.py` | Verilator HT1–HT4 trace generation and replay study |
+| `scripts/run_fault_injection_parameter_sweep.py` | Deterministic fault and representative HT-like parameter sensitivity |
 
 Optional and earlier focused workflows:
 

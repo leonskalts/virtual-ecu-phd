@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -24,6 +25,7 @@ class WorkflowStep:
     expected: Path
     rtl_generation: bool = False
     ablation: bool = False
+    parameter_sweep: bool = False
 
 
 def parse_args() -> argparse.Namespace:
@@ -50,6 +52,22 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Do not build or run studies; export from available result files.",
     )
+    parser.add_argument(
+        "--skip-parameter-sweep",
+        action="store_true",
+        help="Skip the deterministic fault/Trojan-parameter sensitivity study.",
+    )
+    parameter_mode = parser.add_mutually_exclusive_group()
+    parameter_mode.add_argument(
+        "--parameter-sweep-quick",
+        action="store_true",
+        help="Use the compact parameter grid (also the workflow default).",
+    )
+    parameter_mode.add_argument(
+        "--parameter-sweep-full",
+        action="store_true",
+        help="Use the largest supported deterministic parameter grid.",
+    )
     return parser.parse_args()
 
 
@@ -63,6 +81,12 @@ def run(command: Sequence[str], label: str) -> None:
 def main() -> int:
     args = parse_args()
     python = sys.executable
+    parameter_mode = "full" if args.parameter_sweep_full else "quick"
+    parameter_command = (
+        python,
+        "scripts/run_fault_injection_parameter_sweep.py",
+        f"--{parameter_mode}",
+    )
     steps = (
         WorkflowStep(
             "RTL Hardware Trojan study",
@@ -109,8 +133,17 @@ def main() -> int:
             RESULTS_ROOT / "hybrid_ablation_study" / "ablation_status.json",
             ablation=True,
         ),
+        WorkflowStep(
+            f"fault/Trojan parameter sensitivity ({parameter_mode})",
+            parameter_command,
+            RESULTS_ROOT
+            / "fault_injection_parameter_sweep"
+            / "sweep_detector_summary.csv",
+            parameter_sweep=True,
+        ),
     )
 
+    parameter_sweep_ran = False
     if not args.export_only:
         run(("make",), "C simulator build")
         for step in steps:
@@ -120,7 +153,19 @@ def main() -> int:
             if step.ablation and args.skip_ablation:
                 print(f"SKIP {step.label}: --skip-ablation")
                 continue
+            if step.parameter_sweep and args.skip_parameter_sweep:
+                print(f"SKIP {step.label}: --skip-parameter-sweep")
+                continue
             if args.skip_existing and step.expected.is_file():
+                if step.parameter_sweep and args.parameter_sweep_full:
+                    config_path = RESULTS_ROOT / "fault_injection_parameter_sweep" / "sweep_config.json"
+                    existing_mode = ""
+                    if config_path.is_file():
+                        existing_mode = str(json.loads(config_path.read_text(encoding="utf-8")).get("mode", ""))
+                    if existing_mode != "full":
+                        run(step.command, step.label)
+                        parameter_sweep_ran = True
+                        continue
                 print(f"SKIP {step.label}: existing {step.expected.relative_to(PROJECT_ROOT)}")
                 continue
             if args.skip_rtl and step.label in {
@@ -132,6 +177,8 @@ def main() -> int:
                     "--skip-rtl cannot remove that phase from the existing runner."
                 )
             run(step.command, step.label)
+            if step.parameter_sweep:
+                parameter_sweep_ran = True
     else:
         print("EXPORT-ONLY: build and study execution skipped.")
 
@@ -142,6 +189,17 @@ def main() -> int:
 
     export_command = (python, str(EXPORTER.relative_to(PROJECT_ROOT)))
     run(export_command, "paper evidence exporter")
+    parameter_output = RESULTS_ROOT / "fault_injection_parameter_sweep"
+    parameter_table = OUTPUT_DIR / "tables" / "table_10_fault_parameter_sweep_summary.csv"
+    print(
+        "Parameter sweep: "
+        + ("ran" if parameter_sweep_ran else "not run in this invocation")
+        + f"; output {parameter_output.relative_to(PROJECT_ROOT)}"
+    )
+    print(
+        "Paper exporter parameter sweep inclusion: "
+        + ("included" if parameter_table.is_file() else "not included (source unavailable)")
+    )
     print(f"Paper evidence package: {OUTPUT_DIR}")
     return 0
 

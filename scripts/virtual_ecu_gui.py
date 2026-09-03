@@ -88,6 +88,23 @@ RUNTIME_CUSTOM_MATRIX_REPORT_HTML = (
     RUNTIME_CUSTOM_MATRIX_DIR / "runtime_custom_matrix_report.html"
 )
 RUNTIME_CUSTOM_MATRIX_SCRIPT = PROJECT_ROOT / "scripts" / "run_runtime_custom_matrix.py"
+PARAMETER_SWEEP_DIR = PROJECT_ROOT / "results" / "fault_injection_parameter_sweep"
+PARAMETER_SWEEP_SCRIPT = PROJECT_ROOT / "scripts" / "run_fault_injection_parameter_sweep.py"
+PARAMETER_SWEEP_CONFIG = PARAMETER_SWEEP_DIR / "sweep_config.json"
+PARAMETER_SWEEP_SUMMARY_CSV = PARAMETER_SWEEP_DIR / "sweep_detector_summary.csv"
+PARAMETER_SWEEP_BREAKDOWN_FILES = {
+    "By Fault Type": PARAMETER_SWEEP_DIR / "sweep_by_fault_type.csv",
+    "By Severity": PARAMETER_SWEEP_DIR / "sweep_by_severity.csv",
+    "By Timing": PARAMETER_SWEEP_DIR / "sweep_by_timing.csv",
+}
+PAPER_EVIDENCE_DIR = PROJECT_ROOT / "results" / "paper_evidence_security_v1"
+PAPER_EVIDENCE_EXPORTER = PROJECT_ROOT / "scripts" / "export_paper_evidence_security_v1.py"
+PARAMETER_SWEEP_FIGURES: Sequence[Tuple[str, str]] = (
+    ("Figure 10 — Parameter Sweep Coverage Summary", "figure_10_fault_severity_vs_detection_coverage.png"),
+    ("Figure 11 — Parameter Sweep Latency Summary", "figure_11_fault_severity_vs_detection_latency.png"),
+    ("Figure 12 — Hybrid Latency Advantage", "figure_12_hybrid_vs_baseline_sensitivity_summary.png"),
+    ("Figure 13 — Security Manifestation Sensitivity Summary", "figure_13_security_ht_like_parameter_sensitivity.png"),
+)
 RTL_SECURITY_STUDY_DIR = (
     PROJECT_ROOT / "results" / "rtl_hardware_trojan_study_v1"
 )
@@ -283,6 +300,28 @@ RUNTIME_STUDY_TABLE_SPECS: Sequence[Tuple[str, str, int]] = (
     ("final_safe_state", "Final Safe-State", 145),
     ("max_coolant_temp_c", "Max Coolant [C]", 115),
     ("shutdown_requested", "Shutdown", 85),
+)
+PARAMETER_SWEEP_SUMMARY_TABLE_SPECS: Sequence[Tuple[str, str, int]] = (
+    ("detector_name", "Detector", 200),
+    ("coverage_percent", "Coverage [%]", 105),
+    ("missed_detections", "Misses", 75),
+    ("mean_latency_ms", "Mean Latency [ms]", 125),
+    ("median_latency_ms", "Median Latency [ms]", 130),
+    ("fastest_tied_fastest_count", "Fastest / Tied", 105),
+    ("clean_alarms", "Clean Alarms", 100),
+)
+PARAMETER_SWEEP_BREAKDOWN_TABLE_SPECS: Sequence[Tuple[str, str, int]] = (
+    ("scenario_group", "Scenario Group", 190),
+    ("fault_type", "Fault Type", 190),
+    ("parameter_name", "Parameter", 170),
+    ("parameter_value", "Value", 90),
+    ("severity_level", "Severity", 90),
+    ("timing_label", "Timing", 90),
+    ("activation_time_ms", "Activation [ms]", 110),
+    ("detector_name", "Detector", 190),
+    ("coverage_percent", "Coverage [%]", 100),
+    ("missed_detections", "Misses", 75),
+    ("median_latency_ms", "Median Latency [ms]", 130),
 )
 MAX_CUSTOM_SCENARIO_EVENTS = 4
 MAX_CUSTOM_RUN_BASENAME_LEN = 80
@@ -6526,6 +6565,24 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.runtime_study_findings_var = tk.StringVar(
             value="Generate or load the study to view detector and intervention findings."
         )
+        self.parameter_sweep_status_text = tk.StringVar(
+            value="No parameter sweep loaded. Run the quick grid or load existing results."
+        )
+        self.parameter_sweep_breakdown_choice = tk.StringVar(value="By Fault Type")
+        self.parameter_sweep_summary_vars = {
+            name: tk.StringVar(value="-")
+            for name in (
+                "Scenario Variants",
+                "Detector Runs",
+                "Detectors",
+                "Fault Groups",
+                "Security Variants",
+                "Hybrid Coverage",
+                "Hybrid Median Latency",
+                "Clean Alarms",
+                "Output Directory",
+            )
+        }
         self.rtl_security_target_choice = tk.StringVar(
             value=RTL_SECURITY_TARGET_OPTIONS[0]
         )
@@ -6757,6 +6814,8 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.active_driving_profile_duration_ms: int | None = None
         self.batch_rows: List[Dict[str, str]] = []
         self.runtime_study_rows: List[Dict[str, str]] = []
+        self.parameter_sweep_rows: List[Dict[str, str]] = []
+        self.parameter_sweep_breakdown_rows: List[Dict[str, str]] = []
         self.batch_table: ttk.Treeview | None = None
         self.batch_load_button: ttk.Button | None = None
         self.runtime_study_table: ttk.Treeview | None = None
@@ -6765,6 +6824,13 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.runtime_study_reload_button: ttk.Button | None = None
         self.runtime_study_report_button: ttk.Button | None = None
         self.runtime_study_folder_button: ttk.Button | None = None
+        self.parameter_sweep_summary_table: ttk.Treeview | None = None
+        self.parameter_sweep_breakdown_table: ttk.Treeview | None = None
+        self.parameter_sweep_run_quick_button: tk.Widget | None = None
+        self.parameter_sweep_run_full_button: tk.Widget | None = None
+        self.parameter_sweep_load_button: tk.Widget | None = None
+        self.parameter_sweep_export_button: tk.Widget | None = None
+        self.parameter_sweep_figure_buttons: Dict[Path, tk.Widget] = {}
         self.rtl_security_run_button: tk.Widget | None = None
         self.rtl_security_folder_button: tk.Widget | None = None
         self.rtl_plot_reload_button: tk.Widget | None = None
@@ -7099,6 +7165,15 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             runtime_study_tab,
         )
 
+        parameter_sweep_tab = ScrollableTabFrame(notebook)
+        parameter_sweep_tab.content.columnconfigure(0, weight=1)
+        notebook.add(parameter_sweep_tab, text="Parameter Sweep")
+        self._register_page(
+            "parameter_sweep",
+            "Parameter Sweep",
+            parameter_sweep_tab,
+        )
+
         rtl_security_tab = ScrollableTabFrame(notebook)
         rtl_security_tab.content.columnconfigure(0, weight=1)
         notebook.add(rtl_security_tab, text="Security / RTL Analysis")
@@ -7120,6 +7195,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self._build_fault_path_tab(fault_path_tab.content)
         self._build_batch_tab(batch_tab.content)
         self._build_runtime_study_tab(runtime_study_tab.content)
+        self._build_parameter_sweep_tab(parameter_sweep_tab.content)
         self._build_rtl_security_tab(rtl_security_tab.content)
         self._build_exports_tab(exports_tab.content)
         self._set_active_nav("dashboard")
@@ -7175,9 +7251,10 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             ("heading", "Research / Validation", ""),
             ("page", "4. Batch Results", "batch"),
             ("page", "5. Runtime Study", "runtime_study"),
-            ("page", "6. Security / RTL Analysis", "rtl_security"),
+            ("page", "6. Parameter Sweep", "parameter_sweep"),
+            ("page", "7. Security / RTL Analysis", "rtl_security"),
             ("heading", "Core Output", ""),
-            ("page", "7. Exports", "exports"),
+            ("page", "8. Exports", "exports"),
             ("heading", "Advanced Builder", ""),
             ("page", "Custom Faults", "custom"),
         )
@@ -11296,6 +11373,167 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.runtime_study_figures_content.columnconfigure(1, weight=0)
         self._refresh_runtime_study_figure_buttons()
 
+    def _build_parameter_sweep_tab(self, parent: ttk.Frame) -> None:
+        self._build_tab_header(
+            parent,
+            row=0,
+            title="Fault and Trojan-Parameter Sensitivity",
+            description=(
+                "Run or inspect the deterministic severity, duration, and activation-timing "
+                "grid across all eight online runtime detectors."
+            ),
+        )
+
+        controls_card = self._section_card(
+            parent,
+            title="Parameter Sweep Controls",
+            description=(
+                "Quick mode is intended for interactive validation. Full mode runs the "
+                "largest supported deterministic grid; both use actual Virtual ECU outputs."
+            ),
+        )
+        controls_card.grid(row=1, column=0, sticky="ew", padx=12, pady=(0, 12))
+        controls = self._card_content(controls_card)
+        controls.columnconfigure(0, weight=1)
+        ttk.Label(
+            controls,
+            textvariable=self.parameter_sweep_status_text,
+            style="CardHint.TLabel",
+            wraplength=1000,
+            justify="left",
+        ).grid(row=0, column=0, sticky="ew", pady=(0, 10))
+        actions = ttk.Frame(controls, style="Card.TFrame")
+        actions.grid(row=1, column=0, sticky="w")
+        self.parameter_sweep_run_quick_button = self.make_success_button(
+            actions,
+            text="Run Quick Parameter Sweep",
+            command=lambda: self.run_parameter_sweep("quick"),
+        )
+        self.parameter_sweep_run_quick_button.grid(row=0, column=0, sticky="w")
+        self.parameter_sweep_run_full_button = self.make_secondary_button(
+            actions,
+            text="Run Full Parameter Sweep",
+            command=lambda: self.run_parameter_sweep("full"),
+        )
+        self.parameter_sweep_run_full_button.grid(row=0, column=1, sticky="w", padx=(8, 0))
+        self.parameter_sweep_load_button = self.make_secondary_button(
+            actions,
+            text="Load Existing Sweep Results",
+            command=lambda: self.load_parameter_sweep_results(show_error=True),
+        )
+        self.parameter_sweep_load_button.grid(row=0, column=2, sticky="w", padx=(8, 0))
+        self.parameter_sweep_export_button = self.make_secondary_button(
+            actions,
+            text="Export Paper Evidence",
+            command=self.export_parameter_sweep_paper_evidence,
+        )
+        self.parameter_sweep_export_button.grid(row=0, column=3, sticky="w", padx=(8, 0))
+
+        cards = ttk.Frame(parent, padding=(12, 0, 12, 12), style="Root.TFrame")
+        cards.grid(row=2, column=0, sticky="ew")
+        card_rows = tuple(ttk.Frame(cards, style="Root.TFrame") for _index in range(3))
+        card_rows[0].grid(row=0, column=0, sticky="ew", pady=(0, 10))
+        card_rows[1].grid(row=1, column=0, sticky="ew", pady=(0, 10))
+        card_rows[2].grid(row=2, column=0, sticky="ew")
+        cards.columnconfigure(0, weight=1)
+        for column in range(4):
+            card_rows[0].columnconfigure(column, weight=1)
+            card_rows[1].columnconfigure(column, weight=1)
+            card_rows[2].columnconfigure(column, weight=1)
+        for index, (name, variable) in enumerate(self.parameter_sweep_summary_vars.items()):
+            self._build_batch_stat_card(card_rows[index // 4], index % 4, name, variable)
+
+        summary_card = self._section_card(
+            parent,
+            title="Compact Detector Summary",
+            description="Coverage and latency are computed from event variants; clean alarms use the clean reference row.",
+        )
+        summary_card.grid(row=3, column=0, sticky="ew", padx=12, pady=(0, 12))
+        summary_frame = self._card_content(summary_card)
+        summary_frame.columnconfigure(0, weight=1)
+        summary_columns = [column for column, _label, _width in PARAMETER_SWEEP_SUMMARY_TABLE_SPECS]
+        self.parameter_sweep_summary_table = ttk.Treeview(
+            summary_frame,
+            columns=summary_columns,
+            show="headings",
+            height=8,
+            selectmode="browse",
+        )
+        for column, label, width in PARAMETER_SWEEP_SUMMARY_TABLE_SPECS:
+            self.parameter_sweep_summary_table.heading(column, text=label)
+            self.parameter_sweep_summary_table.column(column, width=width, minwidth=70, anchor=tk.W if column == "detector_name" else tk.CENTER, stretch=False)
+        self._configure_table_tags(self.parameter_sweep_summary_table)
+        summary_scroll = ttk.Scrollbar(summary_frame, orient="horizontal", command=self.parameter_sweep_summary_table.xview)
+        self.parameter_sweep_summary_table.configure(xscrollcommand=summary_scroll.set)
+        self.parameter_sweep_summary_table.grid(row=0, column=0, sticky="ew")
+        summary_scroll.grid(row=1, column=0, sticky="ew")
+
+        breakdown_card = self._section_card(
+            parent,
+            title="Parameter Breakdown",
+            description="Switch between fault-type, severity, and activation-timing aggregates.",
+        )
+        breakdown_card.grid(row=4, column=0, sticky="ew", padx=12, pady=(0, 12))
+        breakdown_frame = self._card_content(breakdown_card)
+        breakdown_frame.columnconfigure(0, weight=1)
+        selector_row = ttk.Frame(breakdown_frame, style="Card.TFrame")
+        selector_row.grid(row=0, column=0, sticky="w", pady=(0, 8))
+        ttk.Label(selector_row, text="View", style="CardFieldName.TLabel").grid(row=0, column=0, sticky="w")
+        breakdown_selector = ttk.Combobox(
+            selector_row,
+            textvariable=self.parameter_sweep_breakdown_choice,
+            values=tuple(PARAMETER_SWEEP_BREAKDOWN_FILES),
+            state="readonly",
+            width=20,
+        )
+        breakdown_selector.grid(row=0, column=1, sticky="w", padx=(8, 0))
+        breakdown_selector.bind("<<ComboboxSelected>>", lambda _event: self.load_parameter_sweep_breakdown())
+        breakdown_columns = [column for column, _label, _width in PARAMETER_SWEEP_BREAKDOWN_TABLE_SPECS]
+        self.parameter_sweep_breakdown_table = ttk.Treeview(
+            breakdown_frame,
+            columns=breakdown_columns,
+            show="headings",
+            height=11,
+            selectmode="browse",
+        )
+        for column, label, width in PARAMETER_SWEEP_BREAKDOWN_TABLE_SPECS:
+            self.parameter_sweep_breakdown_table.heading(column, text=label)
+            self.parameter_sweep_breakdown_table.column(column, width=width, minwidth=70, anchor=tk.W if column in {"scenario_group", "fault_type", "detector_name"} else tk.CENTER, stretch=False)
+        self._configure_table_tags(self.parameter_sweep_breakdown_table)
+        breakdown_y = ttk.Scrollbar(breakdown_frame, orient="vertical", command=self.parameter_sweep_breakdown_table.yview)
+        breakdown_x = ttk.Scrollbar(breakdown_frame, orient="horizontal", command=self.parameter_sweep_breakdown_table.xview)
+        self.parameter_sweep_breakdown_table.configure(yscrollcommand=breakdown_y.set, xscrollcommand=breakdown_x.set)
+        self.parameter_sweep_breakdown_table.grid(row=1, column=0, sticky="ew")
+        breakdown_y.grid(row=1, column=1, sticky="ns")
+        breakdown_x.grid(row=2, column=0, sticky="ew")
+
+        figures_card = self._section_card(
+            parent,
+            title="Sensitivity Figure Viewer",
+            description="Open publication PNG figures generated by the paper evidence exporter.",
+        )
+        figures_card.grid(row=5, column=0, sticky="ew", padx=12, pady=(0, 12))
+        figures = self._card_content(figures_card)
+        self.parameter_sweep_figure_buttons.clear()
+        for index, (label, filename) in enumerate(PARAMETER_SWEEP_FIGURES):
+            path = PAPER_EVIDENCE_DIR / "figures" / filename
+            button = self.make_secondary_button(
+                figures,
+                text=label,
+                command=lambda selected=path: self.open_runtime_study_artifact(selected, "Parameter Sensitivity Figure"),
+            )
+            button.grid(row=index // 2, column=index % 2, sticky="w", padx=(0, 8), pady=(0, 8))
+            self.parameter_sweep_figure_buttons[path] = button
+        self._refresh_parameter_sweep_figure_buttons()
+
+        caveat = self._section_card(
+            parent,
+            title="Evaluation Boundary",
+            description="Parameter sweep results are deterministic evaluated variants, not exhaustive automotive or Trojan coverage.",
+        )
+        caveat.grid(row=6, column=0, sticky="ew", padx=12, pady=(0, 12))
+        self.after(0, lambda: self.load_parameter_sweep_results(show_error=False))
+
     def _build_rtl_security_tab(self, parent: ttk.Frame) -> None:
         self._build_tab_header(
             parent,
@@ -14786,6 +15024,215 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             on_error=on_error,
             buttons_to_disable=(self.runtime_study_reload_button,),
             success_action="Reload Results",
+        )
+
+    def _refresh_parameter_sweep_figure_buttons(self) -> None:
+        for path, button in self.parameter_sweep_figure_buttons.items():
+            self._set_buttons_enabled((button,), path.is_file())
+
+    def _clear_parameter_sweep_results(self, message: str) -> None:
+        self.parameter_sweep_rows = []
+        self.parameter_sweep_breakdown_rows = []
+        self.parameter_sweep_status_text.set(message)
+        for variable in self.parameter_sweep_summary_vars.values():
+            variable.set("-")
+        for table in (self.parameter_sweep_summary_table, self.parameter_sweep_breakdown_table):
+            if table is not None:
+                for item_id in table.get_children():
+                    table.delete(item_id)
+        self._refresh_parameter_sweep_figure_buttons()
+
+    def _populate_parameter_sweep_summary_table(self, rows: Sequence[Dict[str, str]]) -> None:
+        if self.parameter_sweep_summary_table is None:
+            return
+        for item_id in self.parameter_sweep_summary_table.get_children():
+            self.parameter_sweep_summary_table.delete(item_id)
+        columns = [column for column, _label, _width in PARAMETER_SWEEP_SUMMARY_TABLE_SPECS]
+        for index, row in enumerate(rows):
+            values = []
+            for column in columns:
+                value = row.get(column, "")
+                if column == "coverage_percent" and value:
+                    value = f"{float(value):.1f}"
+                elif column in {"mean_latency_ms", "median_latency_ms"} and value:
+                    value = f"{float(value):.1f}"
+                values.append(value or "n/a")
+            self.parameter_sweep_summary_table.insert(
+                "",
+                "end",
+                values=values,
+                tags=("even" if index % 2 else "odd",),
+            )
+
+    def _populate_parameter_sweep_breakdown_table(self, rows: Sequence[Dict[str, str]]) -> None:
+        if self.parameter_sweep_breakdown_table is None:
+            return
+        for item_id in self.parameter_sweep_breakdown_table.get_children():
+            self.parameter_sweep_breakdown_table.delete(item_id)
+        columns = [column for column, _label, _width in PARAMETER_SWEEP_BREAKDOWN_TABLE_SPECS]
+        available = [column for column in columns if any(column in row for row in rows)]
+        self.parameter_sweep_breakdown_table.configure(displaycolumns=available)
+        for index, row in enumerate(rows):
+            values = []
+            for column in columns:
+                value = row.get(column, "")
+                if column == "coverage_percent" and value:
+                    value = f"{float(value):.1f}"
+                elif column == "median_latency_ms" and value:
+                    value = f"{float(value):.1f}"
+                values.append(value or "n/a")
+            self.parameter_sweep_breakdown_table.insert(
+                "",
+                "end",
+                values=values,
+                tags=("even" if index % 2 else "odd",),
+            )
+
+    def load_parameter_sweep_breakdown(self, *, show_error: bool = True) -> None:
+        choice = self.parameter_sweep_breakdown_choice.get()
+        path = PARAMETER_SWEEP_BREAKDOWN_FILES.get(choice)
+        if path is None or not path.is_file():
+            self.parameter_sweep_breakdown_rows = []
+            self._populate_parameter_sweep_breakdown_table([])
+            if show_error and path is not None:
+                messagebox.showinfo("Parameter Sweep Results", f"No generated breakdown exists at {path.relative_to(PROJECT_ROOT)}.")
+            return
+        try:
+            rows = read_csv_rows(path)
+            self.parameter_sweep_breakdown_rows = list(rows)
+            self._populate_parameter_sweep_breakdown_table(rows)
+        except (OSError, csv.Error, RuntimeError, ValueError) as exc:
+            if show_error:
+                messagebox.showerror("Parameter Sweep Load Failed", str(exc))
+
+    def load_parameter_sweep_results(self, *, show_error: bool = True) -> None:
+        if not PARAMETER_SWEEP_SUMMARY_CSV.is_file() or not PARAMETER_SWEEP_CONFIG.is_file():
+            self._clear_parameter_sweep_results(
+                "No generated sweep results found. Click Run Quick Parameter Sweep or run "
+                "python3 scripts/run_fault_injection_parameter_sweep.py."
+            )
+            return
+        try:
+            rows = read_csv_rows(PARAMETER_SWEEP_SUMMARY_CSV)
+            config = json.loads(PARAMETER_SWEEP_CONFIG.read_text(encoding="utf-8"))
+            scenarios = list(config.get("scenarios", []))
+            hybrid = next(row for row in rows if row.get("detector_id") == "hybrid_adaptive_kalman")
+            fault_groups = {
+                str(scenario.get("scenario_group", ""))
+                for scenario in scenarios
+                if scenario.get("events") and scenario.get("security_group") == "conventional_fault"
+            }
+            security_variants = sum(
+                bool(scenario.get("events")) and str(scenario.get("security_group", "")).startswith("HT")
+                for scenario in scenarios
+            )
+            self.parameter_sweep_summary_vars["Scenario Variants"].set(str(config.get("scenario_variant_count", len(scenarios))))
+            self.parameter_sweep_summary_vars["Detector Runs"].set(str(config.get("detector_run_count", len(rows))))
+            self.parameter_sweep_summary_vars["Detectors"].set(str(len(rows)))
+            self.parameter_sweep_summary_vars["Fault Groups"].set(str(len(fault_groups)))
+            self.parameter_sweep_summary_vars["Security Variants"].set(
+                str(security_variants) if security_variants else "Unavailable"
+            )
+            self.parameter_sweep_summary_vars["Hybrid Coverage"].set(f"{float(hybrid['coverage_percent']):.1f}%")
+            median_latency = hybrid.get("median_latency_ms", "")
+            self.parameter_sweep_summary_vars["Hybrid Median Latency"].set(
+                f"{float(median_latency):.1f} ms" if median_latency else "n/a"
+            )
+            self.parameter_sweep_summary_vars["Clean Alarms"].set(
+                f"{hybrid.get('clean_alarms', '0')}/{hybrid.get('clean_variants', '0')}"
+            )
+            self.parameter_sweep_summary_vars["Output Directory"].set(
+                str(PARAMETER_SWEEP_DIR.relative_to(PROJECT_ROOT))
+            )
+            self.parameter_sweep_rows = list(rows)
+            self._populate_parameter_sweep_summary_table(rows)
+            self.load_parameter_sweep_breakdown(show_error=False)
+            self.parameter_sweep_status_text.set(
+                f"Loaded {config.get('mode', 'generated')} sweep results from "
+                f"{PARAMETER_SWEEP_DIR.relative_to(PROJECT_ROOT)}. Output directory: "
+                f"{PARAMETER_SWEEP_DIR.relative_to(PROJECT_ROOT)}."
+            )
+            self._refresh_parameter_sweep_figure_buttons()
+        except (OSError, csv.Error, json.JSONDecodeError, RuntimeError, StopIteration, ValueError) as exc:
+            self._clear_parameter_sweep_results(f"Unable to load parameter sweep results: {exc}")
+            if show_error:
+                messagebox.showerror("Parameter Sweep Load Failed", str(exc))
+
+    def run_parameter_sweep(self, mode: str) -> None:
+        buttons = (
+            self.parameter_sweep_run_quick_button,
+            self.parameter_sweep_run_full_button,
+            self.parameter_sweep_load_button,
+            self.parameter_sweep_export_button,
+        )
+        self.parameter_sweep_status_text.set(f"Running the {mode} deterministic parameter sweep...")
+
+        def run_task() -> str:
+            completed = subprocess.run(
+                [sys.executable, str(PARAMETER_SWEEP_SCRIPT), f"--{mode}"],
+                cwd=PROJECT_ROOT,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            if completed.returncode != 0:
+                detail = completed.stderr.strip() or completed.stdout.strip()
+                raise RuntimeError(detail or "Unknown parameter sweep failure.")
+            return completed.stdout.strip()
+
+        def on_success(_result: object) -> None:
+            self.load_parameter_sweep_results(show_error=True)
+            self.status_text.set(f"{mode.title()} parameter sweep complete and loaded.")
+
+        def on_error(exc: Exception) -> None:
+            self.parameter_sweep_status_text.set("Parameter sweep failed. Review the error dialog.")
+            messagebox.showerror("Parameter Sweep Failed", str(exc))
+
+        self.run_background_task(
+            f"Running {mode} parameter sweep...",
+            "Actual Virtual ECU detector runs are in progress.",
+            run_task,
+            on_success=on_success,
+            on_error=on_error,
+            buttons_to_disable=buttons,
+            success_action=f"{mode.title()} Parameter Sweep",
+        )
+
+    def export_parameter_sweep_paper_evidence(self) -> None:
+        self.parameter_sweep_status_text.set("Exporting paper evidence and sensitivity figures...")
+
+        def export_task() -> str:
+            completed = subprocess.run(
+                [sys.executable, str(PAPER_EVIDENCE_EXPORTER)],
+                cwd=PROJECT_ROOT,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            if completed.returncode != 0:
+                detail = completed.stderr.strip() or completed.stdout.strip()
+                raise RuntimeError(detail or "Unknown paper evidence export failure.")
+            return completed.stdout.strip()
+
+        def on_success(_result: object) -> None:
+            self.parameter_sweep_status_text.set(
+                f"Paper evidence exported to {PAPER_EVIDENCE_DIR.relative_to(PROJECT_ROOT)}."
+            )
+            self._refresh_parameter_sweep_figure_buttons()
+            self.status_text.set("Paper evidence and parameter-sensitivity figures exported.")
+
+        def on_error(exc: Exception) -> None:
+            self.parameter_sweep_status_text.set("Paper evidence export failed. Review the error dialog.")
+            messagebox.showerror("Paper Evidence Export Failed", str(exc))
+
+        self.run_background_task(
+            "Exporting paper evidence...",
+            "Refreshing parameter-sensitivity tables and figures.",
+            export_task,
+            on_success=on_success,
+            on_error=on_error,
+            buttons_to_disable=(self.parameter_sweep_export_button,),
+            success_action="Parameter Sweep Paper Export",
         )
 
     def _refresh_rtl_signal_perspective_labels(self) -> None:
