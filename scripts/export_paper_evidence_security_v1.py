@@ -516,6 +516,102 @@ def paper_ready_tables(
     return paths
 
 
+def parameter_sweep_paper_tables(
+    summary_rows: Sequence[Mapping[str, object]],
+    fault_rows: Sequence[Mapping[str, object]],
+    security_rows: Sequence[Mapping[str, object]],
+) -> List[Path]:
+    """Write compact paper-facing parameter-sensitivity views."""
+    paths: List[Path] = []
+
+    overall = [
+        {
+            "Detector": row["detector_name"],
+            "Coverage": f"{row['detected_events']}/{row['total_event_variants']} ({as_float(row, 'coverage_percent'):.1f}%)",
+            "Misses": row["missed_detections"],
+            "Mean latency ms": fmt(as_float(row, "mean_latency_ms")),
+            "Median latency ms": fmt(as_float(row, "median_latency_ms")),
+            "Fastest/tied-fastest": row["fastest_tied_fastest_count"],
+            "Clean alarms": f"{row['clean_alarms']}/{row['clean_variants']}",
+        }
+        for row in summary_rows
+    ]
+    paths.extend(
+        write_paper_ready_table(
+            "paper_table_j_parameter_sensitivity_overall",
+            "Table J — Parameter Sensitivity Overall",
+            "Detector coverage and detected-event latency across the evaluated deterministic parameter sweep.",
+            "Latency is computed over detected events only; misses and clean-reference alarms remain explicit.",
+            tuple(overall[0]),
+            overall,
+        )
+    )
+
+    by_fault = [
+        {
+            "Fault type": row["fault_type"],
+            "Detector": row["detector_name"],
+            "Coverage": f"{row['detected_events']}/{row['event_variants']} ({as_float(row, 'coverage_percent'):.1f}%)",
+            "Misses": row["missed_detections"],
+            "Mean latency ms": fmt(as_float(row, "mean_latency_ms")),
+            "Median latency ms": fmt(as_float(row, "median_latency_ms")),
+        }
+        for row in fault_rows
+    ]
+    paths.extend(
+        write_paper_ready_table(
+            "paper_table_k_parameter_sensitivity_by_fault_type",
+            "Table K — Parameter Sensitivity by Fault Type",
+            "Coverage and detected-event latency by fault type in the evaluated parameter grid.",
+            "The finite severity, duration, and activation-time variants are evaluated examples, not exhaustive fault coverage.",
+            tuple(by_fault[0]),
+            by_fault,
+        )
+    )
+
+    if security_rows:
+        security = [
+            {
+                "Representative group": row["security_group"],
+                "Detector": DETECTOR_LABELS.get(str(row["detector_id"]), str(row["detector_name"])),
+                "Coverage": f"{row['detected_events']}/{row['event_variants']} ({as_float(row, 'coverage_percent'):.1f}%)",
+                "Misses": row["missed_detections"],
+                "Mean latency ms": fmt(as_float(row, "mean_latency_ms")),
+                "Median latency ms": fmt(as_float(row, "median_latency_ms")),
+            }
+            for row in security_rows
+        ]
+        paths.extend(
+            write_paper_ready_table(
+                "paper_table_l_security_sensitivity_summary",
+                "Table L — Security Parameter Sensitivity Summary",
+                "Detector outcomes for representative HT-like Virtual ECU manifestation variants.",
+                "These are manifestation-level parameter variants aligned with HT1–HT4 concepts, not new parameterized RTL simulations or an exhaustive Trojan taxonomy.",
+                tuple(security[0]),
+                security,
+            )
+        )
+    else:
+        status = [
+            {
+                "Item": "Security/Trojan parameter sensitivity",
+                "Status": "Unavailable in the discovered sweep evidence",
+                "Boundary": "No result was inferred or synthesized.",
+            }
+        ]
+        paths.extend(
+            write_paper_ready_table(
+                "paper_table_l_security_sensitivity_status",
+                "Table L — Security Sensitivity Status",
+                "Availability of faithful security/Trojan parameter-sensitivity evidence.",
+                "No security-sensitivity result is claimed without generated source rows.",
+                tuple(status[0]),
+                status,
+            )
+        )
+    return paths
+
+
 def classify_event(row: Mapping[str, object], warnings: List[str]) -> str:
     text = " ".join(
         str(row.get(key, "")).lower()
@@ -957,6 +1053,42 @@ def emphasize_hybrid_bar(bars: Sequence[object]) -> None:
         bars[-1].set_linewidth(2.2)
 
 
+def add_figure_header(
+    fig: object,
+    title: str,
+    subtitle: str,
+    *,
+    title_y: float = 0.985,
+    subtitle_y: float = 0.925,
+    title_size: float = 13.0,
+    subtitle_size: float = 9.2,
+) -> None:
+    """Apply the shared paper-figure title and subtitle hierarchy."""
+    fig.suptitle(title, y=title_y, fontsize=title_size, weight="semibold")
+    fig.text(
+        0.5,
+        subtitle_y,
+        subtitle,
+        ha="center",
+        va="center",
+        color="#475569",
+        fontsize=subtitle_size,
+        linespacing=1.25,
+    )
+
+
+def style_heatmap_grid(ax: object, row_count: int, column_count: int) -> None:
+    """Add restrained cell separators and a clean frame to matrix figures."""
+    ax.set_xticks([index - 0.5 for index in range(column_count + 1)], minor=True)
+    ax.set_yticks([index - 0.5 for index in range(row_count + 1)], minor=True)
+    ax.grid(which="minor", color="#334155", linestyle="-", linewidth=0.65)
+    ax.tick_params(which="minor", bottom=False, left=False)
+    for spine in ax.spines.values():
+        spine.set_visible(True)
+        spine.set_color("#334155")
+        spine.set_linewidth(1.0)
+
+
 def draw_flow_figure(plt: object) -> List[Path]:
     fig, ax = plt.subplots(figsize=(12.4, 2.55))
     ax.axis("off")
@@ -978,8 +1110,18 @@ def draw_flow_figure(plt: object) -> List[Path]:
         ax.text(x + width / 2, 0.50, label, transform=ax.transAxes, ha="center", va="center", fontsize=9.0, linespacing=1.25, weight="bold" if index in {1, 2} else "medium")
         if index < len(boxes) - 1:
             ax.annotate("", xy=(xs[index + 1] - 0.003, 0.50), xytext=(x + width + 0.003, 0.50), xycoords=ax.transAxes, arrowprops={"arrowstyle": "-|>", "color": "#334155", "lw": 1.5, "mutation_scale": 11})
-    ax.set_title("Virtual ECU Security-Oriented Evaluation Flow", pad=5)
-    return save_figure(plt, fig, "figure_1_virtual_ecu_security_evaluation_flow")
+    add_figure_header(
+        fig,
+        "Virtual ECU Fault-Injection and Runtime Detection Evaluation Flow",
+        "From injected scenario to runtime alarm, plant outcome, and exported evidence.",
+        subtitle_y=0.895,
+    )
+    return save_figure(
+        plt,
+        fig,
+        "figure_1_virtual_ecu_security_evaluation_flow",
+        layout_rect=(0.0, 0.0, 1.0, 0.82),
+    )
 
 
 def draw_hybrid_figure(plt: object) -> List[Path]:
@@ -1004,8 +1146,17 @@ def draw_hybrid_figure(plt: object) -> List[Path]:
     ax.annotate("", xy=(0.74, 0.50), xytext=(0.70, 0.50), xycoords=ax.transAxes, arrowprops={"arrowstyle": "-|>", "color": "#475569", "lw": 1.6, "mutation_scale": 11})
     ax.add_patch(plt.Rectangle((0.74, 0.35), 0.24, 0.30, transform=ax.transAxes, facecolor="#fef3c7", edgecolor="#b45309", linewidth=1.5))
     ax.text(0.86, 0.50, "Runtime anomaly alarm\n/ optional safe-state\nrequest", transform=ax.transAxes, ha="center", va="center", fontsize=9.5, linespacing=1.25)
-    ax.set_title("Hybrid Adaptive Kalman Evidence Fusion", pad=5)
-    return save_figure(plt, fig, "figure_2_hybrid_adaptive_kalman_evidence_fusion")
+    add_figure_header(
+        fig,
+        "Hybrid Adaptive Kalman Evidence Fusion",
+        "Complementary evidence streams are fused before issuing a runtime anomaly alarm or optional safe-state request.",
+    )
+    return save_figure(
+        plt,
+        fig,
+        "figure_2_hybrid_adaptive_kalman_evidence_fusion",
+        layout_rect=(0.0, 0.0, 1.0, 0.88),
+    )
 
 
 def draw_data_figures(
@@ -1028,8 +1179,11 @@ def draw_data_figures(
     emphasize_hybrid_bar(bars)
     ax.set_ylim(0, 108)
     ax.set_ylabel("Event coverage [%]")
-    fig.suptitle("Detector Coverage — Expanded Deterministic Validation", y=0.985, fontsize=13, weight="semibold")
-    fig.text(0.5, 0.925, "31 evaluated event variants", ha="center", va="center", color="#475569", fontsize=9.2)
+    add_figure_header(
+        fig,
+        "Detector Coverage — Expanded Deterministic Validation",
+        "Coverage across 31 representative deterministic event variants.",
+    )
     ax.grid(axis="x", visible=False)
     style_detector_ticks(ax, 24)
     for bar, value in zip(bars, values):
@@ -1115,10 +1269,14 @@ def draw_data_figures(
     ax_tail.set_title("Panel B — Worst-case detected-event latency", fontsize=10.5, pad=8)
     ax_tail.tick_params(axis="y", left=False, labelleft=False)
     ax_tail.grid(axis="y", visible=False)
-    fig.suptitle("Detector Latency — Expanded Deterministic Validation", y=0.988, fontsize=13, weight="semibold")
-    fig.text(0.5, 0.943, "Detected-event latencies across 31 evaluated event variants. Misses are reflected in the coverage figures.", ha="center", va="center", fontsize=9.2, color="#475569")
-    fig.text(0.5, 0.902, "Panel A shows typical response using median latency; Panel B shows worst-case response using maximum latency. Lower is better.", ha="center", va="center", fontsize=8.8, color="#64748b")
-    fig.subplots_adjust(left=0.235, right=0.985, bottom=0.12, top=0.80, wspace=0.12)
+    add_figure_header(
+        fig,
+        "Detector Latency — Expanded Deterministic Validation",
+        "Latency is reported over detected events; Panel A shows median latency, and Panel B shows worst-case latency on a log scale.",
+        title_y=0.988,
+        subtitle_y=0.935,
+    )
+    fig.subplots_adjust(left=0.235, right=0.985, bottom=0.12, top=0.83, wspace=0.12)
     paths.extend(save_figure(plt, fig, "figure_4_detector_latency_comparison", apply_tight_layout=False))
 
     classes = [str(row["Fault class"]) for row in heatmap_rows]
@@ -1128,7 +1286,12 @@ def draw_data_figures(
     ax.grid(False)
     ax.set_xticks(range(len(DETECTORS)), labels=labels)
     ax.set_yticks(range(len(classes)), labels=classes)
-    ax.set_title("Per-Fault-Class Detector Coverage [%]")
+    style_heatmap_grid(ax, len(classes), len(DETECTORS))
+    add_figure_header(
+        fig,
+        "Per-Fault-Class Detector Coverage [%]",
+        "Coverage breakdown by fault class across the deterministic validation set.",
+    )
     style_detector_ticks(ax, 26)
     for y, values_row in enumerate(matrix):
         for x, value in enumerate(values_row):
@@ -1136,7 +1299,7 @@ def draw_data_figures(
     ax.add_patch(plt.Rectangle((len(DETECTORS) - 1.5, -0.5), 1.0, len(classes), fill=False, edgecolor="#0f766e", linewidth=2.4, clip_on=False))
     colorbar = fig.colorbar(image, ax=ax, label="Event coverage [%]", fraction=0.032, pad=0.025)
     colorbar.ax.tick_params(labelsize=9)
-    paths.extend(save_figure(plt, fig, "figure_5_per_fault_class_coverage_heatmap"))
+    paths.extend(save_figure(plt, fig, "figure_5_per_fault_class_coverage_heatmap", layout_rect=(0.0, 0.0, 1.0, 0.89)))
 
     fig, ax = plt.subplots(figsize=(11.5, 4.8))
     rates = [float(str(row["False-positive rate"]).rstrip("%")) for row in negative_rows_data]
@@ -1155,8 +1318,8 @@ def draw_data_figures(
     for index, rate in enumerate(rates):
         ax.text(index, max(0.0012, rate + 0.0012), f"{rate:.3f}%", ha="center", fontsize=8.5, weight="semibold" if index == len(DETECTORS) - 1 else "normal")
     fig.suptitle("Negative-Stress False-Positive Summary", y=0.985, fontsize=13, weight="semibold")
-    fig.text(0.5, 0.915, "0 alarm runs in the evaluated deterministic clean-stress matrix", ha="center", va="center", fontsize=9.8, weight="semibold", color="#166534")
-    fig.text(0.5, 0.865, f"{profiles_per_detector} clean profiles per detector • {profile_runs} detector/profile runs", ha="center", va="center", fontsize=9.1, color="#475569")
+    fig.text(0.5, 0.915, "No false alarms were observed in the evaluated deterministic clean-stress matrix.", ha="center", va="center", fontsize=9.5, weight="semibold", color="#166534")
+    fig.text(0.5, 0.865, f"Each detector was evaluated on {profiles_per_detector} clean profiles ({profile_runs} detector-profile runs in total).", ha="center", va="center", fontsize=9.1, color="#475569")
     paths.extend(save_figure(plt, fig, "figure_6_negative_stress_false_positive_summary", layout_rect=(0.0, 0.0, 1.0, 0.82)))
 
     target_ids = ["ht1_coolant_sensor", "ht2_fan_driver", "ht3_calibration_memory", "ht4_multi_stage_chain"]
@@ -1171,8 +1334,12 @@ def draw_data_figures(
     ax.grid(False)
     ax.set_xticks(range(len(DETECTORS)), labels=labels)
     ax.set_yticks(range(4), labels=("HT1 Sensor", "HT2 Fan", "HT3 Calibration", "HT4 Composite"))
-    fig.suptitle("Representative RTL Trojan Case-Study Detection Outcome", y=0.985, fontsize=13, weight="semibold")
-    fig.text(0.5, 0.925, "Outcome after payload activation • HT4 is a trace-driven composite", ha="center", va="center", fontsize=9.3, color="#475569")
+    style_heatmap_grid(ax, len(outcome), len(DETECTORS))
+    add_figure_header(
+        fig,
+        "Representative RTL Trojan Case-Study Detection Outcome",
+        "Detection outcome after representative payload activation; HT4 denotes a trace-driven composite case.",
+    )
     style_detector_ticks(ax, 26)
     for y, row in enumerate(outcome):
         for x, value in enumerate(row):
@@ -1197,8 +1364,12 @@ def draw_data_figures(
     for bar, value in zip(bars, max_times):
         ax.text(bar.get_x() + bar.get_width() / 2, value * 1.35, f"{value:.6f} ms", ha="center", va="bottom", rotation=90, fontsize=7.7, color="#334155")
     ax.text(len(labels) - 0.55, budget * 1.12, f"{budget:g} ms budget", ha="right", va="bottom", fontsize=9.0, weight="semibold", color="#b91c1c")
-    fig.suptitle("Host-Side Detector Timing vs Simulated Timestep Budget", y=0.985, fontsize=13, weight="semibold")
-    fig.text(0.5, 0.925, "Host-side timing in the simulated fixed-step ECU loop • all evaluated updates remained below the 100 ms budget", ha="center", va="center", fontsize=9.0, color="#475569")
+    add_figure_header(
+        fig,
+        "Host-Side Detector Timing vs Simulated Timestep Budget",
+        "Maximum host-side detector update time in the simulated fixed-step ECU loop; all evaluated detectors remained below the 100 ms budget.",
+        subtitle_size=9.0,
+    )
     paths.extend(save_figure(plt, fig, "figure_8_online_detector_timing_vs_budget", layout_rect=(0.0, 0.0, 1.0, 0.89)))
 
     factor_values = [
@@ -1217,9 +1388,338 @@ def draw_data_figures(
     for bar, value in zip(bars, factor_values):
         ax.text(bar.get_x() + bar.get_width() / 2, value / 3.0, f"{value:,.0f}x", ha="center", va="center", fontsize=8.4, weight="semibold", color="white")
     ax.legend(frameon=False, loc="upper right")
-    fig.suptitle("Host-Side Simulation Throughput by Detector", y=0.985, fontsize=13, weight="semibold")
-    fig.text(0.5, 0.925, f"All {len(benchmark_source)} evaluated detector/scenario cases ran faster than wall-clock real time", ha="center", va="center", fontsize=9.2, color="#475569")
+    add_figure_header(
+        fig,
+        "Host-Side Simulation Throughput by Detector",
+        f"Mean host-side simulation throughput across {len(benchmark_source)} detector-scenario evaluations; all cases exceeded wall-clock real time.",
+    )
     paths.extend(save_figure(plt, fig, "figure_9_simulation_throughput_realtime_factor", layout_rect=(0.0, 0.0, 1.0, 0.89)))
+    return paths
+
+
+def draw_parameter_sweep_figures(
+    plt: object,
+    severity_rows: Sequence[Mapping[str, object]],
+    comparison_rows: Sequence[Mapping[str, object]],
+) -> List[Path]:
+    """Draw readable single-message Figures 10-13 from existing aggregates."""
+    paths: List[Path] = []
+    selected_detectors = (
+        "builtin_ecu",
+        "threshold",
+        "adaptive_kalman_filter",
+        "hybrid_adaptive_kalman",
+    )
+    detector_labels = [DETECTOR_LABELS[detector] for detector in selected_detectors]
+
+    coverage_groups = (
+        (("sensor_bias",), "Sensor bias"),
+        (("stale_sensor",), "Stale sensor"),
+        (("pump_degradation",), "Pump degradation"),
+        (("calibration_corruption",), "Calibration corruption"),
+        (("fan_stuck_off",), "Fan stuck off"),
+        (("multi_event_chain",), "Multi-event chain"),
+        (
+            (
+                "ht1_like_sensor_payload",
+                "ht2_like_fan_payload",
+                "ht3_like_calibration_payload",
+                "ht4_like_multi_stage",
+            ),
+            "HT-like security manifestations",
+        ),
+    )
+
+    def weighted_coverage(groups: Sequence[str], detector: str) -> float:
+        selected = [
+            row
+            for row in severity_rows
+            if row.get("scenario_group") in groups
+            and row.get("detector_id") == detector
+        ]
+        total = sum(as_int(row, "event_variants") for row in selected)
+        detections = sum(as_int(row, "detected_events") for row in selected)
+        return 100.0 * detections / total if total else math.nan
+
+    coverage_matrix = [
+        [weighted_coverage(groups, detector) for detector in selected_detectors]
+        for groups, _label in coverage_groups
+    ]
+    fig, ax = plt.subplots(figsize=(13.8, 7.0))
+    image = ax.imshow(coverage_matrix, cmap="YlGnBu", vmin=0, vmax=100, aspect="auto")
+    ax.grid(False)
+    ax.set_xticks(range(len(detector_labels)), labels=detector_labels)
+    ax.set_yticks(
+        range(len(coverage_groups)),
+        labels=[label for _groups, label in coverage_groups],
+    )
+    style_heatmap_grid(ax, len(coverage_groups), len(selected_detectors))
+    style_detector_ticks(ax, 16)
+    ax.tick_params(axis="y", labelsize=10.5, pad=8)
+    for row_index, values in enumerate(coverage_matrix):
+        for column_index, value in enumerate(values):
+            ax.text(
+                column_index,
+                row_index,
+                f"{value:.0f}%",
+                ha="center",
+                va="center",
+                fontsize=11,
+                weight="bold" if column_index == len(selected_detectors) - 1 else "semibold",
+                color="white" if value >= 62 else "#0f172a",
+            )
+    ax.add_patch(
+        plt.Rectangle(
+            (len(selected_detectors) - 1.5, -0.5),
+            1.0,
+            len(coverage_groups),
+            fill=False,
+            edgecolor="#0f766e",
+            linewidth=2.6,
+            clip_on=False,
+        )
+    )
+    colorbar = fig.colorbar(image, ax=ax, label="Coverage [%]", fraction=0.034, pad=0.025)
+    colorbar.ax.tick_params(labelsize=9.5)
+    add_figure_header(
+        fig,
+        "Parameter Sweep Coverage Summary",
+        "Coverage across representative parameter-sensitivity groups; a representative detector subset is shown for readability, while full eight-detector results remain reported in the tables.",
+        title_y=0.99,
+        subtitle_y=0.938,
+        title_size=15.0,
+        subtitle_size=9.4,
+    )
+    paths.extend(
+        save_figure(
+            plt,
+            fig,
+            "figure_10_fault_severity_vs_detection_coverage",
+            layout_rect=(0.0, 0.0, 1.0, 0.89),
+        )
+    )
+
+    group_labels = {
+        "sensor_bias": "Sensor bias",
+        "stale_sensor": "Stale sensor",
+        "pump_degradation": "Pump degradation",
+        "calibration_corruption": "Calibration corruption",
+        "fan_stuck_off": "Fan stuck off",
+        "multi_event_chain": "Multi-event chain",
+        "HT1-like": "HT1-like sensor payload",
+        "HT2-like": "HT2-like fan suppression",
+        "HT3-like": "HT3-like calibration payload",
+        "HT4-like": "HT4-like multi-stage manifestation",
+    }
+    comparison_order = tuple(group_labels)
+    comparison_by_group = {
+        str(row["fault_or_security_group"]): row for row in comparison_rows
+    }
+    ordered_comparisons = [
+        comparison_by_group[group]
+        for group in comparison_order
+        if group in comparison_by_group
+    ]
+    labels = [group_labels[str(row["fault_or_security_group"])] for row in ordered_comparisons]
+    hybrid_latency = [as_float(row, "hybrid_mean_latency_ms", 0.0) for row in ordered_comparisons]
+    baseline_latency = [as_float(row, "best_baseline_mean_latency_ms", 0.0) for row in ordered_comparisons]
+    positions = list(range(len(ordered_comparisons)))
+    height = 0.34
+    maximum_latency = max((*hybrid_latency, *baseline_latency), default=1.0)
+    label_padding = max(18.0, maximum_latency * 0.012)
+
+    fig, ax = plt.subplots(figsize=(13.8, 8.2))
+    hybrid_bars = ax.barh(
+        [position - height / 2 for position in positions],
+        hybrid_latency,
+        height=height,
+        color=DETECTOR_COLORS["hybrid_adaptive_kalman"],
+        edgecolor="#064e3b",
+        linewidth=1.1,
+        label="Hybrid Adaptive Kalman",
+    )
+    baseline_bars = ax.barh(
+        [position + height / 2 for position in positions],
+        baseline_latency,
+        height=height,
+        color="#94a3b8",
+        edgecolor="#64748b",
+        linewidth=0.8,
+        label="Best baseline per group",
+    )
+    ax.set_yticks(positions, labels=labels)
+    ax.invert_yaxis()
+    ax.set_xlim(0, maximum_latency * 1.19 + label_padding)
+    ax.set_xlabel("Mean detected-event latency [ms] — lower is better")
+    ax.grid(axis="y", visible=False)
+    fig.legend(
+        (hybrid_bars[0], baseline_bars[0]),
+        ("Hybrid Adaptive Kalman", "Best baseline per group"),
+        loc="upper center",
+        bbox_to_anchor=(0.5, 0.91),
+        ncol=2,
+        frameon=False,
+    )
+    for bar, value in zip(hybrid_bars, hybrid_latency):
+        ax.text(
+            value + label_padding,
+            bar.get_y() + bar.get_height() / 2,
+            f"{value:,.0f} ms",
+            va="center",
+            ha="left",
+            fontsize=9.1,
+            weight="semibold",
+            color="#064e3b",
+        )
+    for bar, value in zip(baseline_bars, baseline_latency):
+        ax.text(
+            value + label_padding,
+            bar.get_y() + bar.get_height() / 2,
+            f"{value:,.0f} ms",
+            va="center",
+            ha="left",
+            fontsize=9.1,
+            color="#475569",
+        )
+    add_figure_header(
+        fig,
+        "Parameter Sweep Latency Summary",
+        "Mean detected-event latency by sensitivity group; missed detections are reported separately in the tables.",
+        title_y=0.99,
+        subtitle_y=0.943,
+        title_size=15.0,
+        subtitle_size=10.0,
+    )
+    paths.extend(
+        save_figure(
+            plt,
+            fig,
+            "figure_11_fault_severity_vs_detection_latency",
+            layout_rect=(0.0, 0.0, 1.0, 0.84),
+        )
+    )
+
+    advantages = [baseline - hybrid for baseline, hybrid in zip(baseline_latency, hybrid_latency)]
+    advantage_colors = [
+        "#0f766e" if value > 0 else "#dc6b57" if value < 0 else "#94a3b8"
+        for value in advantages
+    ]
+    largest = max((abs(value) for value in advantages), default=1.0)
+    advantage_padding = max(12.0, largest * 0.025)
+    lower_limit = min(min(advantages, default=0.0) - 7 * advantage_padding, -5 * advantage_padding)
+    upper_limit = max(max(advantages, default=0.0) + 7 * advantage_padding, 5 * advantage_padding)
+    fig, ax = plt.subplots(figsize=(13.8, 7.8))
+    bars = ax.barh(positions, advantages, color=advantage_colors, height=0.58, edgecolor="white", linewidth=0.8)
+    ax.axvline(0.0, color="#334155", linewidth=1.4)
+    ax.set_yticks(positions, labels=labels)
+    ax.invert_yaxis()
+    ax.set_xlim(lower_limit, upper_limit)
+    ax.set_xlabel("Mean latency advantage [ms] — positive means Hybrid is faster")
+    ax.grid(axis="y", visible=False)
+    for bar, value in zip(bars, advantages):
+        if abs(value) < 1e-9:
+            label = "tie"
+            x_value = advantage_padding
+            alignment = "left"
+        elif value > 0:
+            label = f"+{value:,.0f} ms"
+            x_value = value + advantage_padding
+            alignment = "left"
+        else:
+            label = f"−{abs(value):,.0f} ms"
+            x_value = value - advantage_padding
+            alignment = "right"
+        ax.text(
+            x_value,
+            bar.get_y() + bar.get_height() / 2,
+            label,
+            va="center",
+            ha=alignment,
+            fontsize=9.5,
+            weight="semibold",
+            color="#334155",
+        )
+    add_figure_header(
+        fig,
+        "Hybrid Latency Advantage over Best Baseline",
+        "Positive values indicate that Hybrid Adaptive Kalman is faster than the best baseline selected independently per group using coverage first and latency second.",
+        title_y=0.99,
+        subtitle_y=0.943,
+        title_size=15.0,
+        subtitle_size=9.7,
+    )
+    paths.extend(
+        save_figure(
+            plt,
+            fig,
+            "figure_12_hybrid_vs_baseline_sensitivity_summary",
+            layout_rect=(0.0, 0.0, 1.0, 0.91),
+        )
+    )
+
+    security_groups = (
+        (("ht1_like_sensor_payload",), "HT1-like sensor payload"),
+        (("ht2_like_fan_payload",), "HT2-like fan suppression"),
+        (("ht3_like_calibration_payload",), "HT3-like calibration payload"),
+        (("ht4_like_multi_stage",), "HT4-like multi-stage manifestation"),
+    )
+    security_matrix = [
+        [weighted_coverage(groups, detector) for detector in selected_detectors]
+        for groups, _label in security_groups
+    ]
+    if all(math.isfinite(value) for row in security_matrix for value in row):
+        fig, ax = plt.subplots(figsize=(13.8, 5.6))
+        image = ax.imshow(security_matrix, cmap="YlGnBu", vmin=0, vmax=100, aspect="auto")
+        ax.grid(False)
+        ax.set_xticks(range(len(detector_labels)), labels=detector_labels)
+        ax.set_yticks(
+            range(len(security_groups)),
+            labels=[label for _groups, label in security_groups],
+        )
+        style_heatmap_grid(ax, len(security_groups), len(selected_detectors))
+        style_detector_ticks(ax, 16)
+        ax.tick_params(axis="y", labelsize=10.5, pad=8)
+        for row_index, values in enumerate(security_matrix):
+            for column_index, value in enumerate(values):
+                ax.text(
+                    column_index,
+                    row_index,
+                    f"{value:.0f}%",
+                    ha="center",
+                    va="center",
+                    fontsize=11,
+                    weight="bold" if column_index == len(selected_detectors) - 1 else "semibold",
+                    color="white" if value >= 62 else "#0f172a",
+                )
+        ax.add_patch(
+            plt.Rectangle(
+                (len(selected_detectors) - 1.5, -0.5),
+                1.0,
+                len(security_groups),
+                fill=False,
+                edgecolor="#0f766e",
+                linewidth=2.6,
+                clip_on=False,
+            )
+        )
+        fig.colorbar(image, ax=ax, label="Coverage [%]", fraction=0.04, pad=0.025)
+        add_figure_header(
+            fig,
+            "Security Manifestation Sensitivity Summary",
+            "Coverage across representative security-manifestation variants derived at the Virtual ECU level;\nthese experiments extend the case study without introducing new parameterized RTL simulations.",
+            title_y=0.99,
+            subtitle_y=0.915,
+            title_size=15.0,
+            subtitle_size=9.5,
+        )
+        paths.extend(
+            save_figure(
+                plt,
+                fig,
+                "figure_13_security_ht_like_parameter_sensitivity",
+                layout_rect=(0.0, 0.0, 1.0, 0.87),
+            )
+        )
     return paths
 
 
@@ -1232,9 +1732,20 @@ def write_narratives(
     online: Dict[str, object],
     benchmark: Dict[str, object],
     ablation_available: bool,
+    parameter: Dict[str, object] | None,
 ) -> None:
     source_lines = "\n".join(f"- `{path.relative_to(PROJECT_ROOT)}`" for path in sources.values())
     warning_lines = "\n".join(f"- {warning}" for warning in warnings) or "- None."
+    parameter_contents = (
+        "\n- Parameter sensitivity: complete from the discovered deterministic sweep."
+        if parameter is not None
+        else "\n- Parameter sensitivity: not included because no generated sweep source was discovered."
+    )
+    parameter_files = (
+        " Tables 10-13 and Figures 10-13 are included."
+        if parameter is not None and parameter.get("security_available")
+        else ""
+    )
     readme = f"""# Virtual ECU Security Paper Evidence Package v1
 
 This package contains paper-oriented tables, figures, bounded claims, limitations,
@@ -1249,11 +1760,13 @@ execution evidence, and clean negative-stress evidence.
 
 ## Package contents
 
-- `tables/`: CSV and Markdown versions of Tables 1–8, heatmap-ready coverage,
-  throughput overall summary, and an ablation-status note.
+- `tables/`: CSV and Markdown evidence tables, heatmap-ready coverage,
+  throughput summaries, ablation status, and optional parameter-sweep tables.
 - `tables_paper_ready/`: compact CSV, Markdown, and LaTeX tables for direct
   paper use, including appendix tables prefixed with `appendix_table_`.
-- `figures/`: publication-style PNG and PDF versions of Figures 1–9.
+- `figures/`: publication-style PNG and PDF figures; parameter-sensitivity
+  Figures 10–13 summarize group coverage, mean detected-event latency, Hybrid
+  latency advantage, and Virtual-ECU manifestation-level security coverage.
 - `claims_summary.md`: claims computed from the source tables.
 - `limitations.md`: explicit model, RTL, timing, and generalization boundaries.
 - `reproduction_commands.md`: exact study and export commands.
@@ -1273,6 +1786,7 @@ for supplementary or appendix use.
 - HT1–HT4 summary: complete from available results.
 - Online timing/causality and simulation throughput: complete from available results.
 - Hybrid component ablation: {'quantitative data available' if ablation_available else 'not included; explicit component-disable variants are not implemented'}.
+{parameter_contents}{parameter_files}
 
 ## Export warnings
 
@@ -1284,6 +1798,15 @@ include unrelated result families or local GUI session state.
     (OUTPUT_DIR / "README.md").write_text(readme, encoding="utf-8")
 
     checks = expanded["checks"]
+    parameter_claims: List[str] = []
+    if parameter is not None:
+        parameter_claims.extend(
+            (
+                f"- In the evaluated deterministic parameter sweep, Hybrid Adaptive Kalman detected {parameter['hybrid_detected']}/{parameter['event_variants']} event variants ({float(parameter['hybrid_coverage']):.1f}% coverage).",
+                f"- Under the evaluated severity and timing variants, its median detected-event latency was {fmt(float(parameter['hybrid_median_latency']))} ms; missed detections are excluded from latency statistics.",
+                f"- The sensitivity source contains {parameter['scenario_variants']} total scenario variants and {parameter['detector_runs']} detector runs. Representative HT-like rows are Virtual ECU manifestation-level evaluations, not new parameterized RTL simulations.",
+            )
+        )
     claims = [
         "# Computed Claims Summary",
         "",
@@ -1293,11 +1816,18 @@ include unrelated result families or local GUI session state.
         f"- In the representative RTL trigger/payload case studies, Hybrid Adaptive Kalman alarmed after payload activation for {int(rtl['hybrid_targets_detected'])}/{int(rtl['targets'])} HT targets. HT4 is a trace-driven composite of existing HT3, HT1, and HT2 effects, not an independent RTL module.",
         f"- The evaluated detector implementations passed the sampled prefix-causality checks with no future-sample access reported: {'yes' if online['all_causal'] else 'no'}. On the evaluated host, all measured detector updates fit the {float(online['budget_ms']):g} ms simulated timestep budget: {'yes' if online['all_fit'] else 'no'}.",
         f"- In the host-side simulation benchmark on the evaluated platform, all {int(benchmark['cases'])} cases completed faster than wall-clock real time: {'yes' if benchmark['all_faster'] else 'no'}. Hybrid Adaptive Kalman's mean real-time factor was {float(benchmark['hybrid_mean']):.3f}x.",
+        *parameter_claims,
         "",
         "These claims apply only to the evaluated deterministic profiles, parameters, traces, detector thresholds, and host. They do not imply production readiness, embedded certification, silicon validation, exhaustive fault/Trojan detection, or hard real-time guarantees.",
     ]
     (OUTPUT_DIR / "claims_summary.md").write_text("\n".join(claims) + "\n", encoding="utf-8")
 
+    parameter_limitations = (
+        "- The parameter-sensitivity grid is finite and deterministic; its severity, duration, and timing variants are evaluated examples rather than exhaustive coverage.\n"
+        "- Representative HT-like sensitivity rows are Virtual ECU manifestation-level runs, not parameterized RTL simulations or an exhaustive Trojan taxonomy.\n"
+        if parameter is not None
+        else ""
+    )
     limitations = """# Limitations
 
 - The experiments use deterministic simulator profiles and a simplified automotive-inspired thermal plant.
@@ -1310,7 +1840,7 @@ include unrelated result families or local GUI session state.
 - Host-side per-update timing and simulation throughput are not embedded hardware validation, worst-case execution-time analysis, certification, or hard real-time guarantees.
 - Negative-stress results cover only the generated clean profiles and cannot prove that false alarms are impossible.
 - Quantitative Hybrid component ablation is absent because explicit component-disable runtime variants have not been implemented and validated. Post-processing inference would not faithfully preserve online detector state evolution.
-"""
+""" + parameter_limitations
     (OUTPUT_DIR / "limitations.md").write_text(limitations, encoding="utf-8")
 
     reproduction = """# Reproduction Commands
@@ -1325,6 +1855,7 @@ python3 scripts/run_expanded_runtime_validation.py
 python3 scripts/run_negative_stress_validation.py
 python3 scripts/run_simulation_realtime_benchmark.py
 python3 scripts/run_online_detector_timing_audit.py
+python3 scripts/run_fault_injection_parameter_sweep.py
 ```
 
 The following command currently records ablation availability/status only. It
@@ -1357,6 +1888,7 @@ def consistency_checks(
     figure_paths: Sequence[Path],
     table1: Sequence[Mapping[str, object]],
     rtl_rows: Sequence[Mapping[str, object]],
+    parameter_available: bool,
 ) -> List[str]:
     failures = []
     runtime_ids = {str(row["Runtime ID"]) for row in table1}
@@ -1375,8 +1907,10 @@ def consistency_checks(
         suffix: sum(path.suffix == suffix for path in paper_table_paths)
         for suffix in (".csv", ".md", ".tex")
     }
-    if paper_suffix_counts != {".csv": 13, ".md": 13, ".tex": 13}:
-        failures.append(f"Expected 13 paper-ready tables in each format; found {paper_suffix_counts}.")
+    expected_paper_tables = 16 if parameter_available else 13
+    expected_counts = {suffix: expected_paper_tables for suffix in (".csv", ".md", ".tex")}
+    if paper_suffix_counts != expected_counts:
+        failures.append(f"Expected {expected_paper_tables} paper-ready tables in each format; found {paper_suffix_counts}.")
     for path in paper_table_paths:
         if not path.is_file() or path.stat().st_size == 0:
             failures.append(f"Generated paper-ready table is missing or empty: {path.name}")
@@ -1420,6 +1954,7 @@ def main() -> int:
         "rtl": RESULTS_ROOT / "rtl_hardware_trojan_study_v1",
         "online": RESULTS_ROOT / "online_detector_timing_audit",
         "benchmark": RESULTS_ROOT / "simulation_realtime_benchmark",
+        "parameter": RESULTS_ROOT / "fault_injection_parameter_sweep",
     }
     discovery = {
         "full_matrix": ("full", ("combined_detection_latency_matrix.csv",), ("scenario_id", "detector", "variant", "detected_after_event", "detection_latency_ms")),
@@ -1430,6 +1965,11 @@ def main() -> int:
         "online_causality": ("online", ("online_detector_causality_summary.csv",), ("detector", "uses_future_samples", "causality_check_passed")),
         "online_timing": ("online", ("online_detector_timing_summary.csv",), ("detector", "mean_update_time_ms", "max_update_time_ms", "timestep_budget_ms")),
         "benchmark_matrix": ("benchmark", ("simulation_realtime_benchmark_matrix.csv",), ("scenario_group", "detector", "real_time_factor_mean", "faster_than_realtime_mean")),
+        "parameter_summary": ("parameter", ("sweep_detector_summary.csv",), ("detector_id", "detector_name", "total_event_variants", "coverage_percent", "median_latency_ms", "fastest_tied_fastest_count", "clean_alarms")),
+        "parameter_by_fault": ("parameter", ("sweep_by_fault_type.csv",), ("fault_type", "detector_id", "event_variants", "coverage_percent")),
+        "parameter_by_severity": ("parameter", ("sweep_by_severity.csv",), ("scenario_group", "security_group", "parameter_name", "parameter_value", "detector_id", "coverage_percent")),
+        "parameter_by_security": ("parameter", ("sweep_by_security_group.csv",), ("security_group", "detector_id", "coverage_percent")),
+        "parameter_comparison": ("parameter", ("sweep_hybrid_vs_baselines.csv",), ("fault_or_security_group", "hybrid_coverage_percent", "best_baseline_coverage_percent")),
     }
     for key, (root_key, names, columns) in discovery.items():
         path = find_csv(roots[root_key], names, columns)
@@ -1441,7 +1981,17 @@ def main() -> int:
     missing_required = [
         key
         for key in discovery
-        if key not in sources and key not in {"full_matrix", "expanded_matrix"}
+        if key not in sources
+        and key
+        not in {
+            "full_matrix",
+            "expanded_matrix",
+            "parameter_summary",
+            "parameter_by_fault",
+            "parameter_by_severity",
+            "parameter_by_security",
+            "parameter_comparison",
+        }
     ]
     if "full_matrix" not in sources and "expanded_matrix" not in sources:
         missing_required.append("expanded_matrix_or_full_matrix")
@@ -1456,6 +2006,24 @@ def main() -> int:
     online_causality = read_rows(sources["online_causality"])
     online_timing = read_rows(sources["online_timing"])
     benchmark_source = read_rows(sources["benchmark_matrix"])
+    parameter_available = all(
+        key in sources
+        for key in (
+            "parameter_summary",
+            "parameter_by_fault",
+            "parameter_by_severity",
+            "parameter_comparison",
+        )
+    )
+    parameter_summary_source = read_rows(sources["parameter_summary"]) if parameter_available else []
+    parameter_fault_source = read_rows(sources["parameter_by_fault"]) if parameter_available else []
+    parameter_severity_source = read_rows(sources["parameter_by_severity"]) if parameter_available else []
+    parameter_security_source = (
+        read_rows(sources["parameter_by_security"])
+        if parameter_available and "parameter_by_security" in sources
+        else []
+    )
+    parameter_comparison_source = read_rows(sources["parameter_comparison"]) if parameter_available else []
 
     table_csvs: List[Path] = []
     table_mds: List[Path] = []
@@ -1492,6 +2060,33 @@ def main() -> int:
     add_table("table_8_simulation_realtime_benchmark", tuple(throughput_rows[0]), throughput_rows)
     add_table("table_8_simulation_realtime_overall_summary", tuple(throughput_overall_rows[0]), throughput_overall_rows)
 
+    parameter: Dict[str, object] | None = None
+    if parameter_available:
+        add_table("table_10_fault_parameter_sweep_summary", tuple(parameter_summary_source[0]), parameter_summary_source)
+        add_table("table_11_fault_parameter_sweep_by_type", tuple(parameter_fault_source[0]), parameter_fault_source)
+        add_table("table_12_fault_parameter_sweep_by_severity", tuple(parameter_severity_source[0]), parameter_severity_source)
+        if parameter_security_source:
+            add_table("table_13_security_parameter_sensitivity_summary", tuple(parameter_security_source[0]), parameter_security_source)
+        else:
+            security_status = [{"Status": "Unavailable", "Boundary": "No generated security-sensitivity rows were discovered; no values were inferred."}]
+            add_table("table_13_security_parameter_sensitivity_status", tuple(security_status[0]), security_status)
+        hybrid_parameter = next(
+            row for row in parameter_summary_source if row["detector_id"] == "hybrid_adaptive_kalman"
+        )
+        config_path = roots["parameter"] / "sweep_config.json"
+        parameter_config = json.loads(config_path.read_text(encoding="utf-8")) if config_path.is_file() else {}
+        if config_path.is_file():
+            sources["parameter_config"] = config_path
+        parameter = {
+            "scenario_variants": as_int(parameter_config, "scenario_variant_count", as_int(hybrid_parameter, "total_event_variants")),
+            "event_variants": as_int(hybrid_parameter, "total_event_variants"),
+            "detector_runs": as_int(parameter_config, "detector_run_count", as_int(hybrid_parameter, "total_event_variants") * len(DETECTORS)),
+            "hybrid_detected": as_int(hybrid_parameter, "detected_events"),
+            "hybrid_coverage": as_float(hybrid_parameter, "coverage_percent"),
+            "hybrid_median_latency": as_float(hybrid_parameter, "median_latency_ms"),
+            "security_available": bool(parameter_security_source),
+        }
+
     ablation_status_path = RESULTS_ROOT / "hybrid_ablation_study" / "ablation_status.json"
     ablation_available = False
     if ablation_status_path.is_file():
@@ -1522,15 +2117,31 @@ figure were inferred.
         throughput_overall_rows,
         ablation_available,
     )
+    if parameter_available:
+        paper_table_paths.extend(
+            parameter_sweep_paper_tables(
+                parameter_summary_source,
+                parameter_fault_source,
+                parameter_security_source,
+            )
+        )
 
     plt = configure_matplotlib()
     figure_paths = []
     figure_paths.extend(draw_flow_figure(plt))
     figure_paths.extend(draw_hybrid_figure(plt))
     figure_paths.extend(draw_data_figures(plt, expanded, heatmap_rows, negative_rows_data, rtl_comparison, online_timing, benchmark_source))
+    if parameter_available:
+        figure_paths.extend(
+            draw_parameter_sweep_figures(
+                plt,
+                parameter_severity_source,
+                parameter_comparison_source,
+            )
+        )
 
-    write_narratives(sources, warnings, expanded, negative, rtl, online, benchmark, ablation_available)
-    failures = consistency_checks(table_csvs, paper_table_paths, figure_paths, table1, rtl_rows)
+    write_narratives(sources, warnings, expanded, negative, rtl, online, benchmark, ablation_available, parameter)
+    failures = consistency_checks(table_csvs, paper_table_paths, figure_paths, table1, rtl_rows, parameter_available)
     if failures:
         raise RuntimeError("Consistency checks failed:\n- " + "\n- ".join(failures))
 
@@ -1561,6 +2172,7 @@ figure were inferred.
                 "slowest_benchmark_id": benchmark["slowest"]["benchmark_id"],
             },
             "quantitative_ablation_available": ablation_available,
+            "parameter_sensitivity": parameter,
         },
         "warnings": warnings,
         "consistency_checks_passed": True,
@@ -1570,10 +2182,12 @@ figure were inferred.
     print("\nConsistency report: PASS")
     print(f"  Detectors: {len(DETECTORS)}")
     print(f"  Tables: {len(table_csvs)} CSV + {len(table_mds) + 1} Markdown")
-    print("  Paper-ready tables: 13 CSV + 13 Markdown + 13 LaTeX")
+    paper_count = 16 if parameter_available else 13
+    print(f"  Paper-ready tables: {paper_count} CSV + {paper_count} Markdown + {paper_count} LaTeX")
     print(f"  Figures: {len(figure_paths) // 2} PNG + PDF pairs")
     print(f"  HT targets: {rtl['targets']}")
     print(f"  Quantitative ablation: {'available' if ablation_available else 'not included (status documented)'}")
+    print(f"  Parameter sensitivity: {'included' if parameter_available else 'not available'}")
     for warning in warnings:
         print(f"  WARNING: {warning}")
     print(f"Paper evidence package written to: {OUTPUT_DIR}")
