@@ -1166,37 +1166,194 @@ def style_heatmap_grid(ax: object, row_count: int, column_count: int) -> None:
 
 
 def draw_flow_figure(plt: object) -> List[Path]:
-    fig, ax = plt.subplots(figsize=(12.4, 2.55))
+    """Draw the compact five-stage paper-facing evaluation methodology."""
+    fig, ax = plt.subplots(figsize=(13.4, 2.9))
     ax.axis("off")
-    boxes = (
-        ("Fault / Trojan\nscenario", "#dbeafe"),
-        ("Virtual ECU loop\nsense • control\ndiagnose • actuate", "#e0f2fe"),
-        ("Six baselines +\nproposed Hybrid", "#ede9fe"),
-        ("Alarm / optional\nsafe-state request", "#fef3c7"),
-        ("Thermal plant\noutcome", "#dcfce7"),
-        ("CSV / results / GUI\nevidence export", "#f1f5f9"),
+    ax.set_xlim(0.0, 1.0)
+    ax.set_ylim(0.0, 1.0)
+
+    stages = (
+        (
+            "Fault / Trojan\nScenarios",
+            ("faults, clean stress,\nRTL HT manifestations",),
+            "#eff6ff",
+            "#2563eb",
+            None,
+        ),
+        (
+            "Deterministic\nInjection",
+            ("path, timing,\nduration, severity",),
+            "#f0f9ff",
+            "#0284c7",
+            None,
+        ),
+        (
+            "Virtual ECU\nClosed Loop",
+            ("sense → control →\nactuate → plant",),
+            "#ecfeff",
+            "#0891b2",
+            None,
+        ),
+        (
+            "Online Runtime\nDetection",
+            (
+                "six baselines + proposed",
+                "Hybrid Adaptive Kalman",
+            ),
+            "#ecfdf5",
+            "#0f766e",
+            1,
+        ),
+        (
+            "Evaluation\nMetrics",
+            ("coverage, latency,\nfalse alarms, timing",),
+            "#f8fafc",
+            "#64748b",
+            None,
+        ),
     )
-    widths = [0.13, 0.17, 0.14, 0.15, 0.12, 0.16]
-    gap = 0.018
-    xs = [0.02]
-    for width in widths[:-1]:
-        xs.append(xs[-1] + width + gap)
-    for index, ((label, color), x, width) in enumerate(zip(boxes, xs, widths)):
-        ax.add_patch(plt.Rectangle((x, 0.20), width, 0.60, transform=ax.transAxes, facecolor=color, edgecolor="#475569", linewidth=1.35))
-        ax.text(x + width / 2, 0.50, label, transform=ax.transAxes, ha="center", va="center", fontsize=9.0, linespacing=1.25, weight="bold" if index in {1, 2} else "medium")
-        if index < len(boxes) - 1:
-            ax.annotate("", xy=(xs[index + 1] - 0.003, 0.50), xytext=(x + width + 0.003, 0.50), xycoords=ax.transAxes, arrowprops={"arrowstyle": "-|>", "color": "#334155", "lw": 1.5, "mutation_scale": 11})
+
+    card_width = 0.15
+    card_height = 0.35
+    side_margin = 0.012
+    column_gap = (1.0 - 2.0 * side_margin - len(stages) * card_width) / (
+        len(stages) - 1
+    )
+    left = side_margin
+    card_y = 0.39
+    columns = [left + index * (card_width + column_gap) for index in range(5)]
+    positions = tuple((column, card_y) for column in columns)
+
+    def draw_arrow(start: tuple[float, float], end: tuple[float, float]) -> None:
+        connector = plt.matplotlib.patches.FancyArrowPatch(
+            start,
+            end,
+            arrowstyle="-|>",
+            mutation_scale=15.5,
+            linewidth=2.1,
+            color="#1e293b",
+            transform=ax.transAxes,
+            shrinkA=0.0,
+            shrinkB=0.0,
+            connectionstyle="arc3,rad=0",
+            capstyle="round",
+            joinstyle="round",
+            zorder=5,
+        )
+        ax.add_patch(connector)
+
+    center_y = card_y + card_height / 2.0
+    connector_inset = 0.007
+    for index in range(len(columns) - 1):
+        draw_arrow(
+            (columns[index] + card_width + connector_inset, center_y),
+            (columns[index + 1] - connector_inset, center_y),
+        )
+
+    for stage_number, ((title, items, facecolor, edgecolor, highlight_index), (x, y)) in enumerate(
+        zip(stages, positions),
+        start=1,
+    ):
+        card = plt.matplotlib.patches.FancyBboxPatch(
+            (x, y),
+            card_width,
+            card_height,
+            boxstyle="round,pad=0.005,rounding_size=0.010",
+            transform=ax.transAxes,
+            facecolor=facecolor,
+            edgecolor=edgecolor,
+            linewidth=1.25,
+            zorder=2,
+        )
+        ax.add_patch(card)
+        number_badge = plt.matplotlib.patches.FancyBboxPatch(
+            (x + 0.012, y + card_height - 0.088),
+            0.032,
+            0.050,
+            boxstyle="round,pad=0.003,rounding_size=0.008",
+            transform=ax.transAxes,
+            facecolor=edgecolor,
+            edgecolor=edgecolor,
+            linewidth=0.8,
+            zorder=3,
+        )
+        ax.add_patch(number_badge)
+        ax.text(
+            x + 0.028,
+            y + card_height - 0.063,
+            str(stage_number),
+            transform=ax.transAxes,
+            ha="center",
+            va="center",
+            fontsize=8.6,
+            weight="bold",
+            color="white",
+            zorder=4,
+        )
+        ax.text(
+            x + 0.052,
+            y + card_height - 0.063,
+            title,
+            transform=ax.transAxes,
+            ha="left",
+            va="center",
+            fontsize=9.4,
+            weight="semibold",
+            color="#0f172a",
+            linespacing=1.05,
+            zorder=4,
+        )
+        ax.plot(
+            (x + 0.012, x + card_width - 0.012),
+            (y + card_height - 0.128, y + card_height - 0.128),
+            transform=ax.transAxes,
+            color=edgecolor,
+            alpha=0.40,
+            linewidth=0.9,
+            zorder=3,
+        )
+        item_y = y + card_height - (0.196 if len(items) > 1 else 0.218)
+        item_step = 0.065
+        for item_index, item in enumerate(items):
+            highlighted = item_index == highlight_index
+            ax.text(
+                x + card_width / 2.0,
+                item_y - item_index * item_step,
+                item,
+                transform=ax.transAxes,
+                ha="center",
+                va="center",
+                fontsize=8.25 if highlighted else 8.1,
+                weight="semibold" if highlighted else "normal",
+                color="#065f46" if highlighted else "#334155",
+                bbox=(
+                    {
+                        "boxstyle": "round,pad=0.18,rounding_size=0.25",
+                        "facecolor": "#ccfbf1",
+                        "edgecolor": "#0f766e",
+                        "linewidth": 0.75,
+                    }
+                    if highlighted
+                    else None
+                ),
+                zorder=4,
+            )
+
     add_figure_header(
         fig,
-        "Virtual ECU Fault-Injection and Runtime Detection Evaluation Flow",
-        "From injected scenario to runtime alarm, plant outcome, and exported evidence.",
-        subtitle_y=0.895,
+        "Proposed Fault-Injection and Trojan-Manifestation Runtime Detection Flow",
+        "Deterministic evaluation of fault and Trojan manifestations in a virtual automotive ECU.",
+        title_y=0.975,
+        subtitle_y=0.875,
+        title_size=14.0,
+        subtitle_size=9.4,
     )
+    fig.subplots_adjust(left=0.012, right=0.988, bottom=0.02, top=0.96)
     return save_figure(
         plt,
         fig,
         "figure_1_virtual_ecu_security_evaluation_flow",
-        layout_rect=(0.0, 0.0, 1.0, 0.82),
+        apply_tight_layout=False,
     )
 
 
