@@ -34,6 +34,16 @@ DETECTORS = (
     "adaptive_kalman_filter",
     "hybrid_adaptive_kalman",
 )
+PAPER_DETECTORS = (
+    "builtin_ecu",
+    "threshold",
+    "ewma",
+    "cusum",
+    "thermal_observer",
+    "kalman_filter",
+    "hybrid_adaptive_kalman",
+)
+PAPER_BASELINE_DETECTORS = PAPER_DETECTORS[:-1]
 DETECTOR_LABELS = {
     "builtin_ecu": "Built-in ECU diagnostics",
     "threshold": "Threshold",
@@ -234,6 +244,8 @@ def paper_ready_tables(
     timing_rows: Sequence[Mapping[str, object]],
     throughput_rows: Sequence[Mapping[str, object]],
     throughput_overall_rows: Sequence[Mapping[str, object]],
+    expanded: Mapping[str, object],
+    benchmark: Mapping[str, object],
     ablation_available: bool,
 ) -> List[Path]:
     """Write concise paper-facing views without changing the full evidence tables."""
@@ -249,14 +261,19 @@ def paper_ready_tables(
     ) -> None:
         paths.extend(write_paper_ready_table(stem, title, caption, note, columns, rows))
 
+    paper_labels = {DETECTOR_LABELS[detector] for detector in PAPER_DETECTORS}
+    paper_family_rows = [
+        row for row in table1 if str(row["Runtime ID"]) in PAPER_DETECTORS
+    ]
+
     columns = ("Detector", "Runtime ID", "Family", "Main evidence")
     add(
         "paper_table_a_detector_families",
         "Table A — Detector Families",
         "Detector implementations and their principal runtime evidence.",
-        "All detectors are evaluated inside the simulated fixed-step ECU loop. This is a simulation/host-side evaluation, not embedded certification.",
+        "The paper-facing view contains six baseline detectors and the proposed Hybrid Adaptive Kalman detector. All are evaluated inside the simulated fixed-step ECU loop; this is not embedded certification.",
         columns,
-        [{column: row[column] for column in columns} for row in table1],
+        [{column: row[column] for column in columns} for row in paper_family_rows],
     )
 
     compact_columns = ("Detector", "Family", "Main evidence")
@@ -264,9 +281,9 @@ def paper_ready_tables(
         "paper_table_a_compact_detector_families",
         "Table A — Compact Detector Families",
         "Compact detector-family summary for direct paper use.",
-        "All detectors are evaluated inside the simulated fixed-step ECU loop. This is a simulation/host-side evaluation, not embedded certification.",
+        "The paper-facing view contains six baseline detectors and the proposed Hybrid Adaptive Kalman detector. The internal Adaptive Kalman development variant is intentionally excluded.",
         compact_columns,
-        [{column: row[column] for column in compact_columns} for row in table1],
+        [{column: row[column] for column in compact_columns} for row in paper_family_rows],
     )
 
     scenario_summaries = {
@@ -303,27 +320,36 @@ def paper_ready_tables(
         scenario_rows,
     )
 
+    metrics = expanded["metrics"]
+    ranking = sorted(
+        PAPER_DETECTORS,
+        key=lambda detector: (
+            -float(metrics[detector]["coverage"]),
+            float(metrics[detector]["mean_latency"]),
+            int(metrics[detector]["clean_alarms"]),
+        ),
+    )
+    paper_ranks = {detector: index + 1 for index, detector in enumerate(ranking)}
     comparison_rows = []
-    for row in main_rows:
-        rank_text = str(row["Rank or notes"])
-        rank = next((token for token in rank_text.replace(";", " ").split() if token.isdigit()), "")
+    for detector in PAPER_DETECTORS:
+        item = metrics[detector]
         comparison_rows.append(
             {
-                "Detector": row["Detector"],
-                "Coverage": row["Event coverage"],
-                "Misses": row["Missed detections"],
-                "Clean alarms": row["Clean-run alarms / false positives"],
-                "Mean latency ms": row["Mean latency ms"],
-                "Median latency ms": row["Median latency ms"],
-                "Fastest/tied-fastest": row["Fastest or tied-fastest count"],
-                "Rank": rank,
+                "Detector": DETECTOR_LABELS[detector],
+                "Coverage": f"{item['detections']}/{item['event_runs']} ({float(item['coverage']):.1f}%)",
+                "Misses": item["misses"],
+                "Clean alarms": f"{item['clean_alarms']}/{item['clean_runs']}",
+                "Mean latency ms": fmt(float(item["mean_latency"])),
+                "Median latency ms": fmt(float(item["median_latency"])),
+                "Fastest/tied-fastest": item["paper_fastest"],
+                "Rank": paper_ranks[detector],
             }
         )
     add(
         "paper_table_c_main_detector_comparison",
         "Table C — Main Detector Comparison",
         "Detection coverage, clean alarms, and response latency across the expanded deterministic validation matrix.",
-        "Latency is computed over detected events only; missed detections are reported separately.",
+        "The comparison contains six standard/interpretable baselines and the proposed Hybrid detector. Latency is computed over detected events only; missed detections are reported separately.",
         tuple(comparison_rows[0]),
         comparison_rows,
     )
@@ -339,8 +365,8 @@ def paper_ready_tables(
     class_summary_rows = []
     for row in heatmap_rows:
         fault_class = str(row["Fault class"])
-        values = {detector: as_float(row, detector) for detector in DETECTORS}
-        missed_labels = [DETECTOR_LABELS[detector] for detector in DETECTORS if values[detector] < 100.0]
+        values = {detector: as_float(row, detector) for detector in PAPER_DETECTORS}
+        missed_labels = [DETECTOR_LABELS[detector] for detector in PAPER_DETECTORS if values[detector] < 100.0]
         class_summary_rows.append(
             {
                 "Fault class": fault_class,
@@ -368,7 +394,11 @@ def paper_ready_tables(
         "Full detector coverage and detected-event latency breakdown for each evaluated fault class.",
         "Mean and median latency values include detected events only; misses remain explicit.",
         appendix_class_columns,
-        [{column: row[column] for column in appendix_class_columns} for row in class_rows],
+        [
+            {column: row[column] for column in appendix_class_columns}
+            for row in class_rows
+            if str(row["Detector"]) in paper_labels
+        ],
     )
 
     negative_columns = ("Detector", "Clean profiles", "Alarm runs", "False-positive episodes", "False-positive rate")
@@ -381,6 +411,7 @@ def paper_ready_tables(
             "False-positive rate": row["False-positive rate"],
         }
         for row in negative_rows
+        if str(row["Detector"]) in paper_labels
     ]
     add(
         "paper_table_e_negative_stress_false_positive_validation",
@@ -417,14 +448,17 @@ def paper_ready_tables(
     rtl_outcome_rows = []
     for row in rtl_rows:
         alarmed_text = str(row["Detectors alarmed"])
-        alarmed_total = alarmed_text.split(" ", 1)[0]
         alarmed_list = alarmed_text.partition("(")[2].rpartition(")")[0]
-        alarmed_detectors = {label.strip() for label in alarmed_list.split(";") if label.strip()}
-        missed_detectors = [label for label in DETECTOR_LABELS.values() if label not in alarmed_detectors]
+        alarmed_detectors = {
+            label.strip()
+            for label in alarmed_list.split(";")
+            if label.strip() in paper_labels
+        }
+        missed_detectors = [DETECTOR_LABELS[detector] for detector in PAPER_DETECTORS if DETECTOR_LABELS[detector] not in alarmed_detectors]
         rtl_outcome_rows.append(
             {
                 "HT ID": row["HT ID"],
-                "Alarmed / total": alarmed_total,
+                "Alarmed / total": f"{len(alarmed_detectors)}/{len(PAPER_DETECTORS)}",
                 "Missed detectors": "; ".join(missed_detectors) if missed_detectors else "none",
                 "Hybrid latency ms": row["Hybrid alarm latency ms"],
                 "Max coolant clean": row["Max coolant clean"],
@@ -452,6 +486,7 @@ def paper_ready_tables(
             "Budget passed": row["Budget passed"],
         }
         for row in timing_rows
+        if str(row["Detector"]) in paper_labels
     ]
     add(
         "paper_table_g_online_timing_causality_audit",
@@ -470,14 +505,24 @@ def paper_ready_tables(
         )
 
     overall_columns = ("Metric", "Value")
+    paper_fastest = benchmark["paper_fastest"]
+    paper_slowest = benchmark["paper_slowest"]
+    paper_throughput_values = {
+        "Fastest case": f"{paper_fastest['benchmark_id']} — {as_float(paper_fastest, 'real_time_factor_mean'):.3f}x",
+        "Slowest case": f"{paper_slowest['benchmark_id']} — {as_float(paper_slowest, 'real_time_factor_mean'):.3f}x",
+        "Aggregate detector/scenario cases": benchmark["paper_cases"],
+    }
     throughput_summary_rows = [
-        {"Metric": row["Metric"], "Value": format_realtime_factor(row["Value"])}
+        {
+            "Metric": row["Metric"],
+            "Value": format_realtime_factor(paper_throughput_values.get(str(row["Metric"]), row["Value"])),
+        }
         for row in throughput_overall_rows
     ]
     add(
         "paper_table_h_simulation_throughput_summary",
         "Table H — Simulation Throughput Summary",
-        "Overall host-side simulation throughput summary.",
+        "Overall host-side simulation throughput summary for the seven paper-facing detectors.",
         "Real-time factors describe the evaluated host simulator process and do not establish embedded or hard real-time performance.",
         overall_columns,
         throughput_summary_rows,
@@ -511,7 +556,11 @@ def paper_ready_tables(
         "Full host-side simulation throughput breakdown by scenario group and detector.",
         "Real-time factors describe the evaluated host simulator process; they are not embedded timing certification or hard real-time guarantees.",
         appendix_throughput_columns,
-        [{column: row[column] for column in appendix_throughput_columns} for row in throughput_rows],
+        [
+            {column: row[column] for column in appendix_throughput_columns}
+            for row in throughput_rows
+            if str(row["Detector"]) in paper_labels
+        ],
     )
     return paths
 
@@ -531,17 +580,17 @@ def parameter_sweep_paper_tables(
             "Misses": row["missed_detections"],
             "Mean latency ms": fmt(as_float(row, "mean_latency_ms")),
             "Median latency ms": fmt(as_float(row, "median_latency_ms")),
-            "Fastest/tied-fastest": row["fastest_tied_fastest_count"],
             "Clean alarms": f"{row['clean_alarms']}/{row['clean_variants']}",
         }
         for row in summary_rows
+        if row.get("detector_id") in PAPER_DETECTORS
     ]
     paths.extend(
         write_paper_ready_table(
             "paper_table_j_parameter_sensitivity_overall",
             "Table J — Parameter Sensitivity Overall",
             "Detector coverage and detected-event latency across the evaluated deterministic parameter sweep.",
-            "Latency is computed over detected events only; misses and clean-reference alarms remain explicit.",
+            "The paper-facing view contains six baseline detectors and the proposed Hybrid detector. Latency is computed over detected events only; misses and clean-reference alarms remain explicit.",
             tuple(overall[0]),
             overall,
         )
@@ -557,13 +606,14 @@ def parameter_sweep_paper_tables(
             "Median latency ms": fmt(as_float(row, "median_latency_ms")),
         }
         for row in fault_rows
+        if row.get("detector_id") in PAPER_DETECTORS
     ]
     paths.extend(
         write_paper_ready_table(
             "paper_table_k_parameter_sensitivity_by_fault_type",
             "Table K — Parameter Sensitivity by Fault Type",
             "Coverage and detected-event latency by fault type in the evaluated parameter grid.",
-            "The finite severity, duration, and activation-time variants are evaluated examples, not exhaustive fault coverage.",
+            "The seven paper-facing detectors exclude the internal Adaptive Kalman development variant. The finite parameter variants are evaluated examples, not exhaustive fault coverage.",
             tuple(by_fault[0]),
             by_fault,
         )
@@ -580,13 +630,14 @@ def parameter_sweep_paper_tables(
                 "Median latency ms": fmt(as_float(row, "median_latency_ms")),
             }
             for row in security_rows
+            if row.get("detector_id") in PAPER_DETECTORS
         ]
         paths.extend(
             write_paper_ready_table(
                 "paper_table_l_security_sensitivity_summary",
                 "Table L — Security Parameter Sensitivity Summary",
                 "Detector outcomes for representative HT-like Virtual ECU manifestation variants.",
-                "These are manifestation-level parameter variants aligned with HT1–HT4 concepts, not new parameterized RTL simulations or an exhaustive Trojan taxonomy.",
+                "The seven-detector paper-facing view excludes the internal Adaptive Kalman development variant. These are manifestation-level variants, not new parameterized RTL simulations or an exhaustive Trojan taxonomy.",
                 tuple(security[0]),
                 security,
             )
@@ -702,6 +753,7 @@ def expanded_tables(
     clean_rows = [row for row in matrix_rows if row.get("variant") == "clean"]
     scenario_keys = sorted({str(row["scenario_id"]) for row in event_rows})
     fastest_counts = {detector: 0 for detector in DETECTORS}
+    paper_fastest_counts = {detector: 0 for detector in PAPER_DETECTORS}
     for scenario_id in scenario_keys:
         selected = [row for row in event_rows if row["scenario_id"] == scenario_id and as_int(row, "detected_after_event") != 0]
         if not selected:
@@ -710,6 +762,12 @@ def expanded_tables(
         for row in selected:
             if as_int(row, "detection_latency_ms") == best:
                 fastest_counts[str(row["detector"])] += 1
+        paper_selected = [row for row in selected if row["detector"] in PAPER_DETECTORS]
+        if paper_selected:
+            paper_best = min(as_int(row, "detection_latency_ms") for row in paper_selected)
+            for row in paper_selected:
+                if as_int(row, "detection_latency_ms") == paper_best:
+                    paper_fastest_counts[str(row["detector"])] += 1
 
     metrics: Dict[str, Dict[str, object]] = {}
     for detector in DETECTORS:
@@ -731,6 +789,7 @@ def expanded_tables(
             "mean_latency": statistics.mean(latencies) if latencies else math.nan,
             "median_latency": statistics.median(latencies) if latencies else math.nan,
             "fastest": fastest_counts[detector],
+            "paper_fastest": paper_fastest_counts.get(detector, 0),
         }
     ranking = sorted(
         DETECTORS,
@@ -839,9 +898,16 @@ def negative_stress_rows(source_rows: Sequence[Dict[str, str]], warnings: List[s
     total_runs = sum(as_int(row, "clean_runs") for row in source_rows)
     variants = max((as_int(row, "clean_runs") for row in source_rows), default=0)
     alarm_runs = sum(as_int(row, "false_alarm_runs") for row in source_rows)
+    paper_source_rows = [row for row in source_rows if row.get("detector") in PAPER_DETECTORS]
     if variants != 60 or total_runs != 480:
         warnings.append(f"Negative-stress sanity check differs: {variants} variants and {total_runs} runs.")
-    return rows, {"variants": variants, "runs": total_runs, "alarm_runs": alarm_runs}
+    return rows, {
+        "variants": variants,
+        "runs": total_runs,
+        "alarm_runs": alarm_runs,
+        "paper_runs": sum(as_int(row, "clean_runs") for row in paper_source_rows),
+        "paper_alarm_runs": sum(as_int(row, "false_alarm_runs") for row in paper_source_rows),
+    }
 
 
 def rtl_summary_rows(
@@ -924,10 +990,14 @@ def online_rows(
         )
     all_causal = all(as_int(row, "causality_check_passed") != 0 and as_int(row, "uses_future_samples") == 0 for row in causality)
     all_fit = all(as_int(row, "all_cases_fit_budget") != 0 for row in timing)
+    paper_causality = [row for row in causality if row.get("detector") in PAPER_DETECTORS]
+    paper_timing = [row for row in timing if row.get("detector") in PAPER_DETECTORS]
     hybrid = timing_by_detector.get("hybrid_adaptive_kalman", {})
     return rows, {
         "all_causal": all_causal,
         "all_fit": all_fit,
+        "paper_all_causal": all(as_int(row, "causality_check_passed") != 0 and as_int(row, "uses_future_samples") == 0 for row in paper_causality),
+        "paper_all_fit": all(as_int(row, "all_cases_fit_budget") != 0 for row in paper_timing),
         "budget_ms": as_float(hybrid, "timestep_budget_ms"),
         "hybrid_mean_ms": as_float(hybrid, "mean_update_time_ms"),
         "hybrid_max_ms": as_float(hybrid, "max_update_time_ms"),
@@ -958,12 +1028,18 @@ def benchmark_rows(source: Sequence[Dict[str, str]]) -> tuple[List[Dict[str, obj
             )
     by_mean = sorted(source, key=lambda row: as_float(row, "real_time_factor_mean"))
     hybrid_values = [as_float(row, "real_time_factor_mean") for row in source if row["detector"] == "hybrid_adaptive_kalman"]
+    paper_source = [row for row in source if row.get("detector") in PAPER_DETECTORS]
+    paper_by_mean = sorted(paper_source, key=lambda row: as_float(row, "real_time_factor_mean"))
     overall = {
         "fastest": by_mean[-1],
         "slowest": by_mean[0],
         "hybrid_mean": statistics.mean(hybrid_values),
         "all_faster": all(as_int(row, "faster_than_realtime_mean") for row in source),
         "cases": len(source),
+        "paper_cases": len(paper_source),
+        "paper_all_faster": all(as_int(row, "faster_than_realtime_mean") for row in paper_source),
+        "paper_fastest": paper_by_mean[-1],
+        "paper_slowest": paper_by_mean[0],
     }
     overall_rows = [
         {"Metric": "Fastest case", "Value": f"{by_mean[-1]['benchmark_id']} — {as_float(by_mean[-1], 'real_time_factor_mean'):.3f}x"},
@@ -1095,7 +1171,7 @@ def draw_flow_figure(plt: object) -> List[Path]:
     boxes = (
         ("Fault / Trojan\nscenario", "#dbeafe"),
         ("Virtual ECU loop\nsense • control\ndiagnose • actuate", "#e0f2fe"),
-        ("Eight online\nruntime detectors", "#ede9fe"),
+        ("Six baselines +\nproposed Hybrid", "#ede9fe"),
         ("Alarm / optional\nsafe-state request", "#fef3c7"),
         ("Thermal plant\noutcome", "#dcfce7"),
         ("CSV / results / GUI\nevidence export", "#f1f5f9"),
@@ -1170,11 +1246,12 @@ def draw_data_figures(
 ) -> List[Path]:
     paths: List[Path] = []
     metrics = expanded["metrics"]
-    labels = [DETECTOR_LABELS[detector] for detector in DETECTORS]
-    colors = [DETECTOR_COLORS[detector] for detector in DETECTORS]
+    figure_detectors = PAPER_DETECTORS
+    labels = [DETECTOR_LABELS[detector] for detector in figure_detectors]
+    colors = [DETECTOR_COLORS[detector] for detector in figure_detectors]
 
     fig, ax = plt.subplots(figsize=(11.5, 5.5))
-    values = [float(metrics[detector]["coverage"]) for detector in DETECTORS]
+    values = [float(metrics[detector]["coverage"]) for detector in figure_detectors]
     bars = ax.bar(labels, values, color=colors, edgecolor="#ffffff", linewidth=0.8, width=0.72)
     emphasize_hybrid_bar(bars)
     ax.set_ylim(0, 108)
@@ -1193,7 +1270,7 @@ def draw_data_figures(
     event_rows = expanded["event_rows"]
     latency_sets = [
         [as_int(row, "detection_latency_ms") for row in event_rows if row["detector"] == detector and as_int(row, "detected_after_event") != 0]
-        for detector in DETECTORS
+        for detector in figure_detectors
     ]
     latency_summary = []
     for values_for_detector in latency_sets:
@@ -1206,7 +1283,7 @@ def draw_data_figures(
 
     largest_median = max(float(row["median"]) for row in latency_summary)
     main_limit = max(500, int(math.ceil((largest_median * 1.25) / 100.0) * 100))
-    positions = list(range(len(DETECTORS)))
+    positions = list(range(len(figure_detectors)))
     fig, (ax_main, ax_tail) = plt.subplots(
         1,
         2,
@@ -1214,7 +1291,7 @@ def draw_data_figures(
         sharey=True,
         gridspec_kw={"width_ratios": (2.75, 1.55), "wspace": 0.12},
     )
-    hybrid_position = len(DETECTORS) - 1
+    hybrid_position = len(figure_detectors) - 1
     for axis in (ax_main, ax_tail):
         axis.axhspan(hybrid_position - 0.38, hybrid_position + 0.38, color="#ccfbf1", alpha=0.38, zorder=0)
 
@@ -1280,13 +1357,13 @@ def draw_data_figures(
     paths.extend(save_figure(plt, fig, "figure_4_detector_latency_comparison", apply_tight_layout=False))
 
     classes = [str(row["Fault class"]) for row in heatmap_rows]
-    matrix = [[float(row[detector]) for detector in DETECTORS] for row in heatmap_rows]
+    matrix = [[float(row[detector]) for detector in figure_detectors] for row in heatmap_rows]
     fig, ax = plt.subplots(figsize=(13.2, max(5.5, 0.72 * len(classes) + 2.0)))
     image = ax.imshow(matrix, cmap="YlGnBu", vmin=0, vmax=100, aspect="auto")
     ax.grid(False)
-    ax.set_xticks(range(len(DETECTORS)), labels=labels)
+    ax.set_xticks(range(len(figure_detectors)), labels=labels)
     ax.set_yticks(range(len(classes)), labels=classes)
-    style_heatmap_grid(ax, len(classes), len(DETECTORS))
+    style_heatmap_grid(ax, len(classes), len(figure_detectors))
     add_figure_header(
         fig,
         "Per-Fault-Class Detector Coverage [%]",
@@ -1295,28 +1372,33 @@ def draw_data_figures(
     style_detector_ticks(ax, 26)
     for y, values_row in enumerate(matrix):
         for x, value in enumerate(values_row):
-            ax.text(x, y, f"{value:.0f}", ha="center", va="center", color="white" if value >= 65 else "#0f172a", fontsize=9, weight="semibold" if x == len(DETECTORS) - 1 else "normal")
-    ax.add_patch(plt.Rectangle((len(DETECTORS) - 1.5, -0.5), 1.0, len(classes), fill=False, edgecolor="#0f766e", linewidth=2.4, clip_on=False))
+            ax.text(x, y, f"{value:.0f}", ha="center", va="center", color="white" if value >= 65 else "#0f172a", fontsize=9, weight="semibold" if x == len(figure_detectors) - 1 else "normal")
+    ax.add_patch(plt.Rectangle((len(figure_detectors) - 1.5, -0.5), 1.0, len(classes), fill=False, edgecolor="#0f766e", linewidth=2.4, clip_on=False))
     colorbar = fig.colorbar(image, ax=ax, label="Event coverage [%]", fraction=0.032, pad=0.025)
     colorbar.ax.tick_params(labelsize=9)
     paths.extend(save_figure(plt, fig, "figure_5_per_fault_class_coverage_heatmap", layout_rect=(0.0, 0.0, 1.0, 0.89)))
 
     fig, ax = plt.subplots(figsize=(11.5, 4.8))
-    rates = [float(str(row["False-positive rate"]).rstrip("%")) for row in negative_rows_data]
+    paper_negative_rows = [
+        row
+        for row in negative_rows_data
+        if row.get("Detector") in {DETECTOR_LABELS[detector] for detector in figure_detectors}
+    ]
+    rates = [float(str(row["False-positive rate"]).rstrip("%")) for row in paper_negative_rows]
     for index, (rate, color) in enumerate(zip(rates, colors)):
-        is_hybrid = index == len(DETECTORS) - 1
+        is_hybrid = index == len(figure_detectors) - 1
         ax.scatter(index, rate, s=80 if is_hybrid else 62, color=color, edgecolor="#064e3b" if is_hybrid else "white", linewidth=2.0 if is_hybrid else 0.9, zorder=3)
     ax.set_ylim(-0.0015, max(0.012, max(rates, default=0.0) * 1.2))
     ax.set_xticks(range(len(labels)), labels=labels)
     ax.set_ylabel("False-positive run rate [%]")
     ax.grid(axis="x", visible=False)
     style_detector_ticks(ax, 24)
-    profile_runs = sum(as_int(row, "Clean stress variants tested") for row in negative_rows_data)
-    profiles_per_detector = max((as_int(row, "Clean stress variants tested") for row in negative_rows_data), default=0)
+    profile_runs = sum(as_int(row, "Clean stress variants tested") for row in paper_negative_rows)
+    profiles_per_detector = max((as_int(row, "Clean stress variants tested") for row in paper_negative_rows), default=0)
     if max(rates, default=0.0) == 0.0:
         ax.axhspan(0.0, 0.0018, color="#dcfce7", alpha=0.70, zorder=0)
     for index, rate in enumerate(rates):
-        ax.text(index, max(0.0012, rate + 0.0012), f"{rate:.3f}%", ha="center", fontsize=8.5, weight="semibold" if index == len(DETECTORS) - 1 else "normal")
+        ax.text(index, max(0.0012, rate + 0.0012), f"{rate:.3f}%", ha="center", fontsize=8.5, weight="semibold" if index == len(figure_detectors) - 1 else "normal")
     fig.suptitle("Negative-Stress False-Positive Summary", y=0.985, fontsize=13, weight="semibold")
     fig.text(0.5, 0.915, "No false alarms were observed in the evaluated deterministic clean-stress matrix.", ha="center", va="center", fontsize=9.5, weight="semibold", color="#166534")
     fig.text(0.5, 0.865, f"Each detector was evaluated on {profiles_per_detector} clean profiles ({profile_runs} detector-profile runs in total).", ha="center", va="center", fontsize=9.1, color="#475569")
@@ -1327,14 +1409,14 @@ def draw_data_figures(
     for target in target_ids:
         outcome.append([
             max((as_int(row, "detected_after_payload") for row in rtl_comparison if row.get("rtl_target_id") == target and row.get("variant") == "trojan" and row.get("detector") == detector), default=0)
-            for detector in DETECTORS
+            for detector in figure_detectors
         ])
     fig, ax = plt.subplots(figsize=(12.2, 5.5))
     image = ax.imshow(outcome, cmap="Blues", vmin=0, vmax=1, aspect="auto")
     ax.grid(False)
-    ax.set_xticks(range(len(DETECTORS)), labels=labels)
+    ax.set_xticks(range(len(figure_detectors)), labels=labels)
     ax.set_yticks(range(4), labels=("HT1 Sensor", "HT2 Fan", "HT3 Calibration", "HT4 Composite"))
-    style_heatmap_grid(ax, len(outcome), len(DETECTORS))
+    style_heatmap_grid(ax, len(outcome), len(figure_detectors))
     add_figure_header(
         fig,
         "Representative RTL Trojan Case-Study Detection Outcome",
@@ -1344,14 +1426,14 @@ def draw_data_figures(
     for y, row in enumerate(outcome):
         for x, value in enumerate(row):
             ax.text(x, y, "ALARM" if value else "MISS", ha="center", va="center", fontsize=8.2, weight="semibold", color="white" if value else "#0f172a")
-    ax.add_patch(plt.Rectangle((len(DETECTORS) - 1.5, -0.5), 1.0, len(outcome), fill=False, edgecolor="#0f766e", linewidth=2.4, clip_on=False))
+    ax.add_patch(plt.Rectangle((len(figure_detectors) - 1.5, -0.5), 1.0, len(outcome), fill=False, edgecolor="#0f766e", linewidth=2.4, clip_on=False))
     colorbar = fig.colorbar(image, ax=ax, ticks=(0, 1), label="Detection after payload activation", fraction=0.035, pad=0.025)
     colorbar.ax.set_yticklabels(("Miss", "Alarm"))
     paths.extend(save_figure(plt, fig, "figure_7_rtl_ht1_ht4_detection_summary", layout_rect=(0.0, 0.0, 1.0, 0.89)))
 
     timing_by = {row["detector"]: row for row in online_timing}
-    max_times = [as_float(timing_by[detector], "max_update_time_ms") for detector in DETECTORS]
-    budget = as_float(timing_by[DETECTORS[0]], "timestep_budget_ms")
+    max_times = [as_float(timing_by[detector], "max_update_time_ms") for detector in figure_detectors]
+    budget = as_float(timing_by[figure_detectors[0]], "timestep_budget_ms")
     fig, ax = plt.subplots(figsize=(12.0, 5.8))
     bars = ax.bar(labels, max_times, color=colors, edgecolor="#ffffff", linewidth=0.8, width=0.72)
     emphasize_hybrid_bar(bars)
@@ -1374,7 +1456,7 @@ def draw_data_figures(
 
     factor_values = [
         statistics.mean(as_float(row, "real_time_factor_mean") for row in benchmark_source if row["detector"] == detector)
-        for detector in DETECTORS
+        for detector in figure_detectors
     ]
     fig, ax = plt.subplots(figsize=(12.0, 5.8))
     bars = ax.bar(labels, [value - 1.0 for value in factor_values], bottom=1.0, color=colors, edgecolor="#ffffff", linewidth=0.8, width=0.72)
@@ -1391,7 +1473,7 @@ def draw_data_figures(
     add_figure_header(
         fig,
         "Host-Side Simulation Throughput by Detector",
-        f"Mean host-side simulation throughput across {len(benchmark_source)} detector-scenario evaluations; all cases exceeded wall-clock real time.",
+        f"Mean host-side simulation throughput across {sum(row['detector'] in figure_detectors for row in benchmark_source)} paper-facing detector-scenario evaluations; all cases exceeded wall-clock real time.",
     )
     paths.extend(save_figure(plt, fig, "figure_9_simulation_throughput_realtime_factor", layout_rect=(0.0, 0.0, 1.0, 0.89)))
     return paths
@@ -1400,14 +1482,14 @@ def draw_data_figures(
 def draw_parameter_sweep_figures(
     plt: object,
     severity_rows: Sequence[Mapping[str, object]],
-    comparison_rows: Sequence[Mapping[str, object]],
+    _comparison_rows: Sequence[Mapping[str, object]],
 ) -> List[Path]:
     """Draw readable single-message Figures 10-13 from existing aggregates."""
     paths: List[Path] = []
     selected_detectors = (
         "builtin_ecu",
         "threshold",
-        "adaptive_kalman_filter",
+        "kalman_filter",
         "hybrid_adaptive_kalman",
     )
     detector_labels = [DETECTOR_LABELS[detector] for detector in selected_detectors]
@@ -1484,7 +1566,7 @@ def draw_parameter_sweep_figures(
     add_figure_header(
         fig,
         "Parameter Sweep Coverage Summary",
-        "Coverage across representative parameter-sensitivity groups; a representative detector subset is shown for readability, while full eight-detector results remain reported in the tables.",
+        "Coverage across representative parameter-sensitivity groups; a representative detector subset is shown for readability, while full seven-detector paper-facing results remain reported in the tables.",
         title_y=0.99,
         subtitle_y=0.938,
         title_size=15.0,
@@ -1499,27 +1581,65 @@ def draw_parameter_sweep_figures(
         )
     )
 
-    group_labels = {
-        "sensor_bias": "Sensor bias",
-        "stale_sensor": "Stale sensor",
-        "pump_degradation": "Pump degradation",
-        "calibration_corruption": "Calibration corruption",
-        "fan_stuck_off": "Fan stuck off",
-        "multi_event_chain": "Multi-event chain",
-        "HT1-like": "HT1-like sensor payload",
-        "HT2-like": "HT2-like fan suppression",
-        "HT3-like": "HT3-like calibration payload",
-        "HT4-like": "HT4-like multi-stage manifestation",
+    comparison_groups = {
+        "sensor_bias": ("Sensor bias", ("sensor_bias",)),
+        "stale_sensor": ("Stale sensor", ("stale_sensor",)),
+        "pump_degradation": ("Pump degradation", ("pump_degradation",)),
+        "calibration_corruption": ("Calibration corruption", ("calibration_corruption",)),
+        "fan_stuck_off": ("Fan stuck off", ("fan_stuck_off",)),
+        "multi_event_chain": ("Multi-event chain", ("multi_event_chain",)),
+        "HT1-like": ("HT1-like sensor payload", ("ht1_like_sensor_payload",)),
+        "HT2-like": ("HT2-like fan suppression", ("ht2_like_fan_payload",)),
+        "HT3-like": ("HT3-like calibration payload", ("ht3_like_calibration_payload",)),
+        "HT4-like": ("HT4-like multi-stage manifestation", ("ht4_like_multi_stage",)),
     }
-    comparison_order = tuple(group_labels)
-    comparison_by_group = {
-        str(row["fault_or_security_group"]): row for row in comparison_rows
-    }
-    ordered_comparisons = [
-        comparison_by_group[group]
-        for group in comparison_order
-        if group in comparison_by_group
-    ]
+
+    def aggregate_detector(groups: Sequence[str], detector: str) -> tuple[float, float]:
+        selected = [
+            row
+            for row in severity_rows
+            if row.get("scenario_group") in groups and row.get("detector_id") == detector
+        ]
+        event_count = sum(as_int(row, "event_variants") for row in selected)
+        detected_count = sum(as_int(row, "detected_events") for row in selected)
+        coverage = 100.0 * detected_count / event_count if event_count else math.nan
+        latency_sum = sum(
+            as_float(row, "mean_latency_ms", 0.0) * as_int(row, "detected_events")
+            for row in selected
+            if as_int(row, "detected_events") and math.isfinite(as_float(row, "mean_latency_ms"))
+        )
+        mean_latency = latency_sum / detected_count if detected_count else math.inf
+        return coverage, mean_latency
+
+    ordered_comparisons = []
+    for group, (_label, source_groups) in comparison_groups.items():
+        hybrid_coverage, hybrid_mean = aggregate_detector(source_groups, "hybrid_adaptive_kalman")
+        baseline_metrics = [
+            (detector, *aggregate_detector(source_groups, detector))
+            for detector in PAPER_BASELINE_DETECTORS
+        ]
+        best_detector, best_coverage, best_mean = min(
+            baseline_metrics,
+            key=lambda item: (
+                -item[1] if math.isfinite(item[1]) else math.inf,
+                item[2],
+                PAPER_BASELINE_DETECTORS.index(item[0]),
+            ),
+        )
+        if math.isfinite(hybrid_coverage):
+            ordered_comparisons.append(
+                {
+                    "fault_or_security_group": group,
+                    "hybrid_coverage_percent": hybrid_coverage,
+                    "hybrid_mean_latency_ms": hybrid_mean,
+                    "best_baseline_detector_id": best_detector,
+                    "best_baseline_detector_name": DETECTOR_LABELS[best_detector],
+                    "best_baseline_coverage_percent": best_coverage,
+                    "best_baseline_mean_latency_ms": best_mean,
+                }
+            )
+
+    group_labels = {group: label for group, (label, _source_groups) in comparison_groups.items()}
     labels = [group_labels[str(row["fault_or_security_group"])] for row in ordered_comparisons]
     hybrid_latency = [as_float(row, "hybrid_mean_latency_ms", 0.0) for row in ordered_comparisons]
     baseline_latency = [as_float(row, "best_baseline_mean_latency_ms", 0.0) for row in ordered_comparisons]
@@ -1584,7 +1704,7 @@ def draw_parameter_sweep_figures(
     add_figure_header(
         fig,
         "Parameter Sweep Latency Summary",
-        "Mean detected-event latency by sensitivity group; missed detections are reported separately in the tables.",
+        "Mean detected-event latency by sensitivity group; the comparison baseline is selected from the six paper-facing baselines, and misses are reported separately in the tables.",
         title_y=0.99,
         subtitle_y=0.943,
         title_size=15.0,
@@ -1642,7 +1762,7 @@ def draw_parameter_sweep_figures(
     add_figure_header(
         fig,
         "Hybrid Latency Advantage over Best Baseline",
-        "Positive values indicate that Hybrid Adaptive Kalman is faster than the best baseline selected independently per group using coverage first and latency second.",
+        "Positive values indicate that Hybrid Adaptive Kalman is faster than the best of the six paper-facing baselines selected independently per group using coverage first and latency second.",
         title_y=0.99,
         subtitle_y=0.943,
         title_size=15.0,
@@ -1751,8 +1871,10 @@ def write_narratives(
 This package contains paper-oriented tables, figures, bounded claims, limitations,
 and reproduction commands computed from repository validation results. It centers
 on Hybrid Adaptive Kalman, security-oriented fault injection, representative
-HT1–HT4 RTL case studies, comparison with seven baseline detectors, online
-execution evidence, and clean negative-stress evidence.
+HT1–HT4 RTL case studies, comparison with six baseline detectors and the
+proposed Hybrid detector, online execution evidence, and clean negative-stress
+evidence. The internal Adaptive Kalman development variant remains in the raw
+evidence but is excluded from paper-facing tables and figures.
 
 ## Source result files
 
@@ -1780,7 +1902,8 @@ for supplementary or appendix use.
 
 ## Completion status
 
-- Eight-detector expanded comparison: complete from available results.
+- Seven-detector paper-facing comparison: complete from available results.
+- Eight-detector raw and detailed evidence: retained for internal reproducibility.
 - Per-fault-class breakdown: complete; uncertain mappings would be reported as `Unknown`.
 - Negative-stress validation: complete from available results.
 - HT1–HT4 summary: complete from available results.
@@ -1804,18 +1927,18 @@ include unrelated result families or local GUI session state.
             (
                 f"- In the evaluated deterministic parameter sweep, Hybrid Adaptive Kalman detected {parameter['hybrid_detected']}/{parameter['event_variants']} event variants ({float(parameter['hybrid_coverage']):.1f}% coverage).",
                 f"- Under the evaluated severity and timing variants, its median detected-event latency was {fmt(float(parameter['hybrid_median_latency']))} ms; missed detections are excluded from latency statistics.",
-                f"- The sensitivity source contains {parameter['scenario_variants']} total scenario variants and {parameter['detector_runs']} detector runs. Representative HT-like rows are Virtual ECU manifestation-level evaluations, not new parameterized RTL simulations.",
+                f"- The sensitivity source contains {parameter['scenario_variants']} total scenario variants and {parameter['paper_detector_runs']} paper-facing detector runs across six baselines and the proposed Hybrid detector. Representative HT-like rows are Virtual ECU manifestation-level evaluations, not new parameterized RTL simulations.",
             )
         )
     claims = [
         "# Computed Claims Summary",
         "",
         f"- In the evaluated {expanded['source_label']} deterministic matrix, Hybrid Adaptive Kalman detected {int(expanded['metrics']['hybrid_adaptive_kalman']['detections'])}/{int(expanded['metrics']['hybrid_adaptive_kalman']['event_runs'])} event variants ({float(expanded['metrics']['hybrid_adaptive_kalman']['coverage']):.1f}% coverage) with {int(checks['hybrid_clean_alarm_runs'])} clean-run alarms across {int(expanded['metrics']['hybrid_adaptive_kalman']['clean_runs'])} clean variants.",
-        f"- In that matrix, Hybrid Adaptive Kalman had a mean detected-event latency of {float(checks['hybrid_mean_latency_ms']):.1f} ms and was fastest or tied-fastest in {int(checks['hybrid_fastest_or_tied_count'])}/{int(checks['event_variants'])} event variants.",
-        f"- Under the evaluated negative-stress profiles, the eight detectors produced {int(negative['alarm_runs'])} alarm runs across {int(negative['runs'])} detector/profile runs ({int(negative['variants'])} profiles per detector). This does not establish that false alarms are impossible.",
+        f"- In that matrix, Hybrid Adaptive Kalman had a mean detected-event latency of {float(checks['hybrid_mean_latency_ms']):.1f} ms and was fastest or tied-fastest among the seven paper-facing detectors in {int(expanded['metrics']['hybrid_adaptive_kalman']['paper_fastest'])}/{int(checks['event_variants'])} event variants.",
+        f"- Under the evaluated negative-stress profiles, the seven paper-facing detectors produced {int(negative['paper_alarm_runs'])} alarm runs across {int(negative['paper_runs'])} detector-profile runs ({int(negative['variants'])} profiles per detector). This does not establish that false alarms are impossible.",
         f"- In the representative RTL trigger/payload case studies, Hybrid Adaptive Kalman alarmed after payload activation for {int(rtl['hybrid_targets_detected'])}/{int(rtl['targets'])} HT targets. HT4 is a trace-driven composite of existing HT3, HT1, and HT2 effects, not an independent RTL module.",
-        f"- The evaluated detector implementations passed the sampled prefix-causality checks with no future-sample access reported: {'yes' if online['all_causal'] else 'no'}. On the evaluated host, all measured detector updates fit the {float(online['budget_ms']):g} ms simulated timestep budget: {'yes' if online['all_fit'] else 'no'}.",
-        f"- In the host-side simulation benchmark on the evaluated platform, all {int(benchmark['cases'])} cases completed faster than wall-clock real time: {'yes' if benchmark['all_faster'] else 'no'}. Hybrid Adaptive Kalman's mean real-time factor was {float(benchmark['hybrid_mean']):.3f}x.",
+        f"- The seven paper-facing detector implementations passed the sampled prefix-causality checks with no future-sample access reported: {'yes' if online['paper_all_causal'] else 'no'}. On the evaluated host, all measured updates fit the {float(online['budget_ms']):g} ms simulated timestep budget: {'yes' if online['paper_all_fit'] else 'no'}.",
+        f"- In the host-side simulation benchmark on the evaluated platform, all {int(benchmark['paper_cases'])} paper-facing detector-scenario cases completed faster than wall-clock real time: {'yes' if benchmark['paper_all_faster'] else 'no'}. Hybrid Adaptive Kalman's mean real-time factor was {float(benchmark['hybrid_mean']):.3f}x.",
         *parameter_claims,
         "",
         "These claims apply only to the evaluated deterministic profiles, parameters, traces, detector thresholds, and host. They do not imply production readiness, embedded certification, silicon validation, exhaustive fault/Trojan detection, or hard real-time guarantees.",
@@ -1893,7 +2016,7 @@ def consistency_checks(
     failures = []
     runtime_ids = {str(row["Runtime ID"]) for row in table1}
     if runtime_ids != set(DETECTORS):
-        failures.append("Detector-family table does not contain exactly the eight expected runtime IDs.")
+        failures.append("Detailed detector-family table does not contain exactly the eight expected runtime IDs.")
     if sum(row["Runtime ID"] == "hybrid_adaptive_kalman" for row in table1) != 1:
         failures.append("Hybrid Adaptive Kalman does not appear exactly once in the detector-family table.")
     if {str(row["HT ID"]) for row in rtl_rows} != {"HT1", "HT2", "HT3", "HT4"}:
@@ -1920,6 +2043,12 @@ def consistency_checks(
                 failures.append(f"Generated paper-ready CSV has no data rows: {path.name}")
             elif "Notes" in rows[0]:
                 failures.append(f"Paper-ready CSV retained a Notes column: {path.name}")
+            if any(
+                value == "adaptive_kalman_filter" or value == "Adaptive Kalman filter"
+                for row in rows
+                for value in row.values()
+            ):
+                failures.append(f"Paper-ready CSV retained the internal Adaptive Kalman variant: {path.name}")
     for path in figure_paths:
         if not path.is_file() or path.stat().st_size == 0:
             failures.append(f"Generated figure is missing or empty: {path.name}")
@@ -2081,6 +2210,7 @@ def main() -> int:
             "scenario_variants": as_int(parameter_config, "scenario_variant_count", as_int(hybrid_parameter, "total_event_variants")),
             "event_variants": as_int(hybrid_parameter, "total_event_variants"),
             "detector_runs": as_int(parameter_config, "detector_run_count", as_int(hybrid_parameter, "total_event_variants") * len(DETECTORS)),
+            "paper_detector_runs": as_int(parameter_config, "scenario_variant_count", as_int(hybrid_parameter, "total_event_variants")) * len(PAPER_DETECTORS),
             "hybrid_detected": as_int(hybrid_parameter, "detected_events"),
             "hybrid_coverage": as_float(hybrid_parameter, "coverage_percent"),
             "hybrid_median_latency": as_float(hybrid_parameter, "median_latency_ms"),
@@ -2115,6 +2245,8 @@ figure were inferred.
         timing_rows,
         throughput_rows,
         throughput_overall_rows,
+        expanded,
+        benchmark,
         ablation_available,
     )
     if parameter_available:
@@ -2180,7 +2312,8 @@ figure were inferred.
     (OUTPUT_DIR / "evidence_manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 
     print("\nConsistency report: PASS")
-    print(f"  Detectors: {len(DETECTORS)}")
+    print(f"  Raw/backend detectors: {len(DETECTORS)}")
+    print(f"  Paper-facing detectors: {len(PAPER_DETECTORS)} (six baselines + proposed Hybrid)")
     print(f"  Tables: {len(table_csvs)} CSV + {len(table_mds) + 1} Markdown")
     paper_count = 16 if parameter_available else 13
     print(f"  Paper-ready tables: {paper_count} CSV + {paper_count} Markdown + {paper_count} LaTeX")

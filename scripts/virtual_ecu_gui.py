@@ -105,6 +105,15 @@ PARAMETER_SWEEP_FIGURES: Sequence[Tuple[str, str]] = (
     ("Figure 12 — Hybrid Latency Advantage", "figure_12_hybrid_vs_baseline_sensitivity_summary.png"),
     ("Figure 13 — Security Manifestation Sensitivity Summary", "figure_13_security_ht_like_parameter_sensitivity.png"),
 )
+PAPER_FACING_DETECTOR_IDS = (
+    "builtin_ecu",
+    "threshold",
+    "ewma",
+    "cusum",
+    "thermal_observer",
+    "kalman_filter",
+    "hybrid_adaptive_kalman",
+)
 RTL_SECURITY_STUDY_DIR = (
     PROJECT_ROOT / "results" / "rtl_hardware_trojan_study_v1"
 )
@@ -307,7 +316,6 @@ PARAMETER_SWEEP_SUMMARY_TABLE_SPECS: Sequence[Tuple[str, str, int]] = (
     ("missed_detections", "Misses", 75),
     ("mean_latency_ms", "Mean Latency [ms]", 125),
     ("median_latency_ms", "Median Latency [ms]", 130),
-    ("fastest_tied_fastest_count", "Fastest / Tied", 105),
     ("clean_alarms", "Clean Alarms", 100),
 )
 PARAMETER_SWEEP_BREAKDOWN_TABLE_SPECS: Sequence[Tuple[str, str, int]] = (
@@ -6573,8 +6581,8 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             name: tk.StringVar(value="-")
             for name in (
                 "Scenario Variants",
-                "Detector Runs",
-                "Detectors",
+                "Paper-Facing Runs",
+                "Paper-Facing Detectors",
                 "Fault Groups",
                 "Security Variants",
                 "Hybrid Coverage",
@@ -10416,7 +10424,8 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             description=(
                 "Compact Trojan-case outcomes for the selected RTL target. "
                 "The detector focus above controls the card detail while this "
-                "table keeps all eight evaluated detectors visible."
+                "internal-analysis table keeps all eight evaluated backend detectors visible, "
+                "including the Adaptive Kalman development variant."
             ),
         )
         table_card.grid(row=2, column=0, sticky="ew", pady=(12, 0))
@@ -11380,7 +11389,8 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             title="Fault and Trojan-Parameter Sensitivity",
             description=(
                 "Run or inspect the deterministic severity, duration, and activation-timing "
-                "grid across all eight online runtime detectors."
+                "grid across all eight backend detectors. The paper-facing views below show "
+                "six standard/interpretable baselines plus the proposed Hybrid detector."
             ),
         )
 
@@ -11445,8 +11455,8 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
 
         summary_card = self._section_card(
             parent,
-            title="Compact Detector Summary",
-            description="Coverage and latency are computed from event variants; clean alarms use the clean reference row.",
+            title="Paper-Facing Detector Summary",
+            description="Six standard/interpretable baselines plus the proposed Hybrid detector are shown; the internal Adaptive Kalman development variant remains available in raw results and the detector backend.",
         )
         summary_card.grid(row=3, column=0, sticky="ew", padx=12, pady=(0, 12))
         summary_frame = self._card_content(summary_card)
@@ -11456,7 +11466,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             summary_frame,
             columns=summary_columns,
             show="headings",
-            height=8,
+            height=7,
             selectmode="browse",
         )
         for column, label, width in PARAMETER_SWEEP_SUMMARY_TABLE_SPECS:
@@ -11470,8 +11480,8 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
 
         breakdown_card = self._section_card(
             parent,
-            title="Parameter Breakdown",
-            description="Switch between fault-type, severity, and activation-timing aggregates.",
+            title="Paper-Facing Parameter Breakdown",
+            description="Switch between fault-type, severity, and activation-timing aggregates for the seven publication-facing detectors.",
         )
         breakdown_card.grid(row=4, column=0, sticky="ew", padx=12, pady=(0, 12))
         breakdown_frame = self._card_content(breakdown_card)
@@ -15099,8 +15109,9 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             return
         try:
             rows = read_csv_rows(path)
-            self.parameter_sweep_breakdown_rows = list(rows)
-            self._populate_parameter_sweep_breakdown_table(rows)
+            paper_rows = [row for row in rows if row.get("detector_id") in PAPER_FACING_DETECTOR_IDS]
+            self.parameter_sweep_breakdown_rows = paper_rows
+            self._populate_parameter_sweep_breakdown_table(paper_rows)
         except (OSError, csv.Error, RuntimeError, ValueError) as exc:
             if show_error:
                 messagebox.showerror("Parameter Sweep Load Failed", str(exc))
@@ -15114,6 +15125,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             return
         try:
             rows = read_csv_rows(PARAMETER_SWEEP_SUMMARY_CSV)
+            paper_rows = [row for row in rows if row.get("detector_id") in PAPER_FACING_DETECTOR_IDS]
             config = json.loads(PARAMETER_SWEEP_CONFIG.read_text(encoding="utf-8"))
             scenarios = list(config.get("scenarios", []))
             hybrid = next(row for row in rows if row.get("detector_id") == "hybrid_adaptive_kalman")
@@ -15127,8 +15139,9 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                 for scenario in scenarios
             )
             self.parameter_sweep_summary_vars["Scenario Variants"].set(str(config.get("scenario_variant_count", len(scenarios))))
-            self.parameter_sweep_summary_vars["Detector Runs"].set(str(config.get("detector_run_count", len(rows))))
-            self.parameter_sweep_summary_vars["Detectors"].set(str(len(rows)))
+            scenario_count = int(config.get("scenario_variant_count", len(scenarios)))
+            self.parameter_sweep_summary_vars["Paper-Facing Runs"].set(str(scenario_count * len(PAPER_FACING_DETECTOR_IDS)))
+            self.parameter_sweep_summary_vars["Paper-Facing Detectors"].set(f"{len(paper_rows)} (6 + Hybrid)")
             self.parameter_sweep_summary_vars["Fault Groups"].set(str(len(fault_groups)))
             self.parameter_sweep_summary_vars["Security Variants"].set(
                 str(security_variants) if security_variants else "Unavailable"
@@ -15144,13 +15157,13 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             self.parameter_sweep_summary_vars["Output Directory"].set(
                 str(PARAMETER_SWEEP_DIR.relative_to(PROJECT_ROOT))
             )
-            self.parameter_sweep_rows = list(rows)
-            self._populate_parameter_sweep_summary_table(rows)
+            self.parameter_sweep_rows = paper_rows
+            self._populate_parameter_sweep_summary_table(paper_rows)
             self.load_parameter_sweep_breakdown(show_error=False)
             self.parameter_sweep_status_text.set(
                 f"Loaded {config.get('mode', 'generated')} sweep results from "
-                f"{PARAMETER_SWEEP_DIR.relative_to(PROJECT_ROOT)}. Output directory: "
-                f"{PARAMETER_SWEEP_DIR.relative_to(PROJECT_ROOT)}."
+                f"{PARAMETER_SWEEP_DIR.relative_to(PROJECT_ROOT)}. Paper-facing view: "
+                f"{len(paper_rows)} detectors (six baselines plus Hybrid); the internal Adaptive Kalman variant remains in raw results."
             )
             self._refresh_parameter_sweep_figure_buttons()
         except (OSError, csv.Error, json.JSONDecodeError, RuntimeError, StopIteration, ValueError) as exc:
