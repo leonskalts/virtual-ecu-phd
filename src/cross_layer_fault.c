@@ -1,195 +1,5 @@
 #include "cross_layer_fault.h"
-
-#include <errno.h>
-#include <limits.h>
-#include <stdlib.h>
 #include <string.h>
-
-static int parse_uint(const char *text, unsigned int *value)
-{
-    char *end;
-    unsigned long number;
-    if (*text < '0' || *text > '9') {
-        return -1;
-    }
-    errno = 0;
-    number = strtoul(text, &end, 10);
-    if (errno || *end || number > UINT_MAX) {
-        return -1;
-    }
-    *value = (unsigned int)number;
-    return 0;
-}
-
-/* Remove only our options, preserving the legacy positional/suffix parser. */
-int cross_layer_parse_options(int *argc, char **argv, ecu_state_t *state)
-{
-    fault_descriptor_t *f = &state->cross_layer_fault;
-    const char *layer = NULL, *target = NULL;
-    bool configured = false, bit_supplied = false;
-    int read_index, write_index = 1;
-    *f = (fault_descriptor_t){
-        .fault_id = 1U, .model = FAULT_MODEL_LEGACY,
-        .behavior = FAULT_BEHAVIOR_TRANSIENT, .start_ms = 45000U,
-        .duration_ms = ECU_CONTROL_PERIOD_MS, .bit_index = 3U
-    };
-    for (read_index = 1; read_index < *argc; read_index++) {
-        const char *option = argv[read_index];
-        const char *value;
-        unsigned int number;
-        bool ours = strcmp(option, "--cross-layer-fault") == 0 ||
-            strcmp(option, "--fault-layer") == 0 || strcmp(option, "--fault-target") == 0 ||
-            strcmp(option, "--fault-behavior") == 0 || strcmp(option, "--fault-start-ms") == 0 ||
-            strcmp(option, "--fault-duration-ms") == 0 || strcmp(option, "--bit-index") == 0 ||
-            strcmp(option, "--seed") == 0 || strcmp(option, "--fault-id") == 0 ||
-            strcmp(option, "--cross-layer-monitor") == 0;
-        if (!ours) {
-            argv[write_index++] = argv[read_index];
-            continue;
-        }
-        if (++read_index >= *argc) {
-            fprintf(stderr, "Missing value for %s.\n", option);
-            return -1;
-        }
-        value = argv[read_index];
-        if (strcmp(option, "--cross-layer-monitor") == 0) {
-            if (strcmp(value, "on") != 0) {
-                fprintf(stderr, "--cross-layer-monitor expects on.\n");
-                return -1;
-            }
-            state->propagation.enabled = true;
-            continue;
-        }
-        if (strcmp(option, "--seed") == 0) {
-            if (parse_uint(value, &number) != 0) {
-                fprintf(stderr, "Seed must be an unsigned 32-bit integer.\n");
-                return -1;
-            }
-            f->seed = (uint32_t)number;
-            continue;
-        }
-        configured = true;
-        if (strcmp(option, "--cross-layer-fault") == 0) {
-            if (strcmp(value, "bit_flip") == 0) {
-                f->model = FAULT_MODEL_BIT_FLIP;
-            } else if (strcmp(value, "deadline_miss") == 0) {
-                f->model = FAULT_MODEL_DEADLINE_MISS;
-            } else {
-                fprintf(stderr, "Supported cross-layer faults: bit_flip, deadline_miss.\n");
-                return -1;
-            }
-            f->enabled = true;
-        } else if (strcmp(option, "--fault-layer") == 0) {
-            layer = value;
-        } else if (strcmp(option, "--fault-target") == 0) {
-            target = value;
-        } else if (strcmp(option, "--fault-behavior") == 0) {
-            if (strcmp(value, "transient") != 0) {
-                fprintf(stderr, "Only transient cross-layer behavior is implemented in v1.\n");
-                return -1;
-            }
-        } else {
-            if (parse_uint(value, &number) != 0) {
-                fprintf(stderr, "Invalid unsigned integer for %s: %s.\n", option, value);
-                return -1;
-            }
-            if (strcmp(option, "--fault-start-ms") == 0) f->start_ms = number;
-            if (strcmp(option, "--fault-duration-ms") == 0) f->duration_ms = number;
-            if (strcmp(option, "--fault-id") == 0) f->fault_id = number;
-            if (strcmp(option, "--bit-index") == 0) {
-                f->bit_index = number;
-                bit_supplied = true;
-            }
-        }
-    }
-    *argc = write_index;
-    argv[write_index] = NULL;
-    if (configured && !f->enabled) {
-        fprintf(stderr, "Cross-layer fault parameters require --cross-layer-fault.\n");
-        return -1;
-    }
-    if (!f->enabled) return 0;
-    f->layer = f->model == FAULT_MODEL_BIT_FLIP ? FAULT_LAYER_MEMORY : FAULT_LAYER_TIMING;
-    f->target = f->model == FAULT_MODEL_BIT_FLIP ?
-        FAULT_TARGET_CONTROL_TARGET_REGISTER : FAULT_TARGET_CONTROL_TASK;
-    if ((layer && strcmp(layer, f->layer == FAULT_LAYER_MEMORY ? "memory" : "timing") != 0) ||
-        (target && strcmp(target, f->target == FAULT_TARGET_CONTROL_TASK ?
-            "control_task" : "control_target_register") != 0) ||
-        (f->model == FAULT_MODEL_DEADLINE_MISS && bit_supplied)) {
-        fprintf(stderr, "Incompatible layer, target, or bit index for the selected fault.\n");
-        return -1;
-    }
-    state->propagation.enabled = true;
-    return 0;
-}
-
-int cross_layer_validate(const ecu_state_t *state)
-{
-    const fault_descriptor_t *f = &state->cross_layer_fault;
-    unsigned int duration = state->simulation.duration_ms;
-    if (state->propagation.enabled && (state->coolant_sensor_trace.enabled ||
-        state->fan_actual_trace.enabled || state->calibration_trace.enabled)) {
-        fprintf(stderr, "Cross-layer reference monitoring does not support external replay traces in v1.\n");
-        return -1;
-    }
-    if (!f->enabled) return 0;
-    if (state->experiment.event_count != 0U) {
-        fprintf(stderr, "Use baseline with new cross-layer faults; combined injections are reserved for a later version.\n");
-        return -1;
-    }
-    if (f->start_ms % ECU_CONTROL_PERIOD_MS || f->duration_ms == 0U ||
-        f->duration_ms % ECU_CONTROL_PERIOD_MS || f->start_ms >= duration ||
-        f->duration_ms > duration - f->start_ms ||
-        (f->model == FAULT_MODEL_BIT_FLIP && f->bit_index > 5U) ||
-        (f->model == FAULT_MODEL_DEADLINE_MISS && f->duration_ms != ECU_CONTROL_PERIOD_MS)) {
-        fprintf(stderr, "Cross-layer start/duration must align to 100 ms and end within the run; "
-            "duration must be positive. Bit index: 0..5. Deadline miss duration: exactly 100 ms.\n");
-        return -1;
-    }
-    return 0;
-}
-
-void cross_layer_fault_init(ecu_state_t *state)
-{
-    memset(&state->cross_layer_runtime, 0, sizeof(state->cross_layer_runtime));
-    state->cross_layer_runtime.expected_execution_ms = -1;
-    state->cross_layer_runtime.actual_execution_ms = -1;
-}
-
-/* Called only when the real control task is due, before its inputs are read. */
-bool cross_layer_control_execution(ecu_state_t *state)
-{
-    const fault_descriptor_t *f = &state->cross_layer_fault;
-    cross_layer_fault_state_t *r = &state->cross_layer_runtime;
-    unsigned int now = state->time.time_ms;
-    bool was_active = r->active;
-    r->execution_skipped = false;
-    r->execution_recovered = false;
-    r->expected_execution_ms = (int)now;
-    r->actual_execution_ms = (int)now;
-    r->active = f->enabled && now >= f->start_ms && now - f->start_ms < f->duration_ms;
-    if (r->active && !r->injected) {
-        r->injected = true;
-        state->propagation.injection_ms = (int)now;
-        state->propagation.internal_ms = (int)now;
-        if (f->model == FAULT_MODEL_BIT_FLIP) {
-            r->memory_original_value = state->control.target_register_c;
-            r->memory_corrupted_value = (uint16_t)(r->memory_original_value ^ (1U << f->bit_index));
-            r->memory_values_valid = true;
-            state->control.target_register_c = r->memory_corrupted_value;
-        }
-    }
-    if (was_active && !r->active && r->memory_values_valid) {
-        state->control.target_register_c = r->memory_original_value;
-    }
-    if (r->active && f->model == FAULT_MODEL_DEADLINE_MISS) {
-        r->execution_skipped = true;
-        r->actual_execution_ms = -1;
-    }
-    r->execution_recovered = r->previous_execution_skipped && !r->execution_skipped;
-    r->previous_execution_skipped = r->execution_skipped;
-    return !r->execution_skipped;
-}
 
 void cross_layer_csv_header(FILE *stream)
 {
@@ -208,10 +18,9 @@ void cross_layer_csv_row(FILE *stream, const ecu_state_t *state)
     const cross_layer_fault_state_t *r = &state->cross_layer_runtime;
     fprintf(stream, ",%d", f->enabled);
     if (f->enabled) {
-        fprintf(stream, ",%u,%s,%s,transient,%s,%u,%u", f->fault_id,
-            f->layer == FAULT_LAYER_MEMORY ? "memory" : "timing",
-            f->model == FAULT_MODEL_BIT_FLIP ? "bit_flip" : "deadline_miss",
-            f->target == FAULT_TARGET_CONTROL_TASK ? "control_task" : "control_target_register",
+        fprintf(stream, ",%u,%s,%s,%s,%s,%u,%u", f->fault_id,
+            cross_layer_layer_name(f->layer), cross_layer_model_name(f->model),
+            cross_layer_behavior_name(f->behavior), cross_layer_target_name(f->target),
             f->start_ms, f->duration_ms);
     } else {
         fputs(",,,,,,,", stream);
@@ -223,9 +32,170 @@ void cross_layer_csv_row(FILE *stream, const ecu_state_t *state)
         fputs(",,,", stream);
     }
     /* A skipped task has no actual execution or delay-to-execution value. */
-    fprintf(stream, ",%d,%d,", r->execution_skipped, r->execution_skipped);
-    if (!r->execution_skipped) fputc('0', stream);
+    fprintf(stream, ",%d,%d,", r->deadline_missed, r->execution_skipped);
+    if (!r->execution_skipped) fprintf(stream, "%u", r->actual_delay_ms);
     fprintf(stream, ",%d,", r->expected_execution_ms);
     if (r->actual_execution_ms >= 0) fprintf(stream, "%d", r->actual_execution_ms);
     fprintf(stream, ",%d,%d", r->execution_recovered, state->control.last_execution_ms);
+}
+
+void cross_layer_fault_init(ecu_state_t *state)
+{
+    cross_layer_fault_state_t *r = &state->cross_layer_runtime;
+    memset(r, 0, sizeof(*r));
+    r->expected_execution_ms = r->actual_execution_ms = -1;
+    r->last_activation_ms = r->last_recovery_ms = -1;
+    r->nominal_release_ms = r->job_due_ms = r->deadline_ms = -1;
+    r->delivered_ms = r->replay_source_ms = -1;
+    r->delivered_value = state->sensors.coolant_temp_meas_c;
+}
+
+/* One temporal policy for every new injector. Intermittent duration bounds the
+ * entire train; active/off windows are half-open and phase-locked to start. */
+void cross_layer_fault_step(ecu_state_t *state)
+{
+    const fault_descriptor_t *f = &state->cross_layer_fault;
+    cross_layer_fault_state_t *r = &state->cross_layer_runtime;
+    unsigned int now = state->time.time_ms;
+    bool was_active = r->active;
+    r->active = false;
+    r->phase = !f->enabled ? FAULT_PHASE_DISABLED : FAULT_PHASE_WAITING;
+    if (f->enabled && now >= f->start_ms) {
+        unsigned int elapsed = now - f->start_ms;
+        if (f->behavior != FAULT_BEHAVIOR_PERMANENT && elapsed >= f->duration_ms) {
+            r->phase = FAULT_PHASE_RECOVERED;
+        } else {
+            r->active = f->behavior != FAULT_BEHAVIOR_INTERMITTENT ||
+                elapsed % (f->intermittent_on_ms + f->intermittent_off_ms) < f->intermittent_on_ms;
+            r->phase = r->active ? FAULT_PHASE_ACTIVE : FAULT_PHASE_INACTIVE;
+        }
+    }
+    if (r->active && !was_active) {
+        r->activation_count++;
+        r->last_activation_ms = (int)now;
+        r->active_update_count = 0;
+        if (!r->injected) {
+            r->injected = true;
+            state->propagation.injection_ms = (int)now;
+        }
+        if (f->layer == FAULT_LAYER_MEMORY) {
+            r->memory_original_value = state->control.target_register_c;
+            r->memory_values_valid = true;
+            if (f->model == FAULT_MODEL_BIT_FLIP) {
+                state->control.target_register_c ^= (uint16_t)(1U << f->bit_index);
+            }
+        }
+    }
+    if (was_active && !r->active) {
+        r->last_recovery_ms = (int)now;
+        if (r->memory_values_valid) state->control.target_register_c = r->memory_original_value;
+    }
+    if (r->active && f->layer == FAULT_LAYER_MEMORY) {
+        if (f->model == FAULT_MODEL_STUCK_BIT) {
+            uint16_t mask = (uint16_t)(1U << f->bit_index);
+            state->control.target_register_c = f->stuck_polarity ?
+                state->control.target_register_c | mask : state->control.target_register_c & (uint16_t)~mask;
+        }
+        r->memory_corrupted_value = state->control.target_register_c;
+        if (r->memory_corrupted_value != r->memory_original_value && state->propagation.internal_ms < 0)
+            state->propagation.internal_ms = (int)now;
+    }
+}
+
+bool cross_layer_control_execution(ecu_state_t *state)
+{
+    const fault_descriptor_t *f = &state->cross_layer_fault;
+    cross_layer_fault_state_t *r = &state->cross_layer_runtime;
+    int now = (int)state->time.time_ms;
+    bool execute = true;
+    r->execution_skipped = r->execution_recovered = r->deadline_missed = r->release_discarded = false;
+    r->expected_execution_ms = now;
+    r->actual_execution_ms = now;
+    r->actual_delay_ms = 0;
+    if (f->enabled && f->model == FAULT_MODEL_TASK_DELAY) {
+        if (r->pending_job) {
+            /* Single outstanding job: discard releases while pending, including
+             * the release coincident with delayed completion. No catch-up burst. */
+            r->release_discarded = true;
+            execute = now >= r->job_due_ms;
+            if (execute) {
+                r->pending_job = false;
+                r->actual_delay_ms = (unsigned int)(now - r->nominal_release_ms);
+                r->deadline_missed = now > r->deadline_ms;
+            } else r->deadline_missed = now >= r->deadline_ms;
+        } else {
+            r->nominal_release_ms = now;
+            r->deadline_ms = now + (int)ECU_CONTROL_PERIOD_MS;
+            if (r->active) {
+                r->pending_job = true;
+                r->job_due_ms = now + (int)f->task_delay_ms;
+                execute = false;
+            }
+        }
+    } else {
+        r->nominal_release_ms = now;
+        r->deadline_ms = now + (int)ECU_CONTROL_PERIOD_MS;
+        if (r->active && f->model == FAULT_MODEL_DEADLINE_MISS) {
+            execute = false;
+            r->deadline_missed = true;
+        }
+    }
+    r->execution_skipped = !execute;
+    if (!execute) {
+        r->actual_execution_ms = -1;
+        if (state->propagation.internal_ms < 0) state->propagation.internal_ms = now;
+    }
+    r->execution_recovered = r->previous_execution_skipped && execute;
+    r->previous_execution_skipped = !execute;
+    return execute;
+}
+
+void cross_layer_v2_csv_header(FILE *stream)
+{
+    fputs(",fault_active,fault_activation_count,current_fault_phase,last_activation_ms,last_recovery_ms,"
+        "intermittent_on_ms,intermittent_off_ms,stuck_polarity,"
+        "nominal_release_ms,actual_execution_ms,task_delay_ms,deadline_ms,deadline_missed,execution_skipped,"
+        "control_release_discarded,configured_task_delay_ms,"
+        "sample_generated_ms,sample_delivered_ms,sample_age_ms,update_delayed,configured_delay_ms,"
+        "update_generated,update_delivered,update_dropped,consecutive_drops,"
+        "current_generated_value,delivered_value,replay_source_timestamp_ms,replay_active,"
+        "communication_drop_count,drop_every_n_updates,replay_age_ms,total_drops", stream);
+}
+static void optional_ms(FILE *stream, int time)
+{
+    fputc(',',stream); if (time >= 0) fprintf(stream,"%d",time);
+}
+void cross_layer_v2_csv_row(FILE *stream, const ecu_state_t *state)
+{
+    const fault_descriptor_t *f = &state->cross_layer_fault;
+    const cross_layer_fault_state_t *r = &state->cross_layer_runtime;
+    static const char *phases[] = {"disabled","waiting","active","inactive","recovered"};
+    fprintf(stream,",%d,%u,%s",r->active,r->activation_count,phases[r->phase]);
+    optional_ms(stream,r->last_activation_ms); optional_ms(stream,r->last_recovery_ms);
+    if (f->enabled && f->behavior == FAULT_BEHAVIOR_INTERMITTENT)
+        fprintf(stream,",%u,%u",f->intermittent_on_ms,f->intermittent_off_ms);
+    else fputs(",,",stream);
+    fputc(',',stream);
+    if (f->enabled && f->model == FAULT_MODEL_STUCK_BIT) fprintf(stream,"%u",f->stuck_polarity);
+    optional_ms(stream,r->nominal_release_ms); optional_ms(stream,r->actual_execution_ms);
+    fputc(',',stream); if (r->actual_execution_ms >= 0) fprintf(stream,"%u",r->actual_delay_ms);
+    fprintf(stream,",%d,%d,%d,%d,",r->deadline_ms,r->deadline_missed,r->execution_skipped,r->release_discarded);
+    if (f->enabled && f->model == FAULT_MODEL_TASK_DELAY) fprintf(stream,"%u",f->task_delay_ms);
+    if (f->enabled && f->layer == FAULT_LAYER_COMMUNICATION) {
+        fprintf(stream,",%u",r->generated_ms); optional_ms(stream,r->delivered_ms);
+        fprintf(stream,",%u,%d,",state->time.time_ms-r->delivered_source_ms,r->update_delayed);
+        if (f->model == FAULT_MODEL_DELAYED_UPDATE) fprintf(stream,"%u",f->communication_delay_ms);
+        fprintf(stream,",%d,%d,%d,%u,%.9f,%.9f",r->update_generated,r->update_delivered,
+            r->update_dropped,r->consecutive_drops,r->generated_value,r->delivered_value);
+        optional_ms(stream,r->replay_source_ms);
+        fprintf(stream,",%d,",r->replay_active);
+        if (f->model == FAULT_MODEL_DROPPED_UPDATE) fprintf(stream,"%u",f->drop_count);
+        fputc(',',stream);
+        if (f->model == FAULT_MODEL_DROPPED_UPDATE) fprintf(stream,"%u",f->drop_every_n_updates);
+        fputc(',',stream);
+        if (f->model == FAULT_MODEL_REPLAYED_SAMPLE) fprintf(stream,"%u",f->replay_age_ms);
+        fprintf(stream,",%u",r->total_drops);
+    } else {
+        for (unsigned int i=0;i<17;i++) fputc(',',stream);
+    }
 }

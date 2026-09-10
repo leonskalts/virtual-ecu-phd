@@ -37,6 +37,7 @@ void scheduler_init(ecu_state_t *state)
     metrics_init(state);
     cross_layer_fault_init(state);
     propagation_monitor_init(state);
+    hazard_model_init(&state->hazard);
     detection_algorithm_init(
         &state->detection,
         state->detection.selected_algorithm,
@@ -49,6 +50,7 @@ void scheduler_init(ecu_state_t *state)
 static void scheduler_inputs(ecu_state_t *state)
 {
     fault_injection_step(state);
+    cross_layer_fault_step(state);
     if (scheduler_task_due(state->time.time_ms, ECU_SENSOR_PERIOD_MS)) {
         sensors_step(state);
     }
@@ -112,7 +114,16 @@ void scheduler_run(ecu_state_t *state)
             scheduler_reactions(&reference);
         }
         scheduler_reactions(state);
-        if (monitored) propagation_monitor_step(state, &reference);
+        if (monitored) {
+            propagation_monitor_step(state, &reference);
+            if (state->hazard_config.enabled) {
+                runtime_observation_t observation;
+                experiment_ground_truth_t truth;
+                runtime_observation_capture(state, &observation);
+                experiment_ground_truth_capture(state, &reference, &truth);
+                hazard_model_step(&state->hazard_config, &state->hazard, &observation, &truth);
+            }
+        }
         if (scheduler_task_due(state->time.time_ms, ECU_LOG_PERIOD_MS)) {
             logger_write(state);
         }

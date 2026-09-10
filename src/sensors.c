@@ -2,6 +2,7 @@
 
 #include "config.h"
 #include "sensor_trace.h"
+#include "cross_layer_fault.h"
 
 /* Sensor module: exposes the plant through measured channels so experiments can
  * compare true and measured signals while keeping the ECU interfaces explicit.
@@ -110,8 +111,15 @@ void sensors_step(ecu_state_t *state)
         coolant_refreshed = true;
     }
 
+    unsigned int source_ms = state->time.time_ms;
+    cross_layer_sensor_delivery(state, coolant_meas, &coolant_meas, &coolant_refreshed, &source_ms);
     state->sensors.coolant_temp_meas_c = coolant_meas;
-    update_coolant_sensor_freshness(state, coolant_refreshed);
+    if (state->cross_layer_fault.enabled && state->cross_layer_fault.layer == FAULT_LAYER_COMMUNICATION) {
+        state->sensors.coolant_sensor_last_update_ms = source_ms;
+        update_coolant_sensor_freshness(state, false);
+    } else {
+        update_coolant_sensor_freshness(state, coolant_refreshed);
+    }
     state->sensors.radiator_temp_meas_c = state->plant.radiator_temp_true_c;
     state->sensors.ambient_temp_meas_c = state->plant.ambient_temp_c;
     state->sensors.vehicle_speed_meas_kph = state->plant.vehicle_speed_kph;

@@ -1,0 +1,174 @@
+schema_version: 1
+study_id: cross_layer_vts_candidate_v1
+max_runs: 300
+include_baseline: true
+seeds:
+- 42
+seed_note: All current faults are deterministic. One seed avoids artificial stochastic
+  replication.
+injection_times_ms:
+- 20100
+- 60100
+- 90100
+profiles:
+- id: nominal
+  duration_ms: 120000
+  path: null
+- id: high_load_profile
+  duration_ms: 300000
+  path: profiles/driving/example_driving_profile.csv
+  injection_times_ms:
+  - 20100
+  - 150100
+  - 220100
+detectors:
+- algorithm: hybrid_adaptive_kalman
+  action: observe_only
+hazard:
+  warning_threshold_c: 108
+  critical_threshold_c: 115
+  max_critical_exposure_ms: 1000
+  fault_tolerant_time_interval_ms: 5000
+  recovery_hold_ms: 1000
+fault_cases:
+- id: bit_flip
+  layer: memory
+  model: bit_flip
+  target: control_target_register
+  behavior: transient
+  parameters: {}
+  grid:
+    bit_index:
+    - 0
+    - 3
+    - 5
+    duration_ms:
+    - 100
+    - 1000
+- id: stuck_permanent
+  layer: memory
+  model: stuck_bit
+  target: control_target_register
+  behavior: permanent
+  parameters: {}
+  grid:
+    bit_index:
+    - 3
+    - 5
+    stuck_polarity:
+    - 0
+    - 1
+- id: stuck_intermittent
+  layer: memory
+  model: stuck_bit
+  target: control_target_register
+  behavior: intermittent
+  parameters:
+    duration_ms: 10000
+    bit_index: 5
+    stuck_polarity: 1
+    intermittent_off_ms: 500
+  grid:
+    intermittent_on_ms:
+    - 100
+    - 1000
+- id: deadline_single
+  layer: timing
+  model: deadline_miss
+  target: control_task
+  behavior: transient
+  parameters:
+    duration_ms: 100
+  grid: {}
+- id: deadline_intermittent
+  layer: timing
+  model: deadline_miss
+  target: control_task
+  behavior: intermittent
+  parameters:
+    duration_ms: 10000
+    intermittent_off_ms: 500
+  grid:
+    intermittent_on_ms:
+    - 100
+    - 500
+- id: task_delay
+  layer: timing
+  model: task_delay
+  target: control_task
+  behavior: transient
+  parameters:
+    duration_ms: 100
+  grid:
+    task_delay_ms:
+    - 200
+    - 2000
+- id: task_intermittent
+  layer: timing
+  model: task_delay
+  target: control_task
+  behavior: intermittent
+  parameters:
+    duration_ms: 10000
+    intermittent_on_ms: 500
+    intermittent_off_ms: 1000
+  grid:
+    task_delay_ms:
+    - 200
+    - 2000
+- id: delayed_data
+  layer: communication
+  model: delayed_update
+  target: coolant_sensor
+  behavior: transient
+  parameters:
+    duration_ms: 20000
+  grid:
+    communication_delay_ms:
+    - 300
+    - 10000
+- id: dropped_data
+  layer: communication
+  model: dropped_update
+  target: coolant_sensor
+  behavior: transient
+  parameters:
+    duration_ms: 10000
+  grid:
+    drop_count:
+    - 1
+    - 5
+    drop_every_n_updates:
+    - 0
+    - 10
+- id: replayed_data
+  layer: communication
+  model: replayed_sample
+  target: coolant_sensor
+  behavior: transient
+  parameters:
+    duration_ms: 20000
+  grid:
+    replay_age_ms:
+    - 300
+    - 15000
+- id: sensor_bias
+  layer: sensing_control
+  model: sensor_bias
+  target: coolant_sensor
+  behavior: transient
+  parameters:
+    duration_ms: 10000
+  grid:
+    parameter:
+    - 2
+    - 6
+- id: fan_stuck
+  layer: actuator
+  model: fan_stuck_off
+  target: fan
+  behavior: permanent
+  parameters:
+    duration_ms: 0
+    parameter: 0
+  grid: {}

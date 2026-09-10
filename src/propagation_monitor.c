@@ -143,7 +143,8 @@ void propagation_monitor_csv_row(FILE *stream, const ecu_state_t *state)
     optional_int(stream, evaluated, p->safe_state_ms >= 0);
     optional_int(stream, evaluated, p->unsafe_state_entered);
     optional_int(stream, evaluated, (int)p->unsafe_exposure_time_ms);
-    fputc(',', stream); /* Containment needs a hazard/FTTI contract; unavailable in v1. */
+    optional_int(stream, state->hazard_config.enabled && state->hazard.containment_success >= 0,
+        state->hazard.containment_success);
     optional_int(stream, evaluated, p->internal_ms >= 0 && p->detector_ms < 0);
     fputc(',', stream);
     if (p->enabled) fprintf(stream, "%.9f", p->reference_coolant_c);

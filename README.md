@@ -28,6 +28,24 @@ transistor- or circuit-level model, silicon-proven Trojan validation, embedded
 hardware certification, or a hard real-time guarantee. Its results apply to
 the evaluated model, profiles, parameters, traces, and host environment.
 
+## Cross-Layer Safety v2
+
+The existing safety page now supports transient, intermittent, and permanent
+faults, stuck-at register corruption, delayed/dropped/replayed sensor delivery,
+and real delayed control execution. Opt-in experimental hazard, containment,
+and FTTI assessment uses separate evaluation data; detectors remain unchanged.
+
+```bash
+make
+python3 scripts/run_cross_layer_campaign.py studies/cross_layer_vts_candidate_v1.yaml
+```
+
+The YAML-configured candidate campaign generates 182 runs, denominator-explicit
+statistics, propagation timelines, and research figures under
+`results/cross_layer_safety_v2/`. Existing v1 evidence is preserved.
+See [v2 architecture and metric contracts](docs/cross_layer_safety_architecture.md)
+and the [observability boundary](docs/detector_observability_boundary.md).
+
 ## Cross-Layer Safety Foundation
 
 The cross-layer automotive Virtual ECU safety experimentation platform now

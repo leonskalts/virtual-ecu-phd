@@ -81,6 +81,10 @@ def summarize_rows(rows: Sequence[Mapping[str, str]]) -> dict[str, object]:
         ("plant_manifestation", "propagation_plant_ms"), ("detected", "propagation_detector_ms"),
     ):
         result[label] = int(result[key] is not None) if available else None
+    for key in V2_METRICS:
+        result[key] = optional_int(last, key)
+    result["propagation_path_signature"] = last.get("propagation_path_signature") or None
+    result["hazard_telemetry_available"] = last.get("hazard_monitor_enabled") == "1"
     return result
 
 
@@ -88,19 +92,51 @@ def load_summary(path: Path) -> dict[str, object]:
     return summarize_rows(read_rows(path))
 
 
+MODEL_TARGETS = {
+    "bit_flip": ("memory", "control_target_register"),
+    "stuck_bit": ("memory", "control_target_register"),
+    "deadline_miss": ("timing", "control_task"),
+    "task_delay": ("timing", "control_task"),
+    "delayed_update": ("communication", "coolant_sensor"),
+    "dropped_update": ("communication", "coolant_sensor"),
+    "replayed_sample": ("communication", "coolant_sensor"),
+}
+V2_METRICS = (
+    "hazard_entry_ms", "hazard_exit_ms", "hazard_entered", "critical_exposure_time_ms",
+    "detected_before_hazard", "safe_state_before_hazard", "containment_time_ms",
+    "containment_latency_ms", "ftti_met", "max_propagation_stage", "fault_activation_count",
+    "last_activation_ms", "last_recovery_ms", "preexisting_hazard",
+)
+
+
 def fault_options(model: str, start_ms: int = 45000, duration_ms: int = 100,
-                  bit_index: int = 5, seed: int = 42, fault_id: int = 1) -> list[str]:
-    if model not in ("bit_flip", "deadline_miss"):
-        raise ValueError("Supported fault models: bit_flip, deadline_miss")
-    options = ["--cross-layer-fault", model, "--fault-layer",
-               "memory" if model == "bit_flip" else "timing", "--fault-target",
-               "control_target_register" if model == "bit_flip" else "control_task",
-               "--fault-behavior", "transient", "--fault-start-ms", str(start_ms),
-               "--fault-duration-ms", str(duration_ms), "--seed", str(seed),
-               "--fault-id", str(fault_id)]
-    if model == "bit_flip":
-        options += ["--bit-index", str(bit_index)]
-    return options
+                  bit_index: int = 5, seed: int = 42, fault_id: int = 1,
+                  behavior: str = "transient", intermittent_on_ms: int = 100,
+                  intermittent_off_ms: int = 100, stuck_polarity: int = 1,
+                  communication_delay_ms: int = 300, drop_count: int = 3,
+                  drop_every_n_updates: int = 0, replay_age_ms: int = 500,
+                  task_delay_ms: int = 200) -> list[str]:
+    if model not in MODEL_TARGETS:
+        raise ValueError(f"Unsupported fault model: {model}")
+    layer, target = MODEL_TARGETS[model]
+    values = {"cross-layer-fault": model, "fault-layer": layer, "fault-target": target,
+              "fault-behavior": behavior, "fault-start-ms": start_ms,
+              "fault-duration-ms": duration_ms, "seed": seed, "fault-id": fault_id}
+    if layer == "memory":
+        values["bit-index"] = bit_index
+    if model == "stuck_bit":
+        values["stuck-polarity"] = stuck_polarity
+    if behavior == "intermittent":
+        values.update({"intermittent-on-ms": intermittent_on_ms, "intermittent-off-ms": intermittent_off_ms})
+    if model == "delayed_update":
+        values["communication-delay-ms"] = communication_delay_ms
+    if model == "dropped_update":
+        values.update({"drop-count": drop_count, "drop-every-n-updates": drop_every_n_updates})
+    if model == "replayed_sample":
+        values["replay-age-ms"] = replay_age_ms
+    if model == "task_delay":
+        values["task-delay-ms"] = task_delay_ms
+    return [token for key, value in values.items() for token in ("--" + key, str(value))]
 
 
 def run_experiment(path: Path, campaign_args: Sequence[str], options: Sequence[str],

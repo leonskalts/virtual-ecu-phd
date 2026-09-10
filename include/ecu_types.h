@@ -5,6 +5,7 @@
 #include "detection_algorithm.h"
 #include "fault_model.h"
 #include "propagation_monitor.h"
+#include "hazard_model.h"
 
 #include <stdbool.h>
 #include <stdio.h>
@@ -277,6 +278,8 @@ typedef struct ecu_state {
     fault_descriptor_t cross_layer_fault;
     cross_layer_fault_state_t cross_layer_runtime;
     propagation_monitor_t propagation;
+    hazard_config_t hazard_config;
+    hazard_status_t hazard;
     experiment_metrics_t metrics;
     detection_algorithm_state_t detection;
     FILE *log_file;

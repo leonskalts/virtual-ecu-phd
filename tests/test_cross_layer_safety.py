@@ -123,11 +123,11 @@ class CrossLayerSafetyTests(unittest.TestCase):
 
     def test_invalid_configurations_fail(self):
         for options in (
-            ["--cross-layer-fault", "stuck_bit"],
+            ["--cross-layer-fault", "unknown_model"],
             ["--cross-layer-fault", "bit_flip", "--bit-index", "6"],
             ["--cross-layer-fault", "bit_flip", "--fault-start-ms", "45001"],
             ["--cross-layer-fault", "bit_flip", "--fault-duration-ms", "0"],
-            ["--cross-layer-fault", "bit_flip", "--fault-behavior", "permanent"],
+            ["--cross-layer-fault", "bit_flip", "--fault-behavior", "randomized"],
             ["--cross-layer-fault", "bit_flip", "--fault-layer", "timing"],
             ["--cross-layer-fault", "bit_flip", "--fault-target", "fan"],
             ["--cross-layer-fault", "bit_flip", "--fault-strat-ms", "45000"],

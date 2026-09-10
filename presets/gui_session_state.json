@@ -12,7 +12,7 @@
     "presentation_mode": false,
     "right_campaign": "calibration_memory_corruption",
     "selected_favorite_title": "",
-    "selected_main_tab": 2,
+    "selected_main_tab": 10,
     "selected_showcase_title": "Baseline vs Fan Hot Stress"
   },
   "custom_single_fault": {
@@ -27,7 +27,7 @@
   "loaded_results": {
     "current_comparison_left": "logs/gui_left_pump_degraded_only.csv",
     "current_comparison_right": "logs/gui_right_calibration_memory_corruption.csv",
-    "last_custom_result": "logs/gui_custom/custom_multi_e1_fan_stuck_off_permanent_start65000_dur0_param0__e2_calibration_memory_corruption_permanent_start100000_dur0_param16.csv",
+    "last_custom_result": "",
     "left_slot_result": "logs/gui_left_pump_degraded_only.csv",
     "right_slot_result": "logs/gui_right_calibration_memory_corruption.csv"
   },
