@@ -23,6 +23,8 @@ OUTPUT_DIR = RESULTS_ROOT / "paper_evidence_security_v1"
 TABLE_DIR = OUTPUT_DIR / "tables"
 PAPER_TABLE_DIR = OUTPUT_DIR / "tables_paper_ready"
 FIGURE_DIR = OUTPUT_DIR / "figures"
+PAPER_FIGURE_DIR = OUTPUT_DIR / "figures_paper_ready"
+METHODOLOGY_NOTE_DIR = OUTPUT_DIR / "methodology_notes"
 
 DETECTORS = (
     "builtin_ecu",
@@ -64,6 +66,12 @@ DETECTOR_COLORS = {
     "adaptive_kalman_filter": "#0284c7",
     "hybrid_adaptive_kalman": "#0f766e",
 }
+RTL_TROJAN_CASES = (
+    ("ht1_coolant_sensor", "HT1", "Coolant sensor payload", "HT1 Sensor"),
+    ("ht2_fan_driver", "HT2", "Fan-output suppression", "HT2 Fan"),
+    ("ht3_calibration_memory", "HT3", "Calibration target payload", "HT3 Calib."),
+    ("ht4_multi_stage_chain", "HT4", "Multi-stage manifestation", "HT4 Multi-stage"),
+)
 FAULT_CLASS_ORDER = (
     "Sensing path",
     "Actuator path",
@@ -233,6 +241,63 @@ def write_paper_ready_table(
     return csv_path, md_path, tex_path
 
 
+def rtl_trojan_latency_matrix_rows(
+    comparison: Sequence[Mapping[str, object]],
+) -> List[Dict[str, object]]:
+    """Build the paper matrix from recorded post-payload RTL-study latency fields."""
+    detector_columns = (
+        ("builtin_ecu", "Built-in ECU diag."),
+        ("threshold", "Threshold"),
+        ("ewma", "EWMA"),
+        ("cusum", "CUSUM"),
+        ("thermal_observer", "Thermal obs."),
+        ("kalman_filter", "Kalman"),
+        ("hybrid_adaptive_kalman", "Hybrid Kalman"),
+    )
+    if tuple(detector for detector, _column in detector_columns) != PAPER_DETECTORS:
+        raise ValueError("RTL latency matrix detector order differs from PAPER_DETECTORS.")
+
+    rows: List[Dict[str, object]] = []
+    for target_id, ht_id, manifestation, _short_label in RTL_TROJAN_CASES:
+        output_row: Dict[str, object] = {
+            "HT ID": ht_id,
+            "Manifestation": manifestation,
+        }
+        for detector, column in detector_columns:
+            matches = [
+                row
+                for row in comparison
+                if row.get("rtl_target_id") == target_id
+                and row.get("variant") == "trojan"
+                and row.get("detector") == detector
+            ]
+            if len(matches) != 1:
+                raise ValueError(
+                    f"Expected one Trojan RTL result for {target_id}/{detector}; "
+                    f"found {len(matches)}."
+                )
+            source = matches[0]
+            if as_int(source, "detected_after_payload") == 0:
+                output_row[column] = "MISS"
+                continue
+
+            activation_ms = as_int(source, "rtl_trojan_trigger_time_ms", -1)
+            first_alarm_ms = as_int(source, "runtime_detection_first_detection_ms", -1)
+            latency_ms = as_int(source, "detection_latency_from_payload_ms", -1)
+            if activation_ms < 0 or first_alarm_ms < activation_ms:
+                raise ValueError(
+                    f"Invalid post-payload alarm timing for {target_id}/{detector}."
+                )
+            if latency_ms != first_alarm_ms - activation_ms:
+                raise ValueError(
+                    f"Recorded post-payload latency mismatch for {target_id}/{detector}: "
+                    f"{latency_ms} != {first_alarm_ms} - {activation_ms}."
+                )
+            output_row[column] = latency_ms
+        rows.append(output_row)
+    return rows
+
+
 def paper_ready_tables(
     table1: Sequence[Mapping[str, object]],
     table2: Sequence[Mapping[str, object]],
@@ -240,6 +305,7 @@ def paper_ready_tables(
     class_rows: Sequence[Mapping[str, object]],
     heatmap_rows: Sequence[Mapping[str, object]],
     negative_rows: Sequence[Mapping[str, object]],
+    rtl_comparison: Sequence[Mapping[str, object]],
     rtl_rows: Sequence[Mapping[str, object]],
     timing_rows: Sequence[Mapping[str, object]],
     throughput_rows: Sequence[Mapping[str, object]],
@@ -422,6 +488,26 @@ def paper_ready_tables(
         negative_compact,
     )
 
+    rtl_latency_columns = (
+        "HT ID",
+        "Manifestation",
+        "Built-in ECU diag.",
+        "Threshold",
+        "EWMA",
+        "CUSUM",
+        "Thermal obs.",
+        "Kalman",
+        "Hybrid Kalman",
+    )
+    add(
+        "paper_table_3_rtl_trojan_latency_matrix",
+        "Table 3: RTL Trojan manifestation detection latency after payload activation.",
+        "RTL Trojan manifestation detection latency after payload activation.",
+        "Latency is measured after RTL Trojan payload activation. MISS indicates no post-payload alarm under the evaluated trace/replay boundary.",
+        rtl_latency_columns,
+        rtl_trojan_latency_matrix_rows(rtl_comparison),
+    )
+
     rtl_definition_text = {
         "HT1": ("Sensor ≥ 95.0 °C for 8 consecutive cycles", "Subtract 8.0 °C from reported sample", "Verilator RTL simulation + Virtual ECU trace replay"),
         "HT2": ("Fan command ≥ 0.500 for 8 consecutive cycles", "Force realized fan output to 0.000", "Verilator RTL simulation + Virtual ECU trace replay"),
@@ -561,6 +647,192 @@ def paper_ready_tables(
             for row in throughput_rows
             if str(row["Detector"]) in paper_labels
         ],
+    )
+    return paths
+
+
+def trojan_focused_paper_tables(
+    rtl_comparison: Sequence[Mapping[str, object]],
+    rtl_taxonomy: Sequence[Mapping[str, object]],
+    expanded: Mapping[str, object],
+    negative_rows: Sequence[Mapping[str, object]],
+    timing_rows: Sequence[Mapping[str, object]],
+) -> List[Path]:
+    """Write the compact Tables A-D for the scenario-driven Trojan paper."""
+    paths: List[Path] = []
+
+    def add(
+        stem: str,
+        title: str,
+        caption: str,
+        note: str,
+        columns: Sequence[str],
+        rows: Sequence[Mapping[str, object]],
+    ) -> None:
+        paths.extend(write_paper_ready_table(stem, title, caption, note, columns, rows))
+
+    taxonomy_by_id = {str(row["rtl_target_id"]): row for row in rtl_taxonomy}
+    path_text = {
+        "HT1": "Sensing path",
+        "HT2": "Actuation path",
+        "HT3": "Calibration/control path",
+        "HT4": "Sensor, actuation, and calibration paths",
+    }
+    challenge_text = {
+        "HT1": "The corrupted observation can remain thermally plausible.",
+        "HT2": "The sensor trajectory can remain plausible before plant heating develops.",
+        "HT3": "The controller can remain stable around the modified target.",
+        "HT4": "Staged effects span multiple paths and may appear individually plausible.",
+    }
+    evidence_text = {
+        "HT1": "Kalman innovation and bounded sensor residual",
+        "HT2": "Command–actual and fan-feedback consistency",
+        "HT3": "Calibration deviation and control-response evidence",
+        "HT4": "Gated multi-evidence fusion",
+    }
+    scenario_rows: List[Dict[str, object]] = []
+    for target_id, ht_id, _manifestation, _short_label in RTL_TROJAN_CASES:
+        source = taxonomy_by_id.get(target_id)
+        if source is None:
+            raise ValueError(f"Missing RTL taxonomy row for {target_id}.")
+        scenario_rows.append(
+            {
+                "HT ID": ht_id,
+                "Trigger condition": source["trigger"],
+                "Payload": source["payload"],
+                "Compromised ECU path": path_text[ht_id],
+                "Why challenging": challenge_text[ht_id],
+                "Motivating evidence": evidence_text[ht_id],
+            }
+        )
+    scenario_columns = tuple(scenario_rows[0])
+    add(
+        "paper_table_A_trojan_scenario_cases",
+        "Table A: Representative RTL Hardware Trojan manifestation cases.",
+        "Representative RTL Hardware Trojan manifestation cases.",
+        "HT1–HT3 use explicit Verilator RTL trigger/payload interfaces. HT4 is a trace-driven composition of the existing HT3, HT1, and HT2 RTL outputs; the cases are representative rather than exhaustive.",
+        scenario_columns,
+        scenario_rows,
+    )
+
+    mapping_rows = (
+        {
+            "Trojan path": "HT1 — coolant-sensor masking",
+            "What is corrupted": "ECU-facing coolant sample",
+            "Why a single residual may be insufficient": "A bounded or operating-point-dependent bias can remain plausible.",
+            "Hybrid evidence used": "Kalman innovation, bounded sensor residual, and gated thermal support",
+        },
+        {
+            "Trojan path": "Stale/replay-like sensing",
+            "What is corrupted": "Sample age or refresh behavior",
+            "Why a single residual may be insufficient": "A held sample can retain a plausible numeric value.",
+            "Hybrid evidence used": "Freshness score, update-age ratio, and failed freshness status",
+        },
+        {
+            "Trojan path": "HT2 — fan-output suppression",
+            "What is corrupted": "Realized fan output",
+            "Why a single residual may be insufficient": "Thermal deviation can lag the actuator-path corruption.",
+            "Hybrid evidence used": "Command–actual residual and ECU-visible fan-health feedback",
+        },
+        {
+            "Trojan path": "HT3 — calibration target shift",
+            "What is corrupted": "Active coolant-control target",
+            "Why a single residual may be insufficient": "Sensor and actuator behavior can be internally consistent around the malicious target.",
+            "Hybrid evidence used": "Control-target deviation with control-response, Kalman, or trend support",
+        },
+        {
+            "Trojan path": "HT4 — staged multi-path manifestation",
+            "What is corrupted": "Calibration, sensing, and actuation paths",
+            "Why a single residual may be insufficient": "One residual observes only part of the staged manifestation.",
+            "Hybrid evidence used": "Bounded maximum-score fusion with evidence gating and confirmation",
+        },
+    )
+    add(
+        "paper_table_B_evidence_mapping",
+        "Table B: Trojan manifestation paths and required runtime evidence.",
+        "Trojan manifestation paths and the runtime evidence used by the evaluated Hybrid detector.",
+        "Freshness evidence is implemented and evaluated in the broader stale-sensor matrix; the HT1 RTL replay supplies a fresh sample each step and therefore does not exercise stale-sample freshness evidence.",
+        tuple(mapping_rows[0]),
+        mapping_rows,
+    )
+
+    latency_by_ht = {
+        str(row["HT ID"]): row for row in rtl_trojan_latency_matrix_rows(rtl_comparison)
+    }
+    detector_latency_columns = (
+        ("Built-in ECU diag.", "Built-in ECU diag."),
+        ("Threshold", "Threshold"),
+        ("EWMA", "EWMA"),
+        ("CUSUM", "CUSUM"),
+        ("Thermal obs.", "Thermal obs."),
+        ("Kalman filter", "Kalman"),
+        ("Hybrid Kalman", "Hybrid Kalman"),
+    )
+    latency_rows: List[Dict[str, object]] = []
+    for detector_label, source_column in detector_latency_columns:
+        row: Dict[str, object] = {"Detector": detector_label}
+        for _target_id, ht_id, _manifestation, short_label in RTL_TROJAN_CASES:
+            row[short_label] = latency_by_ht[ht_id][source_column]
+        latency_rows.append(row)
+    latency_columns = ("Detector", *(case[3] for case in RTL_TROJAN_CASES))
+    add(
+        "paper_table_C_rtl_latency_matrix",
+        "Table C: Post-payload detection latency (ms) for representative RTL Trojan manifestations.",
+        "Post-payload detection latency (ms) for representative RTL Trojan manifestations.",
+        "Latency is measured after RTL Trojan payload activation. MISS indicates no post-payload alarm under the evaluated trace/replay boundary.",
+        latency_columns,
+        latency_rows,
+    )
+
+    paper_labels = {DETECTOR_LABELS[detector] for detector in PAPER_DETECTORS}
+    paper_negative = [row for row in negative_rows if str(row["Detector"]) in paper_labels]
+    paper_timing = [row for row in timing_rows if str(row["Detector"]) in paper_labels]
+    if len(paper_negative) != len(PAPER_DETECTORS) or len(paper_timing) != len(PAPER_DETECTORS):
+        raise ValueError("Secondary validation inputs do not contain all paper-facing detectors.")
+    clean_profiles = {as_int(row, "Clean stress variants tested") for row in paper_negative}
+    if len(clean_profiles) != 1:
+        raise ValueError("Paper-facing detectors have inconsistent clean-profile counts.")
+    profiles_per_detector = clean_profiles.pop()
+    clean_runs = sum(as_int(row, "Clean stress variants tested") for row in paper_negative)
+    alarm_runs = sum(as_int(row, "Alarm runs") for row in paper_negative)
+    false_positive_episodes = sum(as_int(row, "False-positive episodes") for row in paper_negative)
+    no_future_access = all(
+        str(row["Future-sample access detected"]) == "No" for row in paper_timing
+    )
+    timing_passed = all(str(row["Budget passed"]) == "Yes" for row in paper_timing)
+    maximum_update_ms = max(as_float(row, "Max update time ms") for row in paper_timing)
+    budgets = {as_float(row, "Timestep budget ms") for row in paper_timing}
+    if len(budgets) != 1:
+        raise ValueError("Paper-facing detectors have inconsistent timestep budgets.")
+    budget_ms = budgets.pop()
+    hybrid_metrics = expanded["metrics"]["hybrid_adaptive_kalman"]
+    secondary_rows = (
+        {
+            "Validation": "Broader event matrix",
+            "Purpose": "Check behavior beyond the four representative RTL cases",
+            "Main result": f"Hybrid detected {hybrid_metrics['detections']}/{hybrid_metrics['event_runs']} event variants ({float(hybrid_metrics['coverage']):.1f}% coverage).",
+            "Interpretation": "Supports the bounded scenario set; it is not exhaustive Trojan coverage.",
+        },
+        {
+            "Validation": "Clean-stress profiles",
+            "Purpose": "Check alarms under deterministic no-fault operating stress",
+            "Main result": f"{alarm_runs} alarm runs and {false_positive_episodes} false-positive episodes across {clean_runs} paper-facing detector/profile evaluations ({profiles_per_detector} profiles per detector).",
+            "Interpretation": "No false alarms were observed in the evaluated clean-stress matrix; this is not a universal guarantee.",
+        },
+        {
+            "Validation": "Online timing/causality",
+            "Purpose": "Check current-sample execution and simulated-loop timing",
+            "Main result": f"{'No future-sample access' if no_future_access else 'Future-sample access reported'}; {'all seven detectors passed' if timing_passed else 'not all detectors passed'} the {budget_ms:g} ms timestep budget (largest observed maximum update: {maximum_update_ms:.6f} ms).",
+            "Interpretation": "Host-side simulated-loop evidence only; no embedded timing certification is claimed.",
+        },
+    )
+    add(
+        "paper_table_D_secondary_validation_summary",
+        "Table D: Secondary validation summary.",
+        "Secondary validation supporting the representative RTL Trojan manifestation study.",
+        "Results are limited to the evaluated deterministic profiles, traces, detector settings, and host platform.",
+        tuple(secondary_rows[0]),
+        secondary_rows,
     )
     return paths
 
@@ -1104,6 +1376,25 @@ def save_figure(
     return paths
 
 
+def save_paper_ready_figure(
+    plt: object,
+    fig: object,
+    stem: str,
+    layout_rect: tuple[float, float, float, float] = (0.0, 0.0, 1.0, 1.0),
+    apply_tight_layout: bool = True,
+) -> List[Path]:
+    """Save the Trojan-focused paper figures as PNG, PDF, and SVG."""
+    if apply_tight_layout:
+        fig.tight_layout(pad=0.7, rect=layout_rect)
+    paths = []
+    for suffix in ("png", "pdf", "svg"):
+        path = PAPER_FIGURE_DIR / f"{stem}.{suffix}"
+        fig.savefig(path, bbox_inches="tight", pad_inches=0.06, facecolor="white")
+        paths.append(path)
+    plt.close(fig)
+    return paths
+
+
 def style_detector_ticks(ax: object, rotation: float = 24) -> None:
     """Keep full detector names readable and subtly emphasize the proposed detector."""
     ax.tick_params(axis="x", rotation=rotation, pad=5)
@@ -1129,30 +1420,6 @@ def emphasize_hybrid_bar(bars: Sequence[object]) -> None:
         bars[-1].set_linewidth(2.2)
 
 
-def add_figure_header(
-    fig: object,
-    title: str,
-    subtitle: str,
-    *,
-    title_y: float = 0.985,
-    subtitle_y: float = 0.925,
-    title_size: float = 13.0,
-    subtitle_size: float = 9.2,
-) -> None:
-    """Apply the shared paper-figure title and subtitle hierarchy."""
-    fig.suptitle(title, y=title_y, fontsize=title_size, weight="semibold")
-    fig.text(
-        0.5,
-        subtitle_y,
-        subtitle,
-        ha="center",
-        va="center",
-        color="#475569",
-        fontsize=subtitle_size,
-        linespacing=1.25,
-    )
-
-
 def style_heatmap_grid(ax: object, row_count: int, column_count: int) -> None:
     """Add restrained cell separators and a clean frame to matrix figures."""
     ax.set_xticks([index - 0.5 for index in range(column_count + 1)], minor=True)
@@ -1167,7 +1434,7 @@ def style_heatmap_grid(ax: object, row_count: int, column_count: int) -> None:
 
 def draw_flow_figure(plt: object) -> List[Path]:
     """Draw the compact five-stage paper-facing evaluation methodology."""
-    fig, ax = plt.subplots(figsize=(13.4, 2.9))
+    fig, ax = plt.subplots(figsize=(13.4, 2.25))
     ax.axis("off")
     ax.set_xlim(0.0, 1.0)
     ax.set_ylim(0.0, 1.0)
@@ -1214,13 +1481,13 @@ def draw_flow_figure(plt: object) -> List[Path]:
     )
 
     card_width = 0.15
-    card_height = 0.35
+    card_height = 0.48
     side_margin = 0.012
     column_gap = (1.0 - 2.0 * side_margin - len(stages) * card_width) / (
         len(stages) - 1
     )
     left = side_margin
-    card_y = 0.39
+    card_y = 0.26
     columns = [left + index * (card_width + column_gap) for index in range(5)]
     positions = tuple((column, card_y) for column in columns)
 
@@ -1267,9 +1534,9 @@ def draw_flow_figure(plt: object) -> List[Path]:
         )
         ax.add_patch(card)
         number_badge = plt.matplotlib.patches.FancyBboxPatch(
-            (x + 0.012, y + card_height - 0.088),
+            (x + 0.012, y + card_height - 0.108),
             0.032,
-            0.050,
+            0.060,
             boxstyle="round,pad=0.003,rounding_size=0.008",
             transform=ax.transAxes,
             facecolor=edgecolor,
@@ -1280,24 +1547,24 @@ def draw_flow_figure(plt: object) -> List[Path]:
         ax.add_patch(number_badge)
         ax.text(
             x + 0.028,
-            y + card_height - 0.063,
+            y + card_height - 0.078,
             str(stage_number),
             transform=ax.transAxes,
             ha="center",
             va="center",
-            fontsize=8.6,
+            fontsize=8.7,
             weight="bold",
             color="white",
             zorder=4,
         )
         ax.text(
             x + 0.052,
-            y + card_height - 0.063,
+            y + card_height - 0.078,
             title,
             transform=ax.transAxes,
             ha="left",
             va="center",
-            fontsize=9.4,
+            fontsize=9.6,
             weight="semibold",
             color="#0f172a",
             linespacing=1.05,
@@ -1305,15 +1572,15 @@ def draw_flow_figure(plt: object) -> List[Path]:
         )
         ax.plot(
             (x + 0.012, x + card_width - 0.012),
-            (y + card_height - 0.128, y + card_height - 0.128),
+            (y + card_height - 0.165, y + card_height - 0.165),
             transform=ax.transAxes,
             color=edgecolor,
             alpha=0.40,
             linewidth=0.9,
             zorder=3,
         )
-        item_y = y + card_height - (0.196 if len(items) > 1 else 0.218)
-        item_step = 0.065
+        item_y = y + card_height - (0.250 if len(items) > 1 else 0.278)
+        item_step = 0.084
         for item_index, item in enumerate(items):
             highlighted = item_index == highlight_index
             ax.text(
@@ -1323,7 +1590,7 @@ def draw_flow_figure(plt: object) -> List[Path]:
                 transform=ax.transAxes,
                 ha="center",
                 va="center",
-                fontsize=8.25 if highlighted else 8.1,
+                fontsize=8.45 if highlighted else 8.3,
                 weight="semibold" if highlighted else "normal",
                 color="#065f46" if highlighted else "#334155",
                 bbox=(
@@ -1339,16 +1606,7 @@ def draw_flow_figure(plt: object) -> List[Path]:
                 zorder=4,
             )
 
-    add_figure_header(
-        fig,
-        "Proposed Fault-Injection and Trojan-Manifestation Runtime Detection Flow",
-        "Deterministic evaluation of fault and Trojan manifestations in a virtual automotive ECU.",
-        title_y=0.975,
-        subtitle_y=0.875,
-        title_size=14.0,
-        subtitle_size=9.4,
-    )
-    fig.subplots_adjust(left=0.012, right=0.988, bottom=0.02, top=0.96)
+    fig.subplots_adjust(left=0.012, right=0.988, bottom=0.04, top=0.96)
     return save_figure(
         plt,
         fig,
@@ -1358,7 +1616,7 @@ def draw_flow_figure(plt: object) -> List[Path]:
 
 
 def draw_hybrid_figure(plt: object) -> List[Path]:
-    fig, ax = plt.subplots(figsize=(10.8, 4.25))
+    fig, ax = plt.subplots(figsize=(10.8, 3.8))
     ax.axis("off")
     sources = (
         "Kalman-style\nresidual reasoning",
@@ -1379,17 +1637,426 @@ def draw_hybrid_figure(plt: object) -> List[Path]:
     ax.annotate("", xy=(0.74, 0.50), xytext=(0.70, 0.50), xycoords=ax.transAxes, arrowprops={"arrowstyle": "-|>", "color": "#475569", "lw": 1.6, "mutation_scale": 11})
     ax.add_patch(plt.Rectangle((0.74, 0.35), 0.24, 0.30, transform=ax.transAxes, facecolor="#fef3c7", edgecolor="#b45309", linewidth=1.5))
     ax.text(0.86, 0.50, "Runtime anomaly alarm\n/ optional safe-state\nrequest", transform=ax.transAxes, ha="center", va="center", fontsize=9.5, linespacing=1.25)
-    add_figure_header(
-        fig,
-        "Hybrid Adaptive Kalman Evidence Fusion",
-        "Complementary evidence streams are fused before issuing a runtime anomaly alarm or optional safe-state request.",
-    )
     return save_figure(
         plt,
         fig,
         "figure_2_hybrid_adaptive_kalman_evidence_fusion",
-        layout_rect=(0.0, 0.0, 1.0, 0.88),
     )
+
+
+def draw_trojan_focused_figures(
+    plt: object,
+    rtl_comparison: Sequence[Mapping[str, object]],
+) -> List[Path]:
+    """Draw the three main figures for the scenario-driven Trojan paper."""
+    paths: List[Path] = []
+
+    fig, ax = plt.subplots(figsize=(3.65, 4.55))
+    ax.axis("off")
+    ax.set_xlim(0.0, 1.0)
+    ax.set_ylim(0.0, 1.0)
+    stages = (
+        ("Normal ECU operation", "nominal sensing and control", "#64748b", "#ffffff"),
+        ("Trojan activation", "trigger condition → RTL payload", "#c2410c", "#fffaf5"),
+        ("ECU-path corruption", "sensor • actuator • calibration • staged", "#2563eb", "#f8fbff"),
+        ("Closed-loop manifestation", "Virtual ECU ↔ thermal plant", "#0891b2", "#f6fdff"),
+        ("Runtime evidence", "residual • freshness • actuator\nthermal • calibration", "#0f766e", "#f7fdfa"),
+        ("Hybrid Kalman fusion → alarm", "optional safe-state request", "#15803d", "#f7fdf8"),
+    )
+    box_x = 0.11
+    box_width = 0.82
+    box_height = 0.115
+    y_positions = (0.845, 0.690, 0.535, 0.380, 0.225, 0.070)
+    connector_color = "#334155"
+
+    for index, ((title, subtitle, accent, facecolor), box_y) in enumerate(
+        zip(stages, y_positions),
+        start=1,
+    ):
+        ax.add_patch(
+            plt.matplotlib.patches.FancyBboxPatch(
+                (box_x, box_y),
+                box_width,
+                box_height,
+                boxstyle="round,pad=0.004,rounding_size=0.008",
+                transform=ax.transAxes,
+                facecolor=facecolor,
+                edgecolor="#64748b" if index < len(stages) else accent,
+                linewidth=1.0 if index < len(stages) else 1.35,
+                zorder=2,
+            )
+        )
+        ax.add_patch(
+            plt.Rectangle(
+                (box_x, box_y),
+                0.015,
+                box_height,
+                transform=ax.transAxes,
+                facecolor=accent,
+                edgecolor="none",
+                zorder=3,
+            )
+        )
+        ax.text(
+            box_x - 0.032,
+            box_y + box_height / 2.0,
+            str(index),
+            transform=ax.transAxes,
+            ha="center",
+            va="center",
+            fontsize=8.2,
+            weight="bold",
+            color=accent,
+        )
+        ax.text(
+            box_x + 0.045,
+            box_y + box_height * 0.66,
+            title,
+            transform=ax.transAxes,
+            ha="left",
+            va="center",
+            fontsize=9.2,
+            weight="semibold",
+            color="#0f172a",
+        )
+        ax.text(
+            box_x + 0.045,
+            box_y + box_height * 0.30,
+            subtitle,
+            transform=ax.transAxes,
+            ha="left",
+            va="center",
+            fontsize=7.0,
+            color="#475569",
+            linespacing=1.02,
+        )
+        if index < len(stages):
+            next_y = y_positions[index]
+            ax.add_patch(
+                plt.matplotlib.patches.FancyArrowPatch(
+                    (0.52, box_y - 0.004),
+                    (0.52, next_y + box_height + 0.004),
+                    arrowstyle="-|>",
+                    mutation_scale=11.5,
+                    linewidth=1.35,
+                    color=connector_color,
+                    transform=ax.transAxes,
+                    shrinkA=0.0,
+                    shrinkB=0.0,
+                    zorder=4,
+                )
+            )
+    fig.subplots_adjust(left=0.02, right=0.98, bottom=0.015, top=0.985)
+    paths.extend(
+        save_paper_ready_figure(
+            plt,
+            fig,
+            "figure_1_trojan_scenario_detection_flow",
+            apply_tight_layout=False,
+        )
+    )
+
+    ht3_rows = [
+        row
+        for row in rtl_comparison
+        if row.get("rtl_target_id") == "ht3_calibration_memory"
+        and row.get("variant") == "trojan"
+        and row.get("detector") in PAPER_DETECTORS
+    ]
+    if len(ht3_rows) != len(PAPER_DETECTORS):
+        raise ValueError("HT3 timeline requires one Trojan row per paper-facing detector.")
+    trigger_times = {as_int(row, "rtl_trojan_trigger_time_ms", -1) for row in ht3_rows}
+    if len(trigger_times) != 1:
+        raise ValueError("HT3 paper-facing rows do not share one payload activation time.")
+    trigger_ms = trigger_times.pop()
+    hybrid_ht3 = next(
+        row for row in ht3_rows if row.get("detector") == "hybrid_adaptive_kalman"
+    )
+    raw_path = PROJECT_ROOT / str(hybrid_ht3["raw_csv"])
+    trace_rows = read_rows(raw_path)
+    window_rows = [
+        row
+        for row in trace_rows
+        if trigger_ms - 1000 <= as_int(row, "time_ms") <= trigger_ms + 3000
+    ]
+    if not window_rows:
+        raise ValueError("HT3 timeline source trace has no samples around payload activation.")
+
+    fig, (ax_target, ax_alarm) = plt.subplots(
+        2,
+        1,
+        figsize=(7.15, 4.65),
+        gridspec_kw={"height_ratios": (0.92, 2.08), "hspace": 0.46},
+    )
+    relative_time = [as_int(row, "time_ms") - trigger_ms for row in window_rows]
+    nominal_target = [as_float(row, "nominal_control_target_c") for row in window_rows]
+    active_target = [as_float(row, "active_control_target_c") for row in window_rows]
+    ax_target.step(
+        relative_time,
+        nominal_target,
+        where="post",
+        color="#64748b",
+        linestyle="--",
+        linewidth=1.45,
+        label="Nominal target",
+    )
+    ax_target.step(
+        relative_time,
+        active_target,
+        where="post",
+        color="#0f766e",
+        linewidth=2.25,
+        label="Active target",
+    )
+    ax_target.axvline(0.0, color="#c2410c", linestyle=":", linewidth=1.65)
+    ax_target.set_xlim(-1000, 3000)
+    target_min = min((*nominal_target, *active_target))
+    target_max = max((*nominal_target, *active_target))
+    ax_target.set_ylim(target_min - 2.0, target_max + 2.0)
+    ax_target.set_ylabel("Control target [°C]")
+    ax_target.set_xlabel("Time from payload activation [ms]")
+    ax_target.set_title("Panel A — Calibration-target step", fontsize=9.6, pad=5, loc="left")
+    ax_target.legend(frameon=False, loc="center right", ncol=2, fontsize=8.0)
+    ax_target.text(
+        90,
+        target_max - 3.2,
+        f"payload active at t = 0\n({trigger_ms:,} ms absolute)",
+        ha="left",
+        va="center",
+        fontsize=7.6,
+        color="#9a3412",
+        weight="semibold",
+        linespacing=1.05,
+    )
+    ax_target.grid(axis="x", visible=False)
+
+    label_by_detector = {
+        "builtin_ecu": "Built-in ECU diag.",
+        "threshold": "Threshold",
+        "ewma": "EWMA",
+        "cusum": "CUSUM",
+        "thermal_observer": "Thermal obs.",
+        "kalman_filter": "Kalman filter",
+        "hybrid_adaptive_kalman": "Hybrid Kalman",
+    }
+
+    ht3_by_detector = {str(row["detector"]): row for row in ht3_rows}
+    y_positions = list(range(len(PAPER_DETECTORS)))
+    early_limit_ms = 1000
+    outcome_x = 1180
+    ax_alarm.axvspan(0.0, early_limit_ms, color="#f8fafc", zorder=0)
+    ax_alarm.axvspan(1040, 1390, color="#f1f5f9", zorder=0)
+    ax_alarm.text(
+        outcome_x,
+        -0.62,
+        "OUTSIDE EARLY WINDOW",
+        ha="center",
+        va="center",
+        fontsize=7.2,
+        weight="semibold",
+        color="#475569",
+    )
+    hybrid_y = PAPER_DETECTORS.index("hybrid_adaptive_kalman")
+    ax_alarm.axhspan(hybrid_y - 0.37, hybrid_y + 0.37, color="#ecfdf5", zorder=0)
+    ax_alarm.axvline(0.0, color="#c2410c", linestyle=":", linewidth=1.65)
+    for y, detector in zip(y_positions, PAPER_DETECTORS):
+        source = ht3_by_detector[detector]
+        detected = as_int(source, "detected_after_payload") != 0
+        color = DETECTOR_COLORS[detector]
+        if detected:
+            latency_ms = as_int(source, "detection_latency_from_payload_ms", -1)
+            if latency_ms <= early_limit_ms:
+                ax_alarm.hlines(y, 0.0, latency_ms, color=color, linewidth=2.1, alpha=0.78)
+                ax_alarm.scatter(
+                    latency_ms,
+                    y,
+                    s=66 if detector == "hybrid_adaptive_kalman" else 48,
+                    color=color,
+                    edgecolor="#064e3b" if detector == "hybrid_adaptive_kalman" else "white",
+                    linewidth=1.4 if detector == "hybrid_adaptive_kalman" else 0.8,
+                    zorder=4,
+                )
+                label_x = 55 if latency_ms == 0 else latency_ms + 35
+                ax_alarm.text(
+                    label_x,
+                    y,
+                    f"{latency_ms:,} ms",
+                    ha="left",
+                    va="center",
+                    fontsize=8.0,
+                    weight="semibold" if detector == "hybrid_adaptive_kalman" else "normal",
+                    color="#334155",
+                )
+            else:
+                ax_alarm.annotate(
+                    "",
+                    xy=(early_limit_ms, y),
+                    xytext=(880, y),
+                    arrowprops={"arrowstyle": "-|>", "color": color, "lw": 1.4},
+                )
+                ax_alarm.text(
+                    outcome_x,
+                    y,
+                    f"{latency_ms:,} ms  LATE",
+                    ha="center",
+                    va="center",
+                    fontsize=7.8,
+                    weight="semibold",
+                    color="#334155",
+                )
+        else:
+            ax_alarm.text(
+                outcome_x,
+                y,
+                "×  MISS",
+                ha="center",
+                va="center",
+                fontsize=8.2,
+                weight="semibold",
+                color="#64748b",
+            )
+    ax_alarm.set_xticks((0, 250, 500, 750, 1000))
+    ax_alarm.set_xlim(-70, 1390)
+    ax_alarm.set_ylim(len(PAPER_DETECTORS) - 0.45, -0.75)
+    ax_alarm.set_yticks(
+        y_positions,
+        labels=[label_by_detector[detector] for detector in PAPER_DETECTORS],
+    )
+    style_detector_y_ticks(ax_alarm)
+    ax_alarm.set_xlabel("Post-payload latency [ms]; linear early-response window")
+    ax_alarm.set_title("Panel B — Detector response", fontsize=9.6, pad=5, loc="left")
+    ax_alarm.grid(axis="y", visible=False)
+    ax_alarm.spines["bottom"].set_bounds(0, early_limit_ms)
+    fig.subplots_adjust(left=0.19, right=0.985, bottom=0.12, top=0.965)
+    paths.extend(
+        save_paper_ready_figure(
+            plt,
+            fig,
+            "figure_2_ht3_calibration_timeline",
+            apply_tight_layout=False,
+        )
+    )
+
+    source_matrix = rtl_trojan_latency_matrix_rows(rtl_comparison)
+    source_by_ht = {str(row["HT ID"]): row for row in source_matrix}
+    detector_matrix_columns = (
+        ("builtin_ecu", "Built-in ECU diag."),
+        ("threshold", "Threshold"),
+        ("ewma", "EWMA"),
+        ("cusum", "CUSUM"),
+        ("thermal_observer", "Thermal obs."),
+        ("kalman_filter", "Kalman"),
+        ("hybrid_adaptive_kalman", "Hybrid Kalman"),
+    )
+    latency_matrix: List[List[int]] = []
+    display_matrix: List[List[str]] = []
+
+    def latency_bucket(latency_ms: int) -> int:
+        if latency_ms == 0:
+            return 0
+        if latency_ms <= 100:
+            return 1
+        if latency_ms <= 1000:
+            return 2
+        return 3
+
+    for _detector, source_column in detector_matrix_columns:
+        numeric_row: List[int] = []
+        display_row: List[str] = []
+        for _target_id, ht_id, _manifestation, _short_label in RTL_TROJAN_CASES:
+            value = source_by_ht[ht_id][source_column]
+            if value == "MISS":
+                numeric_row.append(4)
+                display_row.append("MISS")
+            else:
+                latency_ms = int(value)
+                numeric_row.append(latency_bucket(latency_ms))
+                display_row.append(f"{latency_ms:,}")
+        latency_matrix.append(numeric_row)
+        display_matrix.append(display_row)
+
+    fig, ax = plt.subplots(figsize=(5.25, 3.7))
+    bucket_colors = ("#0f766e", "#2b8cbe", "#a6bddb", "#fed976", "#e2e8f0")
+    cmap = plt.matplotlib.colors.ListedColormap(bucket_colors)
+    norm = plt.matplotlib.colors.BoundaryNorm(
+        boundaries=(-0.5, 0.5, 1.5, 2.5, 3.5, 4.5),
+        ncolors=len(bucket_colors),
+    )
+    ax.imshow(
+        latency_matrix,
+        cmap=cmap,
+        norm=norm,
+        aspect="auto",
+    )
+    ax.grid(False)
+    ax.set_xticks(
+        range(len(RTL_TROJAN_CASES)),
+        labels=("HT1\nSensor", "HT2\nFan", "HT3\nCalibration", "HT4\nMulti-stage"),
+    )
+    ax.tick_params(axis="x", labelsize=8.8, pad=5, rotation=0)
+    ax.set_yticks(
+        range(len(detector_matrix_columns)),
+        labels=[label_by_detector[detector] for detector, _column in detector_matrix_columns],
+    )
+    ax.tick_params(axis="y", labelsize=8.8, pad=5, rotation=0)
+    for tick_label in ax.get_yticklabels():
+        if tick_label.get_text() == "Hybrid Kalman":
+            tick_label.set_color("#0f766e")
+            tick_label.set_weight("bold")
+    style_heatmap_grid(ax, len(detector_matrix_columns), len(RTL_TROJAN_CASES))
+    for y, row in enumerate(display_matrix):
+        for x, text_value in enumerate(row):
+            bucket = latency_matrix[y][x]
+            text_color = "white" if bucket in (0, 1) else "#0f172a"
+            ax.text(
+                x,
+                y,
+                text_value,
+                ha="center",
+                va="center",
+                fontsize=9.1,
+                weight="bold" if y == len(detector_matrix_columns) - 1 else "semibold",
+                color=text_color,
+            )
+    ax.add_patch(
+        plt.Rectangle(
+            (-0.5, len(detector_matrix_columns) - 1.5),
+            len(RTL_TROJAN_CASES),
+            1.0,
+            fill=False,
+            edgecolor="#0f766e",
+            linewidth=2.2,
+            clip_on=False,
+        )
+    )
+    legend_handles = [
+        plt.matplotlib.patches.Patch(facecolor=color, edgecolor="#94a3b8", linewidth=0.5, label=label)
+        for color, label in zip(
+            bucket_colors,
+            ("0 ms", "1–100", "101–1,000", ">1,000", "MISS"),
+        )
+    ]
+    fig.legend(
+        handles=legend_handles,
+        loc="lower center",
+        ncol=5,
+        frameon=False,
+        fontsize=7.4,
+        handlelength=1.15,
+        columnspacing=0.8,
+        handletextpad=0.35,
+        bbox_to_anchor=(0.56, 0.008),
+    )
+    fig.subplots_adjust(left=0.285, right=0.985, bottom=0.20, top=0.985)
+    paths.extend(
+        save_paper_ready_figure(
+            plt,
+            fig,
+            "figure_3_rtl_latency_matrix",
+            apply_tight_layout=False,
+        )
+    )
+    return paths
 
 
 def draw_data_figures(
@@ -1413,16 +2080,11 @@ def draw_data_figures(
     emphasize_hybrid_bar(bars)
     ax.set_ylim(0, 108)
     ax.set_ylabel("Event coverage [%]")
-    add_figure_header(
-        fig,
-        "Detector Coverage — Expanded Deterministic Validation",
-        "Coverage across 31 representative deterministic event variants.",
-    )
     ax.grid(axis="x", visible=False)
     style_detector_ticks(ax, 24)
     for bar, value in zip(bars, values):
         ax.text(bar.get_x() + bar.get_width() / 2, value + 1.2, f"{value:.1f}%", ha="center", fontsize=9, weight="semibold" if bar is bars[-1] else "normal")
-    paths.extend(save_figure(plt, fig, "figure_3_detector_coverage_comparison", layout_rect=(0.0, 0.0, 1.0, 0.89)))
+    paths.extend(save_figure(plt, fig, "figure_3_detector_coverage_comparison"))
 
     event_rows = expanded["event_rows"]
     latency_sets = [
@@ -1503,14 +2165,7 @@ def draw_data_figures(
     ax_tail.set_title("Panel B — Worst-case detected-event latency", fontsize=10.5, pad=8)
     ax_tail.tick_params(axis="y", left=False, labelleft=False)
     ax_tail.grid(axis="y", visible=False)
-    add_figure_header(
-        fig,
-        "Detector Latency — Expanded Deterministic Validation",
-        "Latency is reported over detected events; Panel A shows median latency, and Panel B shows worst-case latency on a log scale.",
-        title_y=0.988,
-        subtitle_y=0.935,
-    )
-    fig.subplots_adjust(left=0.235, right=0.985, bottom=0.12, top=0.83, wspace=0.12)
+    fig.subplots_adjust(left=0.235, right=0.985, bottom=0.12, top=0.94, wspace=0.12)
     paths.extend(save_figure(plt, fig, "figure_4_detector_latency_comparison", apply_tight_layout=False))
 
     classes = [str(row["Fault class"]) for row in heatmap_rows]
@@ -1521,11 +2176,6 @@ def draw_data_figures(
     ax.set_xticks(range(len(figure_detectors)), labels=labels)
     ax.set_yticks(range(len(classes)), labels=classes)
     style_heatmap_grid(ax, len(classes), len(figure_detectors))
-    add_figure_header(
-        fig,
-        "Per-Fault-Class Detector Coverage [%]",
-        "Coverage breakdown by fault class across the deterministic validation set.",
-    )
     style_detector_ticks(ax, 26)
     for y, values_row in enumerate(matrix):
         for x, value in enumerate(values_row):
@@ -1533,7 +2183,7 @@ def draw_data_figures(
     ax.add_patch(plt.Rectangle((len(figure_detectors) - 1.5, -0.5), 1.0, len(classes), fill=False, edgecolor="#0f766e", linewidth=2.4, clip_on=False))
     colorbar = fig.colorbar(image, ax=ax, label="Event coverage [%]", fraction=0.032, pad=0.025)
     colorbar.ax.tick_params(labelsize=9)
-    paths.extend(save_figure(plt, fig, "figure_5_per_fault_class_coverage_heatmap", layout_rect=(0.0, 0.0, 1.0, 0.89)))
+    paths.extend(save_figure(plt, fig, "figure_5_per_fault_class_coverage_heatmap"))
 
     fig, ax = plt.subplots(figsize=(11.5, 4.8))
     paper_negative_rows = [
@@ -1550,16 +2200,11 @@ def draw_data_figures(
     ax.set_ylabel("False-positive run rate [%]")
     ax.grid(axis="x", visible=False)
     style_detector_ticks(ax, 24)
-    profile_runs = sum(as_int(row, "Clean stress variants tested") for row in paper_negative_rows)
-    profiles_per_detector = max((as_int(row, "Clean stress variants tested") for row in paper_negative_rows), default=0)
     if max(rates, default=0.0) == 0.0:
         ax.axhspan(0.0, 0.0018, color="#dcfce7", alpha=0.70, zorder=0)
     for index, rate in enumerate(rates):
         ax.text(index, max(0.0012, rate + 0.0012), f"{rate:.3f}%", ha="center", fontsize=8.5, weight="semibold" if index == len(figure_detectors) - 1 else "normal")
-    fig.suptitle("Negative-Stress False-Positive Summary", y=0.985, fontsize=13, weight="semibold")
-    fig.text(0.5, 0.915, "No false alarms were observed in the evaluated deterministic clean-stress matrix.", ha="center", va="center", fontsize=9.5, weight="semibold", color="#166534")
-    fig.text(0.5, 0.865, f"Each detector was evaluated on {profiles_per_detector} clean profiles ({profile_runs} detector-profile runs in total).", ha="center", va="center", fontsize=9.1, color="#475569")
-    paths.extend(save_figure(plt, fig, "figure_6_negative_stress_false_positive_summary", layout_rect=(0.0, 0.0, 1.0, 0.82)))
+    paths.extend(save_figure(plt, fig, "figure_6_negative_stress_false_positive_summary"))
 
     target_ids = ["ht1_coolant_sensor", "ht2_fan_driver", "ht3_calibration_memory", "ht4_multi_stage_chain"]
     outcome = []
@@ -1574,11 +2219,6 @@ def draw_data_figures(
     ax.set_xticks(range(len(figure_detectors)), labels=labels)
     ax.set_yticks(range(4), labels=("HT1 Sensor", "HT2 Fan", "HT3 Calibration", "HT4 Composite"))
     style_heatmap_grid(ax, len(outcome), len(figure_detectors))
-    add_figure_header(
-        fig,
-        "Representative RTL Trojan Case-Study Detection Outcome",
-        "Detection outcome after representative payload activation; HT4 denotes a trace-driven composite case.",
-    )
     style_detector_ticks(ax, 26)
     for y, row in enumerate(outcome):
         for x, value in enumerate(row):
@@ -1586,7 +2226,7 @@ def draw_data_figures(
     ax.add_patch(plt.Rectangle((len(figure_detectors) - 1.5, -0.5), 1.0, len(outcome), fill=False, edgecolor="#0f766e", linewidth=2.4, clip_on=False))
     colorbar = fig.colorbar(image, ax=ax, ticks=(0, 1), label="Detection after payload activation", fraction=0.035, pad=0.025)
     colorbar.ax.set_yticklabels(("Miss", "Alarm"))
-    paths.extend(save_figure(plt, fig, "figure_7_rtl_ht1_ht4_detection_summary", layout_rect=(0.0, 0.0, 1.0, 0.89)))
+    paths.extend(save_figure(plt, fig, "figure_7_rtl_ht1_ht4_detection_summary"))
 
     timing_by = {row["detector"]: row for row in online_timing}
     max_times = [as_float(timing_by[detector], "max_update_time_ms") for detector in figure_detectors]
@@ -1603,13 +2243,7 @@ def draw_data_figures(
     for bar, value in zip(bars, max_times):
         ax.text(bar.get_x() + bar.get_width() / 2, value * 1.35, f"{value:.6f} ms", ha="center", va="bottom", rotation=90, fontsize=7.7, color="#334155")
     ax.text(len(labels) - 0.55, budget * 1.12, f"{budget:g} ms budget", ha="right", va="bottom", fontsize=9.0, weight="semibold", color="#b91c1c")
-    add_figure_header(
-        fig,
-        "Host-Side Detector Timing vs Simulated Timestep Budget",
-        "Maximum host-side detector update time in the simulated fixed-step ECU loop; all evaluated detectors remained below the 100 ms budget.",
-        subtitle_size=9.0,
-    )
-    paths.extend(save_figure(plt, fig, "figure_8_online_detector_timing_vs_budget", layout_rect=(0.0, 0.0, 1.0, 0.89)))
+    paths.extend(save_figure(plt, fig, "figure_8_online_detector_timing_vs_budget"))
 
     factor_values = [
         statistics.mean(as_float(row, "real_time_factor_mean") for row in benchmark_source if row["detector"] == detector)
@@ -1627,12 +2261,7 @@ def draw_data_figures(
     for bar, value in zip(bars, factor_values):
         ax.text(bar.get_x() + bar.get_width() / 2, value / 3.0, f"{value:,.0f}x", ha="center", va="center", fontsize=8.4, weight="semibold", color="white")
     ax.legend(frameon=False, loc="upper right")
-    add_figure_header(
-        fig,
-        "Host-Side Simulation Throughput by Detector",
-        f"Mean host-side simulation throughput across {sum(row['detector'] in figure_detectors for row in benchmark_source)} paper-facing detector-scenario evaluations; all cases exceeded wall-clock real time.",
-    )
-    paths.extend(save_figure(plt, fig, "figure_9_simulation_throughput_realtime_factor", layout_rect=(0.0, 0.0, 1.0, 0.89)))
+    paths.extend(save_figure(plt, fig, "figure_9_simulation_throughput_realtime_factor"))
     return paths
 
 
@@ -1720,21 +2349,11 @@ def draw_parameter_sweep_figures(
     )
     colorbar = fig.colorbar(image, ax=ax, label="Coverage [%]", fraction=0.034, pad=0.025)
     colorbar.ax.tick_params(labelsize=9.5)
-    add_figure_header(
-        fig,
-        "Parameter Sweep Coverage Summary",
-        "Coverage across representative parameter-sensitivity groups; a representative detector subset is shown for readability, while full seven-detector paper-facing results remain reported in the tables.",
-        title_y=0.99,
-        subtitle_y=0.938,
-        title_size=15.0,
-        subtitle_size=9.4,
-    )
     paths.extend(
         save_figure(
             plt,
             fig,
             "figure_10_fault_severity_vs_detection_coverage",
-            layout_rect=(0.0, 0.0, 1.0, 0.89),
         )
     )
 
@@ -1833,7 +2452,7 @@ def draw_parameter_sweep_figures(
         (hybrid_bars[0], baseline_bars[0]),
         ("Hybrid Adaptive Kalman", "Best baseline per group"),
         loc="upper center",
-        bbox_to_anchor=(0.5, 0.91),
+        bbox_to_anchor=(0.5, 0.985),
         ncol=2,
         frameon=False,
     )
@@ -1858,21 +2477,12 @@ def draw_parameter_sweep_figures(
             fontsize=9.1,
             color="#475569",
         )
-    add_figure_header(
-        fig,
-        "Parameter Sweep Latency Summary",
-        "Mean detected-event latency by sensitivity group; the comparison baseline is selected from the six paper-facing baselines, and misses are reported separately in the tables.",
-        title_y=0.99,
-        subtitle_y=0.943,
-        title_size=15.0,
-        subtitle_size=10.0,
-    )
     paths.extend(
         save_figure(
             plt,
             fig,
             "figure_11_fault_severity_vs_detection_latency",
-            layout_rect=(0.0, 0.0, 1.0, 0.84),
+            layout_rect=(0.0, 0.0, 1.0, 0.92),
         )
     )
 
@@ -1916,21 +2526,11 @@ def draw_parameter_sweep_figures(
             weight="semibold",
             color="#334155",
         )
-    add_figure_header(
-        fig,
-        "Hybrid Latency Advantage over Best Baseline",
-        "Positive values indicate that Hybrid Adaptive Kalman is faster than the best of the six paper-facing baselines selected independently per group using coverage first and latency second.",
-        title_y=0.99,
-        subtitle_y=0.943,
-        title_size=15.0,
-        subtitle_size=9.7,
-    )
     paths.extend(
         save_figure(
             plt,
             fig,
             "figure_12_hybrid_vs_baseline_sensitivity_summary",
-            layout_rect=(0.0, 0.0, 1.0, 0.91),
         )
     )
 
@@ -1980,24 +2580,261 @@ def draw_parameter_sweep_figures(
             )
         )
         fig.colorbar(image, ax=ax, label="Coverage [%]", fraction=0.04, pad=0.025)
-        add_figure_header(
-            fig,
-            "Security Manifestation Sensitivity Summary",
-            "Coverage across representative security-manifestation variants derived at the Virtual ECU level;\nthese experiments extend the case study without introducing new parameterized RTL simulations.",
-            title_y=0.99,
-            subtitle_y=0.915,
-            title_size=15.0,
-            subtitle_size=9.5,
-        )
         paths.extend(
             save_figure(
                 plt,
                 fig,
                 "figure_13_security_ht_like_parameter_sensitivity",
-                layout_rect=(0.0, 0.0, 1.0, 0.87),
             )
         )
     return paths
+
+
+def write_trojan_focused_notes(
+    rtl_comparison: Sequence[Mapping[str, object]],
+) -> List[Path]:
+    """Write implementation-audit and six-page restructuring notes."""
+    trigger_lines = []
+    clean_lines = []
+    for target_id, ht_id, manifestation, _short_label in RTL_TROJAN_CASES:
+        trojan_rows = [
+            row
+            for row in rtl_comparison
+            if row.get("rtl_target_id") == target_id
+            and row.get("variant") == "trojan"
+            and row.get("detector") in PAPER_DETECTORS
+        ]
+        clean_rows = [
+            row
+            for row in rtl_comparison
+            if row.get("rtl_target_id") == target_id
+            and row.get("variant") == "clean"
+            and row.get("detector") in PAPER_DETECTORS
+        ]
+        if len(trojan_rows) != len(PAPER_DETECTORS) or len(clean_rows) != len(PAPER_DETECTORS):
+            raise ValueError(f"Implementation audit is missing paper-facing RTL rows for {target_id}.")
+        trigger_times = {as_int(row, "rtl_trojan_trigger_time_ms", -1) for row in trojan_rows}
+        if len(trigger_times) != 1:
+            raise ValueError(f"Inconsistent trigger time for {target_id}.")
+        trigger_ms = trigger_times.pop()
+        trigger_lines.append(f"- {ht_id} ({manifestation}): `{trigger_ms}` ms.")
+        clean_detections = sum(as_int(row, "runtime_detection_detected") for row in clean_rows)
+        clean_false_positives = sum(
+            as_int(row, "runtime_reported_false_positive_count") for row in clean_rows
+        )
+        clean_lines.append(
+            f"- {ht_id}: {clean_detections}/{len(clean_rows)} clean-reference detector runs alarmed; "
+            f"reported false-positive episodes = {clean_false_positives}."
+        )
+
+    ht4 = next(
+        row
+        for row in rtl_comparison
+        if row.get("rtl_target_id") == "ht4_multi_stage_chain"
+        and row.get("variant") == "trojan"
+        and row.get("detector") == "hybrid_adaptive_kalman"
+    )
+    audit = f"""# Hybrid Adaptive Kalman implementation audit
+
+## Scope and result provenance
+
+The implementation is a deterministic research detector in the simulated fixed-step
+Virtual ECU. The RTL study replays Verilator-generated interface traces; it does not
+constitute silicon-level validation or exhaustive Hardware Trojan coverage.
+
+Recorded payload activation times for the representative RTL Trojan manifestation cases:
+
+{chr(10).join(trigger_lines)}
+
+HT4 uses staged activations recorded in `detector_comparison.csv`: calibration at
+`{as_int(ht4, 'stage_1_calibration_trigger_time_ms')}` ms, sensor masking at
+`{as_int(ht4, 'stage_2_sensor_trigger_time_ms')}` ms, and fan suppression at
+`{as_int(ht4, 'stage_3_fan_trigger_time_ms')}` ms. Its post-payload latency origin is
+the first stage (`rtl_trojan_trigger_time_ms`).
+
+`scripts/run_rtl_hardware_trojan_study.py:836-867` defines a post-payload detection as
+an observed first alarm at or after the payload trigger. The exported latency uses the
+recorded `detection_latency_from_payload_ms` field and validates it against
+`runtime_detection_first_detection_ms - rtl_trojan_trigger_time_ms`. `MISS` means
+`detected_after_payload == 0` within the evaluated trace/replay boundary.
+
+Clean replay behavior for the seven paper-facing detectors:
+
+{chr(10).join(clean_lines)}
+
+## Runtime evidence channels
+
+- **Kalman residual:** `src/detection_algorithm.c:415-468` predicts coolant temperature,
+  computes the innovation and innovation variance, normalizes the innovation, updates
+  state/covariance, and forms instantaneous and accumulated scores.
+- **Freshness evidence:** `src/sensors.c:25-39` computes update age, normalized freshness
+  score, and freshness status. The Hybrid path fuses the score at
+  `src/detection_algorithm.c:505-515` and applies the gated fast condition at lines
+  `616-627`.
+- **Actuator consistency:** `src/detection_algorithm.c:302-317` derives command-to-actual
+  and fan-health scores. ECU-visible fan driver/current/rotation feedback is produced in
+  `src/actuators.c:31-80`; the Hybrid fast component is formed at
+  `src/detection_algorithm.c:527-538`.
+- **Thermal response:** `src/detection_algorithm.c:172-205` implements the healthy thermal
+  delta model. Lines `597-737` accumulate thermal mismatch and admit it only with bounded
+  sensor/actuator and Kalman support.
+- **Calibration/control-target evidence:** `src/control.c:44-58` applies an RTL replay
+  target and records deviation from the nominal target. `src/detection_algorithm.c:656-692`
+  combines target deviation with control-response, Kalman, or trend support.
+- **Fusion and alarm:** the implementation selects the dominant bounded evidence label at
+  `src/detection_algorithm.c:745-825` and applies evidence-dependent confirmation at lines
+  `833-874`.
+
+## What is adaptive
+
+The word **adaptive** has a specific, limited implementation meaning:
+
+1. `adaptive_kalman_context_severity()` (`src/detection_algorithm.c:244-273`) computes a
+   bounded operating-context score from load, speed, extra airflow, ambient temperature,
+   road slope, coolant level, and coolant rise.
+2. `adaptive_kalman_threshold_scale()` (lines `275-287`) maps that context to a bounded
+   scale. In `kalman_filter_step()` (lines `434-439`), the scale adjusts the innovation
+   threshold and accumulated-innovation limit.
+3. Context also applies bounded score modulation (`src/detection_algorithm.c:470-550` and
+   `577-585`), while evidence type changes the required confirmation count.
+
+The process noise Q and measurement noise R are **not adapted**: both are fixed constants
+and are initialized at `src/detection_algorithm.c:385-393`. Evidence weights and operating
+model coefficients are also fixed constants; there is no learned weight update, online
+parameter identification, or signal-confidence estimator.
+
+## Naming recommendation
+
+Retain the implementation unchanged and describe it in the paper as **Hybrid
+context-adaptive Kalman evidence fusion**. This documents the actual bounded threshold and
+score adaptation without implying adaptive Q/R estimation. If that qualification cannot
+be stated consistently, the more conservative name **Hybrid Kalman Evidence Fusion** is
+preferable.
+"""
+    audit_path = METHODOLOGY_NOTE_DIR / "hybrid_adaptive_kalman_implementation_audit.md"
+    audit_path.write_text(audit, encoding="utf-8")
+
+    rewrite_plan = """# Scenario-driven six-page Hardware Trojan paper plan
+
+## Recommended paper structure
+
+### 1. Introduction
+
+- Motivate runtime detection of representative Hardware Trojan manifestations in an
+  automotive cooling ECU.
+- State the bounded contribution: RTL trigger/payload interfaces, closed-loop trace replay,
+  ECU-level runtime evidence, and comparative post-payload latency.
+- Avoid framing the work as a general PhD framework or exhaustive Trojan detector.
+
+### 2. Automotive ECU Hardware Trojan Scenario and Threat Model
+
+#### 2.1 Virtual cooling ECU
+
+Describe the sense–control–actuate–plant loop and the 100 ms simulated timestep.
+
+#### 2.2 Trojan trigger/payload model
+
+Define trigger, sticky payload activation, trace/replay boundary, post-payload latency,
+and `MISS`. State that HT1–HT3 are explicit RTL interfaces and HT4 is a trace-driven
+composition.
+
+#### 2.3 HT1–HT4 manifestation paths
+
+Use Table A to connect each trigger/payload to sensing, actuation, calibration/control, or
+multi-stage corruption. Keep the threat model representative and scenario bounded.
+
+### 3. Runtime Detection Methodology
+
+#### 3.1 Scenario execution flow
+
+Use Figure 1 as the end-to-end scenario, propagation, evidence, fusion, and alarm flow.
+
+#### 3.2 Kalman residual
+
+Present the compact prediction, innovation, normalization, and accumulated-evidence
+equations. State that Q and R are fixed.
+
+#### 3.3 ECU-level security evidence
+
+Use Table B to define freshness, command/actual consistency, fan-health feedback, thermal
+response, and calibration/control-target deviation. Explicitly identify simulation-only
+observability where relevant.
+
+#### 3.4 Hybrid evidence fusion
+
+Explain bounded max-score fusion, evidence gating, confirmation counts, and the limited
+context-adaptive threshold/score mechanism. Do not imply learned adaptation.
+
+### 4. Experimental Evaluation
+
+#### 4.1 Experimental setup
+
+Summarize Verilator interface simulation, deterministic trace replay, the seven
+paper-facing detectors, and post-payload timing extraction.
+
+#### 4.2 Representative RTL Trojan implementations
+
+Use the four Table A cases. Use Figure 2 as the worked HT3 calibration-target trace.
+
+#### 4.3 Detection results
+
+Use Table C as the main numerical result and Figure 3 as its compact visual summary.
+Discuss misses and delays by manifestation path rather than ranking detectors globally.
+
+#### 4.4 Clean-stress/runtime validation
+
+Use Table D only. Keep the 31-event matrix, 60 clean profiles per detector, causality audit,
+and host-side update timing as concise supporting evidence.
+
+### 5. Discussion and Limitations
+
+- Representative manifestations are not an exhaustive Trojan taxonomy.
+- Verilator trace replay is not silicon validation.
+- Plant truth and some research signals may exceed production-ECU observability.
+- Detector thresholds and evidence weights are fixed calibrations.
+- Context adapts thresholds/scores; Q/R are fixed.
+- HT4 is a trace-driven composition rather than a fourth independent RTL module.
+
+### 6. Conclusion
+
+Conclude only for the evaluated HT1–HT4 traces and supporting deterministic validations.
+Emphasize scenario-to-plant propagation and complementary runtime evidence.
+
+## Recommended six-page evidence set
+
+1. **Figure 1:** Scenario-driven RTL Trojan manifestation and runtime detection flow.
+2. **Table A:** Representative RTL Hardware Trojan manifestation cases.
+3. **Table B:** Trojan manifestation paths and required runtime evidence.
+4. **Figure 2:** HT3 calibration Trojan manifestation and detection timeline.
+5. **Table C:** Post-payload detection latency for HT1–HT4 and seven detectors.
+6. **Figure 3:** Compact HT1–HT4 detector-latency matrix.
+7. **Table D:** Secondary validation summary.
+
+If page pressure requires one removal, omit Figure 3 because Table C contains the exact
+values. Retain Figure 2 because it explains the scenario mechanics and latency origin.
+
+## Material to remove or move out of the main paper
+
+- Old broad detector-coverage bar chart.
+- Old generic fault/Trojan methodology flow.
+- Standalone evidence-fusion diagram if Figure 1 and Table B provide sufficient detail.
+- Parameter-sensitivity figures and detailed sweep tables.
+- Broad fault taxonomy/scenario-class table unless reduced to one sentence.
+- Full per-fault-class detector breakdown and simulation-throughput chart.
+- Long generic detector-comparison narrative and general framework/GUI discussion.
+
+## Indicative page allocation
+
+- Page 1: Introduction and contribution.
+- Page 2: Threat model, cooling ECU, and Table A.
+- Page 3: Detection methodology, Figure 1, and Table B.
+- Page 4: Experimental setup, Figure 2, and Table C.
+- Page 5: Figure 3 or selected discussion, plus Table D and limitations.
+- Page 6: Discussion, conclusion, and references as format permits.
+"""
+    plan_path = OUTPUT_DIR / "paper_rewrite_plan_trojan_focused.md"
+    plan_path.write_text(rewrite_plan, encoding="utf-8")
+    return [audit_path, plan_path]
 
 
 def write_narratives(
@@ -2187,7 +3024,7 @@ def consistency_checks(
         suffix: sum(path.suffix == suffix for path in paper_table_paths)
         for suffix in (".csv", ".md", ".tex")
     }
-    expected_paper_tables = 16 if parameter_available else 13
+    expected_paper_tables = 21 if parameter_available else 18
     expected_counts = {suffix: expected_paper_tables for suffix in (".csv", ".md", ".tex")}
     if paper_suffix_counts != expected_counts:
         failures.append(f"Expected {expected_paper_tables} paper-ready tables in each format; found {paper_suffix_counts}.")
@@ -2209,7 +3046,12 @@ def consistency_checks(
     for path in figure_paths:
         if not path.is_file() or path.stat().st_size == 0:
             failures.append(f"Generated figure is missing or empty: {path.name}")
-    for required in (OUTPUT_DIR / "limitations.md", OUTPUT_DIR / "reproduction_commands.md"):
+    for required in (
+        OUTPUT_DIR / "limitations.md",
+        OUTPUT_DIR / "reproduction_commands.md",
+        OUTPUT_DIR / "paper_rewrite_plan_trojan_focused.md",
+        METHODOLOGY_NOTE_DIR / "hybrid_adaptive_kalman_implementation_audit.md",
+    ):
         if not required.is_file():
             failures.append(f"Required narrative file is missing: {required.name}")
     main_text = "\n".join(
@@ -2230,6 +3072,8 @@ def main() -> int:
     TABLE_DIR.mkdir(parents=True, exist_ok=True)
     PAPER_TABLE_DIR.mkdir(parents=True, exist_ok=True)
     FIGURE_DIR.mkdir(parents=True, exist_ok=True)
+    PAPER_FIGURE_DIR.mkdir(parents=True, exist_ok=True)
+    METHODOLOGY_NOTE_DIR.mkdir(parents=True, exist_ok=True)
     warnings: List[str] = []
     sources: Dict[str, Path] = {}
 
@@ -2398,6 +3242,7 @@ figure were inferred.
         class_rows,
         heatmap_rows,
         negative_rows_data,
+        rtl_comparison,
         rtl_rows,
         timing_rows,
         throughput_rows,
@@ -2414,6 +3259,15 @@ figure were inferred.
                 parameter_security_source,
             )
         )
+    paper_table_paths.extend(
+        trojan_focused_paper_tables(
+            rtl_comparison,
+            rtl_taxonomy,
+            expanded,
+            negative_rows_data,
+            timing_rows,
+        )
+    )
 
     plt = configure_matplotlib()
     figure_paths = []
@@ -2428,9 +3282,18 @@ figure were inferred.
                 parameter_comparison_source,
             )
         )
+    paper_figure_paths = draw_trojan_focused_figures(plt, rtl_comparison)
 
     write_narratives(sources, warnings, expanded, negative, rtl, online, benchmark, ablation_available, parameter)
-    failures = consistency_checks(table_csvs, paper_table_paths, figure_paths, table1, rtl_rows, parameter_available)
+    write_trojan_focused_notes(rtl_comparison)
+    failures = consistency_checks(
+        table_csvs,
+        paper_table_paths,
+        [*figure_paths, *paper_figure_paths],
+        table1,
+        rtl_rows,
+        parameter_available,
+    )
     if failures:
         raise RuntimeError("Consistency checks failed:\n- " + "\n- ".join(failures))
 
@@ -2447,6 +3310,9 @@ figure were inferred.
             "paper_ready_latex_tables": sum(path.suffix == ".tex" for path in paper_table_paths),
             "png_figures": sum(path.suffix == ".png" for path in figure_paths),
             "pdf_figures": sum(path.suffix == ".pdf" for path in figure_paths),
+            "paper_ready_png_figures": sum(path.suffix == ".png" for path in paper_figure_paths),
+            "paper_ready_pdf_figures": sum(path.suffix == ".pdf" for path in paper_figure_paths),
+            "paper_ready_svg_figures": sum(path.suffix == ".svg" for path in paper_figure_paths),
         },
         "computed_metrics": {
             "expanded": expanded["checks"],
@@ -2472,9 +3338,10 @@ figure were inferred.
     print(f"  Raw/backend detectors: {len(DETECTORS)}")
     print(f"  Paper-facing detectors: {len(PAPER_DETECTORS)} (six baselines + proposed Hybrid)")
     print(f"  Tables: {len(table_csvs)} CSV + {len(table_mds) + 1} Markdown")
-    paper_count = 16 if parameter_available else 13
+    paper_count = 21 if parameter_available else 18
     print(f"  Paper-ready tables: {paper_count} CSV + {paper_count} Markdown + {paper_count} LaTeX")
     print(f"  Figures: {len(figure_paths) // 2} PNG + PDF pairs")
+    print(f"  Trojan-focused figures: {len(paper_figure_paths) // 3} PNG + PDF + SVG triplets")
     print(f"  HT targets: {rtl['targets']}")
     print(f"  Quantitative ablation: {'available' if ablation_available else 'not included (status documented)'}")
     print(f"  Parameter sensitivity: {'included' if parameter_available else 'not available'}")
