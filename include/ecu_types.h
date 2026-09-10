@@ -3,6 +3,8 @@
 
 #include "config.h"
 #include "detection_algorithm.h"
+#include "fault_model.h"
+#include "propagation_monitor.h"
 
 #include <stdbool.h>
 #include <stdio.h>
@@ -24,12 +26,6 @@ typedef enum {
      * nonvolatile control parameter affecting the ECU cooling target. */
     FAULT_CALIBRATION_MEMORY_CORRUPTION
 } fault_mode_t;
-
-typedef enum {
-    FAULT_BEHAVIOR_NONE = 0,
-    FAULT_BEHAVIOR_TRANSIENT,
-    FAULT_BEHAVIOR_PERMANENT
-} fault_behavior_t;
 
 typedef enum {
     SCENARIO_PHASE_WARMUP = 0,
@@ -167,6 +163,9 @@ typedef struct {
 
 typedef struct {
     float nominal_control_target_c;
+    /* Mutable whole-degree calibration register; normal value is exactly 92. */
+    uint16_t target_register_c;
+    int last_execution_ms;
     float active_control_target_c;
     float control_target_deviation_c;
     float pump_command;
@@ -275,6 +274,9 @@ typedef struct ecu_state {
     fan_actual_trace_t fan_actual_trace;
     calibration_trace_t calibration_trace;
     fault_state_t faults;
+    fault_descriptor_t cross_layer_fault;
+    cross_layer_fault_state_t cross_layer_runtime;
+    propagation_monitor_t propagation;
     experiment_metrics_t metrics;
     detection_algorithm_state_t detection;
     FILE *log_file;

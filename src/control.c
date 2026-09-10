@@ -22,6 +22,8 @@ void control_init(ecu_state_t *state)
 {
     /* Conservative initial commands avoid aggressive cooling during warm-up. */
     state->control.nominal_control_target_c = ECU_TARGET_COOLANT_TEMP_C;
+    state->control.target_register_c = (uint16_t)ECU_TARGET_COOLANT_TEMP_C;
+    state->control.last_execution_ms = -1;
     state->control.active_control_target_c = ECU_TARGET_COOLANT_TEMP_C;
     state->control.control_target_deviation_c = 0.0f;
     state->control.pump_command = 0.25f;
@@ -30,10 +32,12 @@ void control_init(ecu_state_t *state)
 
 void control_step(ecu_state_t *state)
 {
-    float effective_target_c = ECU_TARGET_COOLANT_TEMP_C;
+    float effective_target_c = (float)state->control.target_register_c;
     float temp_error;
     float load_term = 0.35f * state->plant.engine_load;
     float speed_term = state->plant.vehicle_speed_kph / 200.0f;
+
+    state->control.last_execution_ms = (int)state->time.time_ms;
 
     /* Calibration-memory corruption is modeled as a corrupted coolant-control
      * target stored in memory/register space, which delays cooling demand. */

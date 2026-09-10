@@ -33,3 +33,5 @@ CODEX.md
 
 # Local Codex file if created as a file instead of a directory
 .codex
+
+results/cross_layer_safety_v1/

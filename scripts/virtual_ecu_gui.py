@@ -7196,6 +7196,16 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         notebook.add(exports_tab, text="Export Reports")
         self._register_page("exports", "Export Reports", exports_tab)
 
+        from virtual_ecu.cross_layer_gui import CrossLayerSafetyPanel
+
+        cross_layer_tab = ScrollableTabFrame(notebook)
+        cross_layer_tab.content.columnconfigure(0, weight=1)
+        notebook.add(cross_layer_tab, text="Cross-Layer Safety")
+        self._register_page("cross_layer", "Cross-Layer Safety", cross_layer_tab)
+        self.cross_layer_panel = CrossLayerSafetyPanel(
+            cross_layer_tab.content, self.run_background_task)
+        self.cross_layer_panel.grid(row=0, column=0, sticky="nsew")
+
         self._build_dashboard_tab(dashboard_tab.content)
         self._build_comparison_summary_tab(summary_tab.content)
         self._build_comparison_figures_tab(figures_tab.content)
@@ -7261,6 +7271,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             ("page", "5. Runtime Study", "runtime_study"),
             ("page", "6. Parameter Sweep", "parameter_sweep"),
             ("page", "7. Security / RTL Analysis", "rtl_security"),
+            ("page", "Cross-Layer Safety", "cross_layer"),
             ("heading", "Core Output", ""),
             ("page", "8. Exports", "exports"),
             ("heading", "Advanced Builder", ""),

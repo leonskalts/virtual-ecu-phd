@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "diagnostics.h"
+#include "cross_layer_fault.h"
 #include "detection_algorithm.h"
 #include "fault_injection.h"
 #include "safety_monitor.h"
@@ -129,8 +130,11 @@ int logger_open(ecu_state_t *state, const char *path)
         "runtime_detection_false_positive_count,runtime_detection_label,"
         "runtime_detection_action,runtime_detection_action_requested,"
         "runtime_detection_requested_safe_state,runtime_detection_action_time_ms,"
-        "runtime_detection_action_reason\n"
+        "runtime_detection_action_reason"
     );
+    cross_layer_csv_header(state->log_file);
+    propagation_monitor_csv_header(state->log_file);
+    fputc('\n', state->log_file);
     return 0;
 }
 
@@ -287,6 +291,8 @@ void logger_write(ecu_state_t *state)
     );
     fprintf(state->log_file, ",%d,", state->detection.action_time_ms);
     csv_write_text(state->log_file, state->detection.action_reason);
+    cross_layer_csv_row(state->log_file, state);
+    propagation_monitor_csv_row(state->log_file, state);
     fprintf(state->log_file, "\n");
 }
 

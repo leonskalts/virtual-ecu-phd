@@ -6,6 +6,7 @@
 #include "actuator_trace.h"
 #include "calibration_trace.h"
 #include "config.h"
+#include "cross_layer_fault.h"
 #include "detection_algorithm.h"
 #include "experiment.h"
 #include "logger.h"
@@ -151,6 +152,11 @@ static int configure_experiment_from_args(ecu_state_t *state, int argc, char **a
         return 0;
     }
 
+    if (state->cross_layer_fault.enabled && argc != arg_index + 1) {
+        fprintf(stderr, "New cross-layer faults require baseline and recognized option/value pairs.\n");
+        return -1;
+    }
+
     if (strcmp(argv[arg_index], "--list-campaigns") == 0) {
         printf("%s", experiment_campaign_usage());
         experiment_list_campaigns(stdout);
@@ -275,6 +281,9 @@ int main(int argc, char **argv)
     char summary_path[ECU_PATH_BUFFER_SIZE];
 
     memset(&state, 0, sizeof(state));
+    if (cross_layer_parse_options(&argc, argv, &state) != 0) {
+        return 1;
+    }
     if (parse_runtime_detection_options(
             &argc,
             argv,
@@ -332,6 +341,12 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    if (cross_layer_validate(&state) != 0) {
+        coolant_sensor_trace_close(&state);
+        fan_actual_trace_close(&state);
+        calibration_trace_close(&state);
+        return 1;
+    }
     state.detection.selected_algorithm = selected_algorithm;
     state.detection.selected_action = selected_action;
     scheduler_init(&state);

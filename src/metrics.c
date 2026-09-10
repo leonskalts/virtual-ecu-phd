@@ -108,7 +108,7 @@ static char *next_csv_field(char **cursor)
 
 static int find_csv_column(const char *header_line, const char *column_name)
 {
-    char header_copy[4096];
+    char header_copy[16384];
     char *cursor = header_copy;
     int index = 0;
 
@@ -134,7 +134,7 @@ static int find_csv_column(const char *header_line, const char *column_name)
 static int extract_trace_metrics(const char *log_path, trace_metrics_t *trace)
 {
     FILE *log_file;
-    char line[4096];
+    char line[16384];
     int coolant_index;
     int safe_state_index;
     int pump_error_index;
@@ -163,7 +163,7 @@ static int extract_trace_metrics(const char *log_path, trace_metrics_t *trace)
     }
 
     while (fgets(line, sizeof(line), log_file) != NULL) {
-        char row_copy[4096];
+        char row_copy[16384];
         char *cursor = row_copy;
         float coolant_temp_c = 0.0f;
         float pump_tracking_error = 0.0f;

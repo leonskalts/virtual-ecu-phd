@@ -28,6 +28,24 @@ transistor- or circuit-level model, silicon-proven Trojan validation, embedded
 hardware certification, or a hard real-time guarantee. Its results apply to
 the evaluated model, profiles, parameters, traces, and host environment.
 
+## Cross-Layer Safety Foundation
+
+The cross-layer automotive Virtual ECU safety experimentation platform now
+supports a real transient bit flip in the mutable control-target register and
+a skipped control-task execution. Optional fault-free reference monitoring
+records propagation, runtime alarms, protective modes, and initial safety
+metrics without changing existing detector logic or thresholds.
+
+```bash
+make
+python3 scripts/run_cross_layer_safety_study.py
+```
+
+Results are written to `results/cross_layer_safety_v1/`. The GUI includes a
+**Cross-Layer Safety** page for single runs, the five-case study, and loading
+results. Old CSVs remain readable; missing new metrics appear as N/A.
+See [architecture, CLI examples, metric definitions, and isolation limitations](docs/cross_layer_safety_architecture.md).
+
 ## Current Research Focus
 
 The current paper direction centers on the proposed **Hybrid Adaptive Kalman**
