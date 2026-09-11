@@ -492,3 +492,13 @@ cross-layer abnormal-behavior analysis, and representative RTL security case
 studies. Present results as bounded evidence from the evaluated deterministic
 model and host—not as production, certification, silicon, or full-vehicle
 claims.
+
+## Cross-layer safety v3 scientific reanalysis
+
+Run `python3 scripts/analyze_cross_layer_safety.py` to analyze the accepted 182-run
+v2 campaign without changing simulator or detector behavior. The separate
+`results/cross_layer_safety_v3/` package includes conditional detection coverage,
+silent-corruption severity, per-miss diagnoses, hardened containment, multiple
+experimental timing clocks, sensitivity tables and publication figures.
+See [the v3 scientific contract](docs/cross_layer_safety_v3.md). In the GUI,
+Cross-Layer Safety → Load v3 Analysis opens the compact scientific analysis view.

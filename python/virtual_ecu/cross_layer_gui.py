@@ -14,6 +14,7 @@ from .cross_layer_safety import (
 )
 
 from .cross_layer_campaign import DEFAULT_CAMPAIGN_DIR, DEFAULT_STUDY
+from .cross_layer_analysis_gui import ScientificAnalysisPanel
 
 
 class CrossLayerSafetyPanel(ttk.Frame):
@@ -70,6 +71,7 @@ class CrossLayerSafetyPanel(ttk.Frame):
             ("Run Single Experiment", self.run_single),
             ("Run Cross-Layer Study", self.run_study), ("Load Results", self.load_results),
             ("Run Campaign", self.run_campaign), ("Load Campaign Results", self.load_campaign_results),
+            ("Load v3 Analysis", self.load_v3_analysis),
         )):
             button = ttk.Button(buttons, text=text, command=command)
             button.grid(row=column//3, column=column%3, padx=(0, 8), pady=4)
@@ -116,6 +118,22 @@ class CrossLayerSafetyPanel(ttk.Frame):
             self.timeline.heading(column, text=label)
         self.timeline.grid(row=form_end+7, column=0, columnspan=2, sticky="ew", pady=10)
         self.table.bind("<<TreeviewSelect>>", self._selection_changed)
+        self.analysis_panel = ScientificAnalysisPanel(self)
+        self.analysis_panel.grid(row=form_end+8, column=0, columnspan=2, sticky="ew", pady=10)
+        self.analysis_panel.grid_remove()
+
+    def load_v3_analysis(self, path=None):
+        self.analysis_panel.grid()
+        self.analysis_panel.load(path)
+        self.status.set(self.analysis_panel.status.get())
+        if self.analysis_panel.loaded_tables:
+            self.update_idletasks()
+            ancestor = self.master
+            while ancestor is not None:
+                if isinstance(ancestor, tk.Canvas):
+                    ancestor.yview_moveto(1.0)
+                    break
+                ancestor = ancestor.master
 
     def _layer_changed(self, _event: object = None) -> None:
         layer = self.variables["Fault Layer"].get()
