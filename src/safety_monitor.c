@@ -160,3 +160,12 @@ bool safety_monitor_apply_detector_request(ecu_state_t *state)
     apply_requested_state(state, combined_requested);
     return true;
 }
+
+bool safety_monitor_apply_runtime_request(ecu_state_t *state, int requested_state)
+{
+    if (requested_state <= SAFE_STATE_NORMAL || requested_state > SAFE_STATE_LIMP_HOME) return false;
+    safe_state_t previous = state->safety.current_state;
+    float pump = state->control.pump_command, fan = state->control.fan_command;
+    apply_requested_state(state, max_state(state->safety.requested_state, (safe_state_t)requested_state));
+    return previous != state->safety.current_state || pump != state->control.pump_command || fan != state->control.fan_command;
+}

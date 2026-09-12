@@ -15,6 +15,8 @@ from .cross_layer_safety import (
 
 from .cross_layer_campaign import DEFAULT_CAMPAIGN_DIR, DEFAULT_STUDY
 from .cross_layer_analysis_gui import ScientificAnalysisPanel
+from .runtime_safety_gui import RuntimeSafetyPanel
+from .runtime_safety_study import DEFAULT_OUTPUT as DEFAULT_RUNTIME_DIR, runtime_summary
 
 
 class CrossLayerSafetyPanel(ttk.Frame):
@@ -36,6 +38,7 @@ class CrossLayerSafetyPanel(ttk.Frame):
                 ("Replay Age (ms)", "500"), ("Task Delay (ms)", "200"),
                 ("FTTI (ms)", "5000"), ("Warning Threshold (°C)", "108"),
                 ("Critical Threshold (°C)", "115"), ("Max Critical Exposure (ms)", "1000"),
+                ("Timing Monitor", "Disabled"), ("Communication Safety Response", "Observe Only"),
             )
         }
         choices = {
@@ -43,6 +46,8 @@ class CrossLayerSafetyPanel(ttk.Frame):
             "Fault Model": tuple(MODEL_TARGETS),
             "Fault Target": ("control_target_register",), "Behavior": ("transient", "intermittent", "permanent"),
             "Stuck Polarity": ("0", "1"),
+            "Timing Monitor": ("Disabled", "Observe Only", "Protective Action"),
+            "Communication Safety Response": ("Observe Only", "Protective Action"),
         }
         self.inputs = {}
         for row, (label, variable) in enumerate(self.variables.items(), 1):
@@ -62,7 +67,7 @@ class CrossLayerSafetyPanel(ttk.Frame):
             "100 ms ticks; memory bits 0–5. Intermittent duration bounds the ON/OFF train. "
             "Permanent faults persist to the end. Campaign settings come from a study file.\n"
             "Single runs use the default 120 s operating profile, Hybrid Adaptive Kalman, "
-            "and the limp-home detector action."), wraplength=760, justify="left").grid(
+            "and the observe-only existing detector action. Runtime safety actions use the separate mode controls."), wraplength=760, justify="left").grid(
                 row=form_end, column=0, columnspan=2, sticky="w", pady=12)
         buttons = ttk.Frame(self)
         buttons.grid(row=form_end+1, column=0, columnspan=2, sticky="w")
@@ -72,6 +77,7 @@ class CrossLayerSafetyPanel(ttk.Frame):
             ("Run Cross-Layer Study", self.run_study), ("Load Results", self.load_results),
             ("Run Campaign", self.run_campaign), ("Load Campaign Results", self.load_campaign_results),
             ("Load v3 Analysis", self.load_v3_analysis),
+            ("Load v4 Runtime Safety", self.load_v4_results),
         )):
             button = ttk.Button(buttons, text=text, command=command)
             button.grid(row=column//3, column=column%3, padx=(0, 8), pady=4)
@@ -121,6 +127,22 @@ class CrossLayerSafetyPanel(ttk.Frame):
         self.analysis_panel = ScientificAnalysisPanel(self)
         self.analysis_panel.grid(row=form_end+8, column=0, columnspan=2, sticky="ew", pady=10)
         self.analysis_panel.grid_remove()
+        self.runtime_panel = RuntimeSafetyPanel(self)
+        self.runtime_panel.grid(row=form_end+9, column=0, columnspan=2, sticky="ew", pady=10)
+        self.runtime_panel.grid_remove()
+
+    def load_v4_results(self, path=None):
+        self.runtime_panel.grid()
+        self.runtime_panel.load(path)
+        self.status.set(self.runtime_panel.status.get())
+        if self.runtime_panel.loaded_tables:
+            self.update_idletasks()
+            ancestor = self.master
+            while ancestor is not None:
+                if isinstance(ancestor, tk.Canvas):
+                    ancestor.yview_moveto(1.0)
+                    break
+                ancestor = ancestor.master
 
     def load_v3_analysis(self, path=None):
         self.analysis_panel.grid()
@@ -167,6 +189,7 @@ class CrossLayerSafetyPanel(ttk.Frame):
         if not selection:
             return
         row = self.loaded_summaries[int(selection[0])]
+        self.runtime_panel.show_run(row)
         for key, variable in self.result_fields.items():
             variable.set("N/A" if row.get(key) in (None, "") else str(row[key]))
         self.timeline.delete(*self.timeline.get_children())
@@ -216,14 +239,16 @@ class CrossLayerSafetyPanel(ttk.Frame):
                     "--hazard-warning-c", self.variables["Warning Threshold (°C)"].get(),
                     "--hazard-critical-c", self.variables["Critical Threshold (°C)"].get(),
                     "--max-critical-exposure-ms", self.variables["Max Critical Exposure (ms)"].get()]
-        path = DEFAULT_CAMPAIGN_DIR / "gui_single" / "single_experiment.csv"
+        options += ["--timing-monitor", self.variables["Timing Monitor"].get().lower().replace(" ", "_"),
+                    "--communication-safety-response", self.variables["Communication Safety Response"].get().lower().replace(" ", "_")]
+        path = DEFAULT_RUNTIME_DIR / "gui_single" / "single_experiment.csv"
 
         def task() -> Path:
             completed = subprocess.run(["make"], cwd=PROJECT_ROOT, capture_output=True, text=True)
             if completed.returncode:
                 raise RuntimeError(completed.stderr or completed.stdout)
             run_experiment(path, ["baseline"], [*options, "--detector", "hybrid_adaptive_kalman",
-                                               "--detector-action", "limp_home"])
+                                               "--detector-action", "observe_only"])
             return path
 
         self._run("Running cross-layer experiment…", task)
@@ -234,10 +259,10 @@ class CrossLayerSafetyPanel(ttk.Frame):
         def task() -> Path:
             completed = subprocess.run(
                 [sys.executable, str(PROJECT_ROOT / "scripts" / "run_cross_layer_safety_study.py"),
-                 "--seed", seed, "--output-dir", str(DEFAULT_CAMPAIGN_DIR / "v1_compatibility_study")], cwd=PROJECT_ROOT, capture_output=True, text=True)
+                 "--seed", seed, "--output-dir", str(DEFAULT_RUNTIME_DIR / "v1_compatibility_study")], cwd=PROJECT_ROOT, capture_output=True, text=True)
             if completed.returncode:
                 raise RuntimeError(completed.stderr or completed.stdout)
-            return DEFAULT_CAMPAIGN_DIR / "v1_compatibility_study" / "cross_layer_run_summary.csv"
+            return DEFAULT_RUNTIME_DIR / "v1_compatibility_study" / "cross_layer_run_summary.csv"
 
         self._run("Running five-case cross-layer study…", task)
 
@@ -248,10 +273,10 @@ class CrossLayerSafetyPanel(ttk.Frame):
             return
         def task():
             completed = subprocess.run([sys.executable, str(PROJECT_ROOT / "scripts/run_cross_layer_campaign.py"),
-                selected], cwd=PROJECT_ROOT, capture_output=True, text=True)
+                selected, "--output-dir", str(DEFAULT_RUNTIME_DIR / "legacy_campaign")], cwd=PROJECT_ROOT, capture_output=True, text=True)
             if completed.returncode:
                 raise RuntimeError(completed.stderr or completed.stdout)
-            return DEFAULT_CAMPAIGN_DIR / "campaign_runs.csv"
+            return DEFAULT_RUNTIME_DIR / "legacy_campaign" / "campaign_runs.csv"
         self._run("Running configured cross-layer campaign…", task)
 
     def load_campaign_results(self):
@@ -272,7 +297,9 @@ class CrossLayerSafetyPanel(ttk.Frame):
             if "telemetry_available" in rows[0] and "run_id" in rows[0]:
                 summaries = rows
             elif "time_ms" in rows[0]:
-                summaries = [{"run_id": path.stem, **summarize_rows(rows)}]
+                summaries = [{"run_id": path.stem, **summarize_rows(rows), **runtime_summary(rows)}]
+                if rows[-1].get("runtime_safety_enabled") == "1":
+                    self.runtime_panel.grid()
             else:
                 raise ValueError("Select a raw experiment CSV or cross_layer_run_summary.csv.")
             self.table.delete(*self.table.get_children())

@@ -502,3 +502,13 @@ silent-corruption severity, per-miss diagnoses, hardened containment, multiple
 experimental timing clocks, sensitivity tables and publication figures.
 See [the v3 scientific contract](docs/cross_layer_safety_v3.md). In the GUI,
 Cross-Layer Safety → Load v3 Analysis opens the compact scientific analysis view.
+
+## Cross-layer safety v4 runtime monitoring and response
+
+Run `python3 scripts/run_runtime_safety_studies.py` for the paired timing-monitor
+and communication-response studies. Results go to `results/cross_layer_safety_v4/`.
+The independent timing monitor is disabled by default; communication protection
+is opt-in. Existing detectors, physics and accepted fault behavior are unchanged.
+See [trusted timing observations](docs/runtime_timing_observability.md) and the
+[response/evaluation contract](docs/runtime_safety_response_v4.md). The existing
+Cross-Layer Safety GUI includes runtime mode controls and Load v4 Runtime Safety.

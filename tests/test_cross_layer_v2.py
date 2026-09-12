@@ -271,6 +271,7 @@ int main(int argc,char **argv) {
         subprocess.run(['gcc','-std=c11','-Wall','-Wextra','-Wpedantic','-I'+str(ROOT/'include'),
                         str(source),str(ROOT/'src/hazard_model.c'),str(ROOT/'src/runtime_observation.c'),
                         str(ROOT/'src/cross_layer_config.c'),str(ROOT/'src/cross_layer_fault.c'),
+                        str(ROOT/'src/runtime_timing_observation.c'),
                         '-o',str(cls.binary)],check=True,capture_output=True)
 
     @classmethod

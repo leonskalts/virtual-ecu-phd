@@ -108,12 +108,14 @@ bool cross_layer_control_execution(ecu_state_t *state)
     cross_layer_fault_state_t *r = &state->cross_layer_runtime;
     int now = (int)state->time.time_ms;
     bool execute = true;
+    runtime_timing_release(&state->timing_recorder, state->time.time_ms);
     r->execution_skipped = r->execution_recovered = r->deadline_missed = r->release_discarded = false;
     r->expected_execution_ms = now;
     r->actual_execution_ms = now;
     r->actual_delay_ms = 0;
     if (f->enabled && f->model == FAULT_MODEL_TASK_DELAY) {
         if (r->pending_job) {
+            runtime_timing_cancel_release(&state->timing_recorder, false);
             /* Single outstanding job: discard releases while pending, including
              * the release coincident with delayed completion. No catch-up burst. */
             r->release_discarded = true;
@@ -124,6 +126,7 @@ bool cross_layer_control_execution(ecu_state_t *state)
                 r->deadline_missed = now > r->deadline_ms;
             } else r->deadline_missed = now >= r->deadline_ms;
         } else {
+            runtime_timing_admit(&state->timing_recorder);
             r->nominal_release_ms = now;
             r->deadline_ms = now + (int)ECU_CONTROL_PERIOD_MS;
             if (r->active) {
@@ -133,10 +136,12 @@ bool cross_layer_control_execution(ecu_state_t *state)
             }
         }
     } else {
+        runtime_timing_admit(&state->timing_recorder);
         r->nominal_release_ms = now;
         r->deadline_ms = now + (int)ECU_CONTROL_PERIOD_MS;
         if (r->active && f->model == FAULT_MODEL_DEADLINE_MISS) {
             execute = false;
+            runtime_timing_cancel_release(&state->timing_recorder, true);
             r->deadline_missed = true;
         }
     }

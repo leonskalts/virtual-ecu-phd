@@ -38,6 +38,9 @@ void scheduler_init(ecu_state_t *state)
     cross_layer_fault_init(state);
     propagation_monitor_init(state);
     hazard_model_init(&state->hazard);
+    runtime_timing_init(&state->timing_recorder, ECU_CONTROL_PERIOD_MS);
+    timing_safety_monitor_init(&state->timing_monitor);
+    runtime_safety_policy_init(&state->runtime_safety);
     detection_algorithm_init(
         &state->detection,
         state->detection.selected_algorithm,
@@ -56,8 +59,14 @@ static void scheduler_inputs(ecu_state_t *state)
     }
     if (scheduler_task_due(state->time.time_ms, ECU_CONTROL_PERIOD_MS) &&
         cross_layer_control_execution(state)) {
+        runtime_timing_start(&state->timing_recorder, state->time.time_ms);
         control_step(state);
+        runtime_timing_complete(&state->timing_recorder, state->time.time_ms);
     }
+    runtime_timing_observe(&state->timing_recorder, state->time.time_ms);
+    if (state->runtime_safety_config.enabled)
+        timing_safety_monitor_step(&state->timing_monitor, &state->timing_recorder.observation,
+            state->runtime_safety_config.timing_mode, state->runtime_safety_config.timing_evidence);
 }
 
 static void scheduler_reactions(ecu_state_t *state)
@@ -80,6 +89,20 @@ static void scheduler_reactions(ecu_state_t *state)
         actuators_step(state);
         if (scheduler_task_due(state->time.time_ms, ECU_DIAGNOSTIC_PERIOD_MS)) {
             diagnostics_step(state);
+        }
+    }
+    if (state->runtime_safety_config.enabled) {
+        runtime_observation_t observation;
+        runtime_observation_capture(state, &observation);
+        runtime_safety_policy_step(&state->runtime_safety, &state->runtime_safety_config,
+            &observation, &state->timing_monitor);
+        if (safety_monitor_apply_runtime_request(state, state->runtime_safety.requested_state)) {
+            state->runtime_safety.action_applied = true;
+            state->runtime_safety.action_samples++;
+            if (state->runtime_safety.first_action_ms < 0)
+                state->runtime_safety.first_action_ms = (int)state->time.time_ms;
+            actuators_step(state);
+            if (scheduler_task_due(state->time.time_ms, ECU_DIAGNOSTIC_PERIOD_MS)) diagnostics_step(state);
         }
     }
     metrics_step(state);

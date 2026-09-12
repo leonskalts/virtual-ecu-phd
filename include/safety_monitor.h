@@ -6,6 +6,7 @@
 void safety_monitor_init(ecu_state_t *state);
 void safety_monitor_step(ecu_state_t *state);
 bool safety_monitor_apply_detector_request(ecu_state_t *state);
+bool safety_monitor_apply_runtime_request(ecu_state_t *state, int requested_state);
 const char *safety_monitor_state_label(safe_state_t state);
 
 #endif

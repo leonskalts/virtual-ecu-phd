@@ -6,6 +6,7 @@
 #include "fault_model.h"
 #include "propagation_monitor.h"
 #include "hazard_model.h"
+#include "runtime_safety_policy.h"
 
 #include <stdbool.h>
 #include <stdio.h>
@@ -280,6 +281,10 @@ typedef struct ecu_state {
     propagation_monitor_t propagation;
     hazard_config_t hazard_config;
     hazard_status_t hazard;
+    runtime_timing_recorder_t timing_recorder;
+    timing_monitor_status_t timing_monitor;
+    runtime_safety_config_t runtime_safety_config;
+    runtime_safety_status_t runtime_safety;
     experiment_metrics_t metrics;
     detection_algorithm_state_t detection;
     FILE *log_file;

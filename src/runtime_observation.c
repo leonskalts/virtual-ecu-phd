@@ -15,7 +15,10 @@ void runtime_observation_capture(const ecu_state_t *s, runtime_observation_t *o)
         .diagnostic_id = s->diagnostics.primary_dtc, .safety_state = s->safety.current_state,
         .detector_alarm = s->detection.alarm_active, .engine_load = s->plant.engine_load,
         .ambient_c = s->sensors.ambient_temp_meas_c,
-        .vehicle_speed_kph = s->sensors.vehicle_speed_meas_kph
+        .vehicle_speed_kph = s->sensors.vehicle_speed_meas_kph,
+        .sample_freshness_ok = s->sensors.coolant_sensor_freshness_ok,
+        .sample_expected_period_ms = s->sensors.coolant_sensor_expected_period_ms,
+        .timing = s->timing_recorder.observation
     };
 }
 

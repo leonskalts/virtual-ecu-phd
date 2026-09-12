@@ -1,0 +1,135 @@
+schema_version: 1
+profiles:
+- id: nominal
+  duration_ms: 120000
+  path: null
+  injection_times_ms:
+  - 20100
+  - 60100
+  - 90100
+  extended_injection_times_ms:
+  - 20100
+  - 40100
+  - 60100
+  - 70100
+  - 90100
+  - 100100
+- id: high_load_profile
+  duration_ms: 300000
+  path: profiles/driving/example_driving_profile.csv
+  injection_times_ms:
+  - 20100
+  - 150100
+  - 220100
+  extended_injection_times_ms:
+  - 20100
+  - 80100
+  - 150100
+  - 180100
+  - 220100
+  - 260100
+detectors:
+- algorithm: hybrid_adaptive_kalman
+  action: observe_only
+seeds:
+- 42
+hazard:
+  warning_threshold_c: 108
+  critical_threshold_c: 115
+  max_critical_exposure_ms: 1000
+  fault_tolerant_time_interval_ms: 5000
+  recovery_hold_ms: 1000
+injection_times_ms:
+- 20100
+- 60100
+- 90100
+study_id: timing_monitor_validation_v1
+study_kind: timing
+include_baseline: true
+max_runs: 400
+design_note: 72 fault cases balanced across model (36 each), behavior (24 each), and
+  profile (36 each). Deadline transient/permanent use six injection times; task-delay
+  cases use three times and two delay magnitudes. This preserves all 42 v2 timing
+  cases without duplicating deterministic runs. Injection-time grids differ between
+  models in those behaviors; do not infer matched origin effects from pooled counts.
+fault_cases:
+- id: deadline_single
+  layer: timing
+  model: deadline_miss
+  target: control_task
+  behavior: transient
+  parameters:
+    duration_ms: 100
+  grid: {}
+  injection_schedule: extended_injection_times_ms
+- id: deadline_intermittent
+  layer: timing
+  model: deadline_miss
+  target: control_task
+  behavior: intermittent
+  parameters:
+    duration_ms: 10000
+    intermittent_off_ms: 500
+  grid:
+    intermittent_on_ms:
+    - 100
+    - 500
+- id: deadline_permanent
+  model: deadline_miss
+  behavior: permanent
+  parameters: {}
+  grid: {}
+  injection_schedule: extended_injection_times_ms
+- id: task_delay
+  layer: timing
+  model: task_delay
+  target: control_task
+  behavior: transient
+  parameters:
+    duration_ms: 100
+  grid:
+    task_delay_ms:
+    - 200
+    - 2000
+- id: task_intermittent
+  layer: timing
+  model: task_delay
+  target: control_task
+  behavior: intermittent
+  parameters:
+    duration_ms: 10000
+    intermittent_on_ms: 500
+    intermittent_off_ms: 1000
+  grid:
+    task_delay_ms:
+    - 200
+    - 2000
+- id: task_permanent
+  model: task_delay
+  behavior: permanent
+  parameters: {}
+  grid:
+    task_delay_ms:
+    - 200
+    - 2000
+modes:
+- id: disabled
+  timing_monitor: disabled
+  timing_evidence: combined
+  communication_response: observe_only
+- id: deadline_only
+  timing_monitor: observe_only
+  timing_evidence: deadline_only
+  communication_response: observe_only
+- id: execution_age_only
+  timing_monitor: observe_only
+  timing_evidence: execution_age_only
+  communication_response: observe_only
+- id: combined_observe
+  timing_monitor: observe_only
+  timing_evidence: combined
+  communication_response: observe_only
+- id: combined_protect
+  timing_monitor: protective_action
+  timing_evidence: combined
+  communication_response: observe_only

@@ -281,6 +281,7 @@ int main(int argc, char **argv)
     char summary_path[ECU_PATH_BUFFER_SIZE];
 
     memset(&state, 0, sizeof(state));
+    if (runtime_safety_parse_options(&argc, argv, &state) != 0) return 1;
     if (cross_layer_parse_options(&argc, argv, &state) != 0) {
         return 1;
     }

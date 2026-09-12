@@ -2,6 +2,7 @@
 #define RUNTIME_OBSERVATION_H
 
 #include <stdbool.h>
+#include "runtime_timing_observation.h"
 
 /* Allowlist for future runtime monitors: deliberately no plant truth or labels. */
 typedef struct {
@@ -16,6 +17,9 @@ typedef struct {
     int safety_state;
     bool detector_alarm;
     float engine_load, ambient_c, vehicle_speed_kph;
+    bool sample_freshness_ok;
+    unsigned int sample_expected_period_ms;
+    runtime_timing_observation_t timing;
 } runtime_observation_t;
 
 struct ecu_state;

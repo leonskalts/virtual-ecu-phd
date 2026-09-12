@@ -1,0 +1,98 @@
+schema_version: 1
+profiles:
+- id: nominal
+  duration_ms: 120000
+  path: null
+  injection_times_ms:
+  - 20100
+  - 60100
+  - 90100
+  extended_injection_times_ms:
+  - 20100
+  - 40100
+  - 60100
+  - 70100
+  - 90100
+  - 100100
+- id: high_load_profile
+  duration_ms: 300000
+  path: profiles/driving/example_driving_profile.csv
+  injection_times_ms:
+  - 20100
+  - 150100
+  - 220100
+  extended_injection_times_ms:
+  - 20100
+  - 80100
+  - 150100
+  - 180100
+  - 220100
+  - 260100
+detectors:
+- algorithm: hybrid_adaptive_kalman
+  action: observe_only
+seeds:
+- 42
+hazard:
+  warning_threshold_c: 108
+  critical_threshold_c: 115
+  max_critical_exposure_ms: 1000
+  fault_tolerant_time_interval_ms: 5000
+  recovery_hold_ms: 1000
+injection_times_ms:
+- 20100
+- 60100
+- 90100
+study_id: communication_safety_response_v1
+study_kind: communication
+include_baseline: true
+max_runs: 120
+design_note: All 48 accepted v2 communication cases plus both no-fault profiles, paired
+  under observe-only and protective action. No detector threshold changes. No extra
+  deterministic seeds.
+fault_cases:
+- id: delayed_data
+  layer: communication
+  model: delayed_update
+  target: coolant_sensor
+  behavior: transient
+  parameters:
+    duration_ms: 20000
+  grid:
+    communication_delay_ms:
+    - 300
+    - 10000
+- id: dropped_data
+  layer: communication
+  model: dropped_update
+  target: coolant_sensor
+  behavior: transient
+  parameters:
+    duration_ms: 10000
+  grid:
+    drop_count:
+    - 1
+    - 5
+    drop_every_n_updates:
+    - 0
+    - 10
+- id: replayed_data
+  layer: communication
+  model: replayed_sample
+  target: coolant_sensor
+  behavior: transient
+  parameters:
+    duration_ms: 20000
+  grid:
+    replay_age_ms:
+    - 300
+    - 15000
+modes:
+- id: observe_only
+  timing_monitor: disabled
+  timing_evidence: combined
+  communication_response: observe_only
+- id: protective_action
+  timing_monitor: disabled
+  timing_evidence: combined
+  communication_response: protective_action

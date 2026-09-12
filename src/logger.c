@@ -136,6 +136,7 @@ int logger_open(ecu_state_t *state, const char *path)
     propagation_monitor_csv_header(state->log_file);
     cross_layer_v2_csv_header(state->log_file);
     hazard_csv_header(state->log_file);
+    runtime_safety_csv_header(state);
     fputc('\n', state->log_file);
     return 0;
 }
@@ -297,6 +298,7 @@ void logger_write(ecu_state_t *state)
     propagation_monitor_csv_row(state->log_file, state);
     cross_layer_v2_csv_row(state->log_file, state);
     hazard_csv_row(state->log_file, state);
+    runtime_safety_csv_row(state);
     fprintf(state->log_file, "\n");
 }
 
