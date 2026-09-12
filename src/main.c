@@ -282,6 +282,7 @@ int main(int argc, char **argv)
 
     memset(&state, 0, sizeof(state));
     if (runtime_safety_parse_options(&argc, argv, &state) != 0) return 1;
+    if (validation_v5_parse_options(&argc, argv, &state) != 0) return 1;
     if (cross_layer_parse_options(&argc, argv, &state) != 0) {
         return 1;
     }
@@ -302,6 +303,10 @@ int main(int argc, char **argv)
     config_status = configure_experiment_from_args(&state, argc, argv, &log_path);
     if (config_status != 0) {
         return (config_status > 0) ? 0 : 1;
+    }
+    if (state.scheduler_stress_config.enabled && state.cross_layer_fault.enabled) {
+        fprintf(stderr,"Scheduler workload stress and direct cross-layer injection are separate experiments.\n");
+        return 1;
     }
     if (custom_duration_enabled &&
         experiment_set_simulation_duration(&state, simulation_duration_ms) != 0) {

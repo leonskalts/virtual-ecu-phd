@@ -16,7 +16,9 @@ from .cross_layer_safety import (
 from .cross_layer_campaign import DEFAULT_CAMPAIGN_DIR, DEFAULT_STUDY
 from .cross_layer_analysis_gui import ScientificAnalysisPanel
 from .runtime_safety_gui import RuntimeSafetyPanel
-from .runtime_safety_study import DEFAULT_OUTPUT as DEFAULT_RUNTIME_DIR, runtime_summary
+from .validation_v5_gui import ValidationV5Panel
+from .runtime_safety_study import runtime_summary
+from .validation_v5_design import OUTPUT as DEFAULT_RUNTIME_DIR
 
 
 class CrossLayerSafetyPanel(ttk.Frame):
@@ -78,6 +80,7 @@ class CrossLayerSafetyPanel(ttk.Frame):
             ("Run Campaign", self.run_campaign), ("Load Campaign Results", self.load_campaign_results),
             ("Load v3 Analysis", self.load_v3_analysis),
             ("Load v4 Runtime Safety", self.load_v4_results),
+            ("Load V5 Validation", self.load_v5_results),
         )):
             button = ttk.Button(buttons, text=text, command=command)
             button.grid(row=column//3, column=column%3, padx=(0, 8), pady=4)
@@ -130,6 +133,20 @@ class CrossLayerSafetyPanel(ttk.Frame):
         self.runtime_panel = RuntimeSafetyPanel(self)
         self.runtime_panel.grid(row=form_end+9, column=0, columnspan=2, sticky="ew", pady=10)
         self.runtime_panel.grid_remove()
+        self.validation_panel = ValidationV5Panel(self)
+        self.validation_panel.grid(row=form_end+10, column=0, columnspan=2, sticky="ew", pady=10)
+        self.validation_panel.grid_remove()
+
+    def load_v5_results(self, path=None):
+        self.validation_panel.grid()
+        self.validation_panel.load(path)
+        self.update_idletasks()
+        ancestor = self.master
+        while ancestor is not None:
+            if isinstance(ancestor, tk.Canvas):
+                ancestor.yview_moveto(1.0)
+                break
+            ancestor = ancestor.master
 
     def load_v4_results(self, path=None):
         self.runtime_panel.grid()

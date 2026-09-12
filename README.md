@@ -512,3 +512,14 @@ is opt-in. Existing detectors, physics and accepted fault behavior are unchanged
 See [trusted timing observations](docs/runtime_timing_observability.md) and the
 [response/evaluation contract](docs/runtime_safety_response_v4.md). The existing
 Cross-Layer Safety GUI includes runtime mode controls and Load v4 Runtime Safety.
+
+## Cross-layer safety v5 final validation
+
+Run `python3 scripts/run_cross_layer_v5_validation.py` for the frozen holdout,
+paired policy, matched temporal and recovery-horizon studies. The package in
+`results/cross_layer_safety_v5/` includes nine candidate figures, tables A–F,
+descriptive Wilson intervals, raw traces and host overhead measurements.
+See the [frozen contract](docs/timing_monitor_frozen_contract_v5.md) and
+[validation protocol](docs/cross_layer_v5_validation_protocol.md).
+Cross-Layer Safety → Load V5 Validation opens seven compact result views.
+New GUI experiment outputs go into v5 subdirectories; old evidence remains loadable.

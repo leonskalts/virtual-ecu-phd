@@ -41,6 +41,8 @@ void scheduler_init(ecu_state_t *state)
     runtime_timing_init(&state->timing_recorder, ECU_CONTROL_PERIOD_MS);
     timing_safety_monitor_init(&state->timing_monitor);
     runtime_safety_policy_init(&state->runtime_safety);
+    state->safety_policy_v5.communication_streak_start_ms = -1;
+    scheduler_stress_init(state);
     detection_algorithm_init(
         &state->detection,
         state->detection.selected_algorithm,
@@ -52,18 +54,27 @@ void scheduler_init(ecu_state_t *state)
  * optional experiment reference can be observed at matching boundaries. */
 static void scheduler_inputs(ecu_state_t *state)
 {
+    if (state->scheduler_stress_config.enabled && state->time.time_ms) {
+        unsigned int boundary=state->time.time_ms;
+        for (state->time.time_ms=boundary-ECU_DT_MS+1; state->time.time_ms<boundary; state->time.time_ms++)
+            scheduler_stress_tick(state);
+    }
     fault_injection_step(state);
     cross_layer_fault_step(state);
     if (scheduler_task_due(state->time.time_ms, ECU_SENSOR_PERIOD_MS)) {
         sensors_step(state);
     }
-    if (scheduler_task_due(state->time.time_ms, ECU_CONTROL_PERIOD_MS) &&
+    if (state->scheduler_stress_config.enabled) {
+        scheduler_stress_tick(state);
+        scheduler_stress_sample(state);
+    } else if (scheduler_task_due(state->time.time_ms, ECU_CONTROL_PERIOD_MS) &&
         cross_layer_control_execution(state)) {
         runtime_timing_start(&state->timing_recorder, state->time.time_ms);
         control_step(state);
         runtime_timing_complete(&state->timing_recorder, state->time.time_ms);
     }
-    runtime_timing_observe(&state->timing_recorder, state->time.time_ms);
+    if (!state->scheduler_stress_config.enabled)
+        runtime_timing_observe(&state->timing_recorder, state->time.time_ms);
     if (state->runtime_safety_config.enabled)
         timing_safety_monitor_step(&state->timing_monitor, &state->timing_recorder.observation,
             state->runtime_safety_config.timing_mode, state->runtime_safety_config.timing_evidence);
@@ -94,8 +105,12 @@ static void scheduler_reactions(ecu_state_t *state)
     if (state->runtime_safety_config.enabled) {
         runtime_observation_t observation;
         runtime_observation_capture(state, &observation);
-        runtime_safety_policy_step(&state->runtime_safety, &state->runtime_safety_config,
-            &observation, &state->timing_monitor);
+        if (state->safety_policy_v5_config.enabled)
+            safety_policy_v5_step(&state->runtime_safety, &state->safety_policy_v5,
+                &state->runtime_safety_config, state->safety_policy_v5_config.mode,
+                &observation, &state->timing_monitor);
+        else runtime_safety_policy_step(&state->runtime_safety, &state->runtime_safety_config,
+                &observation, &state->timing_monitor);
         if (safety_monitor_apply_runtime_request(state, state->runtime_safety.requested_state)) {
             state->runtime_safety.action_applied = true;
             state->runtime_safety.action_samples++;
@@ -122,6 +137,8 @@ void scheduler_run(ecu_state_t *state)
         reference.cross_layer_fault.enabled = false;
         reference.propagation.enabled = false;
         reference.log_file = NULL;
+        reference.scheduler_stress_config.overload = false;
+        reference.scheduler_stress_config.events_path[0] = '\0';
         scheduler_init(&reference);
     }
     for (state->time.time_ms = 0U;
@@ -153,4 +170,6 @@ void scheduler_run(ecu_state_t *state)
         thermal_plant_step(state);
         if (monitored) thermal_plant_step(&reference);
     }
+    scheduler_stress_close(state);
+    if (monitored) scheduler_stress_close(&reference);
 }

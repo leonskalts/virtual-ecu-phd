@@ -1,0 +1,185 @@
+schema_version: 1
+baseline: da126cb
+profiles:
+- id: holdout_profile_1
+  duration_ms: 180000
+  path: profiles/driving/v5/profile_1.csv
+- id: holdout_profile_2
+  duration_ms: 180000
+  path: profiles/driving/v5/profile_2.csv
+- id: holdout_profile_3
+  duration_ms: 180000
+  path: profiles/driving/v5/profile_3.csv
+injection_times_ms:
+- 17300
+- 77300
+- 137300
+hazard:
+  warning_threshold_c: 108
+  critical_threshold_c: 115
+  max_critical_exposure_ms: 1000
+  fault_tolerant_time_interval_ms: 5000
+  recovery_hold_ms: 1000
+detector:
+  algorithm: hybrid_adaptive_kalman
+  action: observe_only
+timing:
+  legal_patterns:
+  - id: nominal
+    release_jitter_ms: 0
+    start_jitter_ms: 0
+    execution_ms: 0
+  - id: small_jitter
+    release_jitter_ms: 5
+    start_jitter_ms: 5
+    execution_ms: 20
+  - id: medium_jitter
+    release_jitter_ms: 15
+    start_jitter_ms: 15
+    execution_ms: 40
+  - id: jitter
+    release_jitter_ms: 25
+    start_jitter_ms: 25
+    execution_ms: 30
+  - id: near_deadline
+    release_jitter_ms: 1
+    start_jitter_ms: 1
+    execution_ms: 98
+  - id: near_deadline_variable
+    release_jitter_ms: 4
+    start_jitter_ms: 4
+    execution_ms: 92
+  - id: exact_deadline
+    release_jitter_ms: 0
+    start_jitter_ms: 0
+    execution_ms: 100
+  legal_seeds:
+  - 11
+  - 29
+  - 47
+  - 71
+  - 101
+  - 139
+  - 181
+  - 227
+  - 277
+  - 331
+  delays_ms:
+  - 100
+  - 300
+  - 700
+  - 1500
+  durations_ms:
+  - 100
+  - 700
+  - 3700
+  intermittent_patterns:
+  - - 200
+    - 300
+  - - 300
+    - 700
+  - - 700
+    - 900
+  overload_execution_ms:
+  - 101
+  - 140
+  - 260
+  - 550
+  overload_durations_ms:
+  - 100
+  - 900
+  - 3100
+  ablation_modes:
+  - deadline_only
+  - execution_age_only
+  - combined
+  action_modes:
+  - observe_only
+  - immediate
+  - graded
+  deadline_transient_offsets_ms:
+  - 0
+  - 400
+  - 3600
+communication:
+  magnitudes:
+    delayed_update:
+    - 100
+    - 500
+    - 1700
+    - 3500
+    replayed_sample:
+    - 200
+    - 700
+    - 1900
+    - 4100
+    dropped_update:
+    - 1
+    - 4
+    - 9
+    - 17
+  behaviors:
+  - transient
+  - intermittent
+  - permanent
+  transient_duration_ms: 7300
+  intermittent_duration_ms: 13700
+  on_ms: 700
+  off_ms: 900
+  policies:
+  - observe_only
+  - immediate
+  - graded
+cross_layer:
+  models:
+  - bit_flip
+  - stuck_bit
+  - deadline_miss
+  - task_delay
+  - delayed_update
+  - dropped_update
+  - replayed_sample
+  - sensor_bias
+  - pump_degraded
+  - fan_stuck_off
+  behaviors:
+  - transient
+  - intermittent
+  variants:
+  - 0
+  - 1
+  - 2
+  legacy_behaviors:
+  - transient
+  - permanent
+  single_tick_or_permanent_fan_offsets_ms:
+  - 0
+  - 400
+  - 1800
+matched:
+  bits:
+  - 1
+  - 3
+  - 5
+  polarities:
+  - 0
+  - 1
+  behaviors:
+  - transient_bit_flip
+  - permanent_stuck_bit
+  - intermittent_stuck_bit
+  duration_ms: 7300
+  on_ms: 700
+  off_ms: 900
+recovery:
+  horizons_ms:
+  - 5000
+  - 15000
+  - 30000
+  - 60000
+  extended_end_ms: 360000
+  v4_selection: all 5 immediate-action communication containment failures plus first
+    timing case per model/behavior
+statistical_scope: Descriptive Wilson intervals over fixed designed cases. Deterministic
+  seeds are useful only for jitter, not fault replication. Repeated ablations/policies
+  are paired and never pooled as independent cases.

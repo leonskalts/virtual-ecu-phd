@@ -7,6 +7,8 @@
 #include "propagation_monitor.h"
 #include "hazard_model.h"
 #include "runtime_safety_policy.h"
+#include "safety_policy_v5.h"
+#include "scheduler_stress.h"
 
 #include <stdbool.h>
 #include <stdio.h>
@@ -285,6 +287,10 @@ typedef struct ecu_state {
     timing_monitor_status_t timing_monitor;
     runtime_safety_config_t runtime_safety_config;
     runtime_safety_status_t runtime_safety;
+    safety_policy_v5_config_t safety_policy_v5_config;
+    safety_policy_v5_state_t safety_policy_v5;
+    scheduler_stress_config_t scheduler_stress_config;
+    scheduler_stress_state_t scheduler_stress;
     experiment_metrics_t metrics;
     detection_algorithm_state_t detection;
     FILE *log_file;
