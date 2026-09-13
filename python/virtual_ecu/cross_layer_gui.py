@@ -17,8 +17,11 @@ from .cross_layer_campaign import DEFAULT_CAMPAIGN_DIR, DEFAULT_STUDY
 from .cross_layer_analysis_gui import ScientificAnalysisPanel
 from .runtime_safety_gui import RuntimeSafetyPanel
 from .validation_v5_gui import ValidationV5Panel
+from .final_validation_gui import FinalValidationPanel
 from .runtime_safety_study import runtime_summary
-from .validation_v5_design import OUTPUT as DEFAULT_RUNTIME_DIR
+from .final_evidence import OUTPUT as FINAL_OUTPUT_DIR
+
+DEFAULT_RUNTIME_DIR = FINAL_OUTPUT_DIR / "runtime"
 
 
 class CrossLayerSafetyPanel(ttk.Frame):
@@ -136,6 +139,8 @@ class CrossLayerSafetyPanel(ttk.Frame):
         self.validation_panel = ValidationV5Panel(self)
         self.validation_panel.grid(row=form_end+10, column=0, columnspan=2, sticky="ew", pady=10)
         self.validation_panel.grid_remove()
+        self.final_panel = FinalValidationPanel(self, self.background_task)
+        self.final_panel.grid(row=form_end+11, column=0, columnspan=2, sticky="ew", pady=10)
 
     def load_v5_results(self, path=None):
         self.validation_panel.grid()

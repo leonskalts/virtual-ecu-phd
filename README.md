@@ -522,4 +522,29 @@ descriptive Wilson intervals, raw traces and host overhead measurements.
 See the [frozen contract](docs/timing_monitor_frozen_contract_v5.md) and
 [validation protocol](docs/cross_layer_v5_validation_protocol.md).
 Cross-Layer Safety → Load V5 Validation opens seven compact result views.
-New GUI experiment outputs go into v5 subdirectories; old evidence remains loadable.
+With the v6 freeze, new GUI experiment outputs go into v6/runtime; accepted v5
+evidence remains read-only and loadable.
+
+## Cross-layer safety v6 platform freeze
+
+The accepted scientific baseline is `0da05cc`. V6 preserves simulation behavior
+and v1–v5/HETIA evidence while adding claim traceability, curated paper tables and
+figures, a final research summary, and reproducibility orchestration.
+
+```bash
+python3 scripts/run_cross_layer_reproducibility_package.py --quick-check
+python3 scripts/run_cross_layer_reproducibility_package.py --analysis-only
+```
+
+The optional `--full` mode runs many simulations in an isolated v6 directory; it is
+not the default. Accepted evidence must be available locally, but generated results
+do not need to be tracked by Git. Existing generated artifacts are hash-checked;
+analysis-only refreshes stale v6 reports without changing accepted scientific inputs.
+
+See the [user guide](docs/cross_layer_platform_user_guide.md),
+[final configuration](docs/cross_layer_final_configuration.md),
+[canonical architecture](docs/cross_layer_platform_architecture.md), and
+[independent validation roadmap](docs/independent_validation_roadmap.md).
+The Cross-Layer Safety page includes Research Summary / Final Validation and retains
+all existing version-specific loaders. The primary story is bounded cross-layer
+fault observability, not universal hazard prevention or embedded WCET.

@@ -1,0 +1,34 @@
+schema_version: 1
+accepted_baseline: 0da05cc
+evidence_lock: studies/cross_layer_final_evidence_lock.json
+purpose: Index of accepted evidence; no new matrix or scientific configuration.
+output: results/cross_layer_safety_v6
+recommended_monitor: combined
+default_research_action: observe_only
+experimental_policies: [immediate, graded]
+components:
+  timing_holdout:
+    role: primary
+    source: results/cross_layer_safety_v5/timing_holdout_runs.csv
+    configuration: studies/cross_layer_v5_holdout.yaml
+  legal_timing:
+    role: primary
+    source: results/cross_layer_safety_v5/timing_benign_summary.csv
+  timing_ablation:
+    role: primary
+    source: results/cross_layer_safety_v5/timing_ablation_holdout.csv
+  cross_layer:
+    role: primary
+    source: results/cross_layer_safety_v5/cross_layer_holdout_runs.csv
+  communication:
+    role: secondary
+    source: results/cross_layer_safety_v5/intervention_cost_summary.csv
+  recovery:
+    role: secondary_development_followup
+    source: results/cross_layer_safety_v5/summaries/recovery_final_outcomes.csv
+  matched_temporal:
+    role: secondary
+    source: results/cross_layer_safety_v5/stuck_dynamic_matched_comparison.csv
+  overhead:
+    role: supporting_host_measurement
+    source: results/cross_layer_safety_v5/monitor_overhead_summary.csv
