@@ -40,3 +40,8 @@ results/cross_layer_safety_v3/
 results/cross_layer_safety_v4/
 results/cross_layer_safety_v5/
 results/cross_layer_safety_v6/
+
+# v6.1 GUI validation and new runtime artifacts
+results/cross_layer_safety_v6_1/
+
+/results/cross_layer_safety_v6_2/

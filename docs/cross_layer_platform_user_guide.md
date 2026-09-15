@@ -18,11 +18,119 @@ make
 python3 scripts/virtual_ecu_gui.py
 ```
 
-The application retains its existing pages. In Cross-Layer Safety, use the original
-single-run/campaign controls or version-specific loaders. The compact Research
-Summary / Final Validation panel has Load Final Validation, Open Final Report,
-Run Quick Reproducibility Check and Regenerate Analysis. Background work leaves the
-GUI responsive. A missing package shows N/A and regeneration guidance.
+The Dashboard offers Guided Experiment, Research / Validation, and Advanced
+Experiment Builder. The sidebar groups experimentation, research, reporting and
+advanced work. Existing saved page indices and internal page IDs remain compatible.
+Final Validation is a separate page under REPORT.
+
+The v6.2 sidebar has HOME (Dashboard), EXPERIMENT (Run Experiment, Compare Results,
+Propagation Path, Cross-Layer Safety), RESEARCH (Research Analysis, RTL Security),
+REPORT (Exports, Final Validation), and ADVANCED (Experiment Builder).
+
+## Which workflow should I use?
+
+| Workflow | Use it for |
+| --- | --- |
+| Guided Cross-Layer Experiment | One memory, timing, communication, sensor/control or actuator fault. Start here. |
+| Run Experiment / Compare Results | Predefined comparison stories or saved left/right CSV results. |
+| Propagation Path | Inspect fault origin, ECU effects, actuation and plant outcome. |
+| Research Analysis → Aggregate Analysis | Aggregate campaigns and per-fault findings. |
+| Research Analysis → Detector Study | Runtime detector/action comparisons; detection and intervention are shown separately. |
+| Research Analysis → Parameter Sweep | Fault-severity and detector sensitivity; tied metrics remain ties. |
+| RTL Security | HT1–HT4 hardware Trojan studies and their loaded trigger/payload metadata. |
+| Advanced Experiment Builder | Staged, multi-fault or custom scenarios, presets and timelines. |
+| Final Validation | Frozen v5/v6 research evidence and reproducibility controls. |
+| Exports | Snapshot, full comparison report or presentation bundle. |
+
+## Research Analysis
+
+Research Analysis opens an Overview with three optional research utilities:
+
+1. **Aggregate Analysis** summarizes many completed campaign runs, including
+   per-fault averages, detection trends and thermal/safe-state outcomes. This general
+   viewer does not define the final frozen v5/v6 validation evidence.
+2. **Detector Study** compares detection algorithms and intervention actions.
+   Detection performance and intervention outcome remain separate sections.
+3. **Parameter Sweep** evaluates sensitivity to fault severity, duration and
+   activation timing. Its summary cards use loaded values and name every tied
+   detector; detailed detector and parameter tables remain below.
+
+The internal selectors keep all three tools in the main workspace. Switching views
+never runs a study. Returning through the sidebar remembers the last view during
+this session; Overview remains available in the selector bar. Old `batch`,
+`runtime_study`, and `parameter_sweep` IDs and saved notebook indices still open
+these views. Existing loaders, result folders and study commands are unchanged.
+
+For a first experiment, use **Dashboard → Start Guided Experiment**. For final paper
+evidence, use **Final Validation**. For **HT1–HT4**, use the independent **RTL Security**
+page. Research Analysis is not a mandatory step in a single experiment.
+
+## A first guided experiment
+
+1. On Dashboard, select either **Start Guided Experiment** button. It always opens
+   Cross-Layer Safety with Guided selected, retaining all Advanced values.
+2. Keep **Memory → bit_flip → transient** for the existing example, or choose a
+   supported layer/model/behavior. The form shows only relevant parameters.
+3. Select **Run Experiment**. The existing background worker keeps the interface
+   responsive. Scroll to Experiment results to inspect the summary, interpretation,
+   visual path and exact propagation timestamps.
+4. For comparison, open **Run Experiment**, load the generated raw CSV at left and
+   a reference CSV at right, then use **Compare Results** and **Propagation Path**.
+5. Select **Exports**. Last Export records the actual successful destination in this
+   session; unavailable exports remain disabled.
+
+**Guided / Advanced are visual modes.** Switching modes preserves every configured
+value and does not change the backend command. Advanced exposes seed and the safety
+contract alongside all model-relevant fields. Intermittent ON/OFF appears only for
+intermittent faults. Permanent duration is hidden, retaining the existing value.
+A transient deadline miss retains the original single 100 ms tick rule. The legacy
+sensor and actuator models offer only their supported transient/permanent behavior.
+Stuck-at-0/1 uses **stuck_bit** with polarity 0/1, not a new fault model.
+
+The Advanced Safety Contract starts collapsed in Guided. Its original values are
+FTTI 5000 ms, warning 108 °C, critical 115 °C, maximum critical exposure 1000 ms.
+Both independent response selectors remain visible in the compact **Monitoring** subsection. Hover or keyboard-focus an
+annotated field for technical help. No visual mode resets an advanced value; check
+your values before running a controlled study.
+
+Before loading a run, the results area offers Run Example, Load V5 Validation and
+Load Latest Results. **Run Example executes the currently configured example**;
+it does not silently replace your configuration. Load Latest opens the last local
+v6.1 single run. New single runs overwrite that scratch run; copy it before running
+another case if you need to retain both. Studies and campaigns retain their own
+subdirectories under `results/cross_layer_safety_v6_1/runtime/`.
+
+Loaded historical values remain **N/A** when unavailable. A reached propagation
+stage is supported by a recorded timestamp. N/A can mean unavailable or not reached;
+it is not silently converted to “no”. Safe-state application alone does not prove
+containment. The results interpretation repeats observed values without inferring
+missing hazard or safety outcomes.
+
+Compare Results shows Left Case, Right Case and Key Difference cards. The key
+fact comes from the existing verdict or recorded cross-layer temperatures;
+**Detailed Comparison Summary** retains the longer evidence and verdict. Missing
+cases remain N/A. The original figure selector, plots and propagation tables stay
+available below.
+
+The Advanced Experiment Builder's result area shows the current single/multi-fault
+configuration, staged event count, detector and action before execution. Run Scenario
+and Compare vs Baseline use the existing callbacks. With no staged events it offers
+Add Event and a Guided link; at least two events are still required for a multi-fault
+run. Loaded results replace this empty state.
+
+Final Validation presents eight cards using the loaded v6 fields, plus the current
+recommended timing monitor and default safety policy. Confidence intervals and
+scientific limitations remain visible. Missing evidence produces N/A cards.
+It retains Load Final Validation, Open Final Report, Run Quick
+Reproducibility Check and Regenerate Analysis. It loads accepted v6 by default;
+new checks and analysis copies go to `results/cross_layer_safety_v6_1/final_validation/`.
+The frozen evidence remains in its original folders. If a generated copy becomes
+stale after a source edit, regenerate analysis before running Quick Check again.
+
+Presentation Mode increases table/body readability and reduces optional helper text;
+it does not change fault parameters, detector settings, scientific data or commands.
+Wide scientific tables retain their horizontal scrollbars. On laptop windows,
+paired propagation diagrams and the advanced builder/inspector stack vertically.
 
 The final research recommendation is combined timing observation and no new policy
 action by default. Legacy CLI and single-run GUI controls retain their original
@@ -32,8 +140,8 @@ configuration. Existing legacy safety/diagnostics are still active.
 ## One timing fault, with explicit observation settings
 
 ```bash
-mkdir -p results/cross_layer_safety_v6/runtime
-./virtual_ecu results/cross_layer_safety_v6/runtime/example.csv baseline \
+mkdir -p results/cross_layer_safety_v6_1/runtime
+./virtual_ecu results/cross_layer_safety_v6_1/runtime/example.csv baseline \
   --cross-layer-fault task_delay --fault-layer timing --fault-target control_task \
   --fault-behavior transient --fault-start-ms 45000 --fault-duration-ms 1000 \
   --task-delay-ms 300 --seed 42 --hazard-monitor on \
@@ -42,7 +150,7 @@ mkdir -p results/cross_layer_safety_v6/runtime
   --detector hybrid_adaptive_kalman --detector-action observe_only
 ```
 
-The CSV and companion C summary are generated under v6 runtime. Load the raw CSV
+The CSV and companion C summary are generated under v6.1 runtime. Load the raw CSV
 with Cross-Layer Safety → Load Results. Do not substitute unsupported durations or
 behaviors for legacy models: for example, a transient deadline miss is one tick.
 
@@ -52,14 +160,14 @@ A small existing five-case study is useful for exploring the interface:
 
 ```bash
 python3 scripts/run_cross_layer_safety_study.py \
-  --output-dir results/cross_layer_safety_v6/runtime/five_case_study
+  --output-dir results/cross_layer_safety_v6_1/runtime/five_case_study
 ```
 
 To execute the accepted v2 campaign configuration in a new directory:
 
 ```bash
 python3 scripts/run_cross_layer_campaign.py studies/cross_layer_vts_candidate_v1.yaml \
-  --output-dir results/cross_layer_safety_v6/runtime/campaign
+  --output-dir results/cross_layer_safety_v6_1/runtime/campaign
 ```
 
 Reanalyze the accepted v2 inputs with their existing v3 semantics:
@@ -67,7 +175,7 @@ Reanalyze the accepted v2 inputs with their existing v3 semantics:
 ```bash
 python3 scripts/analyze_cross_layer_safety.py \
   --input results/cross_layer_safety_v2 \
-  --output results/cross_layer_safety_v6/runtime/v3_analysis
+  --output results/cross_layer_safety_v6_1/runtime/v3_analysis
 ```
 
 Explicit destinations keep old evidence immutable. Existing legacy scripts retain
@@ -77,8 +185,10 @@ explicit new output path when reproducing a study.
 ## Final reproducibility and paper evidence
 
 ```bash
-python3 scripts/run_cross_layer_reproducibility_package.py --quick-check
-python3 scripts/run_cross_layer_reproducibility_package.py --analysis-only
+python3 scripts/run_cross_layer_reproducibility_package.py --quick-check \
+  --output-dir results/cross_layer_safety_v6_1/final_validation
+python3 scripts/run_cross_layer_reproducibility_package.py --analysis-only \
+  --output-dir results/cross_layer_safety_v6_1/final_validation
 ```
 
 No mode argument also selects quick-check. Quick-check builds, runs the full test
@@ -152,3 +262,22 @@ The platform does not establish fleet reliability, zero population false-positiv
 probability, universal hazard prevention, embedded WCET, certified ISO 26262 compliance,
 full digital-twin fidelity or causal fault-class superiority. Stronger claims require
 the [independent validation roadmap](independent_validation_roadmap.md).
+
+## GUI regression checks
+
+```bash
+python3 -m unittest discover -s tests
+python3 tests/gui_v61_desktop_checks.py
+```
+
+The opt-in desktop check needs an X11/WSLg graphical session and the existing Pillow
+installation for screenshots. It exercises normal background workers, redirects
+history/session/export writes, checks v1–v6 loaders, and captures every page at
+1366×768, 1920×1080 and 2560×1440. It saves its report and screenshots under
+`results/cross_layer_safety_v6_1/validation/`. The standard suite stays headless.
+
+The v6.1 command fixtures were captured from the unmodified v6 GUI at `8cb44d9`.
+They cover 42 model/behavior/default-or-advanced combinations. An additional AST
+integrity check protects 400 original GUI command, loader, export and analysis
+functions while allowing the documented presentation methods to change. The
+original scientific source/evidence lock is unchanged.

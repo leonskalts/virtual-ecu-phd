@@ -49,9 +49,13 @@ def read_lock():
 
 def verify_frozen():
     lock = read_lock()
+    from .gui_execution import verify_gui_execution
+    if 'scripts/virtual_ecu_gui.py' in lock['source_sha256']:
+        verify_gui_execution(ROOT)
     for name, digest in lock['source_sha256'].items():
-        # The sole permitted existing-source integration is the GUI container.
-        if name == 'python/virtual_ecu/cross_layer_gui.py':
+        # v6.1 permits presentation integration in both GUI containers.
+        # The C simulator, detectors, configurations and accepted evidence stay pinned.
+        if name in {'python/virtual_ecu/cross_layer_gui.py', 'scripts/virtual_ecu_gui.py'}:
             continue
         if not (ROOT / name).is_file() or sha256(ROOT / name) != digest:
             raise ValueError(f'Accepted scientific source/configuration changed: {name}')
@@ -163,6 +167,17 @@ def artifact_manifest(out):
     paths.update(ROOT / p for p in read_lock()['source_sha256'])
     paths.update(p for folder in ['docs', 'studies', 'python/virtual_ecu', 'scripts', 'tests'] for p in (ROOT / folder).glob('*')
                  if p.is_file() and ('final_' in p.name or 'reproducibility' in p.name or p.name in ['cross_layer_platform_user_guide.md', 'cross_layer_platform_architecture.md', 'independent_validation_roadmap.md']))
+    # Include v6.1/v6.2 presentation dependencies in newly generated inventories;
+    # the accepted manifest and evidence lock are never rewritten.
+    paths.update(ROOT / name for name in (
+        'python/virtual_ecu/gui_design.py', 'python/virtual_ecu/gui_workflows.py',
+        'python/virtual_ecu/cross_layer_ui.py', 'python/virtual_ecu/gui_execution.py',
+        'python/virtual_ecu/gui_execution_lock.json', 'tests/test_gui_ux.py',
+        'tests/gui_v61_desktop_checks.py', 'tests/gui_window_capture.py',
+        'tests/fixtures/gui_v6_commands.json',
+        'python/virtual_ecu/research_analysis_gui.py', 'tests/test_gui_v62.py',
+        'tests/gui_v62_desktop_checks.py', 'docs/gui_v62_validation.md',
+    ) if (ROOT / name).is_file())
     paths.update(p for p in out.rglob('*') if p.is_file() and not any(x in p.relative_to(out).parts for x in ['validation', 'runtime', 'full_reproduction'])
                  and p.name not in ['artifact_manifest.csv', 'analysis_reproducibility.json'])
     session_record = out / 'validation/session_validation.md'

@@ -19,128 +19,160 @@ from .runtime_safety_gui import RuntimeSafetyPanel
 from .validation_v5_gui import ValidationV5Panel
 from .final_validation_gui import FinalValidationPanel
 from .runtime_safety_study import runtime_summary
-from .final_evidence import OUTPUT as FINAL_OUTPUT_DIR
+from .gui_design import THEME_COLORS, THEME_FONTS, Tooltip, help_for, section, action_button, StatusBanner
+from .cross_layer_ui import (DEFAULTS, UI_MODELS, LAYER_LABELS, CONTRACT, behaviors,
+                             visible_fields, backend_request, interpretation, propagation_states)
 
-DEFAULT_RUNTIME_DIR = FINAL_OUTPUT_DIR / "runtime"
+DEFAULT_RUNTIME_DIR = PROJECT_ROOT / "results/cross_layer_safety_v6_1/runtime"
 
 
 class CrossLayerSafetyPanel(ttk.Frame):
-    def __init__(self, parent: tk.Widget, background_task: Callable) -> None:
+    def __init__(self, parent: tk.Widget, background_task: Callable, final_parent=None) -> None:
         super().__init__(parent, padding=12)
         self.background_task = background_task
-        self.columnconfigure(1, weight=1)
-        ttk.Label(self, text="Cross-Layer Safety", font=("TkDefaultFont", 17, "bold")).grid(
-            row=0, column=0, columnspan=2, sticky="w", pady=(0, 12))
-        self.variables = {
-            name: tk.StringVar(self, value=value) for name, value in (
-                ("Fault Layer", "memory"), ("Fault Model", "bit_flip"),
-                ("Fault Target", "control_target_register"), ("Behavior", "transient"),
-                ("Start Time (ms)", "45000"), ("Duration (ms)", "100"),
-                ("Bit Index", "5"), ("Seed", "42"),
-                ("Intermittent ON (ms)", "100"), ("Intermittent OFF (ms)", "500"),
-                ("Stuck Polarity", "1"), ("Communication Delay (ms)", "300"),
-                ("Drop Count", "3"), ("Drop Every N Updates", "0"),
-                ("Replay Age (ms)", "500"), ("Task Delay (ms)", "200"),
-                ("FTTI (ms)", "5000"), ("Warning Threshold (°C)", "108"),
-                ("Critical Threshold (°C)", "115"), ("Max Critical Exposure (ms)", "1000"),
-                ("Timing Monitor", "Disabled"), ("Communication Safety Response", "Observe Only"),
-            )
-        }
-        choices = {
-            "Fault Layer": ("memory", "timing", "communication"),
-            "Fault Model": tuple(MODEL_TARGETS),
-            "Fault Target": ("control_target_register",), "Behavior": ("transient", "intermittent", "permanent"),
-            "Stuck Polarity": ("0", "1"),
-            "Timing Monitor": ("Disabled", "Observe Only", "Protective Action"),
-            "Communication Safety Response": ("Observe Only", "Protective Action"),
-        }
-        self.inputs = {}
-        for row, (label, variable) in enumerate(self.variables.items(), 1):
-            ttk.Label(self, text=label).grid(row=row, column=0, sticky="w", padx=(0, 16), pady=3)
-            if label in choices:
-                widget = ttk.Combobox(self, textvariable=variable, values=choices[label], state="readonly")
-            else:
-                widget = ttk.Entry(self, textvariable=variable)
-            widget.grid(row=row, column=1, sticky="ew", pady=3)
-            self.inputs[label] = widget
-        self.inputs["Fault Layer"].bind("<<ComboboxSelected>>", self._layer_changed)
+        self.columnconfigure(0, weight=1)
+        self.variables = {name: tk.StringVar(self, value=value) for name, value in DEFAULTS.items()}
+        self.mode = tk.StringVar(self, value="Guided")
+        self.contract_open = tk.BooleanVar(self, value=False)
+        self.inputs, self.field_rows = {}, {}
+        heading = section(self, "Cross-Layer Safety", 0)
+        ttk.Label(heading, text="Configure one fault, run the experiment, then inspect its observed effects.", style="Help.TLabel").grid(row=0, column=0, sticky="w")
+        modes = ttk.Frame(heading); modes.grid(row=1, column=0, sticky="w", pady=(8,0))
+        for i, name in enumerate(("Guided", "Advanced")):
+            ttk.Radiobutton(modes, text=name, value=name, variable=self.mode, command=self._refresh_fields).grid(row=0,column=i,padx=(0,18))
+        self.mode_note = ttk.Label(heading, style="Help.TLabel", wraplength=740)
+        self.mode_note.grid(row=2,column=0,sticky="w",pady=(6,0))
+        self.quick_run=action_button(heading,"Run Experiment",self.run_single)
+        self.quick_run.grid(row=1,column=1,rowspan=2,sticky="e",padx=8)
+        selection = section(self, "1–3  •  Choose the fault", 1)
+        for i in range(3): selection.columnconfigure(i, weight=1, uniform="step")
+        choices = {"Fault Layer": tuple(LAYER_LABELS.values()), "Fault Model": tuple(MODEL_TARGETS),
+                   "Behavior": behaviors("bit_flip"), "Fault Target": ("control_target_register",),
+                   "Stuck Polarity": ("0", "1"), "Timing Monitor": ("Disabled", "Observe Only", "Protective Action"),
+                   "Communication Safety Response": ("Observe Only", "Protective Action")}
+        self.layer_choice = tk.StringVar(self, value="Memory")
+        for i, (name, title) in enumerate((("Fault Layer", "Step 1 · Fault layer"), ("Fault Model", "Step 2 · Fault model"), ("Behavior", "Step 3 · Behavior"))):
+            cell = ttk.Frame(selection);cell.grid(row=0,column=i,sticky="ew",padx=(0,8));cell.columnconfigure(0,weight=1)
+            ttk.Label(cell,text=title).grid(row=0,column=0,sticky="w",pady=(0,5))
+            variable = self.layer_choice if name == "Fault Layer" else self.variables[name]
+            values = tuple(LAYER_LABELS) if name == "Fault Layer" else choices[name]
+            widget=ttk.Combobox(cell,textvariable=variable,values=values,state="readonly",width=18)
+            widget.grid(row=1,column=0,sticky="ew");self.inputs[name]=widget
+        self.inputs["Fault Layer"].bind("<<ComboboxSelected>>", self._layer_selected)
         self.inputs["Fault Model"].bind("<<ComboboxSelected>>", self._model_changed)
-        self.inputs["Behavior"].bind("<<ComboboxSelected>>", self._model_changed)
-        self._model_changed()
-        form_end = len(self.variables) + 1
-        ttk.Label(self, text=(
-            "100 ms ticks; memory bits 0–5. Intermittent duration bounds the ON/OFF train. "
-            "Permanent faults persist to the end. Campaign settings come from a study file.\n"
-            "Single runs use the default 120 s operating profile, Hybrid Adaptive Kalman, "
-            "and the observe-only existing detector action. Runtime safety actions use the separate mode controls."), wraplength=760, justify="left").grid(
-                row=form_end, column=0, columnspan=2, sticky="w", pady=12)
-        buttons = ttk.Frame(self)
-        buttons.grid(row=form_end+1, column=0, columnspan=2, sticky="w")
-        self.buttons = []
-        for column, (text, command) in enumerate((
-            ("Run Single Experiment", self.run_single),
-            ("Run Cross-Layer Study", self.run_study), ("Load Results", self.load_results),
-            ("Run Campaign", self.run_campaign), ("Load Campaign Results", self.load_campaign_results),
-            ("Load v3 Analysis", self.load_v3_analysis),
-            ("Load v4 Runtime Safety", self.load_v4_results),
-            ("Load V5 Validation", self.load_v5_results),
-        )):
-            button = ttk.Button(buttons, text=text, command=command)
-            button.grid(row=column//3, column=column%3, padx=(0, 8), pady=4)
-            self.buttons.append(button)
-        self.status = tk.StringVar(self, value="Load raw CSV, v1 summary, or v2 campaign_runs.csv.")
-        ttk.Label(self, textvariable=self.status, wraplength=760).grid(
-            row=form_end+2, column=0, columnspan=2, sticky="w", pady=10)
-        columns = ("Run", "Injected", "Detected", "Plant Manifestation", "Safe State",
-                   "Detection Latency (ms)", "Propagation Depth")
-        self.table = ttk.Treeview(self, columns=columns, show="headings", height=7)
-        for column in columns:
-            self.table.heading(column, text=column)
-            self.table.column(column, width=145 if column == "Run" else 115, minwidth=75)
-        self.table.grid(row=form_end+3, column=0, columnspan=2, sticky="nsew")
-        scrollbar = ttk.Scrollbar(self, orient="horizontal", command=self.table.xview)
-        scrollbar.grid(row=form_end+4, column=0, columnspan=2, sticky="ew")
-        self.table.configure(xscrollcommand=scrollbar.set)
-        ttk.Label(self, text=(
-            "N/A means unavailable or not reached. Plant manifestation uses a 0.01 °C "
-            "difference from the fault-free reference. Safe State means applied protective "
-            "mode; it does not establish hazard containment."), wraplength=760, justify="left").grid(
-                row=form_end+5, column=0, columnspan=2, sticky="w", pady=12)
+        self.inputs["Behavior"].bind("<<ComboboxSelected>>", self._behavior_changed)
+        parameters = section(self, "Step 4 · Configure relevant parameters", 2)
+        self.parameter_note = ttk.Label(parameters,style="Help.TLabel",wraplength=740)
+        self.parameter_note.grid(row=0,column=0,sticky="w",pady=(0,8))
+        parameter_grid=ttk.Frame(parameters);parameter_grid.grid(row=1,column=0,sticky="ew")
+        for c in range(2):parameter_grid.columnconfigure(c,weight=1,uniform="parameter")
+        monitoring=ttk.LabelFrame(parameters,text="Monitoring",padding=8)
+        monitoring.grid(row=2,column=0,sticky="ew",pady=(10,0))
+        self.monitoring_grid=monitoring
+        for c in range(2):monitoring.columnconfigure(c,weight=1,uniform="monitoring")
+        contract = section(self, "Advanced Safety Contract", 3)
+        ttk.Checkbutton(contract,text="Expand contract in Guided mode",variable=self.contract_open,command=self._refresh_fields).grid(row=0,column=0,sticky="w")
+        ttk.Label(contract,text="These values use the frozen research defaults. Change them only for controlled advanced studies.",style="Help.TLabel",wraplength=740).grid(row=1,column=0,sticky="w",pady=5)
+        self.contract_grid=ttk.Frame(contract);self.contract_grid.grid(row=2,column=0,sticky="ew")
+        for c in range(2):self.contract_grid.columnconfigure(c,weight=1,uniform="contract")
+        for name, variable in self.variables.items():
+            if name in ("Fault Layer","Fault Model","Behavior"):continue
+            owner=(self.contract_grid if name in CONTRACT else self.monitoring_grid if name in ("Timing Monitor","Communication Safety Response") else parameter_grid)
+            cell=ttk.Frame(owner,padding=(0,3,12,3));cell.columnconfigure(1,weight=1)
+            label=ttk.Label(cell,text=name,wraplength=145,width=21)
+            label.grid(row=0,column=0,sticky="w",padx=(0,8))
+            widget=ttk.Combobox(cell,textvariable=variable,values=choices[name],state="readonly",width=18) if name in choices else ttk.Entry(cell,textvariable=variable,width=18)
+            widget.grid(row=0,column=1,sticky="ew")
+            self.field_rows[name]=cell;self.inputs[name]=widget
+            note=help_for(name)
+            if note:Tooltip(label,note);Tooltip(widget,note)
+        self.parameter_grid=parameter_grid
+        self.helper=ttk.Label(self,text="100 ms ticks • 120 s default profile • Hybrid Adaptive Kalman, observe-only detector action. Monitor response controls are independent. Permanent faults persist to the end.",style="Help.TLabel",wraplength=800)
+        self.helper.grid(row=4,column=0,sticky="ew",pady=(0,8))
+        bar=section(self,"Run or load evidence",5)
+        self.buttons=[]
+        for index,(label,command) in enumerate((
+            ("Run Experiment",self.run_single),("Run Cross-Layer Study",self.run_study),("Load Results",self.load_results),
+            ("Run Campaign",self.run_campaign),("Load Campaign Results",self.load_campaign_results),
+            ("Load v3 Analysis",self.load_v3_analysis),("Load v4 Runtime Safety",self.load_v4_results),("Load V5 Validation",self.load_v5_results))):
+            button=action_button(bar,label,command);button.grid(row=index//3,column=index%3,sticky="ew",padx=4,pady=4)
+            bar.columnconfigure(index%3,weight=1);self.buttons.append(button)
+        self.buttons.append(self.quick_run)
+        self.status=tk.StringVar(self,value="Ready · Configure a single fault or load existing evidence.")
+        StatusBanner(self,self.status).grid(row=6,column=0,sticky="ew",pady=8)
+        self.empty=section(self,"No experiment loaded",7)
+        ttk.Label(self.empty,text='Configure a fault above and select Run Experiment, or load an existing validation result.',wraplength=760).grid(row=0,column=0,columnspan=3,sticky="w",pady=(0,8))
+        for i,(label,command) in enumerate((("Run Example",self.run_single),("Load V5 Validation",self.load_v5_results),("Load Latest Results",self.load_latest))):
+            button=action_button(self.empty,label,command);button.grid(row=1,column=i,padx=4,sticky="ew");self.buttons.append(button)
+        self.results=section(self,"Experiment results",8)
+        self.results.grid_remove()
+        self.loaded_summaries=[];self.result_fields={}
+        cards=ttk.Frame(self.results);cards.grid(row=0,column=0,sticky="ew")
+        for index,(label,key) in enumerate((("Injected Fault","fault_model"),("Detected","detected"),("Detection Latency (ms)","cross_layer_detection_latency_ms"),
+            ("Plant Manifestation","plant_manifestation"),("Hazard Entered","hazard_entered"),("Safe State","safe_state_reached"),("Containment","containment_success"),("Propagation Depth","propagation_depth"),
+            ("FTTI Met","ftti_met"),("Silent Corruption","silent_corruption"),("Critical Exposure (ms)","critical_exposure_time_ms"))):
+            var=tk.StringVar(self,value="N/A");self.result_fields[key]=var
+            card=ttk.LabelFrame(cards,text=label,padding=8);card.grid(row=index//4,column=index%4,sticky="nsew",padx=3,pady=4);cards.columnconfigure(index%4,weight=1,uniform="metric")
+            ttk.Label(card,textvariable=var,wraplength=175).pack(anchor="w")
+            if help_for(label):Tooltip(card,help_for(label))
+        self.interpretation=tk.StringVar(self)
+        ttk.Label(self.results,text="Experiment interpretation",font=THEME_FONTS["section_title"]).grid(row=1,column=0,sticky="w",pady=(12,4))
+        ttk.Label(self.results,textvariable=self.interpretation,wraplength=800).grid(row=2,column=0,sticky="ew")
+        self.path_summary=ttk.Frame(self.results);self.path_summary.grid(row=3,column=0,sticky="ew",pady=12)
+        ttk.Label(self.results,text="Visual path: reached / N/A (unavailable or not reached). Exact timestamps remain in the table below.",style="Help.TLabel",wraplength=800).grid(row=4,column=0,sticky="w")
+        columns=("Run","Injected","Detected","Plant Manifestation","Safe State","Detection Latency (ms)","Propagation Depth")
+        self.table=ttk.Treeview(self.results,columns=columns,show="headings",height=5)
+        for column in columns:self.table.heading(column,text=column);self.table.column(column,width=145,minwidth=85)
+        self.table.grid(row=5,column=0,sticky="ew",pady=(10,0))
+        scrollbar=ttk.Scrollbar(self.results,orient="horizontal",command=self.table.xview);scrollbar.grid(row=6,column=0,sticky="ew");self.table.configure(xscrollcommand=scrollbar.set)
+        self.timeline=ttk.Treeview(self.results,columns=("stage","timestamp","latency","reached"),show="headings",height=12)
+        for column,label in (("stage","Stage"),("timestamp","Timestamp (ms)"),("latency","From injection (ms)"),("reached","Reached / N/A")):
+            self.timeline.heading(column,text=label);self.timeline.column(column,width=180,minwidth=80)
+        self.timeline.grid(row=7,column=0,sticky="ew",pady=10)
+        self.table.bind("<<TreeviewSelect>>",self._selection_changed)
+        self.analysis_panel=ScientificAnalysisPanel(self);self.analysis_panel.grid(row=9,column=0,sticky="ew",pady=10);self.analysis_panel.grid_remove()
+        self.runtime_panel=RuntimeSafetyPanel(self);self.runtime_panel.grid(row=10,column=0,sticky="ew",pady=10);self.runtime_panel.grid_remove()
+        self.validation_panel=ValidationV5Panel(self);self.validation_panel.grid(row=11,column=0,sticky="ew",pady=10);self.validation_panel.grid_remove()
+        self.final_panel=FinalValidationPanel(final_parent if final_parent is not None else self,self.background_task)
+        self.final_panel.grid(row=0 if final_parent is not None else 12,column=0,sticky="ew",pady=10)
+        self._refresh_fields()
 
-        self.loaded_summaries = []
-        self.result_fields = {}
-        cards = ttk.Frame(self)
-        cards.grid(row=form_end+6, column=0, columnspan=2, sticky="ew", pady=10)
-        for index, (label, key) in enumerate((
-            ("Detection", "detected"), ("Plant Manifestation", "plant_manifestation"),
-            ("Hazard Entered", "hazard_entered"), ("Safe State", "safe_state_reached"),
-            ("Containment", "containment_success"), ("FTTI Met", "ftti_met"),
-            ("Silent Corruption", "silent_corruption"), ("Unsafe Exposure (ms)", "critical_exposure_time_ms"),
-            ("Propagation Depth", "propagation_depth"),
-        )):
-            variable = tk.StringVar(self, value="N/A")
-            self.result_fields[key] = variable
-            box = ttk.LabelFrame(cards, text=label, padding=8)
-            box.grid(row=index//3, column=index%3, sticky="ew", padx=4, pady=4)
-            ttk.Label(box, textvariable=variable).pack(anchor="w")
-            cards.columnconfigure(index%3, weight=1)
-        self.timeline = ttk.Treeview(self, columns=("stage", "timestamp", "latency", "reached"), show="headings", height=11)
-        for column, label in (("stage", "Stage"), ("timestamp", "Timestamp (ms)"),
-                              ("latency", "From injection (ms)"), ("reached", "Reached / N/A")):
-            self.timeline.heading(column, text=label)
-        self.timeline.grid(row=form_end+7, column=0, columnspan=2, sticky="ew", pady=10)
-        self.table.bind("<<TreeviewSelect>>", self._selection_changed)
-        self.analysis_panel = ScientificAnalysisPanel(self)
-        self.analysis_panel.grid(row=form_end+8, column=0, columnspan=2, sticky="ew", pady=10)
-        self.analysis_panel.grid_remove()
-        self.runtime_panel = RuntimeSafetyPanel(self)
-        self.runtime_panel.grid(row=form_end+9, column=0, columnspan=2, sticky="ew", pady=10)
-        self.runtime_panel.grid_remove()
-        self.validation_panel = ValidationV5Panel(self)
-        self.validation_panel.grid(row=form_end+10, column=0, columnspan=2, sticky="ew", pady=10)
-        self.validation_panel.grid_remove()
-        self.final_panel = FinalValidationPanel(self, self.background_task)
-        self.final_panel.grid(row=form_end+11, column=0, columnspan=2, sticky="ew", pady=10)
+    def values(self):
+        return {name:variable.get() for name,variable in self.variables.items()}
+
+    def set_mode(self, mode):
+        if mode not in ("Guided","Advanced"):raise ValueError(mode)
+        self.mode.set(mode)
+        self._refresh_fields()
+
+    def set_presentation_mode(self, enabled):
+        self.helper.grid_remove() if enabled else self.helper.grid()
+
+    def _refresh_fields(self):
+        visible=visible_fields(self.values(),self.mode.get(),self.contract_open.get())
+        counts={self.parameter_grid:0,self.contract_grid:0,self.monitoring_grid:0}
+        for name,cell in self.field_rows.items():
+            cell.grid_remove()
+            if name in visible:
+                owner=cell.master;index=counts[owner];counts[owner]+=1
+                cell.grid(row=index//2,column=index%2,sticky="ew")
+        model=self.variables["Fault Model"].get()
+        self.inputs["Fault Model"].configure(values=tuple(m for m,pair in UI_MODELS.items() if pair[0]==self.variables["Fault Layer"].get()))
+        self.inputs["Behavior"].configure(values=behaviors(model))
+        self.mode_note.configure(text="Guided: relevant fault parameters and monitoring modes." if self.mode.get()=="Guided" else "Advanced: relevant parameters, deterministic seed and all safety contract values.")
+        self.parameter_note.configure(text="Single transient deadline miss uses one 100 ms tick." if model=="deadline_miss" and self.variables["Behavior"].get()=="transient" else "Only fields used by this fault are shown. Switching visual modes preserves every value.")
+
+    def _layer_selected(self,event=None):
+        self.variables["Fault Layer"].set(LAYER_LABELS[self.layer_choice.get()])
+        self._layer_changed()
+
+    def _behavior_changed(self,event=None):
+        self._model_changed()
+
+    def load_latest(self):
+        paths=list(DEFAULT_RUNTIME_DIR.rglob("single_experiment.csv"))
+        if paths:self.load_results(max(paths,key=lambda path:path.stat().st_mtime))
+        else:self.status.set("No Results · Run an experiment or use Load Results to select a saved CSV.")
 
     def load_v5_results(self, path=None):
         self.validation_panel.grid()
@@ -179,38 +211,37 @@ class CrossLayerSafetyPanel(ttk.Frame):
                     break
                 ancestor = ancestor.master
 
-    def _layer_changed(self, _event: object = None) -> None:
-        layer = self.variables["Fault Layer"].get()
-        if MODEL_TARGETS[self.variables["Fault Model"].get()][0] != layer:
-            self.variables["Fault Model"].set(next(m for m, pair in MODEL_TARGETS.items() if pair[0] == layer))
+    def _layer_changed(self, _event=None):
+        layer=self.variables["Fault Layer"].get()
+        if UI_MODELS[self.variables["Fault Model"].get()][0] != layer:
+            self.variables["Fault Model"].set(next(m for m,pair in UI_MODELS.items() if pair[0]==layer))
         self._model_changed()
 
-    def _model_changed(self, _event: object = None) -> None:
-        model = self.variables["Fault Model"].get()
-        behavior = self.variables["Behavior"].get()
-        layer, target = MODEL_TARGETS[model]
+    def _model_changed(self, _event=None):
+        model=self.variables["Fault Model"].get()
+        layer,target=UI_MODELS[model]
         self.variables["Fault Layer"].set(layer)
+        self.layer_choice.set(next(label for label,value in LAYER_LABELS.items() if value==layer))
         self.variables["Fault Target"].set(target)
         self.inputs["Fault Target"].configure(values=(target,))
-        active = {
-            "Bit Index": layer == "memory", "Stuck Polarity": model == "stuck_bit",
-            "Intermittent ON (ms)": behavior == "intermittent",
-            "Intermittent OFF (ms)": behavior == "intermittent",
-            "Communication Delay (ms)": model == "delayed_update",
-            "Drop Count": model == "dropped_update", "Drop Every N Updates": model == "dropped_update",
-            "Replay Age (ms)": model == "replayed_sample", "Task Delay (ms)": model == "task_delay",
-            "Duration (ms)": behavior != "permanent" and not (model == "deadline_miss" and behavior == "transient"),
-        }
-        for key, enabled in active.items():
-            self.inputs[key].configure(state=("readonly" if key == "Stuck Polarity" else "normal") if enabled else "disabled")
-        if model == "deadline_miss" and behavior == "transient":
-            self.variables["Duration (ms)"].set("100")
+        if self.variables["Behavior"].get() not in behaviors(model):self.variables["Behavior"].set("transient")
+        if model=="deadline_miss" and self.variables["Behavior"].get()=="transient":self.variables["Duration (ms)"].set("100")
+        self._refresh_fields()
 
     def _selection_changed(self, _event=None):
         selection = self.table.selection()
         if not selection:
             return
         row = self.loaded_summaries[int(selection[0])]
+        self.empty.grid_remove()
+        self.results.grid()
+        self.interpretation.set(interpretation(row))
+        for child in self.path_summary.winfo_children():child.destroy()
+        for i,(label,state,timestamp) in enumerate(propagation_states(row)):
+            cell=ttk.LabelFrame(self.path_summary,text=label,padding=8)
+            cell.grid(row=i//3,column=i%3,sticky="ew",padx=3,pady=3)
+            self.path_summary.columnconfigure(i%3,weight=1)
+            ttk.Label(cell,text=f"{state} · {timestamp}" + (" ms" if timestamp!="N/A" else ""),foreground=THEME_COLORS["primary"] if state=="reached" else THEME_COLORS["text_secondary"]).pack(anchor="w")
         self.runtime_panel.show_run(row)
         for key, variable in self.result_fields.items():
             variable.set("N/A" if row.get(key) in (None, "") else str(row[key]))
@@ -218,8 +249,8 @@ class CrossLayerSafetyPanel(ttk.Frame):
         injection = row.get("fault_injection_ms")
         for key in (*STAGES, "hazard_entry_ms", "hazard_exit_ms", "containment_time_ms"):
             value = row.get(key)
-            reached = value not in (None, "", "-1")
-            latency = int(value)-int(injection) if reached and injection not in (None, "") else None
+            reached = value not in (None, "", "-1", -1, "N/A")
+            latency = int(value)-int(injection) if reached and injection not in (None, "", "-1", -1, "N/A") else None
             label = key.replace("propagation_", "").replace("_ms", "").replace("_", " ")
             self.timeline.insert("", "end", values=(label, value if reached else "N/A",
                 latency if latency is not None and latency >= 0 else "N/A", "reached" if reached else "N/A"))
@@ -238,38 +269,17 @@ class CrossLayerSafetyPanel(ttk.Frame):
 
     def run_single(self) -> None:
         try:
-            options = fault_options(
-                self.variables["Fault Model"].get(),
-                start_ms=int(self.variables["Start Time (ms)"].get()),
-                duration_ms=int(self.variables["Duration (ms)"].get()),
-                bit_index=int(self.variables["Bit Index"].get()),
-                seed=int(self.variables["Seed"].get()),
-                behavior=self.variables["Behavior"].get(),
-                intermittent_on_ms=int(self.variables["Intermittent ON (ms)"].get()),
-                intermittent_off_ms=int(self.variables["Intermittent OFF (ms)"].get()),
-                stuck_polarity=int(self.variables["Stuck Polarity"].get()),
-                communication_delay_ms=int(self.variables["Communication Delay (ms)"].get()),
-                drop_count=int(self.variables["Drop Count"].get()),
-                drop_every_n_updates=int(self.variables["Drop Every N Updates"].get()),
-                replay_age_ms=int(self.variables["Replay Age (ms)"].get()),
-                task_delay_ms=int(self.variables["Task Delay (ms)"].get()),
-            )
+            positional, options = backend_request(self.values())
         except ValueError as exc:
             messagebox.showerror("Invalid cross-layer configuration", str(exc), parent=self)
             return
-        options += ["--hazard-monitor", "on", "--ftti-ms", self.variables["FTTI (ms)"].get(),
-                    "--hazard-warning-c", self.variables["Warning Threshold (°C)"].get(),
-                    "--hazard-critical-c", self.variables["Critical Threshold (°C)"].get(),
-                    "--max-critical-exposure-ms", self.variables["Max Critical Exposure (ms)"].get()]
-        options += ["--timing-monitor", self.variables["Timing Monitor"].get().lower().replace(" ", "_"),
-                    "--communication-safety-response", self.variables["Communication Safety Response"].get().lower().replace(" ", "_")]
         path = DEFAULT_RUNTIME_DIR / "gui_single" / "single_experiment.csv"
 
         def task() -> Path:
             completed = subprocess.run(["make"], cwd=PROJECT_ROOT, capture_output=True, text=True)
             if completed.returncode:
                 raise RuntimeError(completed.stderr or completed.stdout)
-            run_experiment(path, ["baseline"], [*options, "--detector", "hybrid_adaptive_kalman",
+            run_experiment(path, positional, [*options, "--detector", "hybrid_adaptive_kalman",
                                                "--detector-action", "observe_only"])
             return path
 

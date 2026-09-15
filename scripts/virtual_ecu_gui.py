@@ -352,79 +352,10 @@ SCREEN_HEIGHT_FRACTION = 0.90
 DEFAULT_SIMULATION_DURATION_MS = 120000
 MIN_SIMULATION_DURATION_MS = 1000
 MAX_SIMULATION_DURATION_MS = 3600000
-THEME_COLORS = {
-    "app_bg": "#F4F7FB",
-    "card_bg": "#FFFFFF",
-    "soft_card_bg": "#F8FAFC",
-    "primary": "#2563EB",
-    "primary_hover": "#1D4ED8",
-    "secondary": "#6B7280",
-    "secondary_hover": "#4B5563",
-    "border": "#E5E7EB",
-    "text_primary": "#111827",
-    "text_secondary": "#6B7280",
-    "success": "#16A34A",
-    "success_hover": "#15803D",
-    "warning": "#F59E0B",
-    "warning_hover": "#D97706",
-    "danger": "#DC2626",
-    "danger_hover": "#B91C1C",
-    "info": "#0284C7",
-    "info_hover": "#0369A1",
-    "hero_bg": "#10233F",
-    "hero_text": "#FFFFFF",
-    "hero_muted": "#D7E2F2",
-    "sidebar_bg": "#111827",
-    "sidebar_hover": "#1F2937",
-    "sidebar_text": "#F9FAFB",
-    "table_alt": "#F9FAFB",
-    "table_selected": "#DBEAFE",
-    "badge_gray_bg": "#F3F4F6",
-    "badge_blue_bg": "#E0F2FE",
-    "badge_green_bg": "#DCFCE7",
-    "badge_orange_bg": "#FEF3C7",
-    "badge_red_bg": "#FEE2E2",
-}
-THEME_FONTS = {
-    "main": ("Segoe UI", 10),
-    "small": ("Segoe UI", 9),
-    "section_title": ("Segoe UI Semibold", 12),
-    "page_title": ("Segoe UI Semibold", 16),
-    "table_header": ("Segoe UI Semibold", 10),
-    "button": ("Segoe UI Semibold", 10),
-}
-THEME_SPACING = {
-    "page_pad": (18, 0, 18, 18),
-    "card_pad": (16, 0, 16, 16),
-    "card_gap": 12,
-    "button_pad": (14, 8),
-}
-BUTTON_STYLES = {
-    "primary": {
-        "style": "Primary.TButton",
-        "bg": THEME_COLORS["primary"],
-        "hover": THEME_COLORS["primary_hover"],
-        "fg": "#FFFFFF",
-    },
-    "secondary": {
-        "style": "Secondary.TButton",
-        "bg": THEME_COLORS["secondary"],
-        "hover": THEME_COLORS["secondary_hover"],
-        "fg": "#FFFFFF",
-    },
-    "success": {
-        "style": "Success.TButton",
-        "bg": THEME_COLORS["success"],
-        "hover": THEME_COLORS["success_hover"],
-        "fg": "#FFFFFF",
-    },
-    "danger": {
-        "style": "Danger.TButton",
-        "bg": THEME_COLORS["danger"],
-        "hover": THEME_COLORS["danger_hover"],
-        "fg": "#FFFFFF",
-    },
-}
+from virtual_ecu.gui_design import (
+    THEME_COLORS, THEME_FONTS, THEME_SPACING, BUTTON_STYLES, UI_SIZES,
+    NAVIGATION, PAGE_LABELS, button_role, configure_styles,
+)
 ACTIVITY_STATUS_STYLES = {
     "ready": {
         "bg": "#172235",
@@ -5495,8 +5426,8 @@ class FaultPathDiagram(ttk.Frame):
         for column in range(3):
             summary.grid_columnconfigure(column, weight=1)
         self._build_summary_stat(summary, 0, "Class", self.fault_class_var)
-        self._build_summary_stat(summary, 1, "Origin", self.subsystem_var)
-        self._build_summary_stat(summary, 2, "Outcome", self.outcome_var)
+        self._build_summary_stat(summary, 1, "FAULT ORIGIN", self.subsystem_var)
+        self._build_summary_stat(summary, 2, "MAIN OUTCOME", self.outcome_var)
 
         self.canvas = tk.Canvas(
             self,
@@ -5608,8 +5539,8 @@ class FaultPathDiagram(ttk.Frame):
             stat,
             text=title,
             bg="#ffffff",
-            fg="#6c7a88",
-            font=("TkDefaultFont", 8, "bold"),
+            fg=THEME_COLORS["primary"] if title == "FAULT ORIGIN" else THEME_COLORS["hero_bg"] if title == "MAIN OUTCOME" else THEME_COLORS["text_secondary"],
+            font=("TkDefaultFont", 9, "bold"),
             anchor="w",
             justify="left",
             padx=10,
@@ -6556,8 +6487,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.batch_plot_choice = tk.StringVar(value=self.BATCH_PLOT_OPTIONS[0])
         self.status_text = tk.StringVar(
             value=(
-                "New here? Start on the Dashboard: open the recommended demo "
-                "or run the default clean-run versus fault-run comparison."
+                "Ready · Start Guided Experiment on the Dashboard, or load a comparison."
             )
         )
         self.batch_status_text = tk.StringVar(value="Ready. Load the default batch summary to see sweep-level trends across fault types.")
@@ -7104,12 +7034,15 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self.app_subtitle_label.grid(
             row=1,
             column=0,
+            columnspan=2,
             sticky="w",
             pady=(2, 8),
         )
 
+        header.bind("<Configure>", lambda event: self.app_subtitle_label.configure(wraplength=max(250, event.width-60)))
+
         header_controls = ttk.Frame(header, style="Root.TFrame")
-        header_controls.grid(row=0, column=1, rowspan=2, sticky="ne")
+        header_controls.grid(row=0, column=1, sticky="ne")
         ttk.Checkbutton(
             header_controls,
             text="Presentation Mode",
@@ -7117,12 +7050,12 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             command=self._on_presentation_mode_toggled,
         ).grid(row=0, column=0, sticky="e")
         ttk.Label(
-            header_controls,
+            header,
             textvariable=self.status_text,
             foreground="#3d4b59",
-            wraplength=360,
-            justify="right",
-        ).grid(row=1, column=0, sticky="e", pady=(8, 0))
+            wraplength=1040,
+            justify="left",
+        ).grid(row=2, column=0, columnspan=2, sticky="ew", pady=(0, 0))
 
         notebook = ttk.Notebook(content_shell, style="Sidebar.TNotebook")
         notebook.grid(row=1, column=0, sticky="nsew", padx=18, pady=(0, 18))
@@ -7136,40 +7069,40 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
 
         summary_tab = ScrollableTabFrame(notebook)
         summary_tab.content.columnconfigure(0, weight=1)
-        notebook.add(summary_tab, text="Run / Load")
-        self._register_page("summary", "Run / Load", summary_tab)
+        notebook.add(summary_tab, text="Run Experiment")
+        self._register_page("summary", "Run Experiment", summary_tab)
 
         figures_tab = ScrollableTabFrame(notebook)
         figures_tab.content.columnconfigure(0, weight=1)
-        notebook.add(figures_tab, text="Compare Figures")
+        notebook.add(figures_tab, text="Compare Results")
         self.comparison_figures_tab = figures_tab
-        self._register_page("figures", "Compare Figures", figures_tab)
+        self._register_page("figures", "Compare Results", figures_tab)
 
         custom_tab = ScrollableTabFrame(notebook)
         custom_tab.content.columnconfigure(0, weight=1)
-        notebook.add(custom_tab, text="Custom Faults")
-        self._register_page("custom", "Custom Faults", custom_tab)
+        notebook.add(custom_tab, text="Advanced Experiment Builder")
+        self._register_page("custom", "Advanced Experiment Builder", custom_tab)
 
         fault_path_tab = ScrollableTabFrame(notebook)
         fault_path_tab.content.columnconfigure(0, weight=1)
-        notebook.add(fault_path_tab, text="Fault / Trojan Path")
+        notebook.add(fault_path_tab, text="Propagation Path")
         self._register_page(
             "fault_path",
-            "Fault / Trojan Path",
+            "Propagation Path",
             fault_path_tab,
         )
 
         batch_tab = ScrollableTabFrame(notebook)
         batch_tab.content.columnconfigure(0, weight=1)
-        notebook.add(batch_tab, text="Batch Results")
-        self._register_page("batch", "Batch Results", batch_tab)
+        notebook.add(batch_tab, text="Batch Analysis")
+        self._register_page("batch", "Batch Analysis", batch_tab)
 
         runtime_study_tab = ScrollableTabFrame(notebook)
         runtime_study_tab.content.columnconfigure(0, weight=1)
-        notebook.add(runtime_study_tab, text="Runtime Intervention Study")
+        notebook.add(runtime_study_tab, text="Detector Study")
         self._register_page(
             "runtime_study",
-            "Runtime Intervention Study",
+            "Detector Study",
             runtime_study_tab,
         )
 
@@ -7184,10 +7117,10 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
 
         rtl_security_tab = ScrollableTabFrame(notebook)
         rtl_security_tab.content.columnconfigure(0, weight=1)
-        notebook.add(rtl_security_tab, text="Security / RTL Analysis")
+        notebook.add(rtl_security_tab, text="RTL Security")
         self._register_page(
             "rtl_security",
-            "Security / RTL Analysis",
+            "RTL Security",
             rtl_security_tab,
         )
 
@@ -7202,8 +7135,17 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         cross_layer_tab.content.columnconfigure(0, weight=1)
         notebook.add(cross_layer_tab, text="Cross-Layer Safety")
         self._register_page("cross_layer", "Cross-Layer Safety", cross_layer_tab)
+        final_tab = ScrollableTabFrame(notebook)
+        final_tab.content.columnconfigure(0, weight=1)
+        notebook.add(final_tab, text="Final Validation")
+        self._register_page("final_validation", "Final Validation", final_tab)
+        # Append the overview: historical notebook indices 0–11 remain intact.
+        research_tab = ScrollableTabFrame(notebook)
+        research_tab.content.columnconfigure(0, weight=1)
+        notebook.add(research_tab, text="Research Analysis")
+        self._register_page("research_analysis", "Research Analysis", research_tab)
         self.cross_layer_panel = CrossLayerSafetyPanel(
-            cross_layer_tab.content, self.run_background_task)
+            cross_layer_tab.content, self.run_background_task, final_parent=final_tab.content)
         self.cross_layer_panel.grid(row=0, column=0, sticky="nsew")
 
         self._build_dashboard_tab(dashboard_tab.content)
@@ -7216,6 +7158,11 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self._build_parameter_sweep_tab(parameter_sweep_tab.content)
         self._build_rtl_security_tab(rtl_security_tab.content)
         self._build_exports_tab(exports_tab.content)
+        configure_styles(self)
+        from virtual_ecu.gui_workflows import polish_workflows
+        polish_workflows(self)
+        from virtual_ecu.research_analysis_gui import ResearchAnalysisWorkspace
+        self.research_workspace = ResearchAnalysisWorkspace(self)
         self._set_active_nav("dashboard")
 
     def _build_sidebar(self) -> None:
@@ -7260,23 +7207,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                 anchor="w",
             ).grid(row=1, column=0, sticky="ew", padx=20, pady=(0, 0))
 
-        nav_entries = (
-            ("heading", "Core Workflow", ""),
-            ("page", "Dashboard", "dashboard"),
-            ("page", "1. Run / Load", "summary"),
-            ("page", "2. Compare", "figures"),
-            ("page", "3. Fault / Trojan Path", "fault_path"),
-            ("heading", "Research / Validation", ""),
-            ("page", "4. Batch Results", "batch"),
-            ("page", "5. Runtime Study", "runtime_study"),
-            ("page", "6. Parameter Sweep", "parameter_sweep"),
-            ("page", "7. Security / RTL Analysis", "rtl_security"),
-            ("page", "Cross-Layer Safety", "cross_layer"),
-            ("heading", "Core Output", ""),
-            ("page", "8. Exports", "exports"),
-            ("heading", "Advanced Builder", ""),
-            ("page", "Custom Faults", "custom"),
-        )
+        nav_entries = NAVIGATION
         heading_top_spacing = {
             "Core Workflow": 4,
             "Research / Validation": 6,
@@ -7304,7 +7235,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             else:
                 button_slot = tk.Frame(
                     sidebar,
-                    height=19,
+                    height=29,
                     bg=SIDEBAR_BG,
                     bd=0,
                     highlightthickness=0,
@@ -7704,7 +7635,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         }
         for label, widget in self.sidebar_group_spacing_widgets.items():
             widget.grid_configure(
-                pady=(base_spacing[label] + extra_spacing, 0),
+                pady=(base_spacing.get(label, 5) + extra_spacing, 0),
             )
         if self.sidebar_logo_label is not None:
             self.sidebar_logo_label.grid_configure(
@@ -7814,9 +7745,11 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
 
     def _register_page(self, page_key: str, label: str, frame: tk.Widget) -> None:
         self.page_frames[page_key] = frame
-        self.page_labels[page_key] = label
+        self.page_labels[page_key] = PAGE_LABELS.get(page_key, label)
 
     def _navigate_to_page(self, page_key: str) -> None:
+        if page_key == "research_analysis" and hasattr(self, "research_workspace"):
+            page_key = self.research_workspace.selected
         if self.notebook is None:
             return
         frame = self.page_frames.get(page_key)
@@ -7841,6 +7774,8 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                 return
 
     def _set_active_nav(self, active_key: str) -> None:
+        if hasattr(self, "research_workspace"):
+            active_key = self.research_workspace.record(active_key)
         for page_key, button in self.sidebar_buttons.items():
             is_active = page_key == active_key
             if CTK_AVAILABLE:
@@ -7899,7 +7834,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                 parent,
                 text=text,
                 textvariable=textvariable,
-                font=font,
+                font=(font[0], max(13, font[1]), *font[2:]),
                 text_color=text_color,
                 fg_color=fg_color,
                 wraplength=wraplength or 0,
@@ -7927,6 +7862,8 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         color: str = SIDEBAR_ACTIVE,
         hover_color: str | None = None,
     ) -> tk.Widget:
+        role = BUTTON_STYLES[button_role(text)]
+        color, hover_color = role["bg"], role["hover"]
         if hover_color is not None:
             hover = hover_color
         elif color == THEME_COLORS["success"]:
@@ -7945,9 +7882,9 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
                 fg_color=color,
                 hover_color=hover,
                 text_color="#ffffff",
-                height=38,
-                corner_radius=10,
-                font=THEME_FONTS["button"],
+                height=UI_SIZES["button_height"],
+                corner_radius=UI_SIZES["corner_radius"],
+                font=(UI_FONT, 14, "bold"),
             )
         button = tk.Button(
             parent,
@@ -7980,7 +7917,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             parent,
             text=text,
             command=command,
-            style=BUTTON_STYLES[variant]["style"],
+            style=BUTTON_STYLES[button_role(text, variant)]["style"],
         )
 
     def make_primary_button(self, parent: tk.Misc, text: str, command) -> ttk.Button:
@@ -8067,6 +8004,10 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         accent_bar = tk.Frame(card, bg=accent, height=3)
         accent_bar.grid(row=2, column=0, sticky="ew", padx=16, pady=(0, 14))
 
+    def open_guided_experiment(self):
+        self.cross_layer_panel.set_mode("Guided")
+        self._navigate_to_page("cross_layer")
+
     def _build_dashboard_tab(self, parent: ttk.Frame) -> None:
         shell = ttk.Frame(parent, padding=(12, 8, 12, 14), style="Root.TFrame")
         shell.grid(row=0, column=0, sticky="nsew")
@@ -8113,7 +8054,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         quick_start.columnconfigure(1, weight=2)
         self._modern_label(
             quick_start,
-            text="Quick Start: Recommended Demo",
+            text="New to the Virtual ECU?",
             font=(UI_FONT, 17, "bold"),
             text_color=TEXT_DARK,
             fg_color="#f7fbff",
@@ -8121,8 +8062,8 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self._modern_label(
             quick_start,
             text=(
-                "If this is your first session, use a saved Baseline vs Fan Hot Stress comparison. "
-                "It immediately populates metrics, figures, propagation evidence, fault path diagrams, and exports."
+                "Run a guided experiment using the frozen defaults and learn the workflow step by step. "
+                "Experienced researcher? Open the research workspace to inspect validation evidence."
             ),
             font=(UI_FONT, 10),
             text_color=TEXT_MUTED,
@@ -8135,20 +8076,20 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         quick_actions.columnconfigure(0, weight=1)
         self._modern_button(
             quick_actions,
-            "Open Recommended Demo",
-            self.load_selected_showcase_preset,
+            "Start Guided Experiment",
+            self.open_guided_experiment,
             color=SIDEBAR_ACTIVE,
         ).grid(row=0, column=0, sticky="ew", pady=(0, 8))
         self._modern_button(
             quick_actions,
-            "Run Default Comparison",
-            self.run_comparison,
+            "Open Research Workspace",
+            lambda: self._navigate_to_page("research_analysis"),
             color=ACCENT_GREEN,
         ).grid(row=1, column=0, sticky="ew", pady=(0, 8))
         self.make_secondary_button(
             quick_actions,
-            text="Go to Guided Setup",
-            command=lambda: self._navigate_to_page("summary"),
+            text="Load Recommended Comparison",
+            command=self.load_selected_showcase_preset,
         ).grid(row=2, column=0, sticky="ew")
 
         workflow = self._modern_frame(
@@ -8169,8 +8110,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self._modern_label(
             workflow,
             text=(
-                "Choose the path that matches the current task. The sidebar keeps "
-                "the original page order while identifying core, research, and advanced work."
+                "Choose a guided single fault, inspect research evidence, or build an advanced scenario."
             ),
             font=(UI_FONT, 10),
             text_color=TEXT_MUTED,
@@ -8191,32 +8131,31 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
 
         workflow_defs = (
             (
-                "Core Comparison Workflow",
-                "Run / Load  →  Compare  →  Fault / Trojan Path  →  Exports",
+                "Guided Experiment",
+                "Configure  →  Run  →  Inspect  →  Export",
                 (
-                    "Run or load a clean-run versus fault comparison, inspect "
-                    "side-by-side behavior, trace hardware-origin effects to ECU-visible "
-                    "symptoms and plant outcomes, then generate reports or presentation bundles."
+                    "Choose one supported cross-layer fault, configure its relevant parameters, "
+                    "run the experiment, and inspect observed propagation and safety outcomes."
                 ),
-                "Open Run / Load",
-                "summary",
+                "Start Guided Experiment",
+                "cross_layer",
                 SIDEBAR_ACTIVE,
             ),
             (
                 "Research / Validation",
-                "Batch Results  →  Runtime Study  →  Security / RTL Analysis",
+                "Research Analysis  →  Final Validation",
                 (
                     "Review aggregate fault sweeps, compare runtime detector and "
                     "safe-state intervention results, and evaluate RTL Hardware Trojan "
                     "examples HT1–HT4."
                 ),
-                "Open Batch Results",
-                "batch",
+                "Open Research Analysis",
+                "research_analysis",
                 ACCENT_AMBER,
             ),
             (
                 "Advanced Custom Experimentation",
-                "Custom Faults",
+                "Advanced Experiment Builder",
                 (
                     "Build controlled single- or multi-fault scenarios, choose the "
                     "runtime detector and intervention action, then run or compare the results."
@@ -8276,7 +8215,8 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             self.make_secondary_button(
                 card,
                 text=button_text,
-                command=lambda key=page_key: self._navigate_to_page(key),
+                command=(self.open_guided_experiment if button_text == "Start Guided Experiment"
+                         else lambda key=page_key: self._navigate_to_page(key)),
             ).grid(
                 row=4,
                 column=0,
@@ -8605,7 +8545,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self._build_tab_header(
             parent,
             row=0,
-            title="Compare",
+            title="Compare Results",
             description=(
                 "Choose one focused figure from the loaded clean-run and fault-run pair, "
                 "then use the evidence table to explain the observed behavior."
@@ -8626,7 +8566,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         plot_header_card.grid(row=0, column=0, sticky="ew", pady=(0, 10))
         plot_header = self._card_content(plot_header_card)
         plot_header.columnconfigure(0, weight=0)
-        plot_header.columnconfigure(1, weight=0)
+        plot_header.columnconfigure(1, weight=1)
         plot_header.columnconfigure(2, weight=1)
 
         ttk.Label(plot_header, text="Comparison Plot", style="CardFieldName.TLabel").grid(row=0, column=0, sticky="w")
@@ -8637,7 +8577,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             state="readonly",
             width=34,
         )
-        selector.grid(row=0, column=1, sticky="w", padx=(10, 0))
+        selector.grid(row=0, column=1, sticky="ew", padx=(10, 0))
         selector.bind("<<ComboboxSelected>>", self._on_plot_selection_changed)
         ttk.Label(
             plot_header,
@@ -8645,7 +8585,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
             style="CardHint.TLabel",
             wraplength=680,
             justify="left",
-        ).grid(row=0, column=2, sticky="w", padx=(14, 0))
+        ).grid(row=1, column=0, columnspan=3, sticky="ew", pady=(8, 0))
 
         plot_card = self._section_card(
             plots,
@@ -10208,7 +10148,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self._build_tab_header(
             parent,
             row=0,
-            title="Fault / Trojan Path",
+            title="Propagation Path",
             description=(
                 "Trace conventional fault injection or RTL Hardware Trojan "
                 "behavior from its origin through ECU-visible symptoms, "
@@ -10981,7 +10921,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self._build_tab_header(
             parent,
             row=0,
-            title="Batch Results",
+            title="Batch Analysis",
             description=(
                 "Review aggregate fault-injection sweep evidence across many runs. "
                 "Load a summary CSV, then scan the KPIs, findings, table, and focused plot."
@@ -11169,7 +11109,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self._build_tab_header(
             parent,
             row=0,
-            title="Runtime Detector Intervention Study",
+            title="Detector Study",
             description=(
                 "Compare runtime detector algorithms and safe-state intervention "
                 "actions across reproducible scenarios, with KPIs before the detailed table."
@@ -11559,7 +11499,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
         self._build_tab_header(
             parent,
             row=0,
-            title="Security / RTL Analysis",
+            title="RTL Security",
             description=(
                 "Evaluate RTL Hardware Trojan examples HT1–HT4 across sensor, "
                 "actuator, calibration, and coordinated multi-stage interfaces."
@@ -14056,7 +13996,7 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
 
         self._modern_label(
             panel,
-            text="Run / Load",
+            text="Run Experiment",
             fg_color=THEME_COLORS["hero_bg"],
             text_color=THEME_COLORS["hero_text"],
             font=THEME_FONTS["page_title"],
@@ -14525,6 +14465,9 @@ class VirtualECUGui(ctk.CTk if CTK_AVAILABLE else tk.Tk):  # type: ignore[misc, 
 
     def _apply_presentation_mode(self) -> None:
         enabled = self.presentation_mode.get()
+        configure_styles(self, presentation=enabled)
+        if hasattr(self, "cross_layer_panel"):
+            self.cross_layer_panel.set_presentation_mode(enabled)
         for plot in (
             self.comparison_plot,
             self.batch_plot,
