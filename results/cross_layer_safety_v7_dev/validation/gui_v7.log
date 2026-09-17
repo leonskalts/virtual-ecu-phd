@@ -1,0 +1,14 @@
+PASS Hybrid remains default
+PASS Experimental selector hidden in Guided
+PASS Experimental selector available in Advanced
+PASS Advanced execution loads runtime sidecar
+PASS Live C detector confirms timing anomaly
+PASS Runtime view shows estimated TIMING
+PASS Runtime view excludes evaluation truth
+PASS Evidence selector can inspect pre-anomaly state
+PASS Detector Study loads all development comparisons
+PASS Evaluation Ground Truth section is separate
+PASS Detector Study example executes v7 C path
+PASS Old CSV hides unavailable v7 evidence
+PASS User session preserved byte-for-byte
+PASS No Tk callback errors

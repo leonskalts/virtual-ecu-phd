@@ -1,0 +1,23 @@
+{
+  "audit": {
+    "benign_profile_duplicates": 0,
+    "candidate1_validation_overlap": 0,
+    "configurations": 1140,
+    "distinct_physical_configurations": 1140,
+    "duplicates": 0,
+    "group_overlap": 0,
+    "independent_random_replicates": false
+  },
+  "partitions": {
+    "development-train": 744,
+    "development-validation": 396
+  },
+  "protocol_sha256": "8d183e8d10cc1089df49e3640ca79472aaca23822b787139618833008e65a424",
+  "source_sha256": {
+    "src/v7_1/candidate2_evidence.c": "8c486e59666e603f8423f8e0bc23d47551ce8a676f8045702a28cda3bbbbcab7",
+    "src/v7_1/candidate2_observability.c": "d7b55e3db75e217dcf322b778511f47de8ccaf2b288b180b7b5761d65854ddb0",
+    "src/v7_1/candidate2_runtime.c": "34fd68804a6e4977feebf02952cdf473a6a8d6d15b957223a7f0fbe7d854c77a",
+    "src/v7_1/clo_dsf_candidate2.c": "4f2be33b1cb63180be9e2508b013b80a70546c0cb9d3b1e406a3f5fc4f0c15e4"
+  },
+  "study_sha256": "e12acecb24103717fd29ed76d3cf7ce7f4a0d145481a6b5b30b2f3c3315696c8"
+}

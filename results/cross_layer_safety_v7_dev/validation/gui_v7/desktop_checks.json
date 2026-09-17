@@ -1,0 +1,20 @@
+{
+  "status": "PASS",
+  "checks": [
+    "Hybrid remains default",
+    "Experimental selector hidden in Guided",
+    "Experimental selector available in Advanced",
+    "Advanced execution loads runtime sidecar",
+    "Live C detector confirms timing anomaly",
+    "Runtime view shows estimated TIMING",
+    "Runtime view excludes evaluation truth",
+    "Evidence selector can inspect pre-anomaly state",
+    "Detector Study loads all development comparisons",
+    "Evaluation Ground Truth section is separate",
+    "Detector Study example executes v7 C path",
+    "Old CSV hides unavailable v7 evidence",
+    "User session preserved byte-for-byte",
+    "No Tk callback errors"
+  ],
+  "errors": []
+}

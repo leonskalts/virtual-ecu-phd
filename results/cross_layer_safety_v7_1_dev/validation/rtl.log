@@ -1,0 +1,73 @@
+[1/4] Generating nominal coolant, fan-command, and calibration input trace
+[2/4] Building and simulating selected RTL targets with Verilator
+  - Coolant Sensor Interface
+  - Fan Driver Interface
+  - Calibration Memory Interface
+  - Multi-Stage RTL Chain
+[3/4] Replaying RTL outputs through unchanged Virtual ECU detectors
+  [01/64] ht1_coolant_sensor / clean / builtin_ecu
+  [02/64] ht1_coolant_sensor / clean / threshold
+  [03/64] ht1_coolant_sensor / clean / ewma
+  [04/64] ht1_coolant_sensor / clean / cusum
+  [05/64] ht1_coolant_sensor / clean / thermal_observer
+  [06/64] ht1_coolant_sensor / clean / kalman_filter
+  [07/64] ht1_coolant_sensor / clean / adaptive_kalman_filter
+  [08/64] ht1_coolant_sensor / clean / hybrid_adaptive_kalman
+  [09/64] ht1_coolant_sensor / trojan / builtin_ecu
+  [10/64] ht1_coolant_sensor / trojan / threshold
+  [11/64] ht1_coolant_sensor / trojan / ewma
+  [12/64] ht1_coolant_sensor / trojan / cusum
+  [13/64] ht1_coolant_sensor / trojan / thermal_observer
+  [14/64] ht1_coolant_sensor / trojan / kalman_filter
+  [15/64] ht1_coolant_sensor / trojan / adaptive_kalman_filter
+  [16/64] ht1_coolant_sensor / trojan / hybrid_adaptive_kalman
+  [17/64] ht2_fan_driver / clean / builtin_ecu
+  [18/64] ht2_fan_driver / clean / threshold
+  [19/64] ht2_fan_driver / clean / ewma
+  [20/64] ht2_fan_driver / clean / cusum
+  [21/64] ht2_fan_driver / clean / thermal_observer
+  [22/64] ht2_fan_driver / clean / kalman_filter
+  [23/64] ht2_fan_driver / clean / adaptive_kalman_filter
+  [24/64] ht2_fan_driver / clean / hybrid_adaptive_kalman
+  [25/64] ht2_fan_driver / trojan / builtin_ecu
+  [26/64] ht2_fan_driver / trojan / threshold
+  [27/64] ht2_fan_driver / trojan / ewma
+  [28/64] ht2_fan_driver / trojan / cusum
+  [29/64] ht2_fan_driver / trojan / thermal_observer
+  [30/64] ht2_fan_driver / trojan / kalman_filter
+  [31/64] ht2_fan_driver / trojan / adaptive_kalman_filter
+  [32/64] ht2_fan_driver / trojan / hybrid_adaptive_kalman
+  [33/64] ht3_calibration_memory / clean / builtin_ecu
+  [34/64] ht3_calibration_memory / clean / threshold
+  [35/64] ht3_calibration_memory / clean / ewma
+  [36/64] ht3_calibration_memory / clean / cusum
+  [37/64] ht3_calibration_memory / clean / thermal_observer
+  [38/64] ht3_calibration_memory / clean / kalman_filter
+  [39/64] ht3_calibration_memory / clean / adaptive_kalman_filter
+  [40/64] ht3_calibration_memory / clean / hybrid_adaptive_kalman
+  [41/64] ht3_calibration_memory / trojan / builtin_ecu
+  [42/64] ht3_calibration_memory / trojan / threshold
+  [43/64] ht3_calibration_memory / trojan / ewma
+  [44/64] ht3_calibration_memory / trojan / cusum
+  [45/64] ht3_calibration_memory / trojan / thermal_observer
+  [46/64] ht3_calibration_memory / trojan / kalman_filter
+  [47/64] ht3_calibration_memory / trojan / adaptive_kalman_filter
+  [48/64] ht3_calibration_memory / trojan / hybrid_adaptive_kalman
+  [49/64] ht4_multi_stage_chain / clean / builtin_ecu
+  [50/64] ht4_multi_stage_chain / clean / threshold
+  [51/64] ht4_multi_stage_chain / clean / ewma
+  [52/64] ht4_multi_stage_chain / clean / cusum
+  [53/64] ht4_multi_stage_chain / clean / thermal_observer
+  [54/64] ht4_multi_stage_chain / clean / kalman_filter
+  [55/64] ht4_multi_stage_chain / clean / adaptive_kalman_filter
+  [56/64] ht4_multi_stage_chain / clean / hybrid_adaptive_kalman
+  [57/64] ht4_multi_stage_chain / trojan / builtin_ecu
+  [58/64] ht4_multi_stage_chain / trojan / threshold
+  [59/64] ht4_multi_stage_chain / trojan / ewma
+  [60/64] ht4_multi_stage_chain / trojan / cusum
+  [61/64] ht4_multi_stage_chain / trojan / thermal_observer
+  [62/64] ht4_multi_stage_chain / trojan / kalman_filter
+  [63/64] ht4_multi_stage_chain / trojan / adaptive_kalman_filter
+  [64/64] ht4_multi_stage_chain / trojan / hybrid_adaptive_kalman
+[4/4] Writing isolated RTL security tables and reports
+RTL security analysis complete: /home/leonskal/code/virtual-ecu-phd/results/cross_layer_safety_v7_1_dev/validation/rtl

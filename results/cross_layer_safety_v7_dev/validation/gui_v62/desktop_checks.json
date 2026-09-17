@@ -1,0 +1,924 @@
+{
+  "checks": [
+    "Consolidated ten-entry sidebar",
+    "Research overview is first entry",
+    "Both Dashboard Guided launch buttons found",
+    "Dashboard button 1 opens visibly Guided",
+    "Dashboard button 1 preserves advanced values and command",
+    "Advanced fields reappear with stored values",
+    "Dashboard button 2 opens visibly Guided",
+    "Dashboard button 2 preserves advanced values and command",
+    "Advanced fields reappear with stored values",
+    "Research launch preserves Cross-Layer mode and values",
+    "Direct navigation preserves mode",
+    "Presentation preserves exact scientific command",
+    "Saved index 5 opens batch",
+    "Research reentry remembers batch",
+    "Old internal ID routes batch",
+    "Saved index 6 opens runtime_study",
+    "Research reentry remembers runtime_study",
+    "Old internal ID routes runtime_study",
+    "Saved index 7 opens parameter_sweep",
+    "Research reentry remembers parameter_sweep",
+    "Old internal ID routes parameter_sweep",
+    "Research selection never reruns studies",
+    "Original 47-run aggregate loads",
+    "Original 90-run Detector Study loads",
+    "All seven paper-facing sweep detectors load",
+    "Best coverage preserves Kalman/Hybrid tie",
+    "Best latency preserves Threshold/Hybrid tie",
+    "Final v6 package loads",
+    "Loaded final card exactly formats Timing Holdout Coverage",
+    "Metric font is prominent: Timing Holdout Coverage",
+    "Loaded final card exactly formats Timing Coverage 95% CI",
+    "Metric font is prominent: Timing Coverage 95% CI",
+    "Loaded final card exactly formats Legal Timing Alarms",
+    "Metric font is prominent: Legal Timing Alarms",
+    "Loaded final card exactly formats Legal Timing False-Alarm 95% CI",
+    "Metric font is prominent: Legal Timing False-Alarm 95% CI",
+    "Loaded final card exactly formats Plant-Propagating Timing Detection",
+    "Metric font is prominent: Plant-Propagating Timing Detection",
+    "Loaded final card exactly formats Cross-Layer Detection",
+    "Metric font is prominent: Cross-Layer Detection",
+    "Loaded final card exactly formats Detection Given Plant Propagation",
+    "Metric font is prominent: Detection Given Plant Propagation",
+    "Loaded final card exactly formats Silent Plant Propagation",
+    "Metric font is prominent: Silent Plant Propagation",
+    "Missing final evidence fails gracefully",
+    "Unavailable final cards show N/A",
+    "Legacy raw CSV loads",
+    "v1 unavailable containment remains N/A",
+    "v2 campaign loads",
+    "v3 analysis loads",
+    "v4 runtime loads",
+    "v5 validation loads",
+    "RTL Security loads independently",
+    "Builder staged count reflects current scenario",
+    "Zero-event builder is purposeful",
+    "Zero-event actions offer Add Event and hide invalid Run",
+    "Empty-state Add Event uses existing event validation",
+    "Two events enable existing run workflow",
+    "Builder empty actions dispatch original multi callbacks",
+    "Single-fault builder state is accurate",
+    "Builder empty actions dispatch original single callbacks",
+    "Actual Guided run completes and populates results",
+    "Representative Guided bit flip retains detection",
+    "Guided raw CSV matches pre-v6.2 experiment byte for byte",
+    "No comparison shows proper empty state",
+    "Loaded comparison cards are visibly mapped",
+    "Left comparison card uses loaded case",
+    "Right comparison card uses loaded case",
+    "Cross-layer key difference uses stored evidence",
+    "Detailed comparison remains accessible",
+    "Loaded result replaces builder empty state",
+    "export_results_snapshot completed",
+    "export_current_comparison completed",
+    "export_presentation_bundle completed",
+    "Session schema serializes to isolated file",
+    "Existing user session preserved byte for byte",
+    "1366x768/dashboard navigation",
+    "1366x768/summary navigation",
+    "1366x768/figures navigation",
+    "1366x768/figures card text fits allocated width",
+    "1366x768/figures card text fits allocated width",
+    "1366x768/figures card text fits allocated width",
+    "1366x768/fault_path navigation",
+    "1366x768/cross_layer navigation",
+    "1366x768/research_analysis navigation",
+    "1366x768/research_analysis card text fits allocated width",
+    "1366x768/research_analysis card text fits allocated width",
+    "1366x768/research_analysis card text fits allocated width",
+    "1366x768/rtl_security navigation",
+    "1366x768/exports navigation",
+    "1366x768/final_validation navigation",
+    "1366x768/final_validation card text fits allocated width",
+    "1366x768/final_validation card text fits allocated width",
+    "1366x768/final_validation card text fits allocated width",
+    "1366x768/final_validation card text fits allocated width",
+    "1366x768/final_validation card text fits allocated width",
+    "1366x768/final_validation card text fits allocated width",
+    "1366x768/final_validation card text fits allocated width",
+    "1366x768/final_validation card text fits allocated width",
+    "1366x768/custom navigation",
+    "1366x768/batch navigation",
+    "1366x768/runtime_study navigation",
+    "1366x768/parameter_sweep navigation",
+    "1366x768/parameter_sweep card text fits allocated width",
+    "1366x768/parameter_sweep card text fits allocated width",
+    "1366x768/parameter_sweep card text fits allocated width",
+    "1366x768/parameter_sweep card text fits allocated width",
+    "1366x768/parameter_sweep card text fits allocated width",
+    "1920x1080/dashboard navigation",
+    "1920x1080/summary navigation",
+    "1920x1080/figures navigation",
+    "1920x1080/figures card text fits allocated width",
+    "1920x1080/figures card text fits allocated width",
+    "1920x1080/figures card text fits allocated width",
+    "1920x1080/fault_path navigation",
+    "1920x1080/cross_layer navigation",
+    "1920x1080/research_analysis navigation",
+    "1920x1080/research_analysis card text fits allocated width",
+    "1920x1080/research_analysis card text fits allocated width",
+    "1920x1080/research_analysis card text fits allocated width",
+    "1920x1080/rtl_security navigation",
+    "1920x1080/exports navigation",
+    "1920x1080/final_validation navigation",
+    "1920x1080/final_validation card text fits allocated width",
+    "1920x1080/final_validation card text fits allocated width",
+    "1920x1080/final_validation card text fits allocated width",
+    "1920x1080/final_validation card text fits allocated width",
+    "1920x1080/final_validation card text fits allocated width",
+    "1920x1080/final_validation card text fits allocated width",
+    "1920x1080/final_validation card text fits allocated width",
+    "1920x1080/final_validation card text fits allocated width",
+    "1920x1080/custom navigation",
+    "1920x1080/batch navigation",
+    "1920x1080/runtime_study navigation",
+    "1920x1080/parameter_sweep navigation",
+    "1920x1080/parameter_sweep card text fits allocated width",
+    "1920x1080/parameter_sweep card text fits allocated width",
+    "1920x1080/parameter_sweep card text fits allocated width",
+    "1920x1080/parameter_sweep card text fits allocated width",
+    "1920x1080/parameter_sweep card text fits allocated width",
+    "2560x1440/dashboard navigation",
+    "2560x1440/summary navigation",
+    "2560x1440/figures navigation",
+    "2560x1440/figures card text fits allocated width",
+    "2560x1440/figures card text fits allocated width",
+    "2560x1440/figures card text fits allocated width",
+    "2560x1440/fault_path navigation",
+    "2560x1440/cross_layer navigation",
+    "2560x1440/research_analysis navigation",
+    "2560x1440/research_analysis card text fits allocated width",
+    "2560x1440/research_analysis card text fits allocated width",
+    "2560x1440/research_analysis card text fits allocated width",
+    "2560x1440/rtl_security navigation",
+    "2560x1440/exports navigation",
+    "2560x1440/final_validation navigation",
+    "2560x1440/final_validation card text fits allocated width",
+    "2560x1440/final_validation card text fits allocated width",
+    "2560x1440/final_validation card text fits allocated width",
+    "2560x1440/final_validation card text fits allocated width",
+    "2560x1440/final_validation card text fits allocated width",
+    "2560x1440/final_validation card text fits allocated width",
+    "2560x1440/final_validation card text fits allocated width",
+    "2560x1440/final_validation card text fits allocated width",
+    "2560x1440/custom navigation",
+    "2560x1440/batch navigation",
+    "2560x1440/runtime_study navigation",
+    "2560x1440/parameter_sweep navigation",
+    "2560x1440/parameter_sweep card text fits allocated width",
+    "2560x1440/parameter_sweep card text fits allocated width",
+    "2560x1440/parameter_sweep card text fits allocated width",
+    "2560x1440/parameter_sweep card text fits allocated width",
+    "2560x1440/parameter_sweep card text fits allocated width",
+    "research_analysis presentation navigation",
+    "batch presentation navigation",
+    "runtime_study presentation navigation",
+    "parameter_sweep presentation navigation",
+    "final_validation presentation navigation",
+    "figures presentation navigation",
+    "cross_layer presentation navigation",
+    "custom presentation navigation",
+    "No Tk callbacks or GUI operations failed"
+  ],
+  "screenshots": [
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/builder_zero_events.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/dashboard_1366x768.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/summary_1366x768.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/figures_1366x768.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/fault_path_1366x768.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/cross_layer_1366x768.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/research_analysis_1366x768.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/rtl_security_1366x768.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/exports_1366x768.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/final_validation_1366x768.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/custom_1366x768.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/batch_1366x768.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/runtime_study_1366x768.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/parameter_sweep_1366x768.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/custom_empty_1366x768.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/dashboard_1920x1080.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/summary_1920x1080.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/figures_1920x1080.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/fault_path_1920x1080.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/cross_layer_1920x1080.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/research_analysis_1920x1080.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/rtl_security_1920x1080.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/exports_1920x1080.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/final_validation_1920x1080.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/custom_1920x1080.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/batch_1920x1080.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/runtime_study_1920x1080.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/parameter_sweep_1920x1080.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/custom_empty_1920x1080.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/dashboard_2560x1440.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/summary_2560x1440.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/figures_2560x1440.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/fault_path_2560x1440.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/cross_layer_2560x1440.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/research_analysis_2560x1440.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/rtl_security_2560x1440.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/exports_2560x1440.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/final_validation_2560x1440.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/custom_2560x1440.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/batch_2560x1440.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/runtime_study_2560x1440.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/parameter_sweep_2560x1440.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/custom_empty_2560x1440.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/research_analysis_presentation.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/batch_presentation.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/runtime_study_presentation.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/parameter_sweep_presentation.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/final_validation_presentation.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/figures_presentation.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/cross_layer_presentation.png",
+    "results/cross_layer_safety_v7_dev/validation/gui_v62/screenshots/custom_presentation.png"
+  ],
+  "experiments": [
+    {
+      "values": {
+        "Fault Layer": "memory",
+        "Fault Model": "bit_flip",
+        "Fault Target": "control_target_register",
+        "Behavior": "transient",
+        "Start Time (ms)": "45000",
+        "Duration (ms)": "100",
+        "Bit Index": "5",
+        "Seed": "42",
+        "Intermittent ON (ms)": "100",
+        "Intermittent OFF (ms)": "500",
+        "Stuck Polarity": "1",
+        "Communication Delay (ms)": "300",
+        "Drop Count": "3",
+        "Drop Every N Updates": "0",
+        "Replay Age (ms)": "500",
+        "Task Delay (ms)": "200",
+        "FTTI (ms)": "5000",
+        "Warning Threshold (\u00b0C)": "108",
+        "Critical Threshold (\u00b0C)": "115",
+        "Max Critical Exposure (ms)": "1000",
+        "Timing Monitor": "Disabled",
+        "Communication Safety Response": "Observe Only",
+        "Sensor Bias (\u00b0C)": "6.0",
+        "Pump Effectiveness": "0.45"
+      },
+      "command": [
+        [
+          "baseline"
+        ],
+        [
+          "--cross-layer-fault",
+          "bit_flip",
+          "--fault-layer",
+          "memory",
+          "--fault-target",
+          "control_target_register",
+          "--fault-behavior",
+          "transient",
+          "--fault-start-ms",
+          "45000",
+          "--fault-duration-ms",
+          "100",
+          "--seed",
+          "42",
+          "--fault-id",
+          "1",
+          "--bit-index",
+          "5",
+          "--hazard-monitor",
+          "on",
+          "--ftti-ms",
+          "5000",
+          "--hazard-warning-c",
+          "108",
+          "--hazard-critical-c",
+          "115",
+          "--max-critical-exposure-ms",
+          "1000",
+          "--timing-monitor",
+          "disabled",
+          "--communication-safety-response",
+          "observe_only"
+        ]
+      ],
+      "summary": {
+        "run_id": "single_experiment",
+        "telemetry_available": true,
+        "cross_layer_fault_enabled": 1,
+        "fault_id": "1",
+        "fault_layer": "memory",
+        "fault_model": "bit_flip",
+        "fault_target": "control_target_register",
+        "fault_behavior": "transient",
+        "seed": 42,
+        "fault_injection_ms": 45000,
+        "propagation_internal_ms": 45000,
+        "propagation_control_ms": 45000,
+        "propagation_actuator_command_ms": 45000,
+        "propagation_actuator_realization_ms": 45000,
+        "propagation_plant_ms": 45100,
+        "propagation_detector_ms": 45000,
+        "propagation_safety_response_ms": null,
+        "propagation_safe_state_ms": null,
+        "injection_to_internal_latency_ms": 0,
+        "injection_to_control_latency_ms": 0,
+        "injection_to_actuator_latency_ms": 0,
+        "injection_to_plant_latency_ms": 100,
+        "cross_layer_detection_latency_ms": 0,
+        "detection_to_safety_response_latency_ms": null,
+        "propagation_depth": 5,
+        "detected_before_plant_manifestation": 1,
+        "safe_state_reached": 0,
+        "unsafe_state_entered": 0,
+        "unsafe_exposure_time_ms": 0,
+        "containment_success": 1,
+        "silent_corruption": 0,
+        "injected": 1,
+        "internal_corruption": 1,
+        "control_effect": 1,
+        "actuator_effect": 1,
+        "actuator_realization_effect": 1,
+        "plant_manifestation": 1,
+        "detected": 1,
+        "hazard_entry_ms": null,
+        "hazard_exit_ms": null,
+        "hazard_entered": 0,
+        "critical_exposure_time_ms": 0,
+        "detected_before_hazard": null,
+        "safe_state_before_hazard": null,
+        "containment_time_ms": 69700,
+        "containment_latency_ms": 24700,
+        "ftti_met": 0,
+        "max_propagation_stage": 6,
+        "fault_activation_count": 1,
+        "last_activation_ms": 45000,
+        "last_recovery_ms": 45100,
+        "preexisting_hazard": 0,
+        "propagation_path_signature": "memory>internal>control>actuator>plant>recovery",
+        "hazard_telemetry_available": true,
+        "timing_monitor_mode": "disabled",
+        "timing_evidence_mode": "combined",
+        "communication_safety_response": "observe_only",
+        "timing_first_violation_ms": null,
+        "timing_monitor_first_alarm_ms": null,
+        "timing_monitor_detected": 0,
+        "existing_detector_first_alarm_ms": 45000,
+        "communication_first_alarm_ms": null,
+        "timing_first_request_ms": null,
+        "communication_first_request_ms": null,
+        "runtime_safety_first_request_ms": null,
+        "runtime_safety_first_action_ms": null,
+        "runtime_safety_request_samples": 0,
+        "runtime_safety_action_samples": 0,
+        "timing_contract_violation_observed": 0,
+        "timing_alarm_ms": null,
+        "existing_alarm_ms": 45000,
+        "existing_detector_alarm_observed": 1,
+        "first_detection_mechanism": "existing_detector",
+        "first_alarm_ms": 45000,
+        "safety_action_requested": 0,
+        "policy_intervention": 0,
+        "intervention_class": "N/A_REQUIRES_MATCHED_OBSERVE_RUN"
+      }
+    }
+  ],
+  "errors": [],
+  "geometry": [
+    {
+      "page": "dashboard",
+      "requested": [
+        1366,
+        768
+      ],
+      "actual": [
+        1366,
+        768
+      ],
+      "content_width": 1064,
+      "requested_content_width": 1126
+    },
+    {
+      "page": "summary",
+      "requested": [
+        1366,
+        768
+      ],
+      "actual": [
+        1366,
+        768
+      ],
+      "content_width": 1064,
+      "requested_content_width": 1545
+    },
+    {
+      "page": "figures",
+      "requested": [
+        1366,
+        768
+      ],
+      "actual": [
+        1366,
+        768
+      ],
+      "content_width": 1064,
+      "requested_content_width": 1476
+    },
+    {
+      "page": "fault_path",
+      "requested": [
+        1366,
+        768
+      ],
+      "actual": [
+        1366,
+        768
+      ],
+      "content_width": 1064,
+      "requested_content_width": 1721
+    },
+    {
+      "page": "cross_layer",
+      "requested": [
+        1366,
+        768
+      ],
+      "actual": [
+        1366,
+        768
+      ],
+      "content_width": 1064,
+      "requested_content_width": 1330
+    },
+    {
+      "page": "research_analysis",
+      "requested": [
+        1366,
+        768
+      ],
+      "actual": [
+        1366,
+        768
+      ],
+      "content_width": 1064,
+      "requested_content_width": 1040
+    },
+    {
+      "page": "rtl_security",
+      "requested": [
+        1366,
+        768
+      ],
+      "actual": [
+        1366,
+        768
+      ],
+      "content_width": 1064,
+      "requested_content_width": 1057
+    },
+    {
+      "page": "exports",
+      "requested": [
+        1366,
+        768
+      ],
+      "actual": [
+        1366,
+        768
+      ],
+      "content_width": 1064,
+      "requested_content_width": 1033
+    },
+    {
+      "page": "final_validation",
+      "requested": [
+        1366,
+        768
+      ],
+      "actual": [
+        1366,
+        768
+      ],
+      "content_width": 1064,
+      "requested_content_width": 940
+    },
+    {
+      "page": "custom",
+      "requested": [
+        1366,
+        768
+      ],
+      "actual": [
+        1366,
+        768
+      ],
+      "content_width": 1064,
+      "requested_content_width": 1248
+    },
+    {
+      "page": "batch",
+      "requested": [
+        1366,
+        768
+      ],
+      "actual": [
+        1366,
+        768
+      ],
+      "content_width": 1064,
+      "requested_content_width": 1012
+    },
+    {
+      "page": "runtime_study",
+      "requested": [
+        1366,
+        768
+      ],
+      "actual": [
+        1366,
+        768
+      ],
+      "content_width": 1064,
+      "requested_content_width": 1757
+    },
+    {
+      "page": "parameter_sweep",
+      "requested": [
+        1366,
+        768
+      ],
+      "actual": [
+        1366,
+        768
+      ],
+      "content_width": 1064,
+      "requested_content_width": 1049
+    },
+    {
+      "page": "dashboard",
+      "requested": [
+        1920,
+        1080
+      ],
+      "actual": [
+        1920,
+        1080
+      ],
+      "content_width": 1618,
+      "requested_content_width": 1126
+    },
+    {
+      "page": "summary",
+      "requested": [
+        1920,
+        1080
+      ],
+      "actual": [
+        1920,
+        1080
+      ],
+      "content_width": 1618,
+      "requested_content_width": 1545
+    },
+    {
+      "page": "figures",
+      "requested": [
+        1920,
+        1080
+      ],
+      "actual": [
+        1920,
+        1080
+      ],
+      "content_width": 1618,
+      "requested_content_width": 1476
+    },
+    {
+      "page": "fault_path",
+      "requested": [
+        1920,
+        1080
+      ],
+      "actual": [
+        1920,
+        1080
+      ],
+      "content_width": 1618,
+      "requested_content_width": 1721
+    },
+    {
+      "page": "cross_layer",
+      "requested": [
+        1920,
+        1080
+      ],
+      "actual": [
+        1920,
+        1080
+      ],
+      "content_width": 1618,
+      "requested_content_width": 1330
+    },
+    {
+      "page": "research_analysis",
+      "requested": [
+        1920,
+        1080
+      ],
+      "actual": [
+        1920,
+        1080
+      ],
+      "content_width": 1618,
+      "requested_content_width": 1040
+    },
+    {
+      "page": "rtl_security",
+      "requested": [
+        1920,
+        1080
+      ],
+      "actual": [
+        1920,
+        1080
+      ],
+      "content_width": 1618,
+      "requested_content_width": 1081
+    },
+    {
+      "page": "exports",
+      "requested": [
+        1920,
+        1080
+      ],
+      "actual": [
+        1920,
+        1080
+      ],
+      "content_width": 1618,
+      "requested_content_width": 1082
+    },
+    {
+      "page": "final_validation",
+      "requested": [
+        1920,
+        1080
+      ],
+      "actual": [
+        1920,
+        1080
+      ],
+      "content_width": 1618,
+      "requested_content_width": 940
+    },
+    {
+      "page": "custom",
+      "requested": [
+        1920,
+        1080
+      ],
+      "actual": [
+        1920,
+        1080
+      ],
+      "content_width": 1618,
+      "requested_content_width": 1452
+    },
+    {
+      "page": "batch",
+      "requested": [
+        1920,
+        1080
+      ],
+      "actual": [
+        1920,
+        1080
+      ],
+      "content_width": 1618,
+      "requested_content_width": 1596
+    },
+    {
+      "page": "runtime_study",
+      "requested": [
+        1920,
+        1080
+      ],
+      "actual": [
+        1920,
+        1080
+      ],
+      "content_width": 1618,
+      "requested_content_width": 1757
+    },
+    {
+      "page": "parameter_sweep",
+      "requested": [
+        1920,
+        1080
+      ],
+      "actual": [
+        1920,
+        1080
+      ],
+      "content_width": 1618,
+      "requested_content_width": 1049
+    },
+    {
+      "page": "dashboard",
+      "requested": [
+        2560,
+        1440
+      ],
+      "actual": [
+        2560,
+        1440
+      ],
+      "content_width": 2258,
+      "requested_content_width": 1126
+    },
+    {
+      "page": "summary",
+      "requested": [
+        2560,
+        1440
+      ],
+      "actual": [
+        2560,
+        1440
+      ],
+      "content_width": 2258,
+      "requested_content_width": 1545
+    },
+    {
+      "page": "figures",
+      "requested": [
+        2560,
+        1440
+      ],
+      "actual": [
+        2560,
+        1440
+      ],
+      "content_width": 2258,
+      "requested_content_width": 1476
+    },
+    {
+      "page": "fault_path",
+      "requested": [
+        2560,
+        1440
+      ],
+      "actual": [
+        2560,
+        1440
+      ],
+      "content_width": 2258,
+      "requested_content_width": 1721
+    },
+    {
+      "page": "cross_layer",
+      "requested": [
+        2560,
+        1440
+      ],
+      "actual": [
+        2560,
+        1440
+      ],
+      "content_width": 2258,
+      "requested_content_width": 1330
+    },
+    {
+      "page": "research_analysis",
+      "requested": [
+        2560,
+        1440
+      ],
+      "actual": [
+        2560,
+        1440
+      ],
+      "content_width": 2258,
+      "requested_content_width": 1040
+    },
+    {
+      "page": "rtl_security",
+      "requested": [
+        2560,
+        1440
+      ],
+      "actual": [
+        2560,
+        1440
+      ],
+      "content_width": 2258,
+      "requested_content_width": 1081
+    },
+    {
+      "page": "exports",
+      "requested": [
+        2560,
+        1440
+      ],
+      "actual": [
+        2560,
+        1440
+      ],
+      "content_width": 2258,
+      "requested_content_width": 1082
+    },
+    {
+      "page": "final_validation",
+      "requested": [
+        2560,
+        1440
+      ],
+      "actual": [
+        2560,
+        1440
+      ],
+      "content_width": 2258,
+      "requested_content_width": 940
+    },
+    {
+      "page": "custom",
+      "requested": [
+        2560,
+        1440
+      ],
+      "actual": [
+        2560,
+        1440
+      ],
+      "content_width": 2258,
+      "requested_content_width": 1452
+    },
+    {
+      "page": "batch",
+      "requested": [
+        2560,
+        1440
+      ],
+      "actual": [
+        2560,
+        1440
+      ],
+      "content_width": 2258,
+      "requested_content_width": 1648
+    },
+    {
+      "page": "runtime_study",
+      "requested": [
+        2560,
+        1440
+      ],
+      "actual": [
+        2560,
+        1440
+      ],
+      "content_width": 2258,
+      "requested_content_width": 1757
+    },
+    {
+      "page": "parameter_sweep",
+      "requested": [
+        2560,
+        1440
+      ],
+      "actual": [
+        2560,
+        1440
+      ],
+      "content_width": 2258,
+      "requested_content_width": 1049
+    }
+  ],
+  "detector_summary": {
+    "Scenarios": "5",
+    "Runs": "90",
+    "Detectors": "6",
+    "Actions": "3",
+    "Fastest Detector": "cusum (1.275 s)",
+    "Lowest Mean Max Coolant": "limp_home / precautionary_cooling (92.19 C)",
+    "Missed Detections": "9 total (cusum: 3, ewma: 3, threshold: 3)"
+  },
+  "sweep_summary": {
+    "Scenario Variants": "38",
+    "Paper-Facing Runs": "266",
+    "Paper-Facing Detectors": "7 (6 + Hybrid)",
+    "Fault Groups": "6",
+    "Security Variants": "10",
+    "Hybrid Coverage": "100.0%",
+    "Hybrid Median Latency": "0.0 ms",
+    "Clean Alarms": "0/1",
+    "Output Directory": "results/fault_injection_parameter_sweep"
+  },
+  "sweep_cards": {
+    "Best Coverage": "100%\nHybrid Adaptive Kalman / Kalman filter",
+    "Best Median Latency": "0 ms\nHybrid Adaptive Kalman / Threshold",
+    "Hybrid Coverage": "100.0%",
+    "Hybrid Median Latency": "0.0 ms",
+    "Clean Alarms": "0/1"
+  },
+  "status": "PASS"
+}

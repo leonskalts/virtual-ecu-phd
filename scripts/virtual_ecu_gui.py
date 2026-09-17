@@ -18237,5 +18237,10 @@ def main() -> None:
     app.mainloop()
 
 
+# Additive experimental views; accepted GUI callbacks remain unchanged.
+from virtual_ecu.clo_dsf_candidate2_gui import install as install_candidate2_views
+install_candidate2_views()
+
+
 if __name__ == "__main__":
     main()

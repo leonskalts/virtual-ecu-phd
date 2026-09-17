@@ -45,3 +45,6 @@ results/cross_layer_safety_v6/
 results/cross_layer_safety_v6_1/
 
 /results/cross_layer_safety_v6_2/
+
+# Additive v7 runtime executable
+/virtual_ecu_v7

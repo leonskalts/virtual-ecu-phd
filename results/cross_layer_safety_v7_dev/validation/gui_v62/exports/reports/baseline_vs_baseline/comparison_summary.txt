@@ -1,0 +1,11 @@
+Virtual ECU Comparison Report
+Left campaign: baseline
+Right campaign: baseline
+Left fault class: baseline / no injected fault
+Right fault class: baseline / no injected fault
+
+Final DTC: left=none, right=none
+Final Safe State: left=normal, right=normal
+Maximum Coolant Temperature: left=96.00 C, right=96.00 C
+Detection Latency: left=n/a, right=n/a
+Safe-State Latency: left=n/a, right=n/a

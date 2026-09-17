@@ -1,0 +1,32 @@
+[
+  {
+    "run_id": "dev_0000",
+    "status": "PASS",
+    "raw_summary_evidence_metrics": "byte-identical"
+  },
+  {
+    "run_id": "dev_0216",
+    "status": "PASS",
+    "raw_summary_evidence_metrics": "byte-identical"
+  },
+  {
+    "run_id": "dev_0352",
+    "status": "PASS",
+    "raw_summary_evidence_metrics": "byte-identical"
+  },
+  {
+    "run_id": "dev_0480",
+    "status": "PASS",
+    "raw_summary_evidence_metrics": "byte-identical"
+  },
+  {
+    "run_id": "dev_0672",
+    "status": "PASS",
+    "raw_summary_evidence_metrics": "byte-identical"
+  },
+  {
+    "run_id": "dev_0720",
+    "status": "PASS",
+    "raw_summary_evidence_metrics": "byte-identical"
+  }
+]

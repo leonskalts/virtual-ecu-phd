@@ -32,3 +32,6 @@ clean:
 	rm -f $(OBJ) $(DEP) $(TARGET)
 
 -include $(DEP)
+
+# Optional additive Candidate 2 build; accepted targets/recipes remain unchanged.
+-include clo_dsf_candidate2.mk

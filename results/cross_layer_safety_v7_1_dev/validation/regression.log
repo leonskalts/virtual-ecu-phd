@@ -1,0 +1,72 @@
+Frozen candidate verified: 25 SHA-256 entries
+{
+  "frozen_legacy": {
+    "source_files": 141,
+    "accepted_evidence_files": 5866,
+    "scientific_behavior_changed": false,
+    "baseline_commit": "0da05ccc7c20e9913194fcd2a718a7412f2a5f1a"
+  },
+  "legacy_cases": 48,
+  "rtl_cases": 64,
+  "v5_replays": [
+    "timing_0000_baseline_observe_only",
+    "timing_0031_baseline_observe_only",
+    "timing_0051_baseline_observe_only",
+    "timing_0202_baseline_observe_only",
+    "timing_0062_task_delay_observe_only",
+    "communication_0825_delayed_update_graded",
+    "cross_layer_1174_stuck_bit_observe_only",
+    "cross_layer_1300_pump_degraded_observe_only"
+  ],
+  "candidate1_replays": [
+    {
+      "origin": "MEMORY",
+      "run_id": "dev_0000",
+      "raw_summary_evidence_metrics": "byte-identical"
+    },
+    {
+      "origin": "TIMING",
+      "run_id": "dev_0216",
+      "raw_summary_evidence_metrics": "byte-identical"
+    },
+    {
+      "origin": "COMMUNICATION",
+      "run_id": "dev_0352",
+      "raw_summary_evidence_metrics": "byte-identical"
+    },
+    {
+      "origin": "SENSOR_CONTROL",
+      "run_id": "dev_0480",
+      "raw_summary_evidence_metrics": "byte-identical"
+    },
+    {
+      "origin": "ACTUATOR",
+      "run_id": "dev_0672",
+      "raw_summary_evidence_metrics": "byte-identical"
+    },
+    {
+      "origin": "NORMAL",
+      "run_id": "dev_0720",
+      "raw_summary_evidence_metrics": "byte-identical"
+    }
+  ],
+  "candidate1_new_cohort_bank_matches": [
+    "c2_0000",
+    "c2_0270",
+    "c2_0380",
+    "c2_0540",
+    "c2_0720",
+    "c2_0948"
+  ],
+  "preservation": {
+    "existing_files": 21794,
+    "unchanged_files": 21792,
+    "authorized_additive_integration_changes": [
+      "Makefile",
+      "scripts/virtual_ecu_gui.py"
+    ],
+    "all_candidate1_files_and_evidence_unchanged": true,
+    "user_session_unchanged": true
+  },
+  "status": "PASS"
+}

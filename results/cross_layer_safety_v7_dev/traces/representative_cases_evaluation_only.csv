@@ -1,0 +1,7 @@
+run_id,origin,model,behavior,start_ms,propagation_plant_ms,detected,origin_at_alarm
+dev_0000,MEMORY,bit_flip,transient,25000,25100,0,UNKNOWN
+dev_0216,TIMING,task_delay,transient,25000,,1,TIMING
+dev_0352,COMMUNICATION,dropped_update,intermittent,25000,,0,UNKNOWN
+dev_0480,SENSOR_CONTROL,sensor_bias,permanent,25000,25100,0,UNKNOWN
+dev_0672,ACTUATOR,fan_stuck_off,intermittent,25000,25100,1,ACTUATOR
+dev_0720,NORMAL,baseline,none,120100,,0,UNKNOWN

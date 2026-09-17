@@ -1,0 +1,5 @@
+{
+  "cases": 48,
+  "comparison": "Raw and C summary bytes against compiled accepted commit 0da05ccc7c20e9913194fcd2a718a7412f2a5f1a",
+  "status": "PASS"
+}

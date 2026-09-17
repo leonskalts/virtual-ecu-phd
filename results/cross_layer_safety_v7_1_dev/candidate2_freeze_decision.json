@@ -1,0 +1,11 @@
+{
+  "candidate1_still_frozen": true,
+  "candidate2_correct": 176,
+  "candidate2_detected": 262,
+  "frozen": false,
+  "holdout_created": false,
+  "no_origin_reliability_correct": 202,
+  "reason": "Selected origin reliability is dominated on measured decision endpoints by the no-origin-discount ablation; calibrated Weighted Sum matches binary detection. Preserve evidence, require a new preregistered assessment before simplification.",
+  "selected_parameters_changed_after_validation": false,
+  "status": "COMPLETED DEVELOPMENT; NOT PROMOTED TO FINAL-HOLDOUT CANDIDATE"
+}

@@ -1,6 +1,7 @@
 """One research workspace; original frames/indices retain their loading callbacks."""
 import tkinter as tk
 from tkinter import ttk
+from .clo_dsf_gui import CloDevelopmentPanel
 from .gui_design import RESEARCH_VIEWS, action_button, section, responsive_labels, MetricGrid
 
 
@@ -49,6 +50,8 @@ class ResearchAnalysisWorkspace:
             action_button(card, 'Open '+RESEARCH_VIEWS[key], lambda key=key: self.show(key)).grid(row=3, column=0, sticky='w',pady=(8,0))
         # Historical file names and the required Batch Findings/Comparison labels stay intact.
         ttk.Label(self.headers['batch'], text='Aggregate Analysis is a general campaign/result viewer. It summarizes many completed runs but does not define the final frozen v5/v6 validation evidence.', style='Help.TLabel', wraplength=760).grid(row=2,column=0,sticky='ew',pady=(10,0))
+        self.clo_development=CloDevelopmentPanel(self.headers['runtime_study'],app)
+        self.clo_development.grid(row=3,column=0,sticky='ew',pady=10)
         for key in RESEARCH_VIEWS:
             responsive_labels(app.page_frames[key].content)
 

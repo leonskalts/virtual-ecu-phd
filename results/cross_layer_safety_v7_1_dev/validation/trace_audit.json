@@ -1,0 +1,15 @@
+{
+  "status": "PASS",
+  "validation_runs": 396,
+  "runtime_rows": 475596,
+  "confirmed_unknown_rows": 1603,
+  "checks": [
+    "normalized five-origin masses",
+    "logical five-origin pignistic score/margin",
+    "positive binary mass and zero conflict",
+    "runtime state/localization consistency",
+    "online summary match",
+    "strict time order",
+    "runtime log truth exclusion"
+  ]
+}

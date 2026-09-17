@@ -1,0 +1,23 @@
+{
+  "status": "PASS",
+  "checks": [
+    "Hybrid default preserved",
+    "Advanced detector choices hidden in Guided",
+    "Advanced detector selector visible",
+    "Both candidate identities selectable",
+    "Advanced run loads Candidate 2 runtime sidecar",
+    "Live runtime detects and localizes timing",
+    "Runtime panel excludes evaluation labels",
+    "Runtime selector shows initial state",
+    "Confirmed anomaly with UNKNOWN origin is displayed as valid",
+    "Development comparison includes all 16 methods and ablations",
+    "Evaluation table ground truth is separate",
+    "Original Candidate 1 study panel retained",
+    "Research example executes Candidate 2 C path",
+    "Frozen Candidate 1 runtime result still loads",
+    "Historical CSV hides unavailable Candidate 2 evidence",
+    "User session byte-identical",
+    "No GUI callback errors"
+  ],
+  "errors": []
+}

@@ -1,0 +1,19 @@
+{
+  "criterion": "lexicographic minimize benign false-alarm runs, maximize macro origin coverage, minimize silent plant propagation, maximize correct localization per alarm, minimize median latency, minimize high-conflict runs, candidate index",
+  "parameters": {
+    "alarm_threshold_confirmed": 0.65,
+    "alarm_threshold_suspect": 0.35,
+    "confirmation_persistence": 2,
+    "conflict_rule": "dempster",
+    "ignorance_limit": 0.5,
+    "lambda_temporal": 0.8,
+    "localization_margin_threshold": 0.15,
+    "localization_threshold": 0.55,
+    "propagation_bonus": 0.1,
+    "propagation_window_ms": 3000,
+    "r_direct": 0.9,
+    "r_indirect": 0.6
+  },
+  "selected_candidate": 1,
+  "validation_seen": false
+}

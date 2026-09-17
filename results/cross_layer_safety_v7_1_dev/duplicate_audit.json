@@ -1,0 +1,9 @@
+{
+  "benign_profile_duplicates": 0,
+  "candidate1_validation_overlap": 0,
+  "configurations": 1140,
+  "distinct_physical_configurations": 1140,
+  "duplicates": 0,
+  "group_overlap": 0,
+  "independent_random_replicates": false
+}

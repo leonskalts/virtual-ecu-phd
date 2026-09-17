@@ -1,0 +1,14 @@
+figure,caption
+detection_by_origin.png,48 injected configurations per origin. Masked/no-effect injections retained.
+detection_given_plant_propagation.png,coverage_given_plant_manifestation; validation configuration proportions; N/A is not zero. See comparison CSV for denominators.
+false_alarm_comparison.png,benign_false_alarms; validation configuration proportions; N/A is not zero. See comparison CSV for denominators.
+latency_comparison.png,"Missed runs excluded, never assigned zero latency; sample counts in comparison CSV."
+ablation_results.png,Same validation runs; A0→A1 also changes conflict rule if Yager was selected. Negative contributions retained.
+localization_confusion_matrix.png,Rows are evaluator-only truth; columns include UNKNOWN and missed detections.
+ignorance_fault_vs_benign.png,Full-run means include pre-injection operation; not calibrated probabilities.
+evidence_trace_memory.png,Earliest validation run ID per origin; selection does not depend on detection success.
+evidence_trace_timing.png,Earliest validation run ID per origin; selection does not depend on detection success.
+evidence_trace_communication.png,Earliest validation run ID per origin; selection does not depend on detection success.
+evidence_trace_sensor_control.png,Earliest validation run ID per origin; selection does not depend on detection success.
+evidence_trace_actuator.png,Earliest validation run ID per origin; selection does not depend on detection success.
+evidence_trace_normal.png,Earliest validation run ID per origin; selection does not depend on detection success.

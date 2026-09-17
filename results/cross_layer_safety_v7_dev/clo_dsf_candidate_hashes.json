@@ -1,0 +1,31 @@
+{
+  "algorithm_parameters_may_change": false,
+  "holdout_created": false,
+  "sha256": {
+    "GNUmakefile": "d889389ab8aed71c84ba9a2e55e012966f266a309aa745d69b092c6afd6b7fae",
+    "docs/clo_dsf_algorithm.md": "533a4ca5e2f545bbba63bd93b98231fa7dbf24503c0dbb9da2f7c9d2a978680f",
+    "docs/clo_dsf_development_protocol.md": "f1e0a899ddea1dd9fd1f346cc108f7624f2102eb10b2287f57a0617dd33180c8",
+    "include/clo_dsf.h": "fb8895897690205ade67bb72474fda72a8bb9397a13bcf054009b8004b2152d7",
+    "include/config.h": "eb481dc6fe5bca46e1c4a4fef773be421933c33b43ca385c8c88f8e013e16aa7",
+    "include/ds_evidence.h": "b9798ed2445e3db970bd6e6a23a2a7af12752d908fdf05511fe062bcd515a65c",
+    "include/runtime_observation.h": "1c0e3c6dd79fa2ba5534c3647efcf3df8de009f6ba385f1ce52ede3f363bd410",
+    "include/runtime_timing_observation.h": "93abae40373360d6fc824b887b459a33e830ced88951838b8489a7a95bb09565",
+    "python/virtual_ecu/clo_dsf_development.py": "821d85b42b511be02ac502cb66c9aa1cfa39de16a0d6b60c68c8e5c85e6afc03",
+    "results/cross_layer_safety_v7_dev/clo_dsf_candidate.cfg": "2a678bb72a8ffb69ee010dd253448faa87d04a1e92b38c6e6d066227077b8293",
+    "results/cross_layer_safety_v7_dev/clo_dsf_candidate_config.json": "defd37a925420845de974f45aeea519b97199734dfecffe88c7eb7ca20c3f380",
+    "results/cross_layer_safety_v7_dev/development_split_manifest.csv": "883db228df066b4689cc02c5564596515d8e58e0f07f746358892bd823e2af22",
+    "results/cross_layer_safety_v7_dev/runtime_observability_mapping.csv": "4472f4d5a9c3213d3df65e8835c4e0c7c1ad31cad24fac58e59aaeb656e10337",
+    "results/cross_layer_safety_v7_dev/selected_config.cfg": "2a678bb72a8ffb69ee010dd253448faa87d04a1e92b38c6e6d066227077b8293",
+    "results/cross_layer_safety_v7_dev/selection_record.json": "4a6917b03944e4348961566ea3d16188f016900c2a0c2832fe79a78be253da6e",
+    "scripts/audit_clo_dsf_development.py": "9d510d1151bb71219c98a6dae1513fe1b35b6944056d00a322bc19a9f83bea11",
+    "src/main.c": "ce81833c12f36aca454251121efc18b835b30fe99cf2e434afd7370ed977e032",
+    "src/runtime_observation.c": "7d61be2aa13aa55438b7112837c9a83bb1c13e67f7341a5192fb44f88cc38b60",
+    "src/scheduler.c": "80d924e069d55926f6f2485db853ce8de06744c55c0119b640510e7641ec30d9",
+    "src/v7/clo_dsf.c": "88908647de871270ebfbcfa7fb13cb3da3371c33c42a41cce0a33dd984655854",
+    "src/v7/clo_observability.c": "420160ef18797024bf72ceafa4c7f888ff21f15d65cf4326279102a61c64dd1b",
+    "src/v7/clo_runtime.c": "3f5e1b9ea9710f30029cc404d3bcc0b130e22d4e250c5c2d8540d951bc247079",
+    "src/v7/ds_evidence.c": "c763e3eb722629779b46b569badb3301cc8accf348b787e9d939f6af60854c92",
+    "studies/clo_dsf_development_v1.yaml": "e7946c69e6711f6b4c2842b7f6237cb89978c6c068361ea2643933a5d05c59bd",
+    "studies/cross_layer_final_evidence_lock.json": "0f79878065ffdd4919db2ff635552786ebf4d45a74085600762d548456248466"
+  }
+}

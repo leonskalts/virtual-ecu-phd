@@ -1,0 +1,52 @@
+schema_version: 7.1
+purpose: DEVELOPMENT / TUNING DATA — NOT FINAL HOLDOUT
+split_seed: 17092027
+simulation_duration_ms: 120000
+injection_times_ms: [32000, 73500]
+durations_ms: [400, 3000, 9000]
+behaviors: [transient, intermittent, permanent]
+profiles:
+  - {name: c2_moderate, load: 0.38, speed: 45, ambient: 22}
+  - {name: c2_urban, load: 0.61, speed: 27, ambient: 33}
+  - {name: c2_highway, load: 0.76, speed: 110, ambient: 29}
+  - {name: c2_hot_slow, load: 0.90, speed: 6, ambient: 37}
+  - {name: c2_high_load, load: 0.99, speed: 65, ambient: 40}
+models:
+  MEMORY:
+    bit_flip: [1, 2, 4]
+    stuck_bit: [1, 2, 4]
+  TIMING:
+    deadline_miss: [200, 400, 900]
+    task_delay: [200, 400, 900]
+  COMMUNICATION:
+    delayed_update: [200, 700]
+    dropped_update: [2, 7]
+    replayed_sample: [300, 1100]
+  SENSOR_CONTROL:
+    sensor_bias: [-3, 5.5, 9]
+    sensor_interface_intermittent: [3, 7, 11]
+  ACTUATOR:
+    pump_degraded: [0.92, 0.65, 0.35]
+    fan_stuck_off: [0, 0, 0]
+grouping: origin/model/behavior; all parameter variants stay together; benign grouped by profile template
+split: lowest SHA256(seed:group) ceil(0.3*groups) independently per origin
+legacy_intermittent: two existing transient injections separated by 700 ms
+ignored_severity_offsets: deadline transient and permanent, fan permanent use 0/1300/2600 ms onset offsets
+search:
+  detection_threshold: [0.50, 0.65]
+  persistence: [1, 2]
+  lambda_temporal: [0.60, 0.80]
+  origin_threshold: [0.55, 0.70, 0.85]
+  origin_margin: [0.15, 0.30]
+  origin_ignorance_max: 0.50
+  detection_reliability: 1.0
+  origin_direct_reliability: 0.9
+  origin_indirect_reliability: 0.6
+  propagation_bonus: [0, 0.1]
+  propagation_window_ms: 3000
+weighted_sum_search:
+  weights: [[0.16666666666666666, 0.16666666666666666, 0.16666666666666666, 0.16666666666666666, 0.16666666666666666, 0.16666666666666666], [0.2, 0.2, 0.2, 0.1, 0.2, 0.1]]
+  thresholds: [0.04, 0.06, 0.08, 0.10, 0.14, 0.18]
+  persistence: 1
+selection: minimize benign false alarms, silent plant runs, negative macro coverage, wrong localizations, negative correct localizations, median latency, candidate index, origin threshold, margin
+propagation_retention: retain only if matched TRAIN operating point increases correct localizations without increasing wrong localizations; otherwise zero

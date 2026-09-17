@@ -1,0 +1,8 @@
+example,run_id,trace,origin_evaluation_only
+timing,c2_0270,results/cross_layer_safety_v7_1_dev/traces/c2_0270.candidate2.csv.gz,TIMING
+sensor_unknown,c2_0540,results/cross_layer_safety_v7_1_dev/traces/c2_0540.candidate2.csv.gz,SENSOR_CONTROL
+weak_memory,c2_0000,results/cross_layer_safety_v7_1_dev/traces/c2_0000.candidate2.csv.gz,MEMORY
+communication,c2_0390,results/cross_layer_safety_v7_1_dev/traces/c2_0390.candidate2.csv.gz,COMMUNICATION
+actuator,c2_0726,results/cross_layer_safety_v7_1_dev/traces/c2_0726.candidate2.csv.gz,ACTUATOR
+silent_plant,c2_0722,results/cross_layer_safety_v7_1_dev/traces/c2_0722.candidate2.csv.gz,ACTUATOR
+benign,c2_0948,results/cross_layer_safety_v7_1_dev/traces/c2_0948.candidate2.csv.gz,NORMAL

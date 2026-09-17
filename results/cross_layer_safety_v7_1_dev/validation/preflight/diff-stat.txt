@@ -1,0 +1,5 @@
+ .gitignore                                  |  3 +++
+ presets/gui_session_state.json              |  2 +-
+ python/virtual_ecu/cross_layer_gui.py       | 29 ++++++++++++++++++++++++++---
+ python/virtual_ecu/research_analysis_gui.py |  3 +++
+ 4 files changed, 33 insertions(+), 4 deletions(-)

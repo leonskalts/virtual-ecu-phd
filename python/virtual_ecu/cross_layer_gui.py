@@ -20,6 +20,7 @@ from .validation_v5_gui import ValidationV5Panel
 from .final_validation_gui import FinalValidationPanel
 from .runtime_safety_study import runtime_summary
 from .gui_design import THEME_COLORS, THEME_FONTS, Tooltip, help_for, section, action_button, StatusBanner
+from .clo_dsf_gui import CloEvidenceView, LABEL as CLO_LABEL, run_experimental
 from .cross_layer_ui import (DEFAULTS, UI_MODELS, LAYER_LABELS, CONTRACT, behaviors,
                              visible_fields, backend_request, interpretation, propagation_states)
 
@@ -50,6 +51,7 @@ class CrossLayerSafetyPanel(ttk.Frame):
                    "Behavior": behaviors("bit_flip"), "Fault Target": ("control_target_register",),
                    "Stuck Polarity": ("0", "1"), "Timing Monitor": ("Disabled", "Observe Only", "Protective Action"),
                    "Communication Safety Response": ("Observe Only", "Protective Action")}
+        self.experimental_detector = tk.StringVar(self, value="Hybrid Adaptive Kalman")
         self.layer_choice = tk.StringVar(self, value="Memory")
         for i, (name, title) in enumerate((("Fault Layer", "Step 1 · Fault layer"), ("Fault Model", "Step 2 · Fault model"), ("Behavior", "Step 3 · Behavior"))):
             cell = ttk.Frame(selection);cell.grid(row=0,column=i,sticky="ew",padx=(0,8));cell.columnconfigure(0,weight=1)
@@ -86,9 +88,15 @@ class CrossLayerSafetyPanel(ttk.Frame):
             self.field_rows[name]=cell;self.inputs[name]=widget
             note=help_for(name)
             if note:Tooltip(label,note);Tooltip(widget,note)
+        self.detector_row=ttk.Frame(parameters)
+        self.detector_row.grid(row=3,column=0,sticky="ew",pady=6)
+        ttk.Label(self.detector_row,text="Experimental / Development Detector").pack(side="left",padx=(0,8))
+        ttk.Combobox(self.detector_row,textvariable=self.experimental_detector,
+                     values=("Hybrid Adaptive Kalman",CLO_LABEL),state="readonly",width=30).pack(side="left")
         self.parameter_grid=parameter_grid
         self.helper=ttk.Label(self,text="100 ms ticks • 120 s default profile • Hybrid Adaptive Kalman, observe-only detector action. Monitor response controls are independent. Permanent faults persist to the end.",style="Help.TLabel",wraplength=800)
         self.helper.grid(row=4,column=0,sticky="ew",pady=(0,8))
+        self.experimental_detector.trace_add("write",lambda *_:self._refresh_fields())
         bar=section(self,"Run or load evidence",5)
         self.buttons=[]
         for index,(label,command) in enumerate((
@@ -133,6 +141,9 @@ class CrossLayerSafetyPanel(ttk.Frame):
         self.analysis_panel=ScientificAnalysisPanel(self);self.analysis_panel.grid(row=9,column=0,sticky="ew",pady=10);self.analysis_panel.grid_remove()
         self.runtime_panel=RuntimeSafetyPanel(self);self.runtime_panel.grid(row=10,column=0,sticky="ew",pady=10);self.runtime_panel.grid_remove()
         self.validation_panel=ValidationV5Panel(self);self.validation_panel.grid(row=11,column=0,sticky="ew",pady=10);self.validation_panel.grid_remove()
+        self.clo_evidence=CloEvidenceView(self)
+        self.clo_evidence.grid(row=13,column=0,sticky="ew",pady=8)
+        self.clo_evidence.grid_remove()
         self.final_panel=FinalValidationPanel(final_parent if final_parent is not None else self,self.background_task)
         self.final_panel.grid(row=0 if final_parent is not None else 12,column=0,sticky="ew",pady=10)
         self._refresh_fields()
@@ -150,6 +161,9 @@ class CrossLayerSafetyPanel(ttk.Frame):
 
     def _refresh_fields(self):
         visible=visible_fields(self.values(),self.mode.get(),self.contract_open.get())
+        self.detector_row.grid() if self.mode.get()=="Advanced" else self.detector_row.grid_remove()
+        self.helper.configure(text="100 ms ticks · 120 s profile · "+self.experimental_detector.get()+
+                              ", observe-only detector action. Monitor response controls are independent.")
         counts={self.parameter_grid:0,self.contract_grid:0,self.monitoring_grid:0}
         for name,cell in self.field_rows.items():
             cell.grid_remove()
@@ -273,14 +287,18 @@ class CrossLayerSafetyPanel(ttk.Frame):
         except ValueError as exc:
             messagebox.showerror("Invalid cross-layer configuration", str(exc), parent=self)
             return
-        path = DEFAULT_RUNTIME_DIR / "gui_single" / "single_experiment.csv"
+        experimental = self.experimental_detector.get() == CLO_LABEL
+        path = (PROJECT_ROOT / "results/cross_layer_safety_v7_dev/gui_runtime" if experimental else DEFAULT_RUNTIME_DIR / "gui_single") / "single_experiment.csv"
 
         def task() -> Path:
             completed = subprocess.run(["make"], cwd=PROJECT_ROOT, capture_output=True, text=True)
             if completed.returncode:
                 raise RuntimeError(completed.stderr or completed.stdout)
-            run_experiment(path, positional, [*options, "--detector", "hybrid_adaptive_kalman",
-                                               "--detector-action", "observe_only"])
+            if experimental:
+                run_experimental(path, positional, options)
+            else:
+                run_experiment(path, positional, [*options, "--detector", "hybrid_adaptive_kalman",
+                                                   "--detector-action", "observe_only"])
             return path
 
         self._run("Running cross-layer experiment…", task)
@@ -326,6 +344,11 @@ class CrossLayerSafetyPanel(ttk.Frame):
             path = Path(selected)
         try:
             rows = read_rows(path)
+            sidecar = Path(str(path)+".clo_dsf.csv")
+            self.clo_evidence.grid_remove()
+            if sidecar.exists():
+                self.clo_evidence.load(sidecar)
+                self.clo_evidence.grid()
             if "telemetry_available" in rows[0] and "run_id" in rows[0]:
                 summaries = rows
             elif "time_ms" in rows[0]:

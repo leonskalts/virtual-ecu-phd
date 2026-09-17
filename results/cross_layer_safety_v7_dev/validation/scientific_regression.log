@@ -1,0 +1,5 @@
+Accepted lock {'source_files': 141, 'accepted_evidence_files': 5866, 'scientific_behavior_changed': False, 'baseline_commit': '0da05ccc7c20e9913194fcd2a718a7412f2a5f1a'}
+Legacy 48
+RTL 64
+v5 representative ['timing_0000_baseline_observe_only', 'timing_0031_baseline_observe_only', 'timing_0051_baseline_observe_only', 'timing_0202_baseline_observe_only', 'timing_0062_task_delay_observe_only', 'communication_0825_delayed_update_graded', 'cross_layer_1174_stuck_bit_observe_only', 'cross_layer_1300_pump_degraded_observe_only']
+{'baseline': 'd757539df55ca5e93fe45c810d3e2c5d6fdf547b', 'legacy_cases': 48, 'rtl_cases': 64, 'all_preexisting_result_files_unchanged': 16352, 'accepted_scientific_sources_unchanged': 141, 'v5_representative_replays': 8}

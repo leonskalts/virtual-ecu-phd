@@ -1,0 +1,8 @@
+{
+  "baseline": "d757539df55ca5e93fe45c810d3e2c5d6fdf547b",
+  "legacy_cases": 48,
+  "rtl_cases": 64,
+  "all_preexisting_result_files_unchanged": 16352,
+  "accepted_scientific_sources_unchanged": 141,
+  "v5_representative_replays": 8
+}

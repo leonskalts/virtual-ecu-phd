@@ -1,0 +1,7 @@
+channel,detection_support,origin_support,origin_class,detection_reliability,origin_reliability
+timing,ABNORMAL,TIMING,DIRECT,1,0.9
+communication,ABNORMAL,COMMUNICATION,DIRECT,1,0.9
+memory_control,ABNORMAL,MEMORY,DIRECT,1,0.9
+sensor_control,ABNORMAL,COMMUNICATION|SENSOR_CONTROL,INDIRECT,1,0.6
+actuator,ABNORMAL,ACTUATOR,DIRECT,1,0.9
+plant,ABNORMAL,MEMORY|TIMING|COMMUNICATION|SENSOR_CONTROL|ACTUATOR,INDIRECT/VACUOUS,1,0.6

@@ -1,0 +1,5 @@
+{
+  "adjustment": "Selected TRAIN readout .55/.15 equals the actual online search-bank readout. Recover later-localization times from that bank instead of discarding them as unavailable. Search-table historical later-localization zeros were not selection inputs and remain archived.",
+  "runtime_or_selection_changed": false,
+  "validation_reexecuted": false
+}

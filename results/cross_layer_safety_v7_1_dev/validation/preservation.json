@@ -1,0 +1,10 @@
+{
+  "additive_integration_only": [
+    "Makefile",
+    "scripts/virtual_ecu_gui.py"
+  ],
+  "candidate1_and_all_historical_evidence_unchanged": true,
+  "existing_files": 21794,
+  "session_byte_identical": true,
+  "unchanged_files": 21792
+}

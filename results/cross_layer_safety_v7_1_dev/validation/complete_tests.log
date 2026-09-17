@@ -1,0 +1,8 @@
+................................................................................../home/leonskal/code/virtual-ecu-phd/tests/test_clo_dsf_development.py:71: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/leonskal/code/virtual-ecu-phd/results/cross_layer_safety_v7_dev/clo_dsf_dev_runs.csv' mode='r' encoding='UTF-8'>
+  rows=list(csv.DictReader(path.open()))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+..................................................................................................................................................
+----------------------------------------------------------------------
+Ran 228 tests in 5.178s
+
+OK

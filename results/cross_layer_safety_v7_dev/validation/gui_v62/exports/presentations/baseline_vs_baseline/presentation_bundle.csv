@@ -1,0 +1,18 @@
+section,field,left,right,value
+comparison,left_campaign,baseline,,Baseline
+comparison,right_campaign,,baseline,Baseline
+comparison,fault_class,baseline / no injected fault,baseline / no injected fault,
+metrics,final_dtc,none,none,
+metrics,final_safe_state,normal,normal,
+metrics,maximum_coolant_temperature,96.00 C,96.00 C,
+metrics,detection_latency,n/a,n/a,
+metrics,safe-state_latency,n/a,n/a,
+findings,finding_1,,,Thermal severity: both campaigns reach the same peak coolant temperature (96.00 C).
+findings,finding_2,,,Fault detection: Neither campaign confirms a fault during the run.
+findings,finding_3,,,Safe-state impact: both campaigns finish with comparable safe-state severity (normal vs normal).
+findings,finding_4,,,Critical end state: both campaigns finish with similar end-of-run criticality (none / normal vs none / normal).
+interpretation,line_1,,,The two cases drives the stronger thermal outcome in this comparison.
+interpretation,line_2,,,Neither campaign confirms a fault during the run.
+interpretation,line_3,,,Both campaigns shows the stronger protection response at ECU safe-state level.
+interpretation,line_4,,,The end states gives the more critical end-of-run diagnostic/safety outcome.
+verdict,key_takeaway,,,"Overall takeaway: the two cases are fairly balanced overall, so the best presentation choice depends on whether you want to emphasize thermal severity, detection timing, or safe-state behavior."

@@ -1,0 +1,9 @@
+{
+  "HT1": "unchanged",
+  "HT2": "unchanged",
+  "HT3": "unchanged",
+  "HT4": "unchanged",
+  "cases": 64,
+  "comparison": "Every historical raw/C-summary field identical; current schema appends cross-layer columns. All comparison metrics identical excluding relocated paths.",
+  "status": "PASS"
+}

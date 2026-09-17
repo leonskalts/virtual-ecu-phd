@@ -1,0 +1,9 @@
+{
+  "configured_simulations": 912,
+  "distinct_physical_configurations": 896,
+  "redundant_train_executions": 16,
+  "validation_redundant_executions": 0,
+  "deduplicated_train_candidate": 1,
+  "same_selected_candidate": true,
+  "interpretation": "Post-study audit/sensitivity only. Primary preregistered tables and selection are retained. Repeats are not independent evidence."
+}

@@ -1,0 +1,14 @@
+{
+  "partitions": {
+    "development-train": 576,
+    "development-validation": 336
+  },
+  "protocol_sha256": "f1e0a899ddea1dd9fd1f346cc108f7624f2102eb10b2287f57a0617dd33180c8",
+  "source_sha256": {
+    "src/v7/clo_dsf.c": "88908647de871270ebfbcfa7fb13cb3da3371c33c42a41cce0a33dd984655854",
+    "src/v7/clo_observability.c": "420160ef18797024bf72ceafa4c7f888ff21f15d65cf4326279102a61c64dd1b",
+    "src/v7/clo_runtime.c": "9a4ec692319d13b53011818e2ce80b17698794066e693af7270510d28e9a0acb",
+    "src/v7/ds_evidence.c": "c763e3eb722629779b46b569badb3301cc8accf348b787e9d939f6af60854c92"
+  },
+  "study_sha256": "e7946c69e6711f6b4c2842b7f6237cb89978c6c068361ea2643933a5d05c59bd"
+}

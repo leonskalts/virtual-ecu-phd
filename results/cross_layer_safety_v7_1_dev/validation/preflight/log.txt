@@ -1,0 +1,12 @@
+d757539 (HEAD -> main, origin/main) Finalize GUI UX redesign and research analysis workflow
+8cb44d9 Finalize cross-layer safety platform and reproducibility package
+0da05cc Add final cross-layer safety holdout validation
+da126cb Add timing observability and safety response validation
+8dcefbe Add cross-layer safety scientific hardening and observability analysis
+97f18ce Update RTL Trojan paper evidence exporter
+e89c27b Extend cross-layer safety platform with campaigns and hazard analysis
+9299c04 Add cross-layer automotive safety framework
+0ce95ba Refine paper-facing evaluation flow and detector evidence
+6e90c33 Use seven-detector paper-facing evidence view
+d143daa Add parameter sweep evidence and polish paper figures
+4e5cd21 Polish paper figure styling

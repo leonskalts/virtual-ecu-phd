@@ -1,0 +1,158 @@
+{
+  "abnormal_subset_mask": 62,
+  "baseline_commit": "d757539df55ca5e93fe45c810d3e2c5d6fdf547b",
+  "candidate_index": 1,
+  "channels": [
+    {
+      "class": "DIRECT",
+      "name": "timing",
+      "subset": [
+        "TIMING"
+      ],
+      "transform": "max(deadline_exceeded,missed_expected_execution,completion_after_release_deadline,clip((execution_age-period-deadline)/period))"
+    },
+    {
+      "class": "DIRECT",
+      "name": "communication",
+      "subset": [
+        "COMMUNICATION"
+      ],
+      "transform": "1 on freshness failure or backward received timestamp; else clip((sample_age-300)/300); future timestamp unavailable"
+    },
+    {
+      "class": "DIRECT",
+      "name": "memory_control",
+      "subset": [
+        "MEMORY"
+      ],
+      "transform": "clip(abs(active_target-92)/4)"
+    },
+    {
+      "class": "INDIRECT",
+      "name": "sensor_control",
+      "subset": [
+        "COMMUNICATION",
+        "SENSOR_CONTROL"
+      ],
+      "transform": "max(outside [-40,150],clip((abs(measured_delta)-2.5*dt_seconds)/2))"
+    },
+    {
+      "class": "DIRECT",
+      "name": "actuator",
+      "subset": [
+        "ACTUATOR"
+      ],
+      "transform": "clip(max(abs(fan_command-fan_actual)/0.25,abs(pump_command-pump_actual)/0.20))"
+    },
+    {
+      "class": "INDIRECT",
+      "name": "plant",
+      "subset": [
+        "MEMORY",
+        "TIMING",
+        "COMMUNICATION",
+        "SENSOR_CONTROL",
+        "ACTUATOR"
+      ],
+      "transform": "clip((measured_temperature-108)/7)"
+    }
+  ],
+  "combination_order": [
+    "timing",
+    "communication",
+    "memory_control",
+    "sensor_control",
+    "actuator",
+    "plant",
+    "joint_normal",
+    "discounted_previous_state"
+  ],
+  "configuration_requirement": "Frozen candidate requires --clo-config results/cross_layer_safety_v7_dev/clo_dsf_candidate.cfg. Unconfigured C defaults remain exploratory candidate 0; never equate them with frozen candidate 1.",
+  "conflict_summary": "Maximum pairwise K per timestep, with all eight K values logged",
+  "continuation_rationale": "Preregistered gate passed; 0/96 validation benign alarms, 63.33% macro coverage, 100% localized precision; supports testing abstention/uncertainty, NOT alarm superiority. OR/plain DS coverage are higher and propagation has no measured coverage gain.",
+  "decision_score": "Bel(abnormal_subset)",
+  "dempster_total_conflict_action": "Flagged vacuous fallback; log K",
+  "dempster_total_conflict_epsilon": 1e-12,
+  "frame": {
+    "ACTUATOR": 32,
+    "COMMUNICATION": 8,
+    "MEMORY": 2,
+    "NORMAL": 1,
+    "SENSOR_CONTROL": 16,
+    "TIMING": 4
+  },
+  "high_conflict_threshold": 0.5,
+  "localization": "Confirmed only; top abnormal singleton BetP and top-minus-second margin and maximum ignorance gate. Else UNKNOWN; not Bayesian probability.",
+  "normal_absence": "m(NORMAL)=0.5*(1-max evidence) only when every channel is available; remainder ignorance",
+  "parameters": {
+    "alarm_threshold_confirmed": 0.65,
+    "alarm_threshold_suspect": 0.35,
+    "confirmation_persistence": 2,
+    "conflict_rule": "dempster",
+    "ignorance_limit": 0.5,
+    "lambda_temporal": 0.8,
+    "localization_margin_threshold": 0.15,
+    "localization_threshold": 0.55,
+    "propagation_bonus": 0.1,
+    "propagation_window_ms": 3000,
+    "r_direct": 0.9,
+    "r_indirect": 0.6
+  },
+  "persistence": "Consecutive samples above confirmed threshold; reset below; recover immediately",
+  "propagation_active_threshold": 0.5,
+  "propagation_condition": "Both current episodes active; strict upstream onset < downstream onset <= now; now-upstream_onset <= window. Same-time, recovered, future, expired or reversed episodes receive no bonus.",
+  "propagation_edges": {
+    "actuator": [
+      "plant"
+    ],
+    "communication": [
+      "sensor_control",
+      "actuator",
+      "plant"
+    ],
+    "memory_control": [
+      "sensor_control",
+      "actuator",
+      "plant"
+    ],
+    "plant": [],
+    "sensor_control": [
+      "actuator",
+      "plant"
+    ],
+    "timing": [
+      "sensor_control",
+      "actuator",
+      "plant"
+    ]
+  },
+  "propagation_modulation": "Upstream reliability times (1+bonus), capped at 1, once regardless of edge count",
+  "schema_version": 7,
+  "simple_or": {
+    "persistence": 1,
+    "threshold": 0.5
+  },
+  "states": [
+    "NORMAL",
+    "SUSPECT",
+    "CONFIRMED"
+  ],
+  "status": "FROZEN DEVELOPMENT CANDIDATE \u2014 NOT FINAL HOLDOUT",
+  "study_configured_simulations": 912,
+  "study_unique_physical_configurations": 896,
+  "temporal_cadence_ms": 100,
+  "theta_mask": 63,
+  "unavailable_evidence": "Vacuous; nonfinite or invalid runtime channel inputs give zero reliability",
+  "weighted_sum": {
+    "persistence": 1,
+    "threshold": 0.5,
+    "weights": [
+      0.16666666666666666,
+      0.16666666666666666,
+      0.16666666666666666,
+      0.16666666666666666,
+      0.16666666666666666,
+      0.16666666666666666
+    ]
+  }
+}
