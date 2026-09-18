@@ -1,0 +1,4 @@
+Frozen candidate verified: 25 SHA-256 entries
+Verified 6459 Candidate 2 development identities; no new final-holdout candidate frozen.
+PASS: 6959 final implementation/artifact identities; 32 pre-optimization scientific identities; Candidate 1/2 hashes valid.
+Frozen pre-holdout development candidate. No final holdout created or run.

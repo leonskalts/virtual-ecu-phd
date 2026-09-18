@@ -1,0 +1,14 @@
+{
+  "Candidate 2": {
+    "algorithm_limited": 87,
+    "misses": 117,
+    "observability_limited": 30,
+    "silent_plant": 26
+  },
+  "v7.2": {
+    "algorithm_limited": 78,
+    "misses": 114,
+    "observability_limited": 36,
+    "silent_plant": 36
+  }
+}

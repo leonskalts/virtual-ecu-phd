@@ -1,0 +1,23 @@
+{
+  "freeze_pending_regression": true,
+  "no_holdout": true,
+  "no_parameter_changes": true,
+  "paired": [
+    {
+      "both_detect": 251,
+      "comparator": "Weighted Sum",
+      "neither": 40,
+      "only_comparator": 0,
+      "only_revised": 9
+    },
+    {
+      "both_detect": 252,
+      "comparator": "v7.2 CLO-DSF",
+      "neither": 40,
+      "only_comparator": 0,
+      "only_revised": 8
+    }
+  ],
+  "reason": "Apply the preregistered material safety/localization trade-off rule, no extra numerical target or baseline tuning",
+  "scientifically_justified": true
+}

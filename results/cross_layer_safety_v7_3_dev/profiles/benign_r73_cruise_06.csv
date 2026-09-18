@@ -1,0 +1,4 @@
+start_ms,end_ms,vehicle_speed_kph,engine_load,ambient_temp_c,external_airflow_factor,road_slope_percent
+0,24000,54.0,0.22319999999999998,17,0,0
+24000,76000,75,0.31,17,0,0
+76000,120000,67.5,0.279,17,0,0

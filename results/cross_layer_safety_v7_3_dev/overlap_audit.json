@@ -1,0 +1,28 @@
+{
+  "group_overlap": 0,
+  "historical": [
+    {
+      "exact_overlap": 0,
+      "historical": "cross_layer_safety_v7_dev",
+      "prior_configurations": 896
+    },
+    {
+      "exact_overlap": 0,
+      "historical": "cross_layer_safety_v7_1_dev",
+      "prior_configurations": 1140
+    },
+    {
+      "exact_overlap": 0,
+      "historical": "cross_layer_safety_v7_2_confirmation",
+      "prior_configurations": 900
+    },
+    {
+      "exact_overlap": 0,
+      "historical": "cross_layer_safety_v7_2_confirmation/validation/invalid_attempt_01",
+      "prior_configurations": 900
+    }
+  ],
+  "independent_random_replicates": false,
+  "status": "PASS",
+  "unique_configurations": 1125
+}

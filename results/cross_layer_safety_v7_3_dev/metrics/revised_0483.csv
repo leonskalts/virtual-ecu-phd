@@ -1,0 +1,9 @@
+method,first_alarm_ms,first_post_alarm_ms,origin_at_alarm,leading_at_alarm,origin_score_at_alarm,origin_margin_at_alarm,origin_ignorance_at_alarm,first_localization_ms,first_origin,samples,alarm_samples,pre_alarm_samples,mean_anomaly_ignorance,mean_origin_ignorance,mean_detection_conflict,mean_localization_conflict,high_detection_conflict_samples,high_localization_conflict_samples,propagation_samples,alarm_UNKNOWN,alarm_MEMORY,alarm_TIMING,alarm_COMMUNICATION,alarm_SENSOR_CONTROL,alarm_ACTUATOR
+Revised CLO-DSF,64300,64300,COMMUNICATION,COMMUNICATION,1,1,0,64300,COMMUNICATION,1201,4,0,0.995836802664,0.995836802664,0,0,0,0,0,0,0,0,4,0,0
+Candidate 2,64300,64300,COMMUNICATION,COMMUNICATION,0.92,0.9,0.1,64300,COMMUNICATION,1201,4,0,0.995836802664,0.996253122398,0,0,0,0,0,1,0,0,3,0,0
+v7.2 CLO-DSF,64300,64300,COMMUNICATION,COMMUNICATION,1,1,0,64300,COMMUNICATION,1201,4,0,0.995836802664,0.995836802664,0,0,0,0,0,0,0,0,4,0,0
+Plain DS,64300,64300,COMMUNICATION,COMMUNICATION,1,1,0,64300,COMMUNICATION,1201,1,0,0.499583680266,0.499583680266,0,0,0,0,0,0,0,0,1,0,0
+Simple OR,64300,64300,UNKNOWN,UNKNOWN,0,0,1,-1,UNKNOWN,1201,1,0,1,1,0,0,0,0,0,1,0,0,0,0,0
+Weighted Sum,64300,64300,UNKNOWN,UNKNOWN,0,0,1,-1,UNKNOWN,1201,1,0,1,1,0,0,0,0,0,1,0,0,0,0,0
+Hybrid,-1,-1,UNKNOWN,UNKNOWN,0,0,0,-1,UNKNOWN,1201,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0
+Timing Monitor,-1,-1,UNKNOWN,UNKNOWN,0,0,0,-1,UNKNOWN,1201,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0

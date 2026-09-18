@@ -1,0 +1,9 @@
+method,first_alarm_ms,first_post_alarm_ms,origin_at_alarm,leading_at_alarm,origin_score_at_alarm,origin_margin_at_alarm,origin_ignorance_at_alarm,first_localization_ms,first_origin,samples,alarm_samples,pre_alarm_samples,mean_anomaly_ignorance,mean_origin_ignorance,mean_detection_conflict,mean_localization_conflict,high_detection_conflict_samples,high_localization_conflict_samples,propagation_samples,alarm_UNKNOWN,alarm_MEMORY,alarm_TIMING,alarm_COMMUNICATION,alarm_SENSOR_CONTROL,alarm_ACTUATOR
+Revised CLO-DSF,65500,65500,ACTUATOR,ACTUATOR,1,1,0,65500,ACTUATOR,1201,63,0,0.938779640816,0.939036065875,0,0.00774590460146,0,0,0,27,0,0,0,0,36
+Candidate 2,65500,65500,ACTUATOR,ACTUATOR,0.92,0.9,0.1,65500,ACTUATOR,1201,63,0,0.938779640816,0.947696536025,0,0.00432040750506,0,0,0,26,0,0,0,0,37
+v7.2 CLO-DSF,65500,65500,ACTUATOR,ACTUATOR,1,1,0,65500,ACTUATOR,1201,63,0,0.938779640816,0.939036065875,0,0.00774590460146,0,0,0,27,0,0,0,0,36
+Plain DS,65500,65500,ACTUATOR,ACTUATOR,1,1,0,65500,ACTUATOR,1201,35,0,0.485220689004,0.485220689004,0.0111818271422,0.0111818271422,0,0,0,0,0,0,0,0,35
+Simple OR,65500,65500,UNKNOWN,UNKNOWN,0,0,1,-1,UNKNOWN,1201,35,0,1,1,0,0,0,0,0,35,0,0,0,0,0
+Weighted Sum,65500,65500,UNKNOWN,UNKNOWN,0,0,1,-1,UNKNOWN,1201,57,0,1,1,0,0,0,0,0,57,0,0,0,0,0
+Hybrid,65500,65500,UNKNOWN,UNKNOWN,0,0,1,-1,UNKNOWN,1201,234,0,1,1,0,0,0,0,0,234,0,0,0,0,0
+Timing Monitor,-1,-1,UNKNOWN,UNKNOWN,0,0,0,-1,UNKNOWN,1201,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0

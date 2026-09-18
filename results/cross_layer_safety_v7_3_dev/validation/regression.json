@@ -1,0 +1,32 @@
+{
+  "accepted": {
+    "accepted_evidence_files": 5866,
+    "baseline_commit": "0da05ccc7c20e9913194fcd2a718a7412f2a5f1a",
+    "scientific_behavior_changed": false,
+    "source_files": 141
+  },
+  "baseline_bank_parity": {
+    "comparison": "Every historical online metric string matches its frozen v7.2 executable",
+    "methods_per_run": 7,
+    "runs": [
+      "revised_0030",
+      "revised_0210",
+      "revised_0360",
+      "revised_0540",
+      "revised_0720",
+      "revised_0945"
+    ],
+    "status": "PASS"
+  },
+  "build": "PASS",
+  "changed_files": [],
+  "git_diff_check": "PASS",
+  "legacy_cases": 48,
+  "nothing_staged": true,
+  "preexisting_files_verified": 18927,
+  "python_compile": "PASS",
+  "rtl_cases": 64,
+  "session_preserved": true,
+  "status": "PASS",
+  "tests": "PASS"
+}
