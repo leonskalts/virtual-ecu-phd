@@ -1,0 +1,766 @@
+path,sha256,original_content,reason
+python/virtual_ecu/clo_dsf_holdout.py,25ebafd477f27f1df4a997017931e06df8483a5d134b791e1d35b2198a2c3294,"""""""One-shot unseen holdout orchestration; never modifies frozen inference.""""""
+import csv,hashlib,itertools,json,math,shutil,subprocess,tempfile
+from datetime import datetime,timezone
+from pathlib import Path
+from .clo_dsf_development import ROOT,ORIGINS,write_csv,sha
+from .clo_dsf_candidate2_development import command as legacy_command,derived,aggregate,NONLOCAL
+from .clo_dsf_final_reporting import records,wilson
+from .cross_layer_safety import summarize_rows,read_rows
+OUT=ROOT/'results/cross_layer_safety_v8_final_holdout'
+FROZEN=ROOT/'results/cross_layer_safety_v7_3_dev'
+METHODS=['Simple OR','Weighted Sum','Plain DS','v7.2 CLO-DSF','Revised CLO-DSF','Hybrid','Timing Monitor']
+PROFILES=[dict(name='h8_cruise',load=.44,speed=62,ambient=21),dict(name='h8_urban',load=.63,speed=24,ambient=34),dict(name='h8_slow',load=.79,speed=9,ambient=38),dict(name='h8_fast',load=.93,speed=108,ambient=29),dict(name='h8_hot',load=.985,speed=6,ambient=41)]
+MODELS={'MEMORY':{'bit_flip':[0,4],'stuck_bit':[0,4]},'TIMING':{'deadline_miss':[0,0],'task_delay':[800,1300]},'COMMUNICATION':{'delayed_update':[300,600],'dropped_update':[3,8],'replayed_sample':[600,1700]},'SENSOR_CONTROL':{'sensor_bias':[-3.5,6.5],'sensor_interface_intermittent':[3.5,7.5]},'ACTUATOR':{'pump_degraded':[.965,.81],'fan_stuck_off':[0,0]}}
+BEHAVIORS=['transient','intermittent','permanent']
+SEEDS=[101,137,179,223]
+
+def read(path):
+ with Path(path).open(newline='') as f:return list(csv.DictReader(f))
+def digest(value):return hashlib.sha256(json.dumps(value,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+def verify_frozen():
+ p=subprocess.run(['python3','scripts/freeze_clo_dsf_revised.py','--verify'],cwd=ROOT,capture_output=True,text=True)
+ if p.returncode:raise RuntimeError('STOP: frozen v7.3 identity mismatch\n'+p.stdout+p.stderr)
+ return p.stdout.strip()
+def profile_rows(p):
+ return [dict(start_ms=a,end_ms=b,vehicle_speed_kph=max(0,p['speed']*f),engine_load=max(.05,min(1,p['load']*f)),ambient_temp_c=p['ambient'],external_airflow_factor=0,road_slope_percent=0) for a,b,f in [(0,21300,.66),(21300,57900,1),(57900,92300,.82),(92300,120000,.94)]]
+def profile_identity(rows):
+ return digest([{k:float(v) for k,v in sorted(row.items())} for row in rows])
+def physical(s,profile_hash):
+ return digest([s['model'],s['behavior'],profile_hash,int(s['start_ms']),None if s['behavior']=='permanent' else int(s['duration_ms']),None if s['model'] in ['baseline','deadline_miss','fan_stuck_off'] else float(s['magnitude'])])
+def design():
+ specs=[]
+ for origin,models in MODELS.items():
+  for model,magnitudes in models.items():
+   for bi,behavior in enumerate(BEHAVIORS):
+    cell=[]
+    for severity,magnitude in enumerate(magnitudes):
+     for pi,p in enumerate(PROFILES):
+      for oi,onset in enumerate([18700,43900,81700,96700]):
+       offset=severity*1700 if (model=='deadline_miss' and behavior in ['transient','permanent']) or (model=='fan_stuck_off' and behavior=='permanent') else 0
+       s=dict(origin=origin,model=model,behavior=behavior,magnitude=magnitude,severity=severity,profile=p['name'],start_ms=onset+offset,duration_ms=100 if model=='deadline_miss' and behavior=='transient' else [1400,7300][severity],group=f'{origin}/{model}/{behavior}',seed=SEEDS[(pi+oi+severity)%4],stuck_polarity=(pi+oi+severity)%2,simulation_duration_ms=120000,profile_json=json.dumps(profile_rows(p),sort_keys=True,separators=(',',':')))
+       cell.append(s)
+    if origin=='COMMUNICATION':
+     # Predetermined stratification: 80 per model, 27/27/26 per behavior;
+     # no outcome-dependent inclusion or favorable severity subset.
+     cell=sorted(cell,key=lambda s:digest(['v8-holdout-stratum',s]))[:[27,27,26][bi]]
+    specs+=cell
+ for p in PROFILES:
+  for i,(lo,so,ao) in enumerate(itertools.product([-.09,-.03,.01,.045],[-4,-1,0,2,5],[-2,0,3])):
+   name=f""benign_{p['name']}_{i:02}"";values=dict(load=p['load']+lo,speed=p['speed']+so,ambient=p['ambient']+ao)
+   specs.append(dict(origin='NORMAL',model='baseline',behavior='none',magnitude=0,severity=0,profile=name,start_ms=120100,duration_ms=0,group=f""NORMAL/{p['name']}"",seed=SEEDS[i%4],stuck_polarity=0,simulation_duration_ms=120000,profile_json=json.dumps(profile_rows(values),sort_keys=True,separators=(',',':'))))
+ for i,s in enumerate(specs):
+  s.update(run_id=f'holdout_{i:04}',partition='final-unseen-holdout',intermittent_on_ms=700,intermittent_off_ms=1100,legacy_second_event_gap_ms=1100,drop_every_n_updates=11)
+  s['profile_semantic_sha256']=profile_identity(json.loads(s['profile_json']));s['configuration_sha256']=physical(s,s['profile_semantic_sha256'])
+ assert len(specs)==1500 and all(sum(s['origin']==o for s in specs)==240 for o in ORIGINS)
+ return specs
+
+def overlap(specs):
+ keys={s['configuration_sha256'] for s in specs};assert len(keys)==len(specs)
+ audit=[dict(compared_to='Within final holdout',configurations=len(specs),exact_overlap=len(specs)-len(keys))]
+ for folder,manifest in [('cross_layer_safety_v7_dev','development_split_manifest.csv'),('cross_layer_safety_v7_1_dev','development_split_manifest.csv'),('cross_layer_safety_v7_2_confirmation','confirmation_configuration_manifest.csv'),('cross_layer_safety_v7_2_confirmation/validation/invalid_attempt_01','confirmation_configuration_manifest.csv'),('cross_layer_safety_v7_3_dev','development_split_manifest.csv')]:
+  old=ROOT/'results'/folder;prior=read(old/manifest);profiles={};oldkeys=set()
+  for s in prior:
+   if s['profile'] not in profiles:profiles[s['profile']]=profile_identity(read(old/'profiles'/f""{s['profile']}.csv""))
+   oldkeys.add(physical(s,profiles[s['profile']]))
+  n=len(keys&oldkeys);assert n==0,folder
+  audit.append(dict(compared_to=folder,configurations=len(oldkeys),exact_overlap=n))
+ write_csv(OUT/'configuration_overlap_audit.csv',audit)
+
+def prepare_work(work,specs):
+ for folder in ['profiles','raw']:(work/folder).mkdir(exist_ok=True)
+ for s in specs:write_csv(work/'profiles'/f""{s['profile']}.csv"",json.loads(s['profile_json']))
+def command(s,work):
+ cmd=legacy_command(s,work,'validation',FROZEN/'revised.cfg',6);cmd=cmd[:cmd.index('--c2-config')];cmd[0]=str(ROOT/'virtual_ecu_v7_3')
+ for key,value in {'--fault-seed':s['seed'],'--seed':s['seed'],'--intermittent-on-ms':700,'--intermittent-off-ms':1100,'--drop-every-n-updates':11,'--stuck-polarity':s['stuck_polarity']}.items():
+  if key in cmd:cmd[cmd.index(key)+1]=str(value)
+ if 'custom_multi' in cmd:
+  i=cmd.index('custom_multi');cmd[i+8]=str(s['start_ms']+s['duration_ms']+1100)
+ return cmd+['--revised-config',str(FROZEN/'revised.cfg'),'--revised-c2-config',str(ROOT/'results/cross_layer_safety_v7_1_dev/selected_config.cfg'),'--revised-comparison','--revised-evaluation-start',str(s['start_ms']),'--revised-weighted-choice','6','--revised-evidence',str(work/'trace.csv'),'--revised-observations',str(work/'observations.csv'),'--revised-metrics',str(work/'metrics.csv')]
+
+def validate(specs,work):
+ exe=work/'config_check';objects=[str(p) for p in sorted((ROOT/'src').glob('*.o')) if p.name!='main.o']
+ subprocess.run(['gcc','-std=c11','-Iinclude','tests/final_configuration_check.c',*objects,'-o',str(exe)],cwd=ROOT,check=True)
+ for s in specs:
+  cmd=command(s,work);p=subprocess.run([str(exe),*cmd[2:]],capture_output=True,text=True)
+  if p.returncode:raise ValueError(s['run_id']+': '+p.stderr)
+  assert s['start_ms']%100==0 and s['duration_ms']%100==0
+  if 'custom_multi' in cmd:assert s['start_ms']+2*s['duration_ms']+1100<=120000
+
+def register(specs,verification):
+ sources=[Path(__file__),ROOT/'scripts/run_clo_dsf_final_holdout.py',ROOT/'python/virtual_ecu/clo_dsf_holdout_reporting.py',ROOT/'scripts/validate_clo_dsf_final_holdout.py',ROOT/'tests/test_clo_dsf_holdout.py']
+ identities={str(p.relative_to(ROOT)):sha(p) for p in sources}
+ identities.update({str((OUT/name).relative_to(ROOT)):sha(OUT/name) for name in ['final_holdout_manifest.csv','configuration_overlap_audit.csv']})
+ stamp=datetime.now(timezone.utc).isoformat()
+ protocol=f'''# Final unseen CLO-DSF holdout — registered before outcomes
+
+Registered UTC: {stamp}. Baseline: {(Path('/tmp/clo-v8-audit/baseline.txt')).read_text().strip()}.
+{verification}
+Frozen v7.3 manifest SHA256: {sha(FROZEN/'clo_dsf_revised_hashes.json')}.
+No detector, baseline, fault semantics or scientific parameter may change.
+No search, recalibration, early stopping, outcome-dependent sampling or retuning.
+All 1,500 valid unique cases must run once; errors stop the campaign and remain
+visible. A registered campaign refuses overwrite or silent restart.
+
+## Design
+
+1,200 faults (240 each MEMORY, TIMING, COMMUNICATION, SENSOR_CONTROL, ACTUATOR)
+and 300 benign cases. Five new piecewise driving profiles; four onset bases
+18700/43900/81700/96700 ms; ordinary durations 1400/7300 ms; 120000 ms runs.
+Profile segments 0/21300/57900/92300/120000 use factors .66/1/.82/.94.
+Seeds 101/137/179/223; deterministic injectors do not create independent random
+replications. Every exact profile, magnitude, onset, duration, seed and polarity
+is in final_holdout_manifest.csv, including full profile contents. Profiles are
+materialized only in temporary work space. No historical file is overwritten.
+
+All model/behavior groups are present. Non-communication models have 40 cases
+per behavior; communication has 80/model, using hash-selected 27 transient,
+27 intermittent, 26 permanent cases from a fixed 40-case grid. The hash selection
+is completely determined before any outcomes. Benign offsets form a 4x5x3 grid
+per base profile. Hardware intermittent windows are 700 on/1100 off; legacy
+intermittent is two transients separated by 1100 ms. Drop interval is 11 updates.
+
+New continuous magnitudes: pump .965/.81; sensor bias -3.5/6.5; intermittent
+sensor 3.5/7.5; task delay 800/1300 ms; communication delay 300/600 ms;
+drop counts 3/8; replay ages 600/1700 ms. Memory bits 0/4 necessarily reuse
+members of the finite supported bit domain; stuck polarity varies. Fan-stuck
+has no magnitude, and a transient deadline miss necessarily lasts one tick
+(100 ms). Severity-equivalent permanent/deadline cases use distinct 1700 ms
+onset offsets. Novelty is in exact complete configurations, not a claim of
+new fault mechanisms or unseen values for every categorical parameter.
+
+Overlap audit canonicalizes numeric profile contents (not filenames or CSV
+formatting), model, behavior, onset and meaningful magnitude/duration. It
+conservatively ignores seed/polarity and ignored permanent durations. Exact
+overlap is zero within this cohort and against ALL Candidate 1, Candidate 2,
+v7.2 (including its abandoned draft), and v7.3 TRAIN/VALIDATION configurations.
+Every final command passed the unchanged C configuration validator without
+simulation before registration. No favorable subsets may be dropped.
+
+## Execution and frozen comparators
+
+Execute the exact frozen virtual_ecu_v7_3 binary with revised.cfg, the frozen
+Candidate 2 configuration and Weighted Sum choice 6. All observer states see
+the same runtime observations in one physics execution and remain observe-only.
+Report Simple OR, frozen Fair Weighted Sum, Plain DS, frozen v7.2, frozen v7.3,
+Hybrid, and Timing Monitor restricted to timing and benign cases. The existing
+binary also computes Candidate 2 internally; it is not an additional reported
+holdout comparison. All old baselines use their ORIGINAL extraction. None gain
+the revised actuator evidence. The old Hybrid inputs remain unchanged.
+No ground truth, injected origin, activation flag or reference deviation enters
+v7.3 inference. Evaluation onset and truth are used solely in post-hoc scoring.
+
+## Fixed metrics and comparisons
+
+Fault detection uses the frozen evaluator's first new post-onset alarm edge.
+Any benign alarm is a false alarm. Report all fault cases, including no-effect
+latent faults, in recall denominators. Precision is TP/(TP+benign false alarms).
+Latency is first post-onset alarm minus onset among detections; misses are never
+assigned zero latency. Median/P95 use the frozen linear quantile convention.
+Plant propagation uses the unchanged accepted reference comparison after runtime.
+Report plant-conditional coverage and silent plant cases; pre/same/post timestamps
+are restricted to detected plant-propagating cases. Other detected faults with
+no plant manifestation are separate, not misclassified as pre-plant alarms.
+
+First-alarm localization coverage includes non-UNKNOWN outputs among detections;
+accuracy is correct among those outputs, UNKNOWN is reported separately. Include
+all five true origins, UNKNOWN and misses in the confusion table. Report wrong
+localized steps throughout runtime and correctly localized-before-plant cases.
+Wilson two-sided 95% intervals use z=1.959963984540054 for detection, each origin,
+plant coverage, silent plant rate, benign alarm rate, precision, localization
+coverage, conditional accuracy, UNKNOWN, wrong-origin rate and pre-plant/localized
+before-plant proportions. Macro coverage is the unweighted origin mean; no false
+binomial CI is attached to a macro mean. Correlated designed families limit
+population interpretation of all nominal intervals.
+
+Pair v7.3 with Weighted Sum and v7.2 by run ID: both/only-v7.3/only-comparator/neither.
+For zero or fewer than ten discordant pairs, give counts only and no McNemar p.
+For at least ten, report the exact two-sided conditional binomial McNemar tail
+2*sum(binomial(n,k), k<=min(discordant directions))/2**n, capped at one.
+Treat p as descriptive under an IID assumption, not proof across correlated
+families. Empirical binary superiority on this fixed modeled holdout requires
+positive net paired detections, no higher benign alarm count, and p<.05 when
+the test is eligible. No claim of universal/DS-specific superiority follows.
+
+Subgroups are predeclared by origin/model/behavior (and severity in a companion
+table). Generalization beyond intermittent actuator faults means a positive
+net gain over v7.2 outside ACTUATOR/intermittent; report exact contributing
+subtypes, not a blanket cross-origin improvement. Show all actuator subtypes,
+communication, memory, timing and sensor/control. Test whether stuck-bit runs
+whose nominal target remains unchanged still evade detection; do not remove
+them from overall coverage. Report unexcited actuator misses honestly.
+
+## Post-hoc identifiability and artifacts
+
+After each C runtime finishes, hash the complete allowed-observation stream and
+complete six-channel evidence/availability stream using exact serialized values,
+and inspect the trace for scoring consistency. Group these signatures and join
+origin labels ONLY after all runtime executions. No signature or post-hoc label
+is fed back into any detector. Full raw-history equivalence and feature-history
+equivalence are different claims. No tolerance-based grouping is invented.
+
+Temporary raw, summary, evidence and observation CSVs are discarded after offline
+summaries/signatures and SHA256 identities are recorded. Retain compact per-run
+metrics, exact commands with a reproducible temporary-workspace token, profile
+manifest, input/output signatures, subgroup/identifiability tables and a few
+paper figures. The listed top-level artifacts are the only output files.
+
+After evaluation verify every frozen v7.3 hash again, build/compile, run all tests,
+48 legacy cases and 64 RTL cases in temporary directories, and verify original
+tracked files/session plus Hybrid/HETIA identities. No commit/push.
+
+Methods: [NIST Wilson intervals](https://www.itl.nist.gov/div898/handbook/prc/section2/prc241.htm),
+[paired McNemar definition](https://www.stat.ethz.ch/R-manual/R-devel/library/stats/html/mcnemar.test.html),
+[exact paired binomial calculation](https://pdixon.stat.iastate.edu/stat511/notes/part%202b.pdf).
+
+## Pre-outcome source and design identities
+
+```json
+{json.dumps(identities,indent=2,sort_keys=True)}
+```
+'''
+ (OUT/'final_holdout_protocol.md').write_text(protocol)
+ registration=dict(registered_utc=stamp,protocol_sha256=sha(OUT/'final_holdout_protocol.md'),source_and_design_sha256=identities,frozen_manifest_sha256=sha(FROZEN/'clo_dsf_revised_hashes.json'),outcomes_seen=False)
+ (OUT/'validation_record.md').write_text('# Final holdout validation record\n\nPre-outcome registration (immutable):\n```json\n'+json.dumps(registration,indent=2,sort_keys=True)+'\n```\n\nExecution pending.\n')
+ return registration
+
+def check_registration(reg):
+ assert sha(OUT/'final_holdout_protocol.md')==reg['protocol_sha256']
+ assert all(sha(ROOT/k)==v for k,v in reg['source_and_design_sha256'].items())
+
+def execute(s,work):
+ cmd=command(s,work);p=subprocess.run(cmd,cwd=ROOT,capture_output=True,text=True)
+ if p.returncode:raise RuntimeError(s['run_id']+' failed: '+p.stdout+p.stderr)
+ raw=Path(cmd[1]);summary=summarize_rows(read_rows(raw));outcomes=[]
+ for row in read(work/'metrics.csv'):
+  if row['method'] not in METHODS:continue
+  if None in row:raise ValueError('Malformed online metrics')
+  r={k:v for k,v in s.items() if k!='profile_json'};r.update(row)
+  for k in row:
+   if k not in ['method','origin_at_alarm','leading_at_alarm','first_origin']:r[k]=float(row[k]) if k.startswith(('mean_','origin_')) else int(row[k])
+  r['injected']=int(s['origin']!='NORMAL');r['detected']=int(r['injected'] and r['first_post_alarm_ms']>=0);r['false_alarm']=int(not r['injected'] and r['first_alarm_ms']>=0);r['latency_ms']=r['first_post_alarm_ms']-s['start_ms'] if r['detected'] else None
+  for k in ['control_effect','actuator_effect','plant_manifestation','propagation_plant_ms','propagation_control_ms','propagation_actuator_command_ms']:r[k]=summary[k]
+  r['silent_plant']=int(r['injected'] and r['plant_manifestation']==1 and not r['detected']);derived(r)
+  r['wrong_localized_runtime_samples']=sum(r['alarm_'+origin] for origin in ORIGINS if origin!=s['origin']);outcomes.append(r)
+ # These files are read only AFTER the runtime process has exited.
+ obs_hash=hashlib.sha256();evidence_hash=hashlib.sha256();max_target=0.;gap=0.;active_gap=0.;samples=0
+ with (work/'observations.csv').open(newline='') as f:
+  for o in csv.DictReader(f):
+   obs_hash.update((','.join(o.values())+'\n').encode());samples+=1
+   now=int(o['time_ms']);max_target=max(max_target,abs(float.fromhex(o['control_target_c'])-92))
+   current=max(abs(float.fromhex(o['pump_command'])-float.fromhex(o['pump_actual'])),abs(float.fromhex(o['fan_command'])-float.fromhex(o['fan_actual'])));gap=max(gap,current)
+   if now>=s['start_ms']:active_gap=max(active_gap,current)
+ wrong=0;trace_alarms=0;mass_error=0.;trace_samples=0
+ with (work/'trace.csv').open(newline='') as f:
+  for t in csv.DictReader(f):
+   evidence_hash.update((','.join(t[k] for k in t if k.endswith('_evidence') or k.endswith('_detection_reliability'))+'\n').encode());trace_samples+=1
+   alarm=int(t['alarm']);trace_alarms+=alarm
+   wrong+=alarm and t['estimated_origin'] not in ['UNKNOWN',s['origin']]
+   mass_error=max(mass_error,abs(sum(float(t[f'origin_mass_{i}']) for i in range(1,32))-1),abs(sum(float(t[k]) for k in ['detection_mass_normal','detection_mass_abnormal','detection_mass_ignorance'])-1))
+ revised=next(r for r in outcomes if r['method']=='Revised CLO-DSF')
+ assert samples==trace_samples==revised['samples']==1201
+ assert trace_alarms==revised['alarm_samples'] and wrong==revised['wrong_localized_runtime_samples'] and mass_error<1e-12
+ signatures=dict(run_id=s['run_id'],origin_evaluation_only=s['origin'],model=s['model'],behavior=s['behavior'],observation_history_sha256=obs_hash.hexdigest(),evidence_history_sha256=evidence_hash.hexdigest(),samples=samples,max_target_deviation=max_target,max_response_gap=gap,max_post_onset_response_gap=active_gap,latent_stuck_target_unchanged=int(s['model']=='stuck_bit' and max_target==0),wrong_localized_runtime_samples=wrong,max_mass_normalization_error=mass_error)
+ provenance=dict(run_id=s['run_id'],command_json=json.dumps([v.replace(str(work),'{WORK}') for v in cmd]),raw_sha256=sha(raw),summary_sha256=sha(raw.with_name(raw.stem+'_summary.csv')),observation_csv_sha256=sha(work/'observations.csv'),trace_sha256=sha(work/'trace.csv'),metrics_sha256=sha(work/'metrics.csv'))
+ for path in [raw,raw.with_name(raw.stem+'_summary.csv'),work/'observations.csv',work/'trace.csv',work/'metrics.csv']:path.unlink()
+ return outcomes,signatures,provenance
+
+def append_csv(path,items):
+ exists=path.exists()
+ with path.open('a',newline='') as f:
+  writer=csv.DictWriter(f,fieldnames=list(items[0]))
+  if not exists:writer.writeheader()
+  writer.writerows(items)
+
+def run():
+ verification=verify_frozen() # Mandatory STOP gate before design or any run.
+ if (OUT/'final_holdout_protocol.md').exists():raise ValueError('Holdout already registered: refuse rerun or overwrite')
+ OUT.mkdir(exist_ok=True);(OUT/'paper_tables').mkdir(exist_ok=True);(OUT/'paper_figures').mkdir(exist_ok=True)
+ specs=design();write_csv(OUT/'final_holdout_manifest.csv',specs);overlap(specs)
+ with tempfile.TemporaryDirectory(prefix='clo-v8-runtime-') as temporary:
+  work=Path(temporary);prepare_work(work,specs);validate(specs,work);reg=register(specs,verification);check_registration(reg)
+  print('REGISTERED: 1500 unique cases, zero overlap, all C configurations valid. Outcomes start now.',flush=True)
+  rows=[];signatures=[];provenance=[]
+  for i,s in enumerate(specs):
+   try:result,signature,proof=execute(s,work)
+   except Exception as error:
+    with (OUT/'validation_record.md').open('a') as f:f.write(f'\nEXECUTION STOPPED at {s[""run_id""]} after {i} completed cases: {error!r}. No rerun or tuning.\n')
+    raise
+   rows+=result;signatures.append(signature);provenance.append(proof)
+   append_csv(OUT/'paper_tables/per_run_outcomes.csv',result);append_csv(OUT/'paper_tables/runtime_signatures.csv',[signature]);append_csv(OUT/'paper_tables/run_provenance.csv',[proof])
+   if (i+1)%50==0:print(f'HOLDOUT {i+1}/1500',flush=True)
+  check_registration(reg)
+ print(verify_frozen(),flush=True)
+ from .clo_dsf_holdout_reporting import report
+ report(rows,signatures)
+ with (OUT/'validation_record.md').open('a') as f:f.write('\nAll 1500 runtime executions completed. Registered identities and all 9494 frozen v7.3 identities verified after execution. Final regression pending.\n')
+ print('Holdout complete; no tuning or scientific changes. Final regression remains.',flush=True)
+",Archived before profile-column serialization repair; zero simulations completed
+python/virtual_ecu/clo_dsf_holdout_reporting.py,587b20d69958c7cf01685e1967f94d520f2198375fe27e14c81691fd9bdd8c16,"""""""Frozen pre-outcome reporting rules, applied only after final runtime execution.""""""
+import collections,json,math
+from pathlib import Path
+from .clo_dsf_holdout import OUT,ORIGINS,METHODS,NONLOCAL,aggregate,write_csv,wilson
+
+def summary(rows):
+ s=aggregate(rows);s['wrong_localized_runtime_samples']=sum(r['wrong_localized_runtime_samples'] for r in rows)
+ faults=[r for r in rows if r['injected']];detected=[r for r in faults if r['detected']];plant=[r for r in faults if r['plant_manifestation']==1];pd=[r for r in plant if r['detected']]
+ s['plant_detected']=len(pd)
+ s['pre_plant_alarms']=sum(r['first_post_alarm_ms']<r['propagation_plant_ms'] for r in pd)
+ s['same_plant_alarms']=sum(r['first_post_alarm_ms']==r['propagation_plant_ms'] for r in pd)
+ s['post_plant_alarms']=sum(r['first_post_alarm_ms']>r['propagation_plant_ms'] for r in pd)
+ s['detected_without_plant_manifestation']=len(detected)-len(pd)
+ s['silent_plant_rate']=s['silent_plant']/len(plant) if plant else None
+ for label,k,n in [('coverage',s['detected'],s['faulty_runs']),('plant_coverage',len(pd),len(plant)),('silent_plant_rate',s['silent_plant'],len(plant)),('benign_false_alarm_rate',s['benign_false_alarms'],s['benign_runs']),('precision',s['detected'],s['detected']+s['benign_false_alarms']),('localization_coverage',s['localized'],s['detected']),('localized_accuracy',s['correct_localizations'],s['localized']),('unknown_rate',s['unknown'],s['detected']),('wrong_origin_rate',s['wrong_localizations'],s['detected']),('pre_plant_rate',s['pre_plant_alarms'],len(pd)),('localization_before_plant_rate',s['localized_before_plant'],len(plant))]:
+  s[label+'_wilson_low'],s[label+'_wilson_high']=wilson(k,n)
+ return s
+
+def pair(rows,other):
+ a={r['run_id']:r for r in rows if r['method']=='Revised CLO-DSF' and r['injected']};b={r['run_id']:r for r in rows if r['method']==other and r['injected']}
+ assert a.keys()==b.keys()
+ n11=sum(a[k]['detected'] and b[k]['detected'] for k in a);n10=sum(a[k]['detected'] and not b[k]['detected'] for k in a);n01=sum(not a[k]['detected'] and b[k]['detected'] for k in a);n00=len(a)-n11-n10-n01;n=n10+n01
+ p=min(1.,2*sum(math.comb(n,k) for k in range(min(n10,n01)+1))/2**n) if n>=10 else None
+ return dict(comparator=other,both_detect=n11,only_clo_dsf=n10,only_comparator=n01,neither=n00,discordant=n,exact_mcnemar_p=p,test_interpretation='Descriptive exact conditional paired test; related configurations violate IID interpretation' if n>=10 else 'Fewer than ten discordant pairs: counts only, no test')
+
+def identities(rows,signatures):
+ by={r['run_id']:r for r in rows if r['method']=='Revised CLO-DSF'};groups=[]
+ for field in ['observation_history_sha256','evidence_history_sha256']:
+  mapping=collections.defaultdict(list)
+  for r in signatures:mapping[r[field]].append(r)
+  for digest,members in mapping.items():
+   origins=sorted({m['origin_evaluation_only'] for m in members if m['origin_evaluation_only']!='NORMAL'})
+   normal=any(m['origin_evaluation_only']=='NORMAL' for m in members)
+   if len(origins)>1 or (normal and origins):
+    groups.append(dict(representation=field,history_sha256=digest,origins='|'.join(origins),contains_benign=int(normal),runs=len(members),run_ids='|'.join(m['run_id'] for m in members)))
+ write_csv(OUT/'paper_tables/identifiability_groups.csv',groups if groups else [dict(representation='NONE',history_sha256='',origins='',contains_benign=0,runs=0,run_ids='')])
+ latent=[r for r in signatures if r['latent_stuck_target_unchanged']]
+ latent_rows=[dict(run_id=r['run_id'],model=r['model'],origin_evaluation_only=r['origin_evaluation_only'],max_target_deviation=r['max_target_deviation'],max_response_gap=r['max_response_gap'],observation_history_sha256=r['observation_history_sha256'],detected=by[r['run_id']]['detected'],silent_plant=by[r['run_id']]['silent_plant'],plant_manifestation=by[r['run_id']]['plant_manifestation']) for r in latent]
+ write_csv(OUT/'paper_tables/latent_stuck_patterns.csv',latent_rows)
+ return dict(full_observation_mixed_groups=sum(g['representation']=='observation_history_sha256' for g in groups),full_evidence_mixed_groups=sum(g['representation']=='evidence_history_sha256' for g in groups),latent_stuck_cases=len(latent),latent_stuck_detected=sum(by[r['run_id']]['detected'] for r in latent),latent_stuck_plant_cases=sum(by[r['run_id']]['plant_manifestation']==1 for r in latent))
+
+def save(fig,name):
+ fig.canvas.draw();bottom=fig.get_tightbbox(fig.canvas.get_renderer()).y0
+ fig.text(.5,(bottom-.16)/fig.get_figheight(),'FINAL UNSEEN HOLDOUT · frozen v7.3 · designed virtual-ECU cases',ha='center',va='top',fontsize=8,color='#555555')
+ for suffix in ['png','pdf']:fig.savefig(OUT/'paper_figures'/f'{name}.{suffix}',dpi=180,bbox_inches='tight')
+ import matplotlib.pyplot as plt
+ plt.close(fig)
+
+def figures(by,layers,confusion,paired,subgroups):
+ import matplotlib
+ matplotlib.use('Agg')
+ import matplotlib.pyplot as plt
+ selected=[r for r in layers if r['method']=='Revised CLO-DSF']
+ fig,ax=plt.subplots(figsize=(8,4));values=[r['coverage']*100 for r in selected];lo=[(r['coverage']-r['coverage_wilson_low'])*100 for r in selected];hi=[(r['coverage_wilson_high']-r['coverage'])*100 for r in selected]
+ ax.bar(ORIGINS,values,yerr=[lo,hi],capsize=4,color='#176b87');ax.set(ylim=(0,105),ylabel='Detected faults (%)',title='240 faults per origin; nominal Wilson 95% intervals');ax.tick_params(axis='x',rotation=15);save(fig,'detection_by_origin')
+ names=['Simple OR','Weighted Sum','Plain DS','v7.2 CLO-DSF','Revised CLO-DSF','Hybrid']
+ fig,axes=plt.subplots(1,2,figsize=(11,4));axes[0].bar(names,[100*by[n]['coverage'] for n in names],color='#176b87');axes[0].set(ylabel='Detected faults (%)',ylim=(0,105));axes[1].bar(names,[by[n]['silent_plant'] for n in names],color='#9c485b');axes[1].set(ylabel='Silent plant-propagating faults')
+ for ax in axes:ax.tick_params(axis='x',rotation=30)
+ save(fig,'baseline_detection_and_silent_plant')
+ selected=[r for r in confusion if r['method']=='Revised CLO-DSF'];cols=ORIGINS+['UNKNOWN','misses'];matrix=[[r[c] for c in cols] for r in selected]
+ fig,ax=plt.subplots(figsize=(9,4));ax.imshow(matrix,cmap='Blues');ax.set_xticks(range(7),cols,rotation=25,ha='right');ax.set_yticks(range(5),ORIGINS);ax.set(title='First-alarm origin; misses remain separate',ylabel='True origin (evaluation only)')
+ for i,row in enumerate(matrix):
+  for j,n in enumerate(row):ax.text(j,i,str(n),ha='center',va='center',color='white' if n>=120 else 'black')
+ save(fig,'origin_confusion')
+ selected=[r for r in subgroups if r['comparator']=='v7.2 CLO-DSF' and r['origin']=='ACTUATOR']
+ fig,ax=plt.subplots(figsize=(9,4));ax.bar([r['model']+' / '+r['behavior'] for r in selected],[r['only_clo_dsf']-r['only_comparator'] for r in selected],color='#176b87');ax.set(ylabel='Net additional detections versus v7.2',title='Actuator generalization by subtype and behavior');ax.tick_params(axis='x',rotation=25);save(fig,'actuator_generalization')
+
+def report(rows,signatures):
+ comparisons=[];layers=[];confusion=[]
+ for method in METHODS:
+  subset=[r for r in rows if r['method']==method and (method!='Timing Monitor' or r['origin'] in ['NORMAL','TIMING'])]
+  s=dict(method=method,**summary(subset))
+  if method in NONLOCAL:
+   for k in s:
+    if any(word in k for word in ['localiz','unknown','ignorance','conflict','wrong_origin']):s[k]=None
+  comparisons.append(s)
+  for origin in ORIGINS:
+   if method=='Timing Monitor' and origin!='TIMING':continue
+   group=[r for r in subset if r['origin']==origin];layers.append(dict(method=method,origin=origin,**summary(group)))
+   if method not in NONLOCAL:
+    confusion.append(dict(method=method,true_origin=origin,**{o:sum(r['detected'] and r['origin_at_alarm']==o for r in group) for o in ORIGINS+['UNKNOWN']},misses=sum(not r['detected'] for r in group)))
+ by={r['method']:r for r in comparisons};a=by['Revised CLO-DSF'];w=by['Weighted Sum'];old=by['v7.2 CLO-DSF']
+ write_csv(OUT/'final_baseline_comparison.csv',comparisons)
+ write_csv(OUT/'final_detection_summary.csv',[dict(origin='ALL',**a),*[r for r in layers if r['method']=='Revised CLO-DSF']])
+ loc_keys=['runs','faulty_runs','detected','localized','localization_coverage','accuracy_when_localized','correct_localizations','wrong_localizations','unknown','unknown_rate','localized_before_plant','plant_manifestation_runs','wrong_localized_runtime_samples','macro_localization_accuracy']
+ loc_keys+=[k for k in a if ('wilson' in k and any(word in k for word in ['localiz','unknown','wrong_origin']))]
+ write_csv(OUT/'final_localization_summary.csv',[dict(method=r['method'],origin=r.get('origin','ALL'),**{k:r[k] for k in loc_keys}) for r in [a,*layers] if r['method']=='Revised CLO-DSF'])
+ write_csv(OUT/'final_origin_confusion.csv',confusion);write_csv(OUT/'paper_tables/per_origin_comparison.csv',layers)
+ pairs=[pair(rows,other) for other in ['Weighted Sum','v7.2 CLO-DSF']];write_csv(OUT/'final_paired_comparison.csv',pairs)
+ subgroups=[];severity=[];subtype=[]
+ for origin in ORIGINS:
+  models=sorted({r['model'] for r in rows if r['origin']==origin})
+  for model in models:
+   for method in METHODS:
+    group=[r for r in rows if r['origin']==origin and r['model']==model and r['method']==method]
+    if method=='Timing Monitor' and origin!='TIMING':continue
+    subtype.append(dict(origin=origin,model=model,method=method,**summary(group)))
+   for behavior in ['transient','intermittent','permanent']:
+    group=[r for r in rows if r['origin']==origin and r['model']==model and r['behavior']==behavior]
+    for other in ['Weighted Sum','v7.2 CLO-DSF']:subgroups.append(dict(origin=origin,model=model,behavior=behavior,**pair(group,other)))
+    for magnitude in sorted({r['magnitude'] for r in group}):
+     sub=[r for r in group if r['magnitude']==magnitude]
+     for other in ['Weighted Sum','v7.2 CLO-DSF']:severity.append(dict(origin=origin,model=model,behavior=behavior,magnitude=magnitude,**pair(sub,other)))
+ write_csv(OUT/'paper_tables/subtype_performance.csv',subtype);write_csv(OUT/'paper_tables/paired_by_model_behavior.csv',subgroups);write_csv(OUT/'paper_tables/paired_by_severity.csv',severity)
+ ident=identities(rows,signatures)
+ generalized=any(r['comparator']=='v7.2 CLO-DSF' and r['only_clo_dsf']>r['only_comparator'] and not(r['origin']=='ACTUATOR' and r['behavior']=='intermittent') for r in subgroups)
+ p=pairs[0];superior=p['only_clo_dsf']>p['only_comparator'] and p['exact_mcnemar_p'] is not None and p['exact_mcnemar_p']<.05 and a['benign_false_alarms']<=w['benign_false_alarms']
+ write_csv(OUT/'paper_tables/holdout_conclusions.csv',[dict(generalized_beyond_intermittent_actuator=generalized,binary_advantage_on_this_modeled_holdout=superior,additional_localization_capability=a['correct_localizations']>0,**ident)])
+ figures(by,layers,confusion,pairs,subgroups)
+ pct=lambda v:'N/A' if v is None else f'{100*v:.2f}%'
+ ci=lambda r,k:f""{pct(r[k+'_wilson_low'])}–{pct(r[k+'_wilson_high'])}""
+ table='\n'.join(f""| {r['method']} | {r['detected']}/{r['faulty_runs']} | {pct(r['coverage'])} | {r['silent_plant']} | {r['benign_false_alarms']}/{r['benign_runs']} | {r['latency_median_ms']:g}/{r['latency_p95_ms']:g} |"" for r in comparisons)
+ per='\n'.join(f""| {r['origin']} | {r['detected']}/{r['faulty_runs']} | {pct(r['coverage'])} | {ci(r,'coverage')} | {r['localized']} | {r['unknown']} | {r['wrong_localizations']} |"" for r in layers if r['method']=='Revised CLO-DSF')
+ gains='\n'.join(f""| {r['origin']} | {r['model']} | {r['behavior']} | {r['only_clo_dsf']} | {r['only_comparator']} |"" for r in subgroups if r['comparator']=='v7.2 CLO-DSF')
+ text=f'''# Final unseen holdout findings
+
+The frozen v7.3 binary/configuration was evaluated once on 1,500 preregistered,
+previously unused configurations: 1,200 faults, 300 benign, 240 faults per origin.
+Zero exact configuration overlap with Candidate 1/2, v7.2 or v7.3 development.
+All registered cases completed; no scientific parameters, baselines, fault
+semantics or sampling decisions changed after outcomes. Exact configuration
+novelty is not independence from the shared simulator/fault-family assumptions.
+
+## Detection and frozen baselines
+
+| Method | Detected | Coverage | Silent plant | Benign alarms | Median/P95 ms |
+|---|---:|---:|---:|---:|---:|
+{table}
+
+v7.3 coverage {a['detected']}/{a['faulty_runs']} = {pct(a['coverage'])}; nominal
+Wilson 95% CI {ci(a,'coverage')}. Macro detection {pct(a['macro_coverage'])}.
+Recall {pct(a['recall'])}; precision {pct(a['precision'])}, interval {ci(a,'precision')}.
+Plant-propagating detection {a['plant_detected']}/{a['plant_manifestation_runs']} =
+{pct(a['coverage_given_plant_manifestation'])}, interval {ci(a,'plant_coverage')}.
+Silent plant {a['silent_plant']}/{a['plant_manifestation_runs']}, interval
+{ci(a,'silent_plant_rate')}. Benign alarm interval {ci(a,'benign_false_alarm_rate')}.
+
+Of detected plant-propagating cases: {a['pre_plant_alarms']} pre-plant,
+{a['same_plant_alarms']} same-tick and {a['post_plant_alarms']} post-plant.
+Another {a['detected_without_plant_manifestation']} detected faults had no plant
+manifestation and are not classified as pre-plant. Pre-injection alarm runs:
+{a['preinjection_alarm_runs']}. Latency statistics exclude misses.
+
+| Origin | Detection | Coverage | Wilson 95% | Localized | UNKNOWN | Wrong |
+|---|---:|---:|---|---:|---:|---:|
+{per}
+
+## Localization and UNKNOWN
+
+Coverage {a['localized']}/{a['detected']} = {pct(a['localization_coverage'])},
+interval {ci(a,'localization_coverage')}. Accuracy conditional on localization
+{a['correct_localizations']}/{a['localized']} = {pct(a['accuracy_when_localized'])},
+interval {ci(a,'localized_accuracy')}. UNKNOWN {a['unknown']}/{a['detected']} =
+{pct(a['unknown_rate'])}, interval {ci(a,'unknown_rate')}.
+Wrong non-UNKNOWN at first alarm: {a['wrong_localizations']}; wrong localized
+runtime samples: {a['wrong_localized_runtime_samples']}. Correct localization
+before plant manifestation: {a['localized_before_plant']}/{a['plant_manifestation_runs']}
+plant-propagating faults. All origin confusion tables retain UNKNOWN and misses
+separately. UNKNOWN is valid abstention, not a confident localization error.
+
+## Paired comparison and inference limits
+
+v7.3 versus Weighted Sum: both {p['both_detect']}, only v7.3 {p['only_clo_dsf']},
+only Weighted Sum {p['only_comparator']}, neither {p['neither']}.
+Exact McNemar p: {p['exact_mcnemar_p']}; {p['test_interpretation']}.
+Silent plant comparison: {a['silent_plant']} versus {w['silent_plant']}.
+Benign alarms: {a['benign_false_alarms']} versus {w['benign_false_alarms']}.
+Median/P95: {a['latency_median_ms']:g}/{a['latency_p95_ms']:g} versus
+{w['latency_median_ms']:g}/{w['latency_p95_ms']:g} ms.
+
+Binary advantage under the preregistered rule on THIS modeled holdout: {superior}.
+Do not generalize this to a population guarantee, physical hardware, or a unique
+advantage of DS mathematics. Weighted Sum retained its frozen original evidence;
+a pool augmented with the same actuator contract was not tested. Designed
+families share profiles/mechanisms and are correlated; the nominal Wilson
+intervals and IID-conditional McNemar p do not account for that dependence.
+
+## Does the v7.3 gain generalize?
+
+Beyond intermittent actuator cases versus v7.2: {generalized}.
+Report the actual contributing subtypes below, not a blanket all-origin claim.
+
+| Origin | Subtype | Behavior | Only v7.3 | Only v7.2 |
+|---|---|---|---:|---:|
+{gains}
+
+Full subtype rates and severity-level paired counts are retained in paper_tables.
+The v7.3 change affects only actuator conformance. Its validity rests on the
+simulator's synchronous noiseless clamp(command) response. A physical actuator
+requires trustworthy feedback plus a validated error/dynamics envelope; the
+one-ULP rule is not a hardware tolerance. Historical Hybrid retains its original
+feedback inputs, including the simulator's label-derived fan self-test; that
+signal is not supplied to revised CLO-DSF.
+
+## Post-hoc identifiability and latent memory faults
+
+Analysis was performed offline after runtime, never fed into inference.
+Mixed-origin complete allowed-observation-history groups: {ident['full_observation_mixed_groups']}.
+Mixed-origin complete extracted-evidence-history groups: {ident['full_evidence_mixed_groups']}.
+Group members and exact signatures are retained; complete observation equivalence
+and representation-induced equivalence are distinct. No rounded similarity
+criterion or alleged universal identifiability theorem is introduced.
+
+Stuck-bit runs whose runtime target remained exactly nominal: {ident['latent_stuck_cases']}.
+Detected among these: {ident['latent_stuck_detected']}; plant-propagating among them:
+{ident['latent_stuck_plant_cases']}. These test the same dormant-defect pattern as
+the 36 historical observability-limited v7.2 cases, under new configurations.
+A stuck-at bit agreeing with the current value produces no passive value error;
+trusted active memory testing, not an unchanged-value checksum, would be needed.
+No no-effect faults were excluded from detection denominators.
+
+## Manuscript use and integrity
+
+These are final unseen configuration holdout results for this virtual-ECU model.
+They support bounded claims about measured detection, selective localization and
+the specific actuator evidence contract. Additional origin output is implemented
+capability beyond the evaluated binary Weighted Sum, not proof that weighted
+pooling cannot be extended to localize. Preserve conditional accuracy alongside
+coverage and report silent plant misses and abstentions. No production,
+compliance, embedded WCET, calibration or physical transfer claim is justified.
+
+Frozen identities were verified before design/execution and after all runtime
+cases. Final regression and preservation results are in validation_record.md.
+The protocol, exact manifest, per-run results, commands and artifact hashes allow
+reproduction without duplicate raw logs. Nothing was tuned after holdout.
+
+Method references: [NIST Wilson intervals](https://www.itl.nist.gov/div898/handbook/prc/section2/prc241.htm),
+[paired McNemar definition](https://www.stat.ethz.ch/R-manual/R-devel/library/stats/html/mcnemar.test.html),
+[exact paired binomial calculation](https://pdixon.stat.iastate.edu/stat511/notes/part%202b.pdf).
+'''
+ (OUT/'final_holdout_findings.md').write_text(text)
+",Archived before profile-column serialization repair; zero simulations completed
+scripts/run_clo_dsf_final_holdout.py,343c48024d52e3f0bdda2ce04a6b800f1bd496d280da29630058adde14613102,"#!/usr/bin/env python3
+from pathlib import Path
+import sys
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'python'))
+from virtual_ecu.clo_dsf_holdout import run
+if __name__=='__main__':run()
+",Archived before profile-column serialization repair; zero simulations completed
+scripts/validate_clo_dsf_final_holdout.py,cea15f198d40614b2b3971969a8964337a982ed7a0d96d2dce2a03dd87452a90,"#!/usr/bin/env python3
+""""""One final integrity/regression pass, without retaining duplicate replay data.""""""
+import hashlib,json,py_compile,re,subprocess,sys,tempfile
+from pathlib import Path
+ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT/'python'))
+from virtual_ecu.clo_dsf_holdout import OUT,FROZEN,sha,verify_frozen,read
+from virtual_ecu.final_evidence import verify_frozen as verify_accepted
+from virtual_ecu.final_reproducibility import legacy_regression,rtl_regression
+
+def run():
+ record=OUT/'validation_record.md';text=record.read_text()
+ if 'FINAL REGRESSION PASS' in text:raise ValueError('Final regression already recorded; do not repeat')
+ registration=json.loads(re.search(r'```json\n(.*?)\n```',text,re.S).group(1))
+ if sha(OUT/'final_holdout_protocol.md')!=registration['protocol_sha256']:raise ValueError('Protocol changed')
+ for name,digest in registration['source_and_design_sha256'].items():
+  if sha(ROOT/name)!=digest:raise ValueError('Registered source/design changed: '+name)
+ verification=verify_frozen();print(verification,flush=True)
+ checks=[]
+ with tempfile.TemporaryDirectory(prefix='clo-v8-regression-') as t:
+  temp=Path(t)
+  for label,cmd in [('original build',['make']),('frozen revision build',['make','-f','clo_dsf_revised.mk']),('full tests',[sys.executable,'-m','unittest','discover','-s','tests'])]:
+   p=subprocess.run(cmd,cwd=ROOT,text=True,capture_output=True)
+   if p.returncode:raise RuntimeError(label+' failed\n'+p.stdout+p.stderr)
+   tests=re.search(r'Ran (\d+) tests',p.stderr)
+   checks.append(dict(check=label,status='PASS',detail=(tests.group(1)+' tests') if tests else 'Successful',output_sha256=hashlib.sha256((p.stdout+p.stderr).encode()).hexdigest()))
+  print('Builds and full test suite PASS.',flush=True)
+  paths=[ROOT/'scripts/virtual_ecu_gui.py',*sorted((ROOT/'python/virtual_ecu').glob('*.py')),ROOT/'scripts/run_clo_dsf_final_holdout.py',Path(__file__),ROOT/'tests/test_clo_dsf_holdout.py']
+  for path in paths:py_compile.compile(str(path),doraise=True)
+  legacy=legacy_regression(temp);rtl=rtl_regression(temp)
+  for name in ['legacy','rtl']:
+   report=json.loads((temp/f'validation/{name}/verification.json').read_text());checks.append(dict(check=name+' regression',status=report['status'],detail=json.dumps(report,sort_keys=True),output_sha256=sha(temp/f'validation/{name}/verification.json')))
+  print('48 legacy and 64 RTL PASS.',flush=True)
+ accepted=verify_accepted();verification=verify_frozen()
+ initial=json.loads(Path('/tmp/clo-v8-audit/initial_hashes.json').read_text())
+ changed=[name for name,digest in initial.items() if not (ROOT/name).is_file() or sha(ROOT/name)!=digest]
+ if changed:raise ValueError('Pre-existing files changed: '+repr(changed))
+ subprocess.run(['git','diff','--check'],cwd=ROOT,check=True);subprocess.run(['git','diff','--cached','--quiet'],cwd=ROOT,check=True)
+ from virtual_ecu.clo_dsf_development import write_csv
+ write_csv(OUT/'paper_tables/integrity_checks.csv',checks)
+ status=subprocess.check_output(['git','status','--short'],cwd=ROOT,text=True)
+ # The registration block remains byte-identical; append the final audit only.
+ tail=f'''\n## FINAL REGRESSION PASS
+
+- {verification}
+- Registered protocol, generator, reporting, validator, tests, manifest and overlap identities unchanged after evaluation. No scientific tuning or configuration changes.
+- All 1,500 simulations completed once; 1,801,500 observations audited for normalized masses and agreement between trace alarms/origins and online metrics.
+- Build PASS; Python compile PASS; git diff --check PASS; nothing staged. Full tests: {next(c['detail'] for c in checks if c['check']=='full tests')} PASS.
+- Legacy {legacy} and RTL {rtl} PASS. Accepted immutable lock: {json.dumps(accepted,sort_keys=True)}. Hybrid/HETIA and all historical candidate sources/evidence unchanged.
+- {len(initial)} pre-existing tracked-file SHA256 identities unchanged, including the pre-existing user session edit. Initial status: {Path('/tmp/clo-v8-audit/initial_status.txt').read_text().strip()}.
+- Temporary raw holdout/replay files discarded after checks; compact outputs, exact commands/profile manifests and artifact hashes retained. No screenshots or duplicate historical raw logs.
+- Full tests/regressions were run once for this final pass. Focused new evaluator tests ran before holdout registration.
+- Only reporting/evaluation support files and the new holdout result directory were added. No detector, threshold, mapping, temporal/localization rule, baseline or fault semantics changed.
+- Ready for manuscript evidence with the simulator, family-dependence, nominal-interval and evidence-versus-fusion limitations stated in the findings. No production or hardware-transfer claim.
+- No git add, commit, push, reset, restore, checkout or clean was run.
+
+Final git status:
+```
+{status}```
+'''
+ record.write_text(text+tail)
+ # Seal outcome identities inside the allowed validation record, avoiding an
+ # extra top-level manifest. Exclude this self-containing record from its list.
+ identities={str(p.relative_to(ROOT)):sha(p) for p in sorted(OUT.rglob('*')) if p.is_file() and p!=record}
+ with record.open('a') as f:f.write('\n## Final artifact SHA256 identities\n\n```json\n'+json.dumps(identities,indent=2,sort_keys=True)+'\n```\n')
+ print('Final frozen hashes, session preservation and artifact identities PASS.',flush=True)
+if __name__=='__main__':run()
+",Archived before profile-column serialization repair; zero simulations completed
+tests/test_clo_dsf_holdout.py,e3c46035b422d210cb3e83853bcad5b331d1aba961a91253f85dd62b9699ea97,"""""""Pre-outcome checks of holdout design and fixed statistical summaries.""""""
+import math,sys,unittest
+from pathlib import Path
+ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT/'python'))
+from virtual_ecu.clo_dsf_holdout import design,profile_identity,physical,ORIGINS
+from virtual_ecu.clo_dsf_holdout_reporting import pair,summary
+from virtual_ecu.clo_dsf_final_reporting import wilson
+class HoldoutTests(unittest.TestCase):
+ def test_unique_balanced_design(self):
+  rows=design();self.assertEqual(len(rows),1500);self.assertEqual(len({r['configuration_sha256'] for r in rows}),1500)
+  for origin in ORIGINS:self.assertEqual(sum(r['origin']==origin for r in rows),240)
+  self.assertEqual(sum(r['origin']=='NORMAL' for r in rows),300)
+ def test_semantic_profile_not_spelling(self):
+  self.assertEqual(profile_identity([dict(start_ms='0',value='1.00')]),profile_identity([dict(value=1,start_ms=0.0)]))
+ def test_ignored_permanent_duration(self):
+  s=dict(model='fan_stuck_off',behavior='permanent',start_ms=100,duration_ms=1,magnitude=0)
+  self.assertEqual(physical(s,'same'),physical({**s,'duration_ms':999,'magnitude':77},'same'))
+ def test_wilson_known_bounds(self):
+  lo,hi=wilson(0,100);self.assertAlmostEqual(lo,0);self.assertAlmostEqual(hi,.03699349820698568)
+  lo,hi=wilson(100,100);self.assertAlmostEqual(lo,.9630065017930143);self.assertAlmostEqual(hi,1)
+  self.assertEqual(wilson(0,0),(None,None))
+ def test_paired_exact_and_sparse_discordance(self):
+  def sample(n):return [dict(run_id=str(i),method=m,injected=1,detected=int(m=='Revised CLO-DSF')) for i in range(n) for m in ['Revised CLO-DSF','Weighted Sum']]
+  self.assertIsNone(pair(sample(9),'Weighted Sum')['exact_mcnemar_p'])
+  r=pair(sample(10),'Weighted Sum');self.assertEqual(r['only_clo_dsf'],10);self.assertEqual(r['only_comparator'],0);self.assertEqual(r['exact_mcnemar_p'],2/1024)
+if __name__=='__main__':unittest.main()
+",Archived before profile-column serialization repair; zero simulations completed
+results/cross_layer_safety_v8_final_holdout/final_holdout_protocol.md,60aa2e99234940eeb70dc7baec871d2d87df1c7237eba4d0a51d4f6d9d9445e3,"# Final unseen CLO-DSF holdout — registered before outcomes
+
+Registered UTC: 2026-09-18T14:36:08.985670+00:00. Baseline: a681528af4f9a6a8bebc9ade2c73276375a99e22.
+PASS: 9494 frozen revision/dependency/artifact identities. No final holdout.
+Frozen v7.3 manifest SHA256: 12f1d4253bc46608b6568ef95fc1d5821b829b829afdd21956d525fbddec8eaf.
+No detector, baseline, fault semantics or scientific parameter may change.
+No search, recalibration, early stopping, outcome-dependent sampling or retuning.
+All 1,500 valid unique cases must run once; errors stop the campaign and remain
+visible. A registered campaign refuses overwrite or silent restart.
+
+## Design
+
+1,200 faults (240 each MEMORY, TIMING, COMMUNICATION, SENSOR_CONTROL, ACTUATOR)
+and 300 benign cases. Five new piecewise driving profiles; four onset bases
+18700/43900/81700/96700 ms; ordinary durations 1400/7300 ms; 120000 ms runs.
+Profile segments 0/21300/57900/92300/120000 use factors .66/1/.82/.94.
+Seeds 101/137/179/223; deterministic injectors do not create independent random
+replications. Every exact profile, magnitude, onset, duration, seed and polarity
+is in final_holdout_manifest.csv, including full profile contents. Profiles are
+materialized only in temporary work space. No historical file is overwritten.
+
+All model/behavior groups are present. Non-communication models have 40 cases
+per behavior; communication has 80/model, using hash-selected 27 transient,
+27 intermittent, 26 permanent cases from a fixed 40-case grid. The hash selection
+is completely determined before any outcomes. Benign offsets form a 4x5x3 grid
+per base profile. Hardware intermittent windows are 700 on/1100 off; legacy
+intermittent is two transients separated by 1100 ms. Drop interval is 11 updates.
+
+New continuous magnitudes: pump .965/.81; sensor bias -3.5/6.5; intermittent
+sensor 3.5/7.5; task delay 800/1300 ms; communication delay 300/600 ms;
+drop counts 3/8; replay ages 600/1700 ms. Memory bits 0/4 necessarily reuse
+members of the finite supported bit domain; stuck polarity varies. Fan-stuck
+has no magnitude, and a transient deadline miss necessarily lasts one tick
+(100 ms). Severity-equivalent permanent/deadline cases use distinct 1700 ms
+onset offsets. Novelty is in exact complete configurations, not a claim of
+new fault mechanisms or unseen values for every categorical parameter.
+
+Overlap audit canonicalizes numeric profile contents (not filenames or CSV
+formatting), model, behavior, onset and meaningful magnitude/duration. It
+conservatively ignores seed/polarity and ignored permanent durations. Exact
+overlap is zero within this cohort and against ALL Candidate 1, Candidate 2,
+v7.2 (including its abandoned draft), and v7.3 TRAIN/VALIDATION configurations.
+Every final command passed the unchanged C configuration validator without
+simulation before registration. No favorable subsets may be dropped.
+
+## Execution and frozen comparators
+
+Execute the exact frozen virtual_ecu_v7_3 binary with revised.cfg, the frozen
+Candidate 2 configuration and Weighted Sum choice 6. All observer states see
+the same runtime observations in one physics execution and remain observe-only.
+Report Simple OR, frozen Fair Weighted Sum, Plain DS, frozen v7.2, frozen v7.3,
+Hybrid, and Timing Monitor restricted to timing and benign cases. The existing
+binary also computes Candidate 2 internally; it is not an additional reported
+holdout comparison. All old baselines use their ORIGINAL extraction. None gain
+the revised actuator evidence. The old Hybrid inputs remain unchanged.
+No ground truth, injected origin, activation flag or reference deviation enters
+v7.3 inference. Evaluation onset and truth are used solely in post-hoc scoring.
+
+## Fixed metrics and comparisons
+
+Fault detection uses the frozen evaluator's first new post-onset alarm edge.
+Any benign alarm is a false alarm. Report all fault cases, including no-effect
+latent faults, in recall denominators. Precision is TP/(TP+benign false alarms).
+Latency is first post-onset alarm minus onset among detections; misses are never
+assigned zero latency. Median/P95 use the frozen linear quantile convention.
+Plant propagation uses the unchanged accepted reference comparison after runtime.
+Report plant-conditional coverage and silent plant cases; pre/same/post timestamps
+are restricted to detected plant-propagating cases. Other detected faults with
+no plant manifestation are separate, not misclassified as pre-plant alarms.
+
+First-alarm localization coverage includes non-UNKNOWN outputs among detections;
+accuracy is correct among those outputs, UNKNOWN is reported separately. Include
+all five true origins, UNKNOWN and misses in the confusion table. Report wrong
+localized steps throughout runtime and correctly localized-before-plant cases.
+Wilson two-sided 95% intervals use z=1.959963984540054 for detection, each origin,
+plant coverage, silent plant rate, benign alarm rate, precision, localization
+coverage, conditional accuracy, UNKNOWN, wrong-origin rate and pre-plant/localized
+before-plant proportions. Macro coverage is the unweighted origin mean; no false
+binomial CI is attached to a macro mean. Correlated designed families limit
+population interpretation of all nominal intervals.
+
+Pair v7.3 with Weighted Sum and v7.2 by run ID: both/only-v7.3/only-comparator/neither.
+For zero or fewer than ten discordant pairs, give counts only and no McNemar p.
+For at least ten, report the exact two-sided conditional binomial McNemar tail
+2*sum(binomial(n,k), k<=min(discordant directions))/2**n, capped at one.
+Treat p as descriptive under an IID assumption, not proof across correlated
+families. Empirical binary superiority on this fixed modeled holdout requires
+positive net paired detections, no higher benign alarm count, and p<.05 when
+the test is eligible. No claim of universal/DS-specific superiority follows.
+
+Subgroups are predeclared by origin/model/behavior (and severity in a companion
+table). Generalization beyond intermittent actuator faults means a positive
+net gain over v7.2 outside ACTUATOR/intermittent; report exact contributing
+subtypes, not a blanket cross-origin improvement. Show all actuator subtypes,
+communication, memory, timing and sensor/control. Test whether stuck-bit runs
+whose nominal target remains unchanged still evade detection; do not remove
+them from overall coverage. Report unexcited actuator misses honestly.
+
+## Post-hoc identifiability and artifacts
+
+After each C runtime finishes, hash the complete allowed-observation stream and
+complete six-channel evidence/availability stream using exact serialized values,
+and inspect the trace for scoring consistency. Group these signatures and join
+origin labels ONLY after all runtime executions. No signature or post-hoc label
+is fed back into any detector. Full raw-history equivalence and feature-history
+equivalence are different claims. No tolerance-based grouping is invented.
+
+Temporary raw, summary, evidence and observation CSVs are discarded after offline
+summaries/signatures and SHA256 identities are recorded. Retain compact per-run
+metrics, exact commands with a reproducible temporary-workspace token, profile
+manifest, input/output signatures, subgroup/identifiability tables and a few
+paper figures. The listed top-level artifacts are the only output files.
+
+After evaluation verify every frozen v7.3 hash again, build/compile, run all tests,
+48 legacy cases and 64 RTL cases in temporary directories, and verify original
+tracked files/session plus Hybrid/HETIA identities. No commit/push.
+
+Methods: [NIST Wilson intervals](https://www.itl.nist.gov/div898/handbook/prc/section2/prc241.htm),
+[paired McNemar definition](https://www.stat.ethz.ch/R-manual/R-devel/library/stats/html/mcnemar.test.html),
+[exact paired binomial calculation](https://pdixon.stat.iastate.edu/stat511/notes/part%202b.pdf).
+
+## Pre-outcome source and design identities
+
+```json
+{
+  ""python/virtual_ecu/clo_dsf_holdout.py"": ""25ebafd477f27f1df4a997017931e06df8483a5d134b791e1d35b2198a2c3294"",
+  ""python/virtual_ecu/clo_dsf_holdout_reporting.py"": ""587b20d69958c7cf01685e1967f94d520f2198375fe27e14c81691fd9bdd8c16"",
+  ""results/cross_layer_safety_v8_final_holdout/configuration_overlap_audit.csv"": ""f02e5393d01f0dd3d25cd45c704f7211fc1828b28c43784f295f46d2c7ecac68"",
+  ""results/cross_layer_safety_v8_final_holdout/final_holdout_manifest.csv"": ""883efd805752747cabd795452b758aa8b274ea472c317ba52e7c8361bd4a97c8"",
+  ""scripts/run_clo_dsf_final_holdout.py"": ""343c48024d52e3f0bdda2ce04a6b800f1bd496d280da29630058adde14613102"",
+  ""scripts/validate_clo_dsf_final_holdout.py"": ""cea15f198d40614b2b3971969a8964337a982ed7a0d96d2dce2a03dd87452a90"",
+  ""tests/test_clo_dsf_holdout.py"": ""e3c46035b422d210cb3e83853bcad5b331d1aba961a91253f85dd62b9699ea97""
+}
+```
+",Archived before profile-column serialization repair; zero simulations completed

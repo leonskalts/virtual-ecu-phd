@@ -1,0 +1,6 @@
+check,status,detail,output_sha256
+original build,PASS,Successful,68c5f548009ee20966e380682cc0b78f39bea9c8895af0403577a7204fef2e99
+frozen revision build,PASS,Successful,68c5f548009ee20966e380682cc0b78f39bea9c8895af0403577a7204fef2e99
+full tests,PASS,275 tests,0b27644b5c3e0f7208b5b89040c96568653f8fda6d49dcf18386eb45fb4f9f5d
+legacy regression,PASS,"{""cases"": 48, ""comparison"": ""Raw and C summary bytes against compiled accepted commit 0da05ccc7c20e9913194fcd2a718a7412f2a5f1a"", ""status"": ""PASS""}",c4b07eea895ea8b0250cc48508bb6d6f8e50ebf81545c34e59e43518079cb260
+rtl regression,PASS,"{""HT1"": ""unchanged"", ""HT2"": ""unchanged"", ""HT3"": ""unchanged"", ""HT4"": ""unchanged"", ""cases"": 64, ""comparison"": ""Every historical raw/C-summary field identical; current schema appends cross-layer columns. All comparison metrics identical excluding relocated paths."", ""status"": ""PASS""}",d869d609c14e01c2298b79402b3554fb9c0d3790ac26da0eccb31e95d48590cd
