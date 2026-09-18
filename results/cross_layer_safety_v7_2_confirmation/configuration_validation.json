@@ -1,0 +1,6 @@
+{
+  "configurations": 900,
+  "legacy_tick_and_duration_checks": true,
+  "status": "PASS",
+  "validator": "Unchanged cross_layer_parse_options + cross_layer_validate; no simulation or detector execution"
+}

@@ -1,0 +1,73 @@
+{
+  "label": "Host simulation runtime overhead",
+  "embedded_WCET_claim": "NONE",
+  "host": "Linux-6.6.87.1-microsoft-standard-WSL2-x86_64-with-glibc2.35",
+  "compiler": "gcc (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0",
+  "method": "31 paired/interleaved measured repetitions per mode and scenario after three warmup cycles; same physics/raw logging; each detector sidecar formatted to /dev/null; no comparison banks executed, observation replay logging off. Legacy no sidecar. Candidate 1/2 historical formatting retained, final 17-digit formatting; differences include instrumentation and process cost.",
+  "persistent_state_bytes": {
+    "final_reference": 1472,
+    "final_optimized": 1472,
+    "candidate1": 824,
+    "candidate2": 1568
+  },
+  "detection_mass_bytes": 512,
+  "localization_mass_bytes": 512,
+  "evidence_bytes": 160,
+  "config_bytes": 64,
+  "stack_and_stdio_excluded": true,
+  "binary_sections": {
+    "legacy": {
+      "text": 86217,
+      "data": 2592,
+      "bss": 48
+    },
+    "candidate1": {
+      "text": 101427,
+      "data": 2856,
+      "bss": 16240
+    },
+    "candidate2": {
+      "text": 109723,
+      "data": 3016,
+      "bss": 48192
+    },
+    "final_reference": {
+      "text": 113003,
+      "data": 3528,
+      "bss": 9664
+    },
+    "final_optimized": {
+      "text": 116323,
+      "data": 3528,
+      "bss": 9664
+    }
+  },
+  "binary_delta_vs_legacy": {
+    "legacy": {
+      "text": 0,
+      "data": 0,
+      "bss": 0
+    },
+    "candidate1": {
+      "text": 15210,
+      "data": 264,
+      "bss": 16192
+    },
+    "candidate2": {
+      "text": 23506,
+      "data": 424,
+      "bss": 48144
+    },
+    "final_reference": {
+      "text": 26786,
+      "data": 936,
+      "bss": 9616
+    },
+    "final_optimized": {
+      "text": 30106,
+      "data": 936,
+      "bss": 9616
+    }
+  },
+  "binary_scope": "Research executables retain dormant comparison state and reference code; not isolated deployment BSS"
+}

@@ -1,0 +1,26 @@
+Virtual ECU Presentation Bundle
+Left campaign: baseline (Baseline)
+Right campaign: baseline (Baseline)
+Left fault class: baseline / no injected fault
+Right fault class: baseline / no injected fault
+
+Verdict
+- Thermal severity: both sides reach the same peak coolant temperature (96.00 C).
+- Fault detection: neither side confirms a fault during the run.
+- Safe-state outcome: both sides finish at similar protection severity (normal vs normal).
+- End-of-run criticality: both sides finish with similar diagnostic/safety criticality (none vs none).
+
+Key takeaway
+Overall takeaway: the two cases are fairly balanced overall, so the best presentation choice depends on whether you want to emphasize thermal severity, detection timing, or safe-state behavior.
+
+Findings
+- Thermal severity: both campaigns reach the same peak coolant temperature (96.00 C).
+- Fault detection: Neither campaign confirms a fault during the run.
+- Safe-state impact: both campaigns finish with comparable safe-state severity (normal vs normal).
+- Critical end state: both campaigns finish with similar end-of-run criticality (none / normal vs none / normal).
+
+Interpretation
+- The two cases drives the stronger thermal outcome in this comparison.
+- Neither campaign confirms a fault during the run.
+- Both campaigns shows the stronger protection response at ECU safe-state level.
+- The end states gives the more critical end-of-run diagnostic/safety outcome.

@@ -1,0 +1,81 @@
+Cross-Layer Propagation Report
+=============================
+
+Baseline
+--------
+Campaign ID: baseline
+Duration: 120.0 s
+
+Research framing: Cross-layer demo: none is followed from injected hardware-origin fault to ECU and system effect.
+
+Propagation Chain
+-----------------
+1. Hardware-Origin Fault
+   Story: Injected hardware-origin none fault.
+   Evidence: No injected fault interval at n/a
+   Detail: No fault interval was recorded.
+2. ECU Manifestation
+   Story: The ECU experiences a visible none manifestation at its interfaces or internal control path.
+   Evidence: No explicit ECU manifestation extracted at n/a
+   Detail: The report did not detect a separate ECU-manifestation milestone.
+3. Diagnostic Effect
+   Story: Diagnostic evidence appears once the ECU-visible manifestation becomes strong enough to trigger monitoring logic.
+   Evidence: No diagnostic evidence at n/a
+   Detail: No primary DTC became active in this run.
+4. Safe-State / System Effect
+   Story: Thermal or safety consequences emerge if the ECU manifestation persists long enough to influence control behavior.
+   Evidence: Peak coolant temperature: 96.0 C at 102.5 s during hot idle
+   Detail: Maximum true coolant temperature reached 96.00 C.
+
+Key Timings
+-----------
+- First injected fault: n/a (latency from first fault: n/a)
+- First ECU manifestation: n/a (latency from first fault: n/a)
+- First diagnostic effect: n/a (latency from first fault: n/a)
+- First thermal warning: n/a (latency from first fault: n/a)
+- First safe-state escalation: n/a (latency from first fault: n/a)
+- Peak coolant temperature: 102.5 s (latency from first fault: n/a)
+
+Chronological Milestones
+------------------------
+- [4. Safe-State / System Effect] Peak coolant temperature: 96.0 C at 102.5 s during hot idle
+
+Baseline
+--------
+Campaign ID: baseline
+Duration: 120.0 s
+
+Research framing: Cross-layer demo: none is followed from injected hardware-origin fault to ECU and system effect.
+
+Propagation Chain
+-----------------
+1. Hardware-Origin Fault
+   Story: Injected hardware-origin none fault.
+   Evidence: No injected fault interval at n/a
+   Detail: No fault interval was recorded.
+2. ECU Manifestation
+   Story: The ECU experiences a visible none manifestation at its interfaces or internal control path.
+   Evidence: No explicit ECU manifestation extracted at n/a
+   Detail: The report did not detect a separate ECU-manifestation milestone.
+3. Diagnostic Effect
+   Story: Diagnostic evidence appears once the ECU-visible manifestation becomes strong enough to trigger monitoring logic.
+   Evidence: No diagnostic evidence at n/a
+   Detail: No primary DTC became active in this run.
+4. Safe-State / System Effect
+   Story: Thermal or safety consequences emerge if the ECU manifestation persists long enough to influence control behavior.
+   Evidence: Peak coolant temperature: 96.0 C at 102.5 s during hot idle
+   Detail: Maximum true coolant temperature reached 96.00 C.
+
+Key Timings
+-----------
+- First injected fault: n/a (latency from first fault: n/a)
+- First ECU manifestation: n/a (latency from first fault: n/a)
+- First diagnostic effect: n/a (latency from first fault: n/a)
+- First thermal warning: n/a (latency from first fault: n/a)
+- First safe-state escalation: n/a (latency from first fault: n/a)
+- Peak coolant temperature: 102.5 s (latency from first fault: n/a)
+
+Chronological Milestones
+------------------------
+- [4. Safe-State / System Effect] Peak coolant temperature: 96.0 C at 102.5 s during hot idle
+

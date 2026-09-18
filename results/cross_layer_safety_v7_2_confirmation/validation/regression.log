@@ -1,0 +1,26 @@
+Frozen candidate verified: 25 SHA-256 entries
+Verified 6459 Candidate 2 development identities; no new final-holdout candidate frozen.
+{
+  "existing_files": 28242,
+  "changed_files": [],
+  "user_session_unchanged": true,
+  "accepted": {
+    "source_files": 141,
+    "accepted_evidence_files": 5866,
+    "scientific_behavior_changed": false,
+    "baseline_commit": "0da05ccc7c20e9913194fcd2a718a7412f2a5f1a"
+  },
+  "legacy_cases": 48,
+  "rtl_cases": 64,
+  "v5_replays": [
+    "timing_0000_baseline_observe_only",
+    "timing_0031_baseline_observe_only",
+    "timing_0051_baseline_observe_only",
+    "timing_0202_baseline_observe_only",
+    "timing_0062_task_delay_observe_only",
+    "communication_0825_delayed_update_graded",
+    "cross_layer_1174_stuck_bit_observe_only",
+    "cross_layer_1300_pump_degraded_observe_only"
+  ],
+  "status": "PASS"
+}

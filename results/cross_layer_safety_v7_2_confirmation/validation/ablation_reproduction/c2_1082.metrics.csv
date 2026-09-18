@@ -1,0 +1,17 @@
+method,first_alarm_ms,first_post_alarm_ms,origin_at_alarm,leading_at_alarm,origin_score_at_alarm,origin_margin_at_alarm,origin_ignorance_at_alarm,first_localization_ms,first_origin,samples,alarm_samples,pre_alarm_samples,mean_anomaly_ignorance,mean_origin_ignorance,mean_detection_conflict,mean_localization_conflict,high_detection_conflict_samples,high_localization_conflict_samples,propagation_samples
+Candidate 2,-1,-1,UNKNOWN,UNKNOWN,0,0,0,-1,UNKNOWN,1201,0,0,0.99932833313,0.99959195203,0,0,0,0,0
+B1 Dual-frame,-1,-1,UNKNOWN,UNKNOWN,0,0,0,-1,UNKNOWN,1201,0,0,0.999861419449,0.999861419449,0,0,0,0,0
+B2 Origin reliability,-1,-1,UNKNOWN,UNKNOWN,0,0,0,-1,UNKNOWN,1201,0,0,0.999861419449,0.999916851669,0,0,0,0,0
+B3 Propagation,-1,-1,UNKNOWN,UNKNOWN,0,0,0,-1,UNKNOWN,1201,0,0,0.999861419449,0.999916851669,0,0,0,0,0
+B4 Temporal,-1,-1,UNKNOWN,UNKNOWN,0,0,0,-1,UNKNOWN,1201,0,0,0.99932833313,0.99959195203,0,0,0,0,0
+Detection reliability 0.9,-1,-1,UNKNOWN,UNKNOWN,0,0,0,-1,UNKNOWN,1201,0,0,0.999393615963,0.99959195203,0,0,0,0,0
+No origin reliability,-1,-1,UNKNOWN,UNKNOWN,0,0,0,-1,UNKNOWN,1201,0,0,0.99932833313,0.99932833313,0,0,0,0,0
+Full propagation on,-1,-1,UNKNOWN,UNKNOWN,0,0,0,-1,UNKNOWN,1201,0,0,0.99932833313,0.99959195203,0,0,0,0,0
+Full propagation off,-1,-1,UNKNOWN,UNKNOWN,0,0,0,-1,UNKNOWN,1201,0,0,0.99932833313,0.99959195203,0,0,0,0,0
+Candidate 1,-1,-1,UNKNOWN,UNKNOWN,0,0,0,-1,UNKNOWN,1201,0,0,0.167181702394,0.167181702394,4.78565975257e-05,4.78565975257e-05,0,0,0
+Plain DS,-1,-1,UNKNOWN,UNKNOWN,0,0,0,-1,UNKNOWN,1201,0,0,0.500029682262,0.500029682262,6.55101591612e-05,6.55101591612e-05,0,0,0
+Simple OR,-1,-1,UNKNOWN,UNKNOWN,0,0,0,-1,UNKNOWN,1201,0,0,1,1,0,0,0,0,0
+Weighted Sum,-1,-1,UNKNOWN,UNKNOWN,0,0,0,-1,UNKNOWN,1201,0,0,1,1,0,0,0,0,0
+Hybrid,-1,-1,UNKNOWN,UNKNOWN,0,0,0,-1,UNKNOWN,1201,0,0,1,1,0,0,0,0,0
+Timing Monitor,-1,-1,UNKNOWN,UNKNOWN,0,0,0,-1,UNKNOWN,1201,0,0,1,1,0,0,0,0,0
+Single frame positive,-1,-1,UNKNOWN,UNKNOWN,0,0,0,-1,UNKNOWN,1201,0,0,0.999861419449,0.999861419449,0,0,0,0,0

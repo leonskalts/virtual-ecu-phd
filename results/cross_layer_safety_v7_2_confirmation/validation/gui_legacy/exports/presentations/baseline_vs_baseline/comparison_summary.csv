@@ -1,0 +1,10 @@
+field,left,right
+left_campaign_id,baseline,
+right_campaign_id,baseline,
+left_fault_class,baseline / no injected fault,
+right_fault_class,baseline / no injected fault,
+final_dtc,none,none
+final_safe_state,normal,normal
+maximum_coolant_temperature,96.00 C,96.00 C
+detection_latency,n/a,n/a
+safe-state_latency,n/a,n/a

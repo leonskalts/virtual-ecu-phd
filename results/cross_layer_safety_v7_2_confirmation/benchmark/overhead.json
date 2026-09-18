@@ -1,0 +1,185 @@
+{
+  "label": "Host simulation runtime overhead",
+  "embedded_WCET_claim": "NONE",
+  "host": "Linux-6.6.87.1-microsoft-standard-WSL2-x86_64-with-glibc2.35",
+  "compiler": "gcc (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0",
+  "method": "31 paired/interleaved measured repetitions per mode and scenario after three warmup cycles; same physics/raw logging; each detector sidecar formatted to /dev/null; no comparison banks executed, observation replay logging off. Legacy no sidecar. Candidate 1/2 historical formatting retained, final 17-digit formatting; differences include instrumentation and process cost.",
+  "persistent_state_bytes": {
+    "final_reference": 1472,
+    "final_optimized": 1472,
+    "candidate1": 824,
+    "candidate2": 1568
+  },
+  "detection_mass_bytes": 512,
+  "localization_mass_bytes": 512,
+  "evidence_bytes": 160,
+  "config_bytes": 64,
+  "stack_and_stdio_excluded": true,
+  "binary_sections": {
+    "legacy": {
+      "text": 86217,
+      "data": 2592,
+      "bss": 48
+    },
+    "candidate1": {
+      "text": 101427,
+      "data": 2856,
+      "bss": 16240
+    },
+    "candidate2": {
+      "text": 109723,
+      "data": 3016,
+      "bss": 48192
+    },
+    "final_reference": {
+      "text": 113003,
+      "data": 3528,
+      "bss": 9664
+    },
+    "final_optimized": {
+      "text": 116323,
+      "data": 3528,
+      "bss": 9664
+    }
+  },
+  "binary_delta_vs_legacy": {
+    "legacy": {
+      "text": 0,
+      "data": 0,
+      "bss": 0
+    },
+    "candidate1": {
+      "text": 15210,
+      "data": 264,
+      "bss": 16192
+    },
+    "candidate2": {
+      "text": 23506,
+      "data": 424,
+      "bss": 48144
+    },
+    "final_reference": {
+      "text": 26786,
+      "data": 936,
+      "bss": 9616
+    },
+    "final_optimized": {
+      "text": 30106,
+      "data": 936,
+      "bss": 9616
+    }
+  },
+  "binary_scope": "Research executables retain dormant comparison state and reference code; not isolated deployment BSS",
+  "summary": [
+    {
+      "scenario": "benign",
+      "mode": "legacy",
+      "n": 31,
+      "median_seconds": 0.008311306,
+      "mean_seconds": 0.008331563032258064,
+      "stddev_seconds": 0.00041399599414813047,
+      "p95_seconds": 0.008808456,
+      "overhead_vs_legacy_percent": 0.0,
+      "change_vs_final_reference_percent": -62.962736519407045
+    },
+    {
+      "scenario": "benign",
+      "mode": "candidate1",
+      "n": 31,
+      "median_seconds": 0.015549904,
+      "mean_seconds": 0.015438647258064516,
+      "stddev_seconds": 0.0005276658271647544,
+      "p95_seconds": 0.0160300915,
+      "overhead_vs_legacy_percent": 87.0933882111909,
+      "change_vs_final_reference_percent": -30.705728853452584
+    },
+    {
+      "scenario": "benign",
+      "mode": "candidate2",
+      "n": 31,
+      "median_seconds": 0.021690928,
+      "mean_seconds": 0.021801806387096775,
+      "stddev_seconds": 0.00039303620629196326,
+      "p95_seconds": 0.0225954835,
+      "overhead_vs_legacy_percent": 160.9809818095977,
+      "change_vs_final_reference_percent": -3.339786132940925
+    },
+    {
+      "scenario": "benign",
+      "mode": "final_reference",
+      "n": 31,
+      "median_seconds": 0.022440389,
+      "mean_seconds": 0.022494295193548387,
+      "stddev_seconds": 0.0005848558168721253,
+      "p95_seconds": 0.023468565,
+      "overhead_vs_legacy_percent": 169.99834923657008,
+      "change_vs_final_reference_percent": 0.0
+    },
+    {
+      "scenario": "benign",
+      "mode": "final_optimized",
+      "n": 31,
+      "median_seconds": 0.022189719,
+      "mean_seconds": 0.022225784419354837,
+      "stddev_seconds": 0.00043068103079415773,
+      "p95_seconds": 0.02283168,
+      "overhead_vs_legacy_percent": 166.98233707193552,
+      "change_vs_final_reference_percent": -1.1170483720224333
+    },
+    {
+      "scenario": "timing",
+      "mode": "legacy",
+      "n": 31,
+      "median_seconds": 0.009497537,
+      "mean_seconds": 0.009244141161290322,
+      "stddev_seconds": 0.0007916752154478541,
+      "p95_seconds": 0.0101777945,
+      "overhead_vs_legacy_percent": 0.0,
+      "change_vs_final_reference_percent": -59.59047558346702
+    },
+    {
+      "scenario": "timing",
+      "mode": "candidate1",
+      "n": 31,
+      "median_seconds": 0.016700938,
+      "mean_seconds": 0.016384571129032258,
+      "stddev_seconds": 0.0007498195934986736,
+      "p95_seconds": 0.017167012500000002,
+      "overhead_vs_legacy_percent": 75.84493748221249,
+      "change_vs_final_reference_percent": -28.941897052888176
+    },
+    {
+      "scenario": "timing",
+      "mode": "candidate2",
+      "n": 31,
+      "median_seconds": 0.023098201,
+      "mean_seconds": 0.02283282119354839,
+      "stddev_seconds": 0.0008458535882311003,
+      "p95_seconds": 0.0238594215,
+      "overhead_vs_legacy_percent": 143.20201121617106,
+      "change_vs_final_reference_percent": -1.7232238961020552
+    },
+    {
+      "scenario": "timing",
+      "mode": "final_reference",
+      "n": 31,
+      "median_seconds": 0.023503214,
+      "mean_seconds": 0.023341006096774194,
+      "stddev_seconds": 0.0007282760643816491,
+      "p95_seconds": 0.0241583025,
+      "overhead_vs_legacy_percent": 147.4664115549116,
+      "change_vs_final_reference_percent": 0.0
+    },
+    {
+      "scenario": "timing",
+      "mode": "final_optimized",
+      "n": 31,
+      "median_seconds": 0.023349772,
+      "mean_seconds": 0.023184409225806453,
+      "stddev_seconds": 0.0006964602903048485,
+      "p95_seconds": 0.0240163325,
+      "overhead_vs_legacy_percent": 145.8508137425524,
+      "change_vs_final_reference_percent": -0.6528553924582403
+    }
+  ]
+}

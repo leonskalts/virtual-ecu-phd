@@ -1,0 +1,13 @@
+{
+  "candidate1_hashes_valid": true,
+  "candidate2_hashes_valid": true,
+  "changed_files": [],
+  "existing_files_verified": 28242,
+  "gui_checks": {
+    "gui_final": 18,
+    "gui_legacy": 181
+  },
+  "scientific_hashes_valid": true,
+  "status": "PASS",
+  "user_session_byte_identical": true
+}

@@ -1,0 +1,42 @@
+schema_version: 7.2
+purpose: DEVELOPMENT CONFIRMATION — NOT FINAL HOLDOUT
+parameter_search: NONE
+simulation_duration_ms: 120000
+injection_times_ms: [30500, 72500]
+durations_ms: [600, 4500, 11000]
+seeds: [17, 41, 83]
+behaviors: [transient, intermittent, permanent]
+profiles:
+  - {name: final_moderate, load: 0.41, speed: 52, ambient: 24}
+  - {name: final_urban, load: 0.67, speed: 19, ambient: 32}
+  - {name: final_highway, load: 0.83, speed: 102, ambient: 30}
+  - {name: final_hot_slow, load: 0.97, speed: 3, ambient: 39}
+models:
+  MEMORY:
+    bit_flip: [0, 3, 5]
+    stuck_bit: [0, 3, 5]
+  TIMING:
+    deadline_miss: [100, 500, 1200]
+    task_delay: [200, 600, 1100]
+  COMMUNICATION:
+    delayed_update: [200, 900]
+    dropped_update: [1, 6]
+    replayed_sample: [400, 1400]
+  SENSOR_CONTROL:
+    sensor_bias: [-4, 3, 8]
+    sensor_interface_intermittent: [2.5, 5, 10]
+  ACTUATOR:
+    pump_degraded: [0.95, 0.72, 0.45]
+    fan_stuck_off: [0, 0, 0]
+ignored_severity_onset_offsets_ms: [0, 1500, 3000]
+intermittent_on_ms: 400
+intermittent_off_ms: 500
+legacy_intermit_event_gap_ms: 900
+drop_every_n_updates: 9
+benign_offsets:
+  load: [-0.08, 0, 0.04]
+  speed: [-3, -1, 1, 3, 5]
+  ambient: [-2, 0, 2]
+source_parameters: results/cross_layer_safety_v7_1_dev/selected_config.cfg
+source_weighted_sum: results/cross_layer_safety_v7_1_dev/selection_record.json
+confirmation_decision: FREEZE or DO NOT FREEZE; never tune/rerun after inspection

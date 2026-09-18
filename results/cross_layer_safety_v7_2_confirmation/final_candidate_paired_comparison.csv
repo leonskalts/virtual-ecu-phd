@@ -1,0 +1,4 @@
+method_a,method_b,both_detect,only_a,only_b,neither,discordant,exact_mcnemar_p,interpretation
+Final CLO-DSF,Weighted Sum,606,0,0,114,0,,No discordance; no test needed
+Final CLO-DSF,Simple OR,564,42,0,114,42,4.547473508864641e-13,"Exploratory exact paired test; designed families are correlated, not population inference"
+Final CLO-DSF,Candidate 2,606,0,0,114,0,,No discordance; no test needed

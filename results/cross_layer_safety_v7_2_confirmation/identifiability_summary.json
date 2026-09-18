@@ -1,0 +1,13 @@
+{
+  "confirmed_unknown_anytime": 248,
+  "confirmed_unknown_first_alarm": 144,
+  "exact_grouping": true,
+  "mixed_origin_groups": {
+    "first_alarm_snapshot_only": 0,
+    "full_evidence_history": 3,
+    "full_runtime_observation_history": 0
+  },
+  "mixed_origin_sensor_groups": 0,
+  "runtime_rows": 1080900,
+  "wrong_localized_runtime_runs": 0
+}

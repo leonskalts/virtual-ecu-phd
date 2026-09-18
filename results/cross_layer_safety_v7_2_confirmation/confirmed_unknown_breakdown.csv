@@ -1,0 +1,6 @@
+origin_evaluation_only,runs,unknown_at_first_alarm,any_confirmed_unknown,confirmed_unknown_runtime_steps,unknown_control,unknown_actuator,unknown_plant,unknown_with_full_observation_equivalence,runtime_wrong_localization_runs
+MEMORY,144,0,14,390,0,0,0,0,0
+TIMING,144,0,0,0,0,0,0,0,0
+COMMUNICATION,144,0,0,0,0,0,0,0,0
+SENSOR_CONTROL,144,144,144,6185,144,144,144,0,0
+ACTUATOR,144,0,90,5061,0,0,0,0,0

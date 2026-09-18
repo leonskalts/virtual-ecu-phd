@@ -1,0 +1,8 @@
+{
+  "freeze": true,
+  "holdout_created": false,
+  "mathematical_freeze_before_optimization": true,
+  "no_parameter_search": true,
+  "no_postconfirmation_tuning": true,
+  "scientific_reason": "Exact no-discount simplification preserves competitive detection, improves selective origin coverage, has no observed wrong origins or benign alarms, and passes isolation/regression. Localization and explicit abstention provide measured capability beyond calibrated binary pooling; detection superiority over Weighted Sum is not claimed."
+}

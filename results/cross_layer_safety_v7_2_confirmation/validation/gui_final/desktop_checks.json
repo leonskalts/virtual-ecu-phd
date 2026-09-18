@@ -1,0 +1,24 @@
+{
+  "status": "PASS",
+  "checks": [
+    "Hybrid default preserved",
+    "Advanced detector choices hidden in Guided",
+    "Advanced detector selector visible",
+    "Both candidate identities selectable",
+    "Advanced run loads Final CLO-DSF runtime sidecar",
+    "Live runtime detects and localizes timing",
+    "Runtime panel excludes evaluation labels",
+    "Runtime selector shows initial state",
+    "Confirmed anomaly with UNKNOWN origin is displayed as valid",
+    "Confirmation comparison includes all ten methods and ablations",
+    "Evaluation table ground truth is separate",
+    "Original Candidate 1 study panel retained",
+    "Research example executes Final CLO-DSF C path",
+    "Frozen Candidate 1 runtime result still loads",
+    "Historical Candidate 2 runtime still loads",
+    "Historical CSV hides unavailable Final CLO-DSF evidence",
+    "User session byte-identical",
+    "No GUI callback errors"
+  ],
+  "errors": []
+}

@@ -1,0 +1,187 @@
+Constructing GUI
+GUI constructed
+PASS Consolidated ten-entry sidebar
+PASS Research overview is first entry
+PASS Both Dashboard Guided launch buttons found
+PASS Dashboard button 1 opens visibly Guided
+PASS Dashboard button 1 preserves advanced values and command
+PASS Advanced fields reappear with stored values
+PASS Dashboard button 2 opens visibly Guided
+PASS Dashboard button 2 preserves advanced values and command
+PASS Advanced fields reappear with stored values
+PASS Research launch preserves Cross-Layer mode and values
+PASS Direct navigation preserves mode
+PASS Presentation preserves exact scientific command
+PASS Saved index 5 opens batch
+PASS Research reentry remembers batch
+PASS Old internal ID routes batch
+PASS Saved index 6 opens runtime_study
+PASS Research reentry remembers runtime_study
+PASS Old internal ID routes runtime_study
+PASS Saved index 7 opens parameter_sweep
+PASS Research reentry remembers parameter_sweep
+PASS Old internal ID routes parameter_sweep
+PASS Research selection never reruns studies
+PASS Original 47-run aggregate loads
+PASS Original 90-run Detector Study loads
+PASS All seven paper-facing sweep detectors load
+PASS Best coverage preserves Kalman/Hybrid tie
+PASS Best latency preserves Threshold/Hybrid tie
+PASS Final v6 package loads
+PASS Loaded final card exactly formats Timing Holdout Coverage
+PASS Metric font is prominent: Timing Holdout Coverage
+PASS Loaded final card exactly formats Timing Coverage 95% CI
+PASS Metric font is prominent: Timing Coverage 95% CI
+PASS Loaded final card exactly formats Legal Timing Alarms
+PASS Metric font is prominent: Legal Timing Alarms
+PASS Loaded final card exactly formats Legal Timing False-Alarm 95% CI
+PASS Metric font is prominent: Legal Timing False-Alarm 95% CI
+PASS Loaded final card exactly formats Plant-Propagating Timing Detection
+PASS Metric font is prominent: Plant-Propagating Timing Detection
+PASS Loaded final card exactly formats Cross-Layer Detection
+PASS Metric font is prominent: Cross-Layer Detection
+PASS Loaded final card exactly formats Detection Given Plant Propagation
+PASS Metric font is prominent: Detection Given Plant Propagation
+PASS Loaded final card exactly formats Silent Plant Propagation
+PASS Metric font is prominent: Silent Plant Propagation
+PASS Missing final evidence fails gracefully
+PASS Unavailable final cards show N/A
+PASS Legacy raw CSV loads
+PASS v1 unavailable containment remains N/A
+PASS v2 campaign loads
+PASS v3 analysis loads
+PASS v4 runtime loads
+PASS v5 validation loads
+PASS RTL Security loads independently
+PASS Builder staged count reflects current scenario
+PASS Zero-event builder is purposeful
+PASS Zero-event actions offer Add Event and hide invalid Run
+PASS Empty-state Add Event uses existing event validation
+PASS Two events enable existing run workflow
+PASS Builder empty actions dispatch original multi callbacks
+PASS Single-fault builder state is accurate
+PASS Builder empty actions dispatch original single callbacks
+PASS Actual Guided run completes and populates results
+PASS Representative Guided bit flip retains detection
+PASS Guided raw CSV matches pre-v6.2 experiment byte for byte
+PASS No comparison shows proper empty state
+PASS Loaded comparison cards are visibly mapped
+PASS Left comparison card uses loaded case
+PASS Right comparison card uses loaded case
+PASS Cross-layer key difference uses stored evidence
+PASS Detailed comparison remains accessible
+PASS Loaded result replaces builder empty state
+PASS export_results_snapshot completed
+PASS export_current_comparison completed
+PASS export_presentation_bundle completed
+PASS Session schema serializes to isolated file
+PASS Existing user session preserved byte for byte
+PASS 1366x768/dashboard navigation
+PASS 1366x768/summary navigation
+PASS 1366x768/figures navigation
+PASS 1366x768/figures card text fits allocated width
+PASS 1366x768/figures card text fits allocated width
+PASS 1366x768/figures card text fits allocated width
+PASS 1366x768/fault_path navigation
+PASS 1366x768/cross_layer navigation
+PASS 1366x768/research_analysis navigation
+PASS 1366x768/research_analysis card text fits allocated width
+PASS 1366x768/research_analysis card text fits allocated width
+PASS 1366x768/research_analysis card text fits allocated width
+PASS 1366x768/rtl_security navigation
+PASS 1366x768/exports navigation
+PASS 1366x768/final_validation navigation
+PASS 1366x768/final_validation card text fits allocated width
+PASS 1366x768/final_validation card text fits allocated width
+PASS 1366x768/final_validation card text fits allocated width
+PASS 1366x768/final_validation card text fits allocated width
+PASS 1366x768/final_validation card text fits allocated width
+PASS 1366x768/final_validation card text fits allocated width
+PASS 1366x768/final_validation card text fits allocated width
+PASS 1366x768/final_validation card text fits allocated width
+PASS 1366x768/custom navigation
+PASS 1366x768/batch navigation
+PASS 1366x768/runtime_study navigation
+PASS 1366x768/parameter_sweep navigation
+PASS 1366x768/parameter_sweep card text fits allocated width
+PASS 1366x768/parameter_sweep card text fits allocated width
+PASS 1366x768/parameter_sweep card text fits allocated width
+PASS 1366x768/parameter_sweep card text fits allocated width
+PASS 1366x768/parameter_sweep card text fits allocated width
+Reviewed 1366 768
+PASS 1920x1080/dashboard navigation
+PASS 1920x1080/summary navigation
+PASS 1920x1080/figures navigation
+PASS 1920x1080/figures card text fits allocated width
+PASS 1920x1080/figures card text fits allocated width
+PASS 1920x1080/figures card text fits allocated width
+PASS 1920x1080/fault_path navigation
+PASS 1920x1080/cross_layer navigation
+PASS 1920x1080/research_analysis navigation
+PASS 1920x1080/research_analysis card text fits allocated width
+PASS 1920x1080/research_analysis card text fits allocated width
+PASS 1920x1080/research_analysis card text fits allocated width
+PASS 1920x1080/rtl_security navigation
+PASS 1920x1080/exports navigation
+PASS 1920x1080/final_validation navigation
+PASS 1920x1080/final_validation card text fits allocated width
+PASS 1920x1080/final_validation card text fits allocated width
+PASS 1920x1080/final_validation card text fits allocated width
+PASS 1920x1080/final_validation card text fits allocated width
+PASS 1920x1080/final_validation card text fits allocated width
+PASS 1920x1080/final_validation card text fits allocated width
+PASS 1920x1080/final_validation card text fits allocated width
+PASS 1920x1080/final_validation card text fits allocated width
+PASS 1920x1080/custom navigation
+PASS 1920x1080/batch navigation
+PASS 1920x1080/runtime_study navigation
+PASS 1920x1080/parameter_sweep navigation
+PASS 1920x1080/parameter_sweep card text fits allocated width
+PASS 1920x1080/parameter_sweep card text fits allocated width
+PASS 1920x1080/parameter_sweep card text fits allocated width
+PASS 1920x1080/parameter_sweep card text fits allocated width
+PASS 1920x1080/parameter_sweep card text fits allocated width
+Reviewed 1920 1080
+PASS 2560x1440/dashboard navigation
+PASS 2560x1440/summary navigation
+PASS 2560x1440/figures navigation
+PASS 2560x1440/figures card text fits allocated width
+PASS 2560x1440/figures card text fits allocated width
+PASS 2560x1440/figures card text fits allocated width
+PASS 2560x1440/fault_path navigation
+PASS 2560x1440/cross_layer navigation
+PASS 2560x1440/research_analysis navigation
+PASS 2560x1440/research_analysis card text fits allocated width
+PASS 2560x1440/research_analysis card text fits allocated width
+PASS 2560x1440/research_analysis card text fits allocated width
+PASS 2560x1440/rtl_security navigation
+PASS 2560x1440/exports navigation
+PASS 2560x1440/final_validation navigation
+PASS 2560x1440/final_validation card text fits allocated width
+PASS 2560x1440/final_validation card text fits allocated width
+PASS 2560x1440/final_validation card text fits allocated width
+PASS 2560x1440/final_validation card text fits allocated width
+PASS 2560x1440/final_validation card text fits allocated width
+PASS 2560x1440/final_validation card text fits allocated width
+PASS 2560x1440/final_validation card text fits allocated width
+PASS 2560x1440/final_validation card text fits allocated width
+PASS 2560x1440/custom navigation
+PASS 2560x1440/batch navigation
+PASS 2560x1440/runtime_study navigation
+PASS 2560x1440/parameter_sweep navigation
+PASS 2560x1440/parameter_sweep card text fits allocated width
+PASS 2560x1440/parameter_sweep card text fits allocated width
+PASS 2560x1440/parameter_sweep card text fits allocated width
+PASS 2560x1440/parameter_sweep card text fits allocated width
+PASS 2560x1440/parameter_sweep card text fits allocated width
+Reviewed 2560 1440
+PASS research_analysis presentation navigation
+PASS batch presentation navigation
+PASS runtime_study presentation navigation
+PASS parameter_sweep presentation navigation
+PASS final_validation presentation navigation
+PASS figures presentation navigation
+PASS cross_layer presentation navigation
+PASS custom presentation navigation
+PASS No Tk callbacks or GUI operations failed
+Desktop checks passed: 181

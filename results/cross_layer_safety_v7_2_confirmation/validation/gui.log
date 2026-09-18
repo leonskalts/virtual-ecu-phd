@@ -1,0 +1,18 @@
+PASS Hybrid default preserved
+PASS Advanced detector choices hidden in Guided
+PASS Advanced detector selector visible
+PASS Both candidate identities selectable
+PASS Advanced run loads Final CLO-DSF runtime sidecar
+PASS Live runtime detects and localizes timing
+PASS Runtime panel excludes evaluation labels
+PASS Runtime selector shows initial state
+PASS Confirmed anomaly with UNKNOWN origin is displayed as valid
+PASS Confirmation comparison includes all ten methods and ablations
+PASS Evaluation table ground truth is separate
+PASS Original Candidate 1 study panel retained
+PASS Research example executes Final CLO-DSF C path
+PASS Frozen Candidate 1 runtime result still loads
+PASS Historical Candidate 2 runtime still loads
+PASS Historical CSV hides unavailable Final CLO-DSF evidence
+PASS User session byte-identical
+PASS No GUI callback errors

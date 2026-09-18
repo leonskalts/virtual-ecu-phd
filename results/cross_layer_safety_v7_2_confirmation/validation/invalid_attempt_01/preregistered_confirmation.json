@@ -1,0 +1,20 @@
+{
+  "configurations": 900,
+  "parameter_search": false,
+  "parameters_may_change": false,
+  "purpose": "DEVELOPMENT CONFIRMATION \u2014 NOT FINAL HOLDOUT",
+  "source_sha256": {
+    "clo_dsf_final.mk": "656a4901a5423902d9e7d342d22ac5518d12e8452404e424d785734505338f80",
+    "include/clo_dsf_final.h": "151475b2ccbd2b3dd50b06cd64bb6a5932b4b2a74834e59b78c0d4cae421f954",
+    "include/clo_final_observation_io.h": "af3df00c1262e63246e2b10ae5d180e5c9f9b7dcbe4caac241159a9cdca99142",
+    "python/virtual_ecu/clo_dsf_final_confirmation.py": "d2c720cdd786edcf2217101bed1257603151369943c068c66c46a926b309a462",
+    "results/cross_layer_safety_v7_2_confirmation/confirmation_configuration_manifest.csv": "2b114a6a5519d1b1680f54bbb9e21245e4f94e72df9219f7d287f667c4e2c226",
+    "results/cross_layer_safety_v7_2_confirmation/confirmation_protocol.md": "97b58a4121b163ea490d98bb6eb11e6e428695c0ece4df99a2811a589e0120d7",
+    "results/cross_layer_safety_v7_2_confirmation/final_reference.cfg": "6f62e972a27c765cae6a24daf9b7b98fb1513cd46fc226a128d87a6431e73ac7",
+    "results/cross_layer_safety_v7_2_confirmation/parameter_provenance.json": "db43b1a5d662e3e5e79524037d86d707a0511e32c96f74049d9bd4868a8be424",
+    "src/v7_2/clo_dsf_final.c": "7a8aa323d0d744f2d80559ce8880ca29028979fe54176fdab4fde42505ff1f15",
+    "src/v7_2/final_observation_io.c": "19446a5c5726dd650da092c634e8c7ade7f4101401ad152e73fae41afb3d9145",
+    "src/v7_2/final_runtime.c": "d7f7262861914c20e2527cf19883968c1ea8fd0ebe315c33f9e39b5b8df3c4fb",
+    "studies/clo_dsf_final_confirmation_v1.yaml": "09ea9d307a3d9a4fc64fe124b0fe7d82b9ace354756bc9b378f08e86e905084e"
+  }
+}

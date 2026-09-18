@@ -1,0 +1,11 @@
+{
+  "status": "PASS",
+  "runs": 900,
+  "observations": 1080900,
+  "bit_identical_complete_state": true,
+  "numerical_tolerance_used": 0,
+  "decision_discrepancies": 0,
+  "scientific_hashes_verified": true,
+  "algorithm_parameters_changed": false,
+  "optimization": "Sparse nonzero product traversal in unchanged product order; cached logical cardinality/partition map; unchanged validation and normalization"
+}

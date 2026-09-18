@@ -1,0 +1,7 @@
+channel,detection_support,origin_support,origin_extra_discount,transform
+timing,ABNORMAL,TIMING,REMOVED,"max(deadline flag, missed execution, completion lateness, clip((execution age-period-deadline)/period))"
+communication,ABNORMAL,COMMUNICATION,REMOVED,"1 on freshness failure or backward timestamp, otherwise clip((age-300)/300); future timestamp unavailable"
+memory_control,ABNORMAL,MEMORY,REMOVED,clip(abs(target-92)/4)
+sensor_control,ABNORMAL,COMMUNICATION|SENSOR_CONTROL,REMOVED,"max(measured temperature outside [-40,150],clip((abs(delta)-2.5*dt_seconds)/2))"
+actuator,ABNORMAL,ACTUATOR,REMOVED,"clip(max(abs(fan command-actual)/.25,abs(pump command-actual)/.20))"
+plant,ABNORMAL,MEMORY|TIMING|COMMUNICATION|SENSOR_CONTROL|ACTUATOR,REMOVED,clip((measured temperature-108)/7); vacuous origin mass

@@ -1,0 +1,11 @@
+method,first_alarm_ms,first_post_alarm_ms,origin_at_alarm,leading_at_alarm,origin_score_at_alarm,origin_margin_at_alarm,origin_ignorance_at_alarm,first_localization_ms,first_origin,samples,alarm_samples,pre_alarm_samples,mean_anomaly_ignorance,mean_origin_ignorance,mean_detection_conflict,mean_localization_conflict,high_detection_conflict_samples,high_localization_conflict_samples,propagation_samples
+Final CLO-DSF,68800,68800,MEMORY,MEMORY,0.6352,0.544,0.456,68800,MEMORY,1201,3,0,0.99562497833,0.99562497833,0,1.37677404891e-49,0,0,0
+Candidate 2,68800,68800,MEMORY,MEMORY,0.60369104,0.5046138,0.4953862,68800,MEMORY,1201,3,0,0.99562497833,0.995933211745,0,7.74260086639e-50,0,0,0
+Candidate 2 no origin discount,68800,68800,MEMORY,MEMORY,0.6352,0.544,0.456,68800,MEMORY,1201,3,0,0.99562497833,0.99562497833,0,1.37677404891e-49,0,0,0
+Final no temporal,-1,-1,UNKNOWN,UNKNOWN,0,0,0,-1,UNKNOWN,1201,0,0,0.998748576016,0.998748576016,0,0,0,0,0
+Candidate 1,-1,-1,UNKNOWN,UNKNOWN,0,0,0,-1,UNKNOWN,1201,0,0,0.167447257886,0.167447257886,0.000641283536524,0.000641283536524,0,0,0
+Plain DS,-1,-1,UNKNOWN,UNKNOWN,0,0,0,-1,UNKNOWN,1201,0,0,0.500086746744,0.500086746744,0.000469588443907,0.000469588443907,0,0,0
+Simple OR,-1,-1,UNKNOWN,UNKNOWN,0,0,0,-1,UNKNOWN,1201,0,0,1,1,0,0,0,0,0
+Weighted Sum,68500,68500,UNKNOWN,UNKNOWN,0,0,1,-1,UNKNOWN,1201,6,0,1,1,0,0,0,0,0
+Hybrid,-1,-1,UNKNOWN,UNKNOWN,0,0,0,-1,UNKNOWN,1201,0,0,1,1,0,0,0,0,0
+Timing Monitor,-1,-1,UNKNOWN,UNKNOWN,0,0,0,-1,UNKNOWN,1201,0,0,1,1,0,0,0,0,0
