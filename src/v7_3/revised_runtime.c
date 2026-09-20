@@ -2,6 +2,7 @@
 #include "clo_dsf_revised.h"
 #include "clo_final_observation_io.h"
 #include "ecu_types.h"
+#include "control.h"
 #include <errno.h>
 #include <limits.h>
 #include <math.h>
@@ -10,8 +11,12 @@
 int clo_accepted_main(int argc,char **argv);
 void __real_detection_algorithm_step(struct ecu_state *state);
 #define METHODS 8
-static const char *const names[METHODS]={"Revised CLO-DSF","Candidate 2","v7.2 CLO-DSF","Plain DS","Simple OR","Weighted Sum","Hybrid","Timing Monitor"};
-static clo_final_t detector,previous;
+/* Optional pre-change CURRENT core, compiled only in temporary storage. */
+void clo_prechange_step(clo_revised_t *, const clo_final_config_t *, const runtime_observation_t *) __attribute__((weak));
+static clo_revised_t prechange;
+static const char *names[METHODS]={"Revised CLO-DSF","Candidate 2","v7.2 CLO-DSF","Plain DS","Simple OR","Weighted Sum","Hybrid","Timing Monitor"};
+static clo_revised_t detector;
+static clo_final_t previous;
 static clo_final_config_t config;
 static c2_state_t candidate2;
 static c2_config_t c2_config;
@@ -21,6 +26,37 @@ static detection_algorithm_state_t hybrid;
 static FILE *trace,*observations;
 static bool enabled,comparison,primary;
 static unsigned int evaluation_start;
+static struct { unsigned int time_ms; uint16_t target; } target_updates[16];
+static unsigned int target_update_count;
+void __real_cross_layer_fault_step(ecu_state_t *state);
+void __wrap_cross_layer_fault_step(ecu_state_t *state)
+{
+ /* Authorized workload input, identically applied to live and reference ECUs.
+  * No activation, model or fault state is consulted. */
+ for (unsigned int i=0;i<target_update_count;i++)
+  if (state->time.time_ms==target_updates[i].time_ms)
+   control_commit_target(state,target_updates[i].target);
+ __real_cross_layer_fault_step(state);
+}
+/* Optional benign measurement workload. Defaults to exactly zero; not evidence.
+ * Identical timestamp-keyed perturbations reach live and reference observations.
+ * Intended for fault-free noise experiments, not transport fault composition. */
+static double sensor_jitter, sensor_drift;
+static unsigned int sensor_variation_period=6000;
+void __real_sensors_step(ecu_state_t *state);
+static float sensor_variation(unsigned int ms)
+{
+ double p=(double)(ms%sensor_variation_period)/sensor_variation_period;
+ double triangle=p<.25 ? 4*p : p<.75 ? 2-4*p : 4*p-4;
+ return (float)(sensor_drift*triangle+sensor_jitter*((ms/100)%2 ? 1 : -1));
+}
+void __wrap_sensors_step(ecu_state_t *state)
+{
+ __real_sensors_step(state);
+ if(sensor_jitter==0 && sensor_drift==0)return;
+ state->sensors.coolant_source_c+=sensor_variation(state->sensors.coolant_source_ms);
+ state->sensors.coolant_temp_meas_c+=sensor_variation(state->sensors.coolant_sensor_last_update_ms);
+}
 static const char *metrics_path;
 static int weighted_choice;
 static const double ws_thresholds[6]={.04,.06,.08,.10,.14,.18};
@@ -63,10 +99,11 @@ static void log_header(FILE *f)
     for(int i=0;i<6;i++)fprintf(f,",%s_evidence,%s_detection_reliability,%s_origin_reliability",clo_channel_names[i],clo_channel_names[i],clo_channel_names[i]);
     for(int i=0;i<7;i++)fprintf(f,",detection_K_%d,localization_K_%d",i,i);
     for(unsigned int i=1;i<32;i++)fprintf(f,",origin_mass_%u",i);
-    fprintf(f,",detection_mass_normal,detection_mass_abnormal,detection_mass_ignorance\n");
+    fprintf(f,",detection_mass_normal,detection_mass_abnormal,detection_mass_ignorance,target_register_c,target_shadow_c,target_shadow_valid,control_target_c,control_execution_ms,source_c,source_previous_c,source_ms,source_previous_ms,source_valid,source_previous_valid,direct_origin_onset_ms,direct_origin_sources,sensor_established_first,ambiguous_onset,actuator_unresolved,delivered_sample_ms,delivered_sample_age_ms\n");
 }
-static void log_row(FILE *f,unsigned int now,const clo_final_t *s)
+static void log_row(FILE *f,unsigned int now,const clo_revised_t *provenance,const runtime_observation_t *o)
 {
+    const clo_final_t *s=&provenance->fusion;
     const c2_output_t *v=&s->output;
     fprintf(f,"%u,%s,%.17g,%.17g,%.17g,%.17g,%.17g,%s,%.17g,%.17g,%.17g,%.17g,%.17g,%.17g,%d,%u,%d,%d,%d,%d,%d,%d",now,
         clo_state_name(v->state),v->anomaly_belief,v->anomaly_plausibility,v->anomaly_decision_score,v->anomaly_ignorance,v->detection_conflict,
@@ -75,7 +112,7 @@ static void log_row(FILE *f,unsigned int now,const clo_final_t *s)
     for(int i=0;i<6;i++)fprintf(f,",%.17g,%.17g,%.17g",s->evidence.strength[i],s->evidence.available[i]?config.r_detection:0,s->evidence.available[i]?1.:0.);
     for(int i=0;i<7;i++)fprintf(f,",%.17g,%.17g",v->detection_conflict_steps[i],v->localization_conflict_steps[i]);
     for(unsigned int i=1;i<32;i++)fprintf(f,",%.17g",s->origin_mass.mass[c2_encode_origin_subset(i)]);
-    fprintf(f,",%.17g,%.17g,%.17g\n",s->detection_mass.mass[C2_D_NORMAL],s->detection_mass.mass[C2_D_ABNORMAL],s->detection_mass.mass[DS_THETA]);
+    fprintf(f,",%.17g,%.17g,%.17g,%u,%u,%d,%.9g,%d,%.9g,%.9g,%u,%u,%d,%d,%u,%u,%d,%d,%u,%u,%u\n",s->detection_mass.mass[C2_D_NORMAL],s->detection_mass.mass[C2_D_ABNORMAL],s->detection_mass.mass[DS_THETA],o->target_register_c,o->target_shadow_c,o->target_shadow_valid,o->control_target_c,o->control_execution_ms,o->source_c,o->source_previous_c,o->source_ms,o->source_previous_ms,o->source_valid,o->source_previous_valid,provenance->direct_onset_ms,provenance->direct_origins,provenance->sensor_established_first,provenance->ambiguous_onset,provenance->actuator_unresolved,o->sample_timestamp_ms,o->sample_age_ms);
 }
 static void old_score(int index,unsigned int now,const clo_dsf_t *s)
 {
@@ -100,11 +137,12 @@ void __wrap_detection_algorithm_step(struct ecu_state *state)
  runtime_observation_t o;runtime_observation_capture(state,&o);
  if(observations)final_observation_write(observations,&o);
  clo_revised_step(&detector,&config,&o);
- clo_final_diagnostic(&detector.evidence,o.time_ms,3000);
- final_score(0,o.time_ms,&detector.output);
- if(trace)log_row(trace,o.time_ms,&detector);
+ clo_final_diagnostic(&detector.fusion.evidence,o.time_ms,3000);
+ final_score(0,o.time_ms,&detector.fusion.output);
+ if(trace)log_row(trace,o.time_ms,&detector,&o);
  if(comparison) {
-  c2_step(&candidate2,&c2_config,C2_FULL,&o);final_score(1,o.time_ms,&candidate2.output);
+  if(clo_prechange_step){clo_prechange_step(&prechange,&config,&o);final_score(1,o.time_ms,&prechange.fusion.output);}
+  else {c2_step(&candidate2,&c2_config,C2_FULL,&o);final_score(1,o.time_ms,&candidate2.output);}
   clo_final_step(&previous,&config,&o);final_score(2,o.time_ms,&previous.output);
   clo_dsf_step(&plain,&plain_config,CLO_PLAIN,&o);old_score(3,o.time_ms,&plain);
   /* Baselines keep the ORIGINAL extractor, never revised evidence. */
@@ -113,7 +151,7 @@ void __wrap_detection_algorithm_step(struct ecu_state *state)
   ecu_state_t shadow=*state;shadow.detection=hybrid;__real_detection_algorithm_step(&shadow);hybrid=shadow.detection;
   simple_score(6,o.time_ms,hybrid.alarm_active);simple_score(7,o.time_ms,state->timing_monitor.alarm);
  }
- if(primary){state->detection.current_score=(float)detector.output.anomaly_decision_score;state->detection.alarm_active=detector.output.alarm;state->detection.detected=detector.output.alarm_timestamp_ms>=0;state->detection.first_detection_time_ms=detector.output.alarm_timestamp_ms;snprintf(state->detection.runtime_label,sizeof(state->detection.runtime_label),"clo_dsf_revised");}
+ if(primary){state->detection.current_score=(float)detector.fusion.output.anomaly_decision_score;state->detection.alarm_active=detector.fusion.output.alarm;state->detection.detected=detector.fusion.output.alarm_timestamp_ms>=0;state->detection.first_detection_time_ms=detector.fusion.output.alarm_timestamp_ms;snprintf(state->detection.runtime_label,sizeof(state->detection.runtime_label),"clo_dsf_revised");}
  else __real_detection_algorithm_step(state);
 }
 static int number(const char *value,unsigned int *out)
@@ -185,7 +223,18 @@ int main(int argc,char **argv)
   if(!strcmp(argv[i],"--revised-comparison")){comparison=true;enabled=true;continue;}
   if(!strncmp(argv[i],"--revised-",10)) {
    const char *key=argv[i];if(++i>=argc){fprintf(stderr,"Missing %s value\n",key);return 1;}
-   if(!strcmp(key,"--revised-evidence"))trace_path=argv[i];
+   if(!strcmp(key,"--revised-target-update")) {
+    unsigned int t,v;char extra;
+    if(target_update_count>=16 || sscanf(argv[i],"%u:%u%c",&t,&v,&extra)!=2 || v>UINT16_MAX || t%100 ||
+       (target_update_count && t<=target_updates[target_update_count-1].time_ms))return 1;
+    target_updates[target_update_count].time_ms=t;target_updates[target_update_count++].target=(uint16_t)v;
+   }
+   else if(!strcmp(key,"--revised-sensor-variation")) {
+    char extra;
+    if(sscanf(argv[i],"%lf:%lf:%u%c",&sensor_jitter,&sensor_drift,&sensor_variation_period,&extra)!=3 ||
+       !isfinite(sensor_jitter)||!isfinite(sensor_drift)||sensor_jitter<0||sensor_drift<0||sensor_variation_period<100)return 1;
+   }
+   else if(!strcmp(key,"--revised-evidence"))trace_path=argv[i];
    else if(!strcmp(key,"--revised-observations"))observation_path=argv[i];
    else if(!strcmp(key,"--revised-config"))config_path=argv[i];
    else if(!strcmp(key,"--revised-c2-config"))c2_path=argv[i];
@@ -202,7 +251,8 @@ int main(int argc,char **argv)
  if(enabled && (!config_path || final_config_read(config_path,&config))){fprintf(stderr,"A complete valid --revised-config is required.\n");return 1;}
  if(comparison && (!c2_path||historical_config_read(c2_path,&c2_config)||!ws_set)){fprintf(stderr,"Comparison requires historical C2 config and frozen Weighted Sum choice.\n");return 1;}
  if(primary)for(int i=1;i+1<argc;i++)if(!strcmp(argv[i],"--detector-action")&&strcmp(argv[i+1],"observe_only")){fprintf(stderr,"Final research detector requires observe_only.\n");return 1;}
- clo_final_init(&detector);clo_final_init(&previous);c2_init(&candidate2);
+ if(clo_prechange_step)names[1]="Pre-change CLO-DSF";
+ clo_revised_init(&prechange);clo_revised_init(&detector);clo_final_init(&previous);c2_init(&candidate2);
  plain_config=c2_config.common;clo_dsf_init(&plain);
  detection_algorithm_init(&hybrid,DETECTION_ALGORITHM_HYBRID_ADAPTIVE_KALMAN,DETECTION_ACTION_OBSERVE_ONLY);
  for(int i=0;i<METHODS;i++)scores[i].first_alarm=scores[i].first_post_alarm=scores[i].first_localization=-1;

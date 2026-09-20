@@ -42,6 +42,8 @@ static void update_coolant_sensor_freshness(ecu_state_t *state, bool refreshed)
 
 void sensors_init(ecu_state_t *state)
 {
+    state->sensors.coolant_source_valid = false;
+    state->sensors.coolant_source_previous_valid = false;
     state->sensors.coolant_temp_meas_c = state->plant.coolant_temp_true_c;
     state->sensors.radiator_temp_meas_c = state->plant.radiator_temp_true_c;
     state->sensors.ambient_temp_meas_c = state->plant.ambient_temp_c;
@@ -73,6 +75,15 @@ void sensors_step(ecu_state_t *state)
             state->faults.sensor_intermittent_amplitude_c
         );
     }
+
+    /* Trusted acquisition tap: contains front-end errors, never pristine truth.
+     * These unconditional writes precede stale/replay/communication processing. */
+    state->sensors.coolant_source_previous_c = state->sensors.coolant_source_c;
+    state->sensors.coolant_source_previous_ms = state->sensors.coolant_source_ms;
+    state->sensors.coolant_source_previous_valid = state->sensors.coolant_source_valid;
+    state->sensors.coolant_source_c = coolant_meas;
+    state->sensors.coolant_source_ms = state->time.time_ms;
+    state->sensors.coolant_source_valid = true;
 
     /* Timing/communication abstraction: a sampled-data transfer path refreshes
      * too slowly, so the ECU reuses an older coolant sample for multiple

@@ -1,0 +1,21 @@
+partition,method,origin,MEMORY,TIMING,COMMUNICATION,SENSOR_CONTROL,ACTUATOR,UNKNOWN,unit
+development-train,Revised CLO-DSF,MEMORY,36474,0,0,0,0,38,alarm samples
+development-train,Revised CLO-DSF,TIMING,0,8728,0,0,0,0,alarm samples
+development-train,Revised CLO-DSF,COMMUNICATION,0,0,36784,0,0,2,alarm samples
+development-train,Revised CLO-DSF,SENSOR_CONTROL,0,0,0,9188,0,0,alarm samples
+development-train,Revised CLO-DSF,ACTUATOR,0,0,0,0,8675,1503,alarm samples
+development-train,Pre-change CLO-DSF,MEMORY,36474,0,0,0,0,38,alarm samples
+development-train,Pre-change CLO-DSF,TIMING,0,8728,0,0,0,0,alarm samples
+development-train,Pre-change CLO-DSF,COMMUNICATION,0,0,36784,0,0,2,alarm samples
+development-train,Pre-change CLO-DSF,SENSOR_CONTROL,0,0,0,9188,0,0,alarm samples
+development-train,Pre-change CLO-DSF,ACTUATOR,0,0,0,0,8675,1503,alarm samples
+development-validation,Revised CLO-DSF,MEMORY,18237,0,0,0,0,16,alarm samples
+development-validation,Revised CLO-DSF,TIMING,0,4364,0,0,0,0,alarm samples
+development-validation,Revised CLO-DSF,COMMUNICATION,0,0,18392,0,0,0,alarm samples
+development-validation,Revised CLO-DSF,SENSOR_CONTROL,0,0,0,4613,0,0,alarm samples
+development-validation,Revised CLO-DSF,ACTUATOR,0,0,0,0,4566,730,alarm samples
+development-validation,Pre-change CLO-DSF,MEMORY,18237,0,0,0,0,16,alarm samples
+development-validation,Pre-change CLO-DSF,TIMING,0,4364,0,0,0,0,alarm samples
+development-validation,Pre-change CLO-DSF,COMMUNICATION,0,0,18392,0,0,0,alarm samples
+development-validation,Pre-change CLO-DSF,SENSOR_CONTROL,0,0,0,4613,0,0,alarm samples
+development-validation,Pre-change CLO-DSF,ACTUATOR,0,0,0,0,4566,730,alarm samples

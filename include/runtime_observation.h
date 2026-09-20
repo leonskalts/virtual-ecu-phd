@@ -20,6 +20,12 @@ typedef struct {
     bool sample_freshness_ok;
     unsigned int sample_expected_period_ms;
     runtime_timing_observation_t timing;
+    /* Trusted runtime integrity/acquisition boundary, no injection labels. */
+    unsigned int target_register_c, target_shadow_c;
+    bool target_shadow_valid;
+    float source_c, source_previous_c;
+    unsigned int source_ms, source_previous_ms;
+    bool source_valid, source_previous_valid;
 } runtime_observation_t;
 
 struct ecu_state;

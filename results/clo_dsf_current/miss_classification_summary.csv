@@ -1,0 +1,19 @@
+partition,method,group,A,B,C,cases
+development-train,Revised CLO-DSF,COMMUNICATION,0,0,0,0
+development-train,Revised CLO-DSF,SENSOR_CONTROL,18,0,0,18
+development-train,Revised CLO-DSF,silent_plant,18,0,0,18
+development-train,Pre-change CLO-DSF,COMMUNICATION,0,0,0,0
+development-train,Pre-change CLO-DSF,SENSOR_CONTROL,18,0,0,18
+development-train,Pre-change CLO-DSF,silent_plant,18,0,0,18
+development-train,Weighted Sum,COMMUNICATION,24,0,0,24
+development-train,Weighted Sum,SENSOR_CONTROL,6,0,0,6
+development-train,Weighted Sum,silent_plant,19,0,0,19
+development-validation,Revised CLO-DSF,COMMUNICATION,0,0,0,0
+development-validation,Revised CLO-DSF,SENSOR_CONTROL,8,0,0,8
+development-validation,Revised CLO-DSF,silent_plant,8,0,0,8
+development-validation,Pre-change CLO-DSF,COMMUNICATION,0,0,0,0
+development-validation,Pre-change CLO-DSF,SENSOR_CONTROL,8,0,0,8
+development-validation,Pre-change CLO-DSF,silent_plant,8,0,0,8
+development-validation,Weighted Sum,COMMUNICATION,12,0,0,12
+development-validation,Weighted Sum,SENSOR_CONTROL,3,0,0,3
+development-validation,Weighted Sum,silent_plant,9,0,0,9

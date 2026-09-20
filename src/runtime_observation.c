@@ -18,6 +18,15 @@ void runtime_observation_capture(const ecu_state_t *s, runtime_observation_t *o)
         .vehicle_speed_kph = s->sensors.vehicle_speed_meas_kph,
         .sample_freshness_ok = s->sensors.coolant_sensor_freshness_ok,
         .sample_expected_period_ms = s->sensors.coolant_sensor_expected_period_ms,
+        .target_register_c = s->control.target_register_c,
+        .target_shadow_c = s->control.target_shadow_c,
+        .target_shadow_valid = s->control.target_shadow_valid,
+        .source_c = s->sensors.coolant_source_c,
+        .source_previous_c = s->sensors.coolant_source_previous_c,
+        .source_ms = s->sensors.coolant_source_ms,
+        .source_previous_ms = s->sensors.coolant_source_previous_ms,
+        .source_valid = s->sensors.coolant_source_valid,
+        .source_previous_valid = s->sensors.coolant_source_previous_valid,
         .timing = s->timing_recorder.observation
     };
 }

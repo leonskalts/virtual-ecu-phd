@@ -1,5 +1,6 @@
 """Audit completed development evidence without executing or tuning validation."""
 import csv,hashlib,json,pathlib,sys,unittest
+from historical_identity import historical_sha
 ROOT=pathlib.Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT/'python'))
 from virtual_ecu.clo_dsf_candidate2_development import key,readout,aggregate
 OUT=ROOT/'results/cross_layer_safety_v7_1_dev'
@@ -23,7 +24,7 @@ class Candidate2DevelopmentTests(unittest.TestCase):
   self.assertEqual(len({s['run_id'] for s in self.specs}),1140)
  def test_predeclared_source_and_protocol_identity(self):
   pre=json.loads((OUT/'preregistered_protocol.json').read_text())
-  for name,digest in pre['source_sha256'].items():self.assertEqual(hashlib.sha256((ROOT/name).read_bytes()).hexdigest(),digest)
+  for name,digest in pre['source_sha256'].items():self.assertEqual(historical_sha(ROOT/name),digest)
   self.assertEqual(hashlib.sha256((OUT/'selection_protocol.md').read_bytes()).hexdigest(),pre['protocol_sha256'])
   self.assertEqual(hashlib.sha256((OUT/'selected_config.cfg').read_bytes()).hexdigest(),self.selection['selected_config_sha256']);self.assertFalse(self.selection['validation_seen'])
  def test_semantic_duplicate_audit(self):

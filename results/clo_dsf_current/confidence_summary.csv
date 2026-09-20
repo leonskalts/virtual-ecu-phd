@@ -1,0 +1,9 @@
+partition,endpoint,numerator,denominator,wilson95_low,wilson95_high
+development-train,detection,372,420,0.8517280192864081,0.912708760686709
+development-train,plant_detection,310,328,0.9149298228158445,0.9650084496282207
+development-train,benign_alarms,0,72,0,0.05065117259645781
+development-train,first_localized_accuracy,372,372,0.9897790445132164,1
+development-validation,detection,187,210,0.8410210175570534,0.9259022951833158
+development-validation,plant_detection,161,169,0.9093831862366594,0.9758210989153325
+development-validation,benign_alarms,0,36,0,0.09641862859446367
+development-validation,first_localized_accuracy,187,187,0.9798709418570136,1

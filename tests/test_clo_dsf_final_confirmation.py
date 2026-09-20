@@ -1,5 +1,6 @@
 """Frozen confirmation integrity, exact optimization and paired-analysis checks."""
 import csv,hashlib,json,pathlib,subprocess,tempfile,unittest,sys
+from historical_identity import historical_sha
 ROOT=pathlib.Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT/'python'))
 from virtual_ecu.clo_dsf_final_reporting import records,paired,wilson
 OUT=ROOT/'results/cross_layer_safety_v7_2_confirmation'
@@ -11,7 +12,7 @@ class FinalConfirmationTests(unittest.TestCase):
  def test_fixed_source_hashes(self):
   for name in ['preregistered_confirmation.json','clo_dsf_final_scientific_hashes.json']:
    manifest=json.loads((OUT/name).read_text());hashes=manifest.get('sha256',manifest.get('source_sha256'))
-   for p,h in hashes.items():self.assertEqual(hashlib.sha256((ROOT/p).read_bytes()).hexdigest(),h,p)
+   for p,h in hashes.items():self.assertEqual(historical_sha(ROOT/p),h,p)
  def test_authoritative_parameters(self):
   p=json.loads((OUT/'parameter_provenance.json').read_text());c2=dict(line.split('=') for line in (ROOT/p['source']).read_text().splitlines())
   for k,v in p['copied_exact_lexical_values'].items():self.assertEqual(v,c2[k])

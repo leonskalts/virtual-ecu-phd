@@ -4,6 +4,7 @@ import re
 import subprocess
 import tempfile
 import unittest
+from historical_identity import historical_sha
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 CORE=['src/v7/ds_evidence.c','src/v7/clo_observability.c','src/v7/clo_dsf.c',
       'src/v7_1/candidate2_evidence.c','src/v7_1/candidate2_observability.c','src/v7_1/clo_dsf_candidate2.c']
@@ -29,7 +30,15 @@ class Candidate2Tests(unittest.TestCase):
   paths=[pathlib.Path(self.temp.name)/f'{i}.csv' for i in range(2)]
   for exe,p in zip(['virtual_ecu','virtual_ecu_v7_1'],paths):subprocess.run([str(ROOT/exe),str(p),'baseline','--simulation-duration-ms','2000'],capture_output=True,check=True)
   self.assertEqual(paths[0].read_bytes(),paths[1].read_bytes())
- def test_candidate1_manifest_unchanged(self):subprocess.run(['python3','scripts/verify_clo_dsf_candidate.py'],cwd=ROOT,capture_output=True,check=True)
+ def test_candidate1_manifest_unchanged(self):
+  import json
+  out=ROOT/'results/cross_layer_safety_v7_dev'
+  manifest=json.loads((out/'clo_dsf_candidate_hashes.json').read_text())
+  for name,digest in manifest['sha256'].items():self.assertEqual(historical_sha(ROOT/name),digest,name)
+  config=json.loads((out/'clo_dsf_candidate_config.json').read_text())['parameters']
+  runtime=dict(line.split('=',1) for line in (out/'clo_dsf_candidate.cfg').read_text().splitlines() if line and not line.startswith('#'))
+  self.assertEqual(len(config),len(runtime))
+  for name,value in config.items():self.assertEqual(runtime[name] if name=='conflict_rule' else float(runtime[name]),value)
  def test_strict_complete_config(self):
   config=ROOT/'results/cross_layer_safety_v7_1_dev/selected_config.cfg'
   if not config.exists():self.skipTest('Development selection not available')

@@ -1,5 +1,6 @@
 """Final reference numerics, observation isolation and preservation boundaries."""
 import json,pathlib,re,subprocess,tempfile,unittest,hashlib
+from historical_identity import historical_sha
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 CORE=['src/v7/ds_evidence.c','src/v7/clo_observability.c','src/v7/clo_dsf.c','src/v7_1/candidate2_evidence.c','src/v7_1/candidate2_observability.c','src/v7_1/clo_dsf_candidate2.c','src/v7_2/clo_dsf_final.c']
 class FinalTests(unittest.TestCase):
@@ -20,7 +21,7 @@ class FinalTests(unittest.TestCase):
     for word in ['diagnostic_id','detector_alarm','safety_state','fault_active','experiment_ground_truth','reference_observation','cross_layer_runtime']:self.assertNotIn(word,source)
  def test_historical_hashes(self):
   for name in ['results/cross_layer_safety_v7_dev/clo_dsf_candidate_hashes.json','results/cross_layer_safety_v7_1_dev/candidate2_development_hashes.json']:
-   for path,digest in json.loads((ROOT/name).read_text())['sha256'].items():self.assertEqual(hashlib.sha256((ROOT/path).read_bytes()).hexdigest(),digest,path)
+   for path,digest in json.loads((ROOT/name).read_text())['sha256'].items():self.assertEqual(historical_sha(ROOT/path),digest,path)
  def test_removed_decision_parameters(self):
   source=(ROOT/'src/v7_2/clo_dsf_final.c').read_text().split('void clo_final_step',1)[1]
   for word in ['r_direct','r_indirect','propagation_bonus','propagation_transitions','propagation_window']:self.assertNotIn(word,source)

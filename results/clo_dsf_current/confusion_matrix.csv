@@ -1,0 +1,21 @@
+partition,method,origin,MEMORY,TIMING,COMMUNICATION,SENSOR_CONTROL,ACTUATOR,UNKNOWN,misses
+development-train,Revised CLO-DSF,MEMORY,114,0,0,0,0,0,30
+development-train,Revised CLO-DSF,TIMING,0,24,0,0,0,0,0
+development-train,Revised CLO-DSF,COMMUNICATION,0,0,108,0,0,0,0
+development-train,Revised CLO-DSF,SENSOR_CONTROL,0,0,0,78,0,0,18
+development-train,Revised CLO-DSF,ACTUATOR,0,0,0,0,48,0,0
+development-train,Pre-change CLO-DSF,MEMORY,114,0,0,0,0,0,30
+development-train,Pre-change CLO-DSF,TIMING,0,24,0,0,0,0,0
+development-train,Pre-change CLO-DSF,COMMUNICATION,0,0,108,0,0,0,0
+development-train,Pre-change CLO-DSF,SENSOR_CONTROL,0,0,0,78,0,0,18
+development-train,Pre-change CLO-DSF,ACTUATOR,0,0,0,0,48,0,0
+development-validation,Revised CLO-DSF,MEMORY,57,0,0,0,0,0,15
+development-validation,Revised CLO-DSF,TIMING,0,12,0,0,0,0,0
+development-validation,Revised CLO-DSF,COMMUNICATION,0,0,54,0,0,0,0
+development-validation,Revised CLO-DSF,SENSOR_CONTROL,0,0,0,40,0,0,8
+development-validation,Revised CLO-DSF,ACTUATOR,0,0,0,0,24,0,0
+development-validation,Pre-change CLO-DSF,MEMORY,57,0,0,0,0,0,15
+development-validation,Pre-change CLO-DSF,TIMING,0,12,0,0,0,0,0
+development-validation,Pre-change CLO-DSF,COMMUNICATION,0,0,54,0,0,0,0
+development-validation,Pre-change CLO-DSF,SENSOR_CONTROL,0,0,0,40,0,0,8
+development-validation,Pre-change CLO-DSF,ACTUATOR,0,0,0,0,24,0,0

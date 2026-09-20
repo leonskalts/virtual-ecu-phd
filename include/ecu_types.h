@@ -154,6 +154,10 @@ typedef struct {
 } plant_state_t;
 
 typedef struct {
+    /* Acquisition-side samples, after front-end effects and before delivery. */
+    float coolant_source_c, coolant_source_previous_c;
+    unsigned int coolant_source_ms, coolant_source_previous_ms;
+    bool coolant_source_valid, coolant_source_previous_valid;
     float coolant_temp_meas_c;
     float radiator_temp_meas_c;
     float ambient_temp_meas_c;
@@ -169,6 +173,9 @@ typedef struct {
     float nominal_control_target_c;
     /* Mutable whole-degree calibration register; normal value is exactly 92. */
     uint16_t target_register_c;
+    /* Separately protected committed calibration; never written by the injector. */
+    uint16_t target_shadow_c;
+    bool target_shadow_valid;
     int last_execution_ms;
     float active_control_target_c;
     float control_target_deviation_c;
