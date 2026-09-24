@@ -1,97 +1,134 @@
-# Final unseen CURRENT CLO-DSF validation
+# New final unseen validation — CURRENT at d040c341
 
-Tested commit: `145794476b51e8d75fbe3043fa0672e136aaa1e9`.
-One execution of 1,500 new cases: 1,200 faults (240/origin), 300 benign.
-Zero exact configuration overlap. Protocol, manifest, scientific hashes and tracked
-campaign overlap audit were recorded before execution. A supplemental inventory
-of ignored older result files was checked after registration: also zero overlap.
-No outcome-driven changes, detector edits, calibration, commit or push.
+One preregistered campaign completed: **1500 cases, 1200 faults and300 benign**;
+240 faults per origin. CURRENT and all baselines remained unchanged. No selection,
+recalibration, excluded failures or reruns. The rejected thermal contract was inactive.
+Previous final-unseen data at this commit were treated as seen and incorporated into
+the overlap audit before replacement. The old evidence remains recoverable from Git.
 
 ## Detection
 
-CLO-DSF: **1,047/1,200 (87.25%)**, Wilson95 **85.24–89.02%**.
-Macro detection: **87.25%**. Precision **100%**, recall **87.25%**.
-Benign alarms **0/300** (Wilson95 upper bound about1.26%). No pre-onset alarm runs.
+| Origin | Detected | Wilson95% CI | Silent plant misses |
+|---|---:|---:|---:|
+| MEMORY |184/240 (76.67%)|70.92–81.57%|0|
+| TIMING |240/240 (100%)|98.42–100%|0|
+| COMMUNICATION |240/240 (100%)|98.42–100%|0|
+| SENSOR_CONTROL |80/240 (33.33%)|27.67–39.52%|158|
+| ACTUATOR |240/240 (100%)|98.42–100%|0|
+| Overall |984/1200 (82.00%)|79.73–84.07%|158|
 
-| Origin | Detection | Interpretation |
-|---|---:|---|
-| Memory |177/240|177/177 effective; 0/63 dormant alarms|
-| Timing |240/240|Deadline and task-delay cases|
-| Communication |240/240|81 delays, 81 drops, 78 replays|
-| Sensor/control |150/240|90 remaining sensitivity misses|
-| Actuator |240/240|180 pump degradation and 60 fan-off cases|
+Macro detection82.00%. Effective memory184/184; dormant/no-effect stuck-bit alarms
+0/56. The56 dormant cases had no control, actuator or plant effect; their inclusion
+in overall recall is intentional. Every effective memory case alarmed at the first
+register/shadow inconsistency (integrity-relative latency0ms). Scheduled-onset memory
+P95 is7.455s because a stuck bit can remain dormant until a later legitimate update.
+No alarm was forced merely because an injected stuck condition existed.
 
-Effective memory includes **117/117 effective stuck bits and60/60 flips**.
-All detect at the first register-shadow mismatch. Dormant conditions produce no
-invented alarm. Weighted Sum alarms in18/63 dormant cases; these are not evidence
-that it observes an actual memory inconsistency. Its fixed target assumption also
-alarms on all150 benign legal-update cases (0/150 static-target benign alarms).
+Slow drift **0/120**, positive0/60 and negative0/60; each of the7/19/47s rise-time
+strata0/40. Weak steps25/60; pulses55/60. All120 slow drifts propagated silently,
+plus35 weak steps and3 pulses. All240 communication cases detected, including short
+windows and all delay/drop/replay types. Pump180/180 and fan60/60 detected.
 
-Weak isolated sensor biases: **40/80**; including intermittent bias: **60/120**.
-All +/-1.05 C biases miss; all +/-1.30 C biases detect. Sensor pulses: **90/120**;
-all30 amplitude .35 C pulses miss, whereas .65/2.3/6.7 C cases detect. These are
-post-hoc subgroup descriptions, not new thresholds. Known weak-bias limitations
-remain, with no attempted fix. Overall sensor/control improvement does **not**
-generalize as a broad detection advantage: Weighted Sum detects209/240 versus150/240,
-although its alarms are confounded by authorized calibration changes. CURRENT-only
-sensor detections number11; this does not overcome70 Weighted-Sum-only cases.
+Plant-propagating detection815/973 (83.76%, CI81.31–85.95%);158 silent misses.
+Benign alarms0/300 (upper Wilson95 bound1.26%), including all150 legal-calibration
+cases and all150 static-target cases. No pre-onset fault-run alarms. Precision100%
+(CI99.61–100%); recall82%. Precision reflects the prescribed case mixture, not field
+prevalence. Median/P95 latency0/485ms among984 detections;100ms tick sampling and
+linear quantiles explain the interpolated485ms. Misses have no latency, rather than
+zero. The lower aggregate P95 versus earlier development is a cohort effect, not a
+new algorithm improvement. Maximum18.1s; subgroup latencies are retained separately.
 
-Plant-propagating detection **874/964 (90.66%)**; silent plant misses **90**, all
-sensor/control (60 biases,30 pulses). Of detected plant cases, **841 pre /31 same /
-2 post** manifestation. Weighted Sum has **83** silent plant misses: seven fewer.
-The153 total CURRENT misses comprise63 dormant memory cases and90 sensor cases.
-
-Median/P95 activation-relative latency **0/300ms** versus Weighted Sum
-**0/11,275ms**. This is a cohort-dependent percentile, not a detector modification.
-Memory P95 remains10,820ms, with every effective mismatch detected in0ms from
-observability; long waits are for legal updates to expose initially dormant bits.
-Exact tail cases are retained. Among938 jointly detected faults, CURRENT is faster
-in211, equal in710, slower in17.
+Among815 detected plant-propagating runs:757 pre-plant,20 same-tick,38 post-plant;
+169 other detections had no plant manifestation.757 were correctly localized before
+plant manifestation. Ground truth and reference comparisons were used only offline.
 
 ## Localization
 
-First-detection coverage **1,047/1,047 (100%)** and accuracy **1,047/1,047 (100%)**;
-first UNKNOWN0. Runtime coverage **369,298/372,740 (99.08%)**; accuracy among localized
-samples **369,298/369,298 (100%)**. UNKNOWN **3,442/372,740 (0.923%)**; wrong-origin
-runs/samples **0/0**. Correct over all alarm samples, including UNKNOWN, is99.08%.
-Every origin has100% accuracy among localized samples. UNKNOWN samples: memory65,
-timing0, communication3, sensor0, actuator3374. Localization precedes plant
-manifestation in841 detected cases. Causal precedence generalized without confident
-origin drift; abstention remains visible. Confusion/coverage summaries include
-UNKNOWN and use explicit run versus sample denominators.
+All984 first detections localized correctly: first coverage100%, accuracy100%,
+UNKNOWN0. Across314512 alarm samples,311595 were localized and all311595 correct;
+coverage99.073%, localized accuracy100%, UNKNOWN2917/314512 (0.927%). Correct fraction
+of all alarm samples is99.073%, not100%. Wrong-origin runs/samples **0/0**.
 
-## Baselines and paired interpretation
+Runtime UNKNOWN by true origin: memory50, timing0, communication11, sensor/control0,
+actuator2856. All origins have100% accuracy among their localized samples. Actuator
+runtime coverage97.227%; later downstream sensor evidence did not produce wrong
+confident sensor/control origins. These results support causal-precedence behavior
+on this cohort, not universal correctness. Missed faults are not counted as successful
+localizations. Confusion and per-origin counts are in their summary CSVs.
 
-| Method | Detection /1200 | Silent plant | Benign alarms /300 |
-|---|---:|---:|---:|
-| CURRENT CLO-DSF |1047|90|0|
-| Fair Weighted Sum |1026|83|150|
-| Simple OR |957|152|150|
-| Plain DS |910|199|150|
-| Hybrid |913|142|200|
+## Frozen comparators and paired analysis
 
-Timing Monitor detects240/240 timing cases only; no all-origin claim is made.
-All baselines retain committed settings and original evidence extractors; the
-CURRENT detector has additional runtime observables. This comparison is not an
-ablation isolating fusion mathematics. Legal updates and benign sensor variation
-are deliberate stressors; historical baseline calibration was not changed.
+| Method | Detected | Silent plant | Benign alarms | Median/P95 ms |
+|---|---:|---:|---:|---:|
+| CURRENT CLO-DSF |984/1200|158|0/300|0/485|
+| Fair Weighted Sum |943/1200|157|150/300|100/6500|
+| Simple OR |903/1200|197|150/300|100/6600|
+| Plain DS |886/1200|214|150/300|100/6700|
+| Hybrid |849/1200|212|200/300|3700/7600|
+| Timing Monitor, timing only |240/240|0|not evaluated|50/100|
 
-Paired CURRENT versus Weighted Sum: **both938 / only CURRENT109 / only Weighted
-Sum88 / neither65**. Exact two-sided McNemar **p=0.153995**,197 discordances.
-No statistically supported overall binary detection superiority. Subgroup tests
-in the CSV are exploratory, unadjusted; do not infer population superiority from
-deterministic correlated cases. Wilson intervals likewise describe this case set.
-Run-level precision and alarm endpoints do not prove causal attribution of each
-baseline alarm. Runtime sample intervals are not independent-sample evidence.
+CLO versus Weighted Sum: **851 both,133 only CLO,92 only Weighted Sum,124 neither**.
+225 discordances; exact two-sided conditional McNemar **p=0.0075227959921351124**.
+CLO has a3.42percentage-point binary detection advantage in this designed cohort;
+the paired result supports that limited statement. It does not establish universal
+superiority or a plant-propagation advantage: CLO has158 silent plant misses versus
+157. Among973 plant-propagating cases,78 were missed by both,80 only by CLO and79
+only by Weighted Sum;736 were detected by both. The net binary advantage comes from
+communication(+62) and actuator(+47), offset by memory(-10) and sensor/control(-58).
 
-Communication and effective-memory capabilities generalized; causal localization
-generalized; broad sensor/control detection improvement did not. The strongest
-positive is full communication/effective-memory detection with zero benign alarms
-and zero wrong confident origins. The strongest limitation is90 silent sensor
-propagations, including the known isolated-bias sensitivity limit. Weighted Sum
-has fewer silent plant misses despite its much higher benign alarm rate.
+On851 jointly detected cases CLO is faster200, tied635, slower16; median paired
+latency difference0ms. Separate detector P95 values involve different detected
+cohorts and should not alone be interpreted as a paired speed improvement.
+Paired benign alarms: neither150, Weighted Sum only150, CLO only0, both0.
 
-Scientific hashes, GUI preservation and full regression are recorded in
-validation_record.md. Results are suitable for manuscript evidence with these
-limitations and without a detection-superiority claim. Eight compressed traces;
-no bulk raw run data retained.
+Weighted Sum's60/120 slow-drift alarms all occur in the60 legal-calibration workload
+cases; it alarms in0/60 static-target slow drifts, but also150/150 benign legal-update
+cases. This association confounds causal attribution: its higher slow-case binary
+coverage is not evidence that it reliably identifies slow drift. All configured
+baselines and thresholds were retained; this specificity weakness was not repaired.
+
+## Post-hoc identifiability and scope of generalization
+
+Slow-drift analysis began only after all runtime executions.70/120 cases had no
+positive sensor-channel evidence after onset;50 first acquired positive evidence
+after plant manifestation. Maximum sensor evidence per run ranged0..0.176956;
+none reached an alarm. The common-mode acquisition/consumption bias preserves their
+consistency, while gradually changing measurements can be absorbed by the short
+forecast's measured slope and uncertainty allowance. Existing runtime evidence and
+frozen logic therefore do not distinguish these slow cases adequately. This is a
+measured limitation of this implementation/domain, not proof that every possible
+observer must fail or that every gradual bias is physically unobservable.
+
+Memory shadow and communication behavior generalized fully to the effective/tested
+cases. Causal localization generalized with zero wrong origins. Sensor-response
+behavior generalized **partially** to steps/pulses (80/120), not to slow drift or all
+weak steps. No ablated implementation was run: this holdout does not independently
+estimate the incremental causal contribution of the300ms channel versus other
+sensor primitives. Do not describe broad sensor/control robustness as established.
+
+Strongest positive:184/184 effective memory and240/240 each timing, communication,
+actuator with zero benign alarms and zero wrong origins. Strongest limitation:
+all120 slow biases silently reach the plant, plus38 missed step/pulse effects.
+The frozen CURRENT implementation is ready for manuscript evidence with these
+limitations and the full denominators. No further tuning followed this holdout.
+
+## Integrity and evidence limits
+
+Baseline commit was verified before creation. Scientific hashes were recorded before
+design; exact commands, protocol and overlap audit preceded execution. Audit contains
+943 historical identity sources and8588 distinct physical profiles, including Git
+history, surviving overwritten local manifests, and the previous committed unseen
+manifest. All1500 new full physical profiles are distinct and disjoint from that set:
+**zero exact configuration overlap**. Built-in/no-custom-profile campaigns also cannot
+match these explicit new profiles. Novel profiles are not independent random draws;
+Wilson intervals and exact McNemar are descriptive under their usual independence
+assumptions. Runtime sample intervals are particularly correlated.
+
+All245 scientific files, GUI bytes, Hybrid/HETIA, CURRENT development results and
+historical evidence outside the authorized output directory remain unchanged. Full
+regression passed:308 tests, build, Python compile, diff check,48 legacy and64 RTL.
+The two rebuilt historical reference executables were restored to their verified
+initial bytes. CSV CRLF-to-LF publication normalization changed no parsed field;
+registered and publication manifest hashes are both documented in validation_record.
+Only compact summaries, commands, tables and eight preselected compressed traces
+remain. No bulk raw data, algorithm copies, commit or push.

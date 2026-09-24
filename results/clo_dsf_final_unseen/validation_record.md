@@ -1,8 +1,10 @@
 # Validation record
 
-Pre-outcome commit 145794476b51e8d75fbe3043fa0672e136aaa1e9
+Baseline d040c341f22be2dcd4483c65786c07c696020f9c
 
-Scientific and protocol SHA256 identities:
+Before outcomes:1500 configurations validated. Algorithm unchanged. Runner SHA256 9b2966f91ae5855075a3efcf2a51f2639f9146a4e6024f1ecd02a9b32381c917
+
+Scientific and protocol SHA256:
 ```json
 {
   "Makefile": "febd61e4dd3e665fe5b533453ce931a1971ced79c11b3e60f4b1fe2b6a762a56",
@@ -16,7 +18,7 @@ Scientific and protocol SHA256 identities:
   "include/clo_dsf.h": "fb8895897690205ade67bb72474fda72a8bb9397a13bcf054009b8004b2152d7",
   "include/clo_dsf_candidate2.h": "921e4caa96c824c72953261cd0bea5a29d0de357e69a9e972f372fe0f1a4bae3",
   "include/clo_dsf_final.h": "151475b2ccbd2b3dd50b06cd64bb6a5932b4b2a74834e59b78c0d4cae421f954",
-  "include/clo_dsf_revised.h": "087f7bccf2ba3b4e25072bc06079005ab0b09571435e65a4e0366b7f992ce0d4",
+  "include/clo_dsf_revised.h": "54583131ff8723d465585c78b712b29949a11fb2e5290993794c8c5f6140d3f5",
   "include/clo_final_observation_io.h": "af3df00c1262e63246e2b10ae5d180e5c9f9b7dcbe4caac241159a9cdca99142",
   "include/clo_final_sparse_math.h": "461cdd57bf792d53efe75dc29cef6d441f24bfb64392052c9421801bac286bc8",
   "include/config.h": "eb481dc6fe5bca46e1c4a4fef773be421933c33b43ca385c8c88f8e013e16aa7",
@@ -91,9 +93,10 @@ Scientific and protocol SHA256 identities:
   "python/virtual_ecu/validation_v5_recovery.py": "e582aa207306c6175ac8fecef0608fb8b83cd833ca80caab151c1387bcee6a6a",
   "python/virtual_ecu/validation_v5_report.py": "21548422d1a99a780bcec89fc462ba520fa789689406b12a6a3ce94dfbad2ea7",
   "python/virtual_ecu/validation_v5_runner.py": "b66e6c0d1cb69e46fab21d5a0ed1cc39b6552e0bb51dd26b6d3dbfb222530bed",
-  "results/clo_dsf_final_unseen/campaign_manifest.csv": "93a22e848226fae16db6969aaa15694bc1515a6b0fbb4c528c16d42f8a4aace7",
-  "results/clo_dsf_final_unseen/overlap_audit.csv": "e22979ef8ad522b5850619927d5f8f8f13004ca0e03bb7b1058788df92627054",
-  "results/clo_dsf_final_unseen/protocol.md": "488dbd56751ac459bd15f1f612dc15d77a3149cfaab06146659ab0151e8ac10c",
+  "results/clo_dsf_current/thermal_contract.cfg": "ff206728eb72b4d6394b9f42a8434cba8b51cc0694f6b5512be6eec167c8fdee",
+  "results/clo_dsf_final_unseen/campaign_manifest.csv": "55393c52de7df536f5706680974d122caae64e4a4f7710a074d2e585a16f9afd",
+  "results/clo_dsf_final_unseen/overlap_audit.csv": "cbabeb84b619f90c0d5d0ee986d69ce14f244e50ac1ae072e83c6d530cb83427",
+  "results/clo_dsf_final_unseen/protocol.md": "f45a7d39e39248d5a501fa54d449c63f121c2187912e5b9a12196875597457cf",
   "results/cross_layer_safety_v7_1_dev/initial_config.cfg": "a7d99f7626ffe98ed59d8022982429dd43f834f3d6233699382e8b3d937c78af",
   "results/cross_layer_safety_v7_1_dev/selected_config.cfg": "6888f8c237113a3eaa1bc1f98a01554f688b0f2d81775ff2105af49c21cdbb91",
   "results/cross_layer_safety_v7_2_confirmation/final_reference.cfg": "6f62e972a27c765cae6a24daf9b7b98fb1513cd46fc226a128d87a6431e73ac7",
@@ -133,6 +136,7 @@ Scientific and protocol SHA256 identities:
   "scripts/report_clo_dsf_revised_development.py": "c7d68b7c87b65906a85db22529cc6be0bd42d7db9e3ce944575909f528066804",
   "scripts/reproduce_clo_dsf_final_ablation.py": "3e5d90a9b9b7d07eceaf34ef157e33b93b789fa36f4e460c7e966ba9ffc84fbf",
   "scripts/run_batch_experiments.py": "594ab47e3fcecc08f028f9eca5a61761e99b2eea2c82130c60008dd4a813b1e6",
+  "scripts/run_clo_dsf_benign_contract.py": "c89104bce5b31ce797a8a4360f192e596fa0d3898b20199b464930934ca3b41b",
   "scripts/run_clo_dsf_candidate2_development.py": "34dc412b8737a9ea98884fbb5cd6d0adc08ac0442c863377e8d45cb338575cbd",
   "scripts/run_clo_dsf_current.py": "04c798d24111524e5af6621d152495c6672f7bc93b8f6d1eaf8d519262da05c6",
   "scripts/run_clo_dsf_development.py": "8e639b88afe40528e541ec2d180fd33c976cfdb1ec1f5cdb1e69f3256ea89092",
@@ -140,6 +144,8 @@ Scientific and protocol SHA256 identities:
   "scripts/run_clo_dsf_final_holdout.py": "2c32ce0ae453896500dc644b67a9af330b487e858e6b02cbf6c084527e8505a0",
   "scripts/run_clo_dsf_final_unseen.py": "f37714e6036694ad69696c1e2b5f35bbac4db96f295c718b92ee27c0cd417ba7",
   "scripts/run_clo_dsf_revised_development.py": "0f9fd35acd4d3f7de988615a305738515ddcde2a427cbbf08b1bccbc27ad17b8",
+  "scripts/run_clo_dsf_sensor_response.py": "3d2de307b3ba51731f39531a081b158acb675cc294f87ea661823df61845afb9",
+  "scripts/run_clo_dsf_slow_bias_development.py": "136a3b4e6890c6f4ba2aa5e39da437074edb66201370e7eb616dc4ff6aeb612c",
   "scripts/run_cross_layer_campaign.py": "818526ec336349a3cecf35c108b76e9e212689e8ac991b7ef6610f101980fceb",
   "scripts/run_cross_layer_reproducibility_package.py": "4922d9eeacf111b1597553b2ba8241bf08a98aff323bca5a731d9f26972169f6",
   "scripts/run_cross_layer_safety_study.py": "4fb39b88b3bb34894b7d8bf123945dbc159ee75b99ed7d57b9213e88173c096c",
@@ -210,15 +216,15 @@ Scientific and protocol SHA256 identities:
   "src/v7_2/final_observation_io.c": "19446a5c5726dd650da092c634e8c7ade7f4101401ad152e73fae41afb3d9145",
   "src/v7_2/final_runtime.c": "d7f7262861914c20e2527cf19883968c1ea8fd0ebe315c33f9e39b5b8df3c4fb",
   "src/v7_2/final_sparse_math.c": "25be89984a88c16b8ca98f96493212dcd802904ad5c521e82c486e8af1f1775b",
-  "src/v7_3/clo_dsf_revised.c": "cc5b709489580e4b77a023ccc1f908a711525b3b4bcb3d09e43717941cd4f6f7",
-  "src/v7_3/revised_runtime.c": "df14b1f2e0d188deb245b87fb89bee7ef8125ad8e2ee9113e0706ebb3251f23d",
+  "src/v7_3/clo_dsf_revised.c": "9c46e5f7d71ab7bbd09e0d5528aeada0bfa4bfb69d2e7452f528b585e9c75901",
+  "src/v7_3/revised_runtime.c": "8bb9e755499fad47e4aa5dc39d972efa5f3f1c6cfe4d7597938bb987e31b9e4e",
   "src/validation_v5_config.c": "67ddfb3421720339b33404e835790a93c877f22ce7d8debe619c63fcf829b4dc",
   "src/validation_v5_logger.c": "2d1c35b32c8420c1a097b657c4928d04436836bb6299bbc4b5b821ccc590efb2",
   "tests/candidate2_unit.c": "e1d93f54ef35e7372f56971d6771ac062028b1a47a9f7a839c0f83fabc8eafd1",
   "tests/clo_dsf_unit.c": "e827198e7b1c886f39c1bd4ac3e3d01e65fb39e577b0b3a6fb9f0663cf3893a3",
   "tests/clo_final_equivalence.c": "5343cb80a3b38da389107bbd8c179ceeb40297d5e2500058b08959f72a26d48d",
   "tests/clo_final_unit.c": "b6aa2961301410888e0adfc442387ba8cc381397c347c3805ebc2276c93b73ef",
-  "tests/clo_revised_unit.c": "aa3a592070799a9dc4902bde5be1b143d60f6c9b0bfcdf2889e09c60e9f3c82c",
+  "tests/clo_revised_unit.c": "fa6d7812dc71c52a32889743743a487b5b348f6b432786b1c55c352d102828b2",
   "tests/current_observation_unit.c": "87d7e14e384ae30fee099bcc3c63e44e9da3a5c50ba95542db04de93deae8780",
   "tests/final_configuration_check.c": "c3e8e1a9b27ada5a1a0df792b79f1e8b4b574aadbf6b00aa04b41d7d17752307",
   "tests/final_sparse_unit.c": "d2a3744edb50dd02fa2b1e14463afda3ce4473e831f1eb26b956506a68d69bdd",
@@ -239,7 +245,8 @@ Scientific and protocol SHA256 identities:
   "tests/test_clo_dsf_final.py": "b14e26416d3eb07d7bc51c15c47cfeff05a92e53a721c5da41aadf6f205d447d",
   "tests/test_clo_dsf_final_confirmation.py": "203409dae5bc12d3b80de187cc8617f0e780aa49fd244c3fec5d99c11d10be7f",
   "tests/test_clo_dsf_holdout.py": "f07045688399f1395aab3b4a7f9a3026c5a6f0b35d68afc90c3b12928674d491",
-  "tests/test_clo_dsf_revised.py": "af86c1a2d2370b8c05d38b2352d80b710d12ecc5fe2c03b51513ad1e7e9b6bae",
+  "tests/test_clo_dsf_revised.py": "3bc95f2f816f1d3ac077290817d995341bb76ff3ff4025962157bc943cc6c85e",
+  "tests/test_clo_dsf_sensor_response.py": "6d4856709c22d775eab0cf0291e1480ed3c5bca5fa939533f35c8cc395a4deda",
   "tests/test_cross_layer_safety.py": "0e9852fdbc958e7d43e89acfdc3f0a2de75f0087bc331d6f4458e5fcdb444182",
   "tests/test_cross_layer_v2.py": "5be048ebbf78f3bc38bd18ae98ed5ded59c2cac1596b8c6d03ef563953d37615",
   "tests/test_cross_layer_v3.py": "5f87e1e9bc386fcb19817bfc79a35f8882174d4f03626a2a67b0cd7a28869ce2",
@@ -251,31 +258,90 @@ Scientific and protocol SHA256 identities:
 }
 ```
 
-Built from committed sources; all configurations passed public validation before execution.
+1500/1500 cases completed once; registered scientific/protocol hashes unchanged after runtime. No outcomes used for tuning. Regression pending.
 
-1500/1500 executed once. All registered scientific and protocol hashes unchanged after runtime. No outcomes used for tuning.
+## CSV transport formatting correction
 
-Supplemental inventory check initiated during execution and completed after runtime: 15447 ignored/untracked historical CSVs inspected for additional explicit profiles; 61 audit rows; zero overlap. No campaign changes; pre-execution tracked scientific campaign audit remains frozen.
-
-## Final checks
-
-Scientific/protocol/manifest hashes unchanged after execution and after regression.
-All initially tracked files match their pre-execution hashes, including the
-pre-existing modified GUI state and all historical evidence. The two historical
-executables rebuilt by regression were restored to verified original Git bytes.
-Current binary is unchanged from HEAD and the tested committed implementation.
-Hybrid/HETIA sources unchanged; no detector/configuration edits.
-
-Regression: build PASS; Python compile PASS; git diff --check PASS; full tests
-300/300 PASS; legacy48/48 PASS; RTL64/64 PASS. Checks ran once after the campaign.
-Commands: make -B -f clo_dsf_revised.mk -j4; python3 -m compileall -q python scripts tests;
-git diff --check; python3 -m unittest discover -s tests; committed legacy_regression
-and rtl_regression functions in a temporary directory. No bulk regression outputs
-were retained. No commit/push. Final output summaries are post-hoc evaluation only.
-
-Final git status:
+Initial build and Python compile passed. Plain git diff --check flagged CRLF CSV terminators from the existing writer as trailing whitespace, before tests began. After verifying every frozen hash at runtime completion, generated result CSVs were converted CRLF to LF only; parsed rows/fields/commands were asserted identical. No scientific file or protocol text changed. Registered manifest/audit bytes are reconstructible by replacing LF with CRLF; original hashes remain above. Final publication hashes:
+```json
+{
+  "results/clo_dsf_final_unseen/overlap_audit.csv": {
+    "registered_or_generated_sha256": "cbabeb84b619f90c0d5d0ee986d69ce14f244e50ac1ae072e83c6d530cb83427",
+    "final_lf_sha256": "72b34b1ec0f52995e818530b9ac334dbfd0c641bde07fa5d5e3b7ba55159320c"
+  },
+  "results/clo_dsf_final_unseen/campaign_manifest.csv": {
+    "registered_or_generated_sha256": "55393c52de7df536f5706680974d122caae64e4a4f7710a074d2e585a16f9afd",
+    "final_lf_sha256": "be3bd25bf33bb33f1bc54544ea6f070418cb0d93873325c515346b8410468547"
+  }
+}
 ```
+
+## Final regression and preservation
+
+BuildPASS; Python compilePASS; final git diff --checkPASS; unittest308/308PASS; legacy48/48PASS; RTL64/64PASS. Full tests executed once; initial formatting-only diff failure resolved before tests. No holdout run repeated.
+
+All245 scientific hashes unchanged after execution and final regression. Registered protocol unchanged; manifest/audit original CRLF hashes verified by exact reconstruction from final LF bytes. Every initially tracked file outside results/clo_dsf_final_unseen/ matches its task-start SHA256, including user-modified GUI bytes, CURRENT evidence, Hybrid/HETIA and legacy evidence. Rebuilt virtual_ecu_v7_1 and virtual_ecu_v7_2_reference restored from HEAD only after checking HEAD bytes match their recorded task-start hashes. CURRENT executable also matches task-start bytes. No source/config/threshold/evidence/fault-semantics changes. No commit or push.
+
+Regression record:
+```json
+{
+  "build": {
+    "exit": 0
+  },
+  "python_compile": {
+    "exit": 0
+  },
+  "diff_check": {
+    "exit": 0
+  },
+  "diff_check_initial": {
+    "exit": 2,
+    "cause": "CRLF CSV terminators; LF-only correction, identical parsed content"
+  },
+  "full_tests": {
+    "exit": 0
+  },
+  "legacy_cases": 48,
+  "rtl_cases": 64
+}
+```
+
+Final git status (only authorized results plus pre-existing GUI modification):
+```text
  M presets/gui_session_state.json
-?? results/clo_dsf_final_unseen/
-?? scripts/run_clo_dsf_final_unseen.py
+ M results/clo_dsf_final_unseen/campaign_manifest.csv
+ M results/clo_dsf_final_unseen/case_summary.csv
+ M results/clo_dsf_final_unseen/confidence_summary.csv
+ M results/clo_dsf_final_unseen/confusion_summary.csv
+ M results/clo_dsf_final_unseen/detection_summary.csv
+ M results/clo_dsf_final_unseen/findings.md
+ M results/clo_dsf_final_unseen/latency_tail_summary.csv
+ M results/clo_dsf_final_unseen/localization_summary.csv
+ M results/clo_dsf_final_unseen/overlap_audit.csv
+ M results/clo_dsf_final_unseen/paired_comparison.csv
+ M results/clo_dsf_final_unseen/paper_tables/methods.csv
+ M results/clo_dsf_final_unseen/paper_tables/origins.csv
+ M results/clo_dsf_final_unseen/plant_paired_summary.csv
+ M results/clo_dsf_final_unseen/protocol.md
+ M results/clo_dsf_final_unseen/subgroup_summary.csv
+ D results/clo_dsf_final_unseen/supplemental_overlap_summary.csv
+ D results/clo_dsf_final_unseen/unseen_0000_trace.csv.gz
+ D results/clo_dsf_final_unseen/unseen_0024_trace.csv.gz
+ D results/clo_dsf_final_unseen/unseen_0048_trace.csv.gz
+ D results/clo_dsf_final_unseen/unseen_0072_trace.csv.gz
+ D results/clo_dsf_final_unseen/unseen_0074_trace.csv.gz
+ D results/clo_dsf_final_unseen/unseen_0096_trace.csv.gz
+ D results/clo_dsf_final_unseen/unseen_0098_trace.csv.gz
+ D results/clo_dsf_final_unseen/unseen_0120_trace.csv.gz
+ M results/clo_dsf_final_unseen/validation_record.md
+?? results/clo_dsf_final_unseen/final_new_0000_trace.csv.gz
+?? results/clo_dsf_final_unseen/final_new_0024_trace.csv.gz
+?? results/clo_dsf_final_unseen/final_new_0048_trace.csv.gz
+?? results/clo_dsf_final_unseen/final_new_0072_trace.csv.gz
+?? results/clo_dsf_final_unseen/final_new_0084_trace.csv.gz
+?? results/clo_dsf_final_unseen/final_new_0090_trace.csv.gz
+?? results/clo_dsf_final_unseen/final_new_0096_trace.csv.gz
+?? results/clo_dsf_final_unseen/final_new_0120_trace.csv.gz
 ```
+
+Status counts {" M": 17, " D": 9, "??": 8}; eight compressed traces. Result size before this final status append: 9693668 bytes.
