@@ -1,0 +1,7 @@
+partition,method,both,only_method,only_a0,neither
+development-train,Contract only,340,0,19,121
+development-train,Revised CLO-DSF,359,0,0,121
+development-train,Weighted Sum,317,55,42,66
+development-validation,Contract only,168,0,9,63
+development-validation,Revised CLO-DSF,177,0,0,63
+development-validation,Weighted Sum,155,29,22,34

@@ -1,91 +1,101 @@
-# CURRENT development validation record
+# Benign-only thermal contract experiment
 
-Registered before outcomes: 2026-09-20T12:54:38.683403+00:00
+Contract frozen 2026-09-24T13:16:31.224964+00:00 before any fault evaluation.240 clean TRAIN profiles;120 separate benign VALIDATION profiles;720 fault profiles (480 TRAIN/240 VALIDATION). Total1080 unique simulations.
 
-738 unique simulations; 492 TRAIN / 246 VALIDATION, disjoint operating families. All public C configurations validated. Zero profile/configuration overlap with previous development and holdout. No tuning or parameter search. Same physics stream for every observer. No accumulator selected: replay found no sustained bias discrepancy. Detector bytes identical to pre-change. Benign alternating jitter up to 0.10 C and triangular drift up to 1.2 C; no transport faults combined with variation. Temporary pre-change CURRENT core SHA256 cc5b709489580e4b77a023ccc1f908a711525b3b4bcb3d09e43717941cd4f6f7.
+Protocol: fit ridge(.1) six-coefficient rate model only to measured benign one-second differences. Inputs:intercept/load/speed/ambient/mean actual pump-fan action/previous predicted temperature. Collapse pump/fan into one feature; no thermal plant equations/constants copied. Free-run20s from a measured conditional baseline; do not learn a measured long-term slope. Bound=1.25*maximum TRAIN20s prediction error+0.20C. Runtime requires5 same-sign violating ticks, uses2C normalization and existing global thresholds. Every20s the relative evolution window expires and reanchors; constant pre-existing offsets are not identifiable. Outside calibrated context plus5% margin:abstain. Recover when residual returns inside envelope. No tuning on benign VALIDATION or any faults.
 
-Protocol: [current runtime evidence](../../docs/clo_dsf_current.md).
+A0=current (existing300ms forecast); contract-only disables only300ms predictor; combined retains it. Original sensor primitives and every other channel/causal rule are common. Research executables built in temporary storage from recorded source and this script; production CURRENT unchanged unless retention criteria pass.
 
-Pre-execution identities:
+Predeclared retention:at least25% slow-drift detection on VALIDATION, fewer silent plant misses, at most1 benign validation alarm, no wrong origin, no A0 fault detection losses, full effective-memory and preserved origin detection. No cosmetic TRAIN gain retained.
+
+Contract fits 28800 one-second samples; bound=5.940322998641041C.
+
+Freeze identities:
 ```json
 {
-  "src/v7_3/clo_dsf_revised.c": "cc5b709489580e4b77a023ccc1f908a711525b3b4bcb3d09e43717941cd4f6f7",
-  "src/v7_3/revised_runtime.c": "df14b1f2e0d188deb245b87fb89bee7ef8125ad8e2ee9113e0706ebb3251f23d",
-  "src/sensors.c": "f19e601d68976a563a5edb031d76ca259689b32bef04958a81f6bd4a8947a352",
-  "src/control.c": "39be6119817829cee8f068d2fc3fc74aa38a6c9f08bb98b94112c5dc8af6536a",
-  "src/runtime_observation.c": "34690aa9b53e2257515890d1d2847c37ba24c1efb2188bade51c4a2a95877bc3",
-  "include/runtime_observation.h": "ccd0f0bc1e5a7e1076645e395b3f6edc953d587ab477b0f31fb7638b81cf4293",
-  "include/ecu_types.h": "c116b0f0e2831ea2f137b8ddaca48f112a8a105886d78517881b20e0a252da97",
-  "include/clo_dsf_revised.h": "087f7bccf2ba3b4e25072bc06079005ab0b09571435e65a4e0366b7f992ce0d4",
-  "results/cross_layer_safety_v7_3_dev/revised.cfg": "6f62e972a27c765cae6a24daf9b7b98fb1513cd46fc226a128d87a6431e73ac7",
-  "python/virtual_ecu/clo_dsf_current.py": "4977a0134c15cc5502754d89cffa59317d03e215e8b0c2fa3a30bde9537ac91e",
-  "results/clo_dsf_current/configuration_manifest.csv": "79b93c6d0da142eadbfe30f7779fd5b3214428eb79884c56ca41a66f5b6c82fe"
+  "src/v7_3/clo_dsf_revised.c": "9c46e5f7d71ab7bbd09e0d5528aeada0bfa4bfb69d2e7452f528b585e9c75901",
+  "include/clo_dsf_revised.h": "54583131ff8723d465585c78b712b29949a11fb2e5290993794c8c5f6140d3f5",
+  "src/v7_3/revised_runtime.c": "8bb9e755499fad47e4aa5dc39d972efa5f3f1c6cfe4d7597938bb987e31b9e4e",
+  "scripts/run_clo_dsf_benign_contract.py": "c89104bce5b31ce797a8a4360f192e596fa0d3898b20199b464930934ca3b41b",
+  "results/clo_dsf_current/thermal_contract.cfg": "ff206728eb72b4d6394b9f42a8434cba8b51cc0694f6b5512be6eec167c8fdee",
+  "results/clo_dsf_current/benign_contract_dataset_manifest.csv": "0f216bfb71bd081ce40e08534cc012453e4593dc276182b62d602632ba07ba49"
 }
 ```
 
-Pre-change CURRENT reconstruction patch (apply to the recorded current source in temporary storage; no maintained duplicate):
-```diff
-```
+1080 unique simulations complete. No fault-driven fitting/tuning. All frozen identities unchanged. Contract retention gate: False.
 
-TRAIN gate PASS: unchanged detector preserves detections; no benign alarm, wrong origin, effective-memory miss or dormant alarm. Proceed with unchanged settings.
+## Final rejection, regression and preservation
 
-development-train: 492 simulations complete; no source/config change or tuning.
+Contract rejected: VALIDATION drift0/36 for A0/contract-only/combined; combined
+silent misses54 equal A0; contract-only63. Benign0/120 all three. Combined adds624
+UNKNOWN alarm samples with no additional detection; no wrong confident origins.
+No monitor was installed and no scientific production source was changed.
+Frozen contract is retained as a rejected experimental artifact, not activated.
+All recorded contract/scientific/script/manifest hashes remain unchanged.
 
-development-validation: 246 simulations complete; no source/config change or tuning.
+One final full regression: build/compile/diff check PASS;308 tests PASS;
+48 legacy PASS;64 RTL PASS. No reruns or parameter search. Every initially tracked
+file outside CURRENT results, including CURRENT executable and prior final-unseen
+artifacts, matches its original hash. Hybrid/HETIA and GUI preserved. The two
+historical executables rebuilt during regression were restored to verified original
+Git bytes. No commit/push or unseen holdout. Eight compressed representative traces.
 
-## Final regression and preservation
-
-Build PASS; Python compile PASS; git diff --check PASS; full tests **300/300**; legacy **48/48**; RTL **64/64**. Hybrid/HETIA source and historical evidence unchanged. Generated historical executables restored to verified pre-execution Git bytes. No commit/push.
-
-All 738 paired CURRENT/pre-change rows are identical in every field except method name. Core and configuration retained unchanged; no improved detector is claimed. Eight prior weak misses remain documented, with eight corresponding misses in new validation. No unseen validation ran.
-
-Protected SHA256 identities (all equal pre-execution):
-```json
-{
-  "presets/gui_session_state.json": "3fdf2d807ea8661def7e447ff32be0ccf46d70e160e28390bff81aeffbab957a",
-  "src/v7_3/clo_dsf_revised.c": "cc5b709489580e4b77a023ccc1f908a711525b3b4bcb3d09e43717941cd4f6f7",
-  "include/clo_dsf_revised.h": "087f7bccf2ba3b4e25072bc06079005ab0b09571435e65a4e0366b7f992ce0d4",
-  "src/control.c": "39be6119817829cee8f068d2fc3fc74aa38a6c9f08bb98b94112c5dc8af6536a",
-  "src/sensors.c": "f19e601d68976a563a5edb031d76ca259689b32bef04958a81f6bd4a8947a352",
-  "src/runtime_observation.c": "34690aa9b53e2257515890d1d2847c37ba24c1efb2188bade51c4a2a95877bc3",
-  "src/detection_algorithm.c": "c4a024feb6eabc6d62bb6a4483d504cc39c3efa8fa64baf16c7c1fec13a7804d",
-  "src/safety_monitor.c": "27412e114cd0cd22132b1a5b24e7a14e5c937df4ade5ac3f1b6029c6aec2fe4d",
-  "src/timing_safety_monitor.c": "ffd160ccb9025ec9a03ea3526b0fdfe6450382005f7a41d81aa0d78c950e1b88",
-  "src/cross_layer_fault.c": "5e3a807d89598615aa93cc9c3849eb6f8c4a44b1f25c4e56d6672ff5deb8e01f",
-  "src/fault_injection.c": "52553d6d5b3e5f1d461dd52cf19be14941481581f1eb4613710dd0cee207d992",
-  "src/sensor_delivery.c": "f3ea17440e15513808e77f3c8f41849da31f3504ea6441bca85b5c963e037d76",
-  "results/cross_layer_safety_v7_3_dev/revised.cfg": "6f62e972a27c765cae6a24daf9b7b98fb1513cd46fc226a128d87a6431e73ac7"
-}
-```
-
-Every initially tracked file outside the allowed adapter/makefile/current-binary changes matches its pre-execution hash, including existing GUI modifications. Eight compressed representative traces; no bulk trace archive.
+GUI SHA256 3fdf2d807ea8661def7e447ff32be0ccf46d70e160e28390bff81aeffbab957a
+CURRENT core SHA256 9c46e5f7d71ab7bbd09e0d5528aeada0bfa4bfb69d2e7452f528b585e9c75901
 
 Final git status:
 ```
- M clo_dsf_revised.mk
+ M docs/clo_dsf_current.md
  M include/clo_dsf_revised.h
- M include/control.h
- M include/ecu_types.h
- M include/runtime_observation.h
  M presets/gui_session_state.json
- M src/control.c
- M src/runtime_observation.c
- M src/sensors.c
+ M results/clo_dsf_current/case_summary.csv
+ D results/clo_dsf_current/comparison.csv
+ D results/clo_dsf_current/confidence_summary.csv
+ D results/clo_dsf_current/configuration_manifest.csv
+ D results/clo_dsf_current/confusion_matrix.csv
+ D results/clo_dsf_current/current_0000_trace.csv.gz
+ D results/clo_dsf_current/current_0036_trace.csv.gz
+ D results/clo_dsf_current/current_0060_trace.csv.gz
+ D results/clo_dsf_current/current_0087_trace.csv.gz
+ D results/clo_dsf_current/current_0099_trace.csv.gz
+ D results/clo_dsf_current/current_0105_trace.csv.gz
+ D results/clo_dsf_current/current_0585_trace.csv.gz
+ D results/clo_dsf_current/current_0708_trace.csv.gz
+ M results/clo_dsf_current/findings.md
+ D results/clo_dsf_current/latency_tail_summary.csv
+ M results/clo_dsf_current/localization_summary.csv
+ D results/clo_dsf_current/memory_summary.csv
+ D results/clo_dsf_current/miss_classification.csv
+ D results/clo_dsf_current/miss_classification_summary.csv
+ D results/clo_dsf_current/origin_summary.csv
+ D results/clo_dsf_current/paired_comparison.csv
+ D results/clo_dsf_current/runtime_confusion_matrix.csv
+ D results/clo_dsf_current/runtime_localization_summary.csv
+ M results/clo_dsf_current/validation_record.md
+ D results/clo_dsf_current/weak_bias_inspection.csv
  M src/v7_3/clo_dsf_revised.c
  M src/v7_3/revised_runtime.c
  M tests/clo_revised_unit.c
- M tests/test_clo_dsf_candidate2.py
- M tests/test_clo_dsf_candidate2_development.py
- M tests/test_clo_dsf_final.py
- M tests/test_clo_dsf_final_confirmation.py
  M tests/test_clo_dsf_revised.py
  M virtual_ecu_v7_3
-?? docs/clo_dsf_current.md
-?? python/virtual_ecu/clo_dsf_current.py
-?? python/virtual_ecu/clo_dsf_current_reporting.py
-?? results/clo_dsf_current/
-?? scripts/run_clo_dsf_current.py
-?? tests/current_observation_unit.c
-?? tests/historical_identity.py
-?? tests/test_clo_dsf_current.py
+?? results/clo_dsf_current/ablation_comparison.csv
+?? results/clo_dsf_current/benign_contract_dataset_manifest.csv
+?? results/clo_dsf_current/characterization_summary.csv
+?? results/clo_dsf_current/confusion_summary.csv
+?? results/clo_dsf_current/contract_0000_trace.csv.gz
+?? results/clo_dsf_current/contract_0024_trace.csv.gz
+?? results/clo_dsf_current/contract_0042_trace.csv.gz
+?? results/clo_dsf_current/contract_0060_trace.csv.gz
+?? results/clo_dsf_current/contract_0072_trace.csv.gz
+?? results/clo_dsf_current/contract_0090_trace.csv.gz
+?? results/clo_dsf_current/contract_0102_trace.csv.gz
+?? results/clo_dsf_current/contract_benign_0240_trace.csv.gz
+?? results/clo_dsf_current/thermal_contract.cfg
+?? results/clo_dsf_current/validation_summary.csv
+?? results/clo_dsf_final_unseen/
+?? scripts/run_clo_dsf_benign_contract.py
+?? scripts/run_clo_dsf_final_unseen.py
+?? scripts/run_clo_dsf_sensor_response.py
+?? scripts/run_clo_dsf_slow_bias_development.py
+?? tests/test_clo_dsf_sensor_response.py
 ```

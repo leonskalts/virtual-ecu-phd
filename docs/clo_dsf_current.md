@@ -1,39 +1,40 @@
-# CURRENT final development pass protocol
+# CURRENT slow-bias investigation and development protocol
 
-Registered before the new campaign. No unseen validation or parameter search.
-The eight prior isolated +/-1.2 C bias misses were replayed. Acquisition and
-consumption agree exactly. Six cases have only onset/recovery excess-slew impulses;
-two additionally have small legal-update/thermal residuals of opposite initial sign.
-A diagnostic signed fresh-residual accumulator z=0.8*z+signed_excess peaks below
-0.481. Constant offsets cancel from differences. Re-counting an old jump as fresh
-persistent evidence is not justified. No accumulation mechanism is selected;
-the current detector source, header and configuration stay byte-identical.
-This rejects this simple mechanism, not all possible observers or noise models.
+Inspect the36 prior validation ramps and60 benign controls before any new outcomes.
+No drift mechanism is selected: the local linear forecast annihilates an added
+linear ramp away from its endpoints. For b(t)=a+v*t,
+b(t)-b(t0)-[(b(t0)-b(t0-0.4))/0.4]*(t-t0)=0.
+Increasing the signed accumulation horizon cannot recover this missing component.
+Residuals instead capture curvature, controller/actuator feedback and measurement
+variation, which also occur in legitimate thermal motion. This is a limitation of
+this observable/model, not proof that every possible runtime observer must fail.
 
-738 new configurations: four TRAIN operating families (492), two VALIDATION
-families (246: 210 faults, 36 benign). Preserve difficult fault magnitudes and
-legal calibration updates. Profiles and seeds are new. Audit uniqueness against
-prior CURRENT and historical manifests before simulation. Compare actual pre-change
-CURRENT, retained CURRENT and frozen Fair Weighted Sum on identical observations.
-The retained method keeps the historical CSV name `Revised CLO-DSF`.
+Replay results:36/36 ramp cases have zero response-channel strength. Maximum ramp
+interior innovation0.011692C; benign maximum0.781929C. Exploratory five-second signed
+accumulator I[n]=.98*I[n-1]+r[n] peaks0–0.169963 on ramps and0.066436–1.948727 on
+benign controls. Windows exclude the first500ms after onset; benign controls use
+23000–52500ms. These summaries are not a threshold calibration: no parameter is
+selected from them. Bounded and signed accumulation alone is not justified by this
+signal overlap. Actuator-conditioned absolute physics would require independently
+validated thermal assumptions beyond the current local response evidence.
 
-Benign workload variations: alternating jitter 0/.02/.05/.10 C, and triangular
-variation .6 C over12s or1.2 C over18s with .02/.05 C jitter. Each mode has three
-cases per family. This deterministic bounded envelope is not a population noise
-model. An opt-in adapter perturbs existing acquisition and consumption values
-identically, after the existing sensor step; no pristine value enters inference.
-Used only on benign cases, not composed with transport faults. Default zero leaves
-all existing simulations unchanged. Reference ECU receives identical workload.
+Run one new900-case campaign,600 TRAIN/300 VALIDATION with disjoint operating
+families and entirely new profiles/seeds. Same origin balance as the preceding
+sensor-response campaign. Slow ramps use +/-1.0,2.4,4.8C over5/15/40s, spanning
+0.025–0.96C/s; preserve weak steps/pulses, fast legal load transitions, triangular
+benign variation, bounded noise, authorized calibration updates, memory integrity,
+communication, actuator and timing cases. No new injection semantics or observables.
+No next unseen holdout, parameter search or post-validation selection.
 
-TRAIN gate: no detection losses against pre-change, zero benign/wrong-origin alarms,
-all effective memory detected and no dormant memory alarms. No tuning after TRAIN;
-repeat reporting on VALIDATION. If no gain, retain eight misses as a documented
-sensitivity limit. Report configured legacy behavior honestly: sensor events with
-nonzero duration end at start+duration even when labeled permanent by the manifest
-(`fault_event_is_active` in fault_injection.c); semantics are not changed here.
+A0 is the exact starting CURRENT core; retained CURRENT is the same source,
+compiled as a separate comparator to verify identity. There is no distinct A1
+because no new mechanism is scientifically selected. Also compare frozen Fair
+Weighted Sum. Report slow ramps separately from step/pulse strata, effective vs
+dormant memory, plant propagation, latency and first/runtime localization.
+Existing 300ms forecast, acquisition/consumption consistency and causal precedence
+remain byte-identical. No runtime access to labels, injected offset or hidden truth.
 
-Keep aggregate/per-case summaries, inspection summary, validation record and eight
-compressed representative traces only. Full regression once at the end: build,
-Python compile, diff check, full tests, legacy48, RTL64. Verify GUI, detector core,
-Hybrid/HETIA, providers and historical evidence against pre-execution hashes.
+Keep summaries, classification, exact manifest, findings, validation record and
+8 predetermined compressed traces. Preserve historical/previous final-unseen
+artifacts and GUI state. Full build/compile/diff/tests,48 legacy and64 RTL at end.
 No commit or push.

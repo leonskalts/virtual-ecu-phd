@@ -50,6 +50,64 @@ static double local_sensor_strength(const runtime_observation_t *o)
     return strength;
 }
 
+/* Short-horizon local response envelope, not an absolute thermal model.
+ * Five trusted acquisitions span 400 ms. Endpoint slope predicts at most 300 ms.
+ * With +/-0.10 C sample uncertainty, displacement uncertainty is 0.20 C and
+ * slope uncertainty 0.50 C/s. The global curvature allowance is 3 C/s^2.
+ * Two same-sign out-of-envelope acquisitions are required. Forecasts expire,
+ * and operating-input transitions invalidate them. Evidence shares the existing
+ * sensor mass (max, not an additional independent DS source) and 2 C scale.
+ * Slowly varying common-mode bias can be absorbed by the slope: no absolute
+ * calibration observability is claimed. */
+static double sensor_response(clo_revised_t *s,const runtime_observation_t *o)
+{
+    s->response_strength=0;s->response_residual=0;
+    bool valid=o->source_valid && o->source_ms==o->time_ms &&
+        isfinite(o->source_c) && isfinite(o->engine_load) &&
+        isfinite(o->vehicle_speed_kph) && isfinite(o->ambient_c) &&
+        isfinite(o->control_target_c) && isfinite(o->fan_actual);
+    bool contiguous=s->response_count && o->source_previous_valid &&
+        o->source_ms==s->response_last_ms+ECU_SENSOR_PERIOD_MS &&
+        o->source_previous_ms==s->response_last_ms &&
+        o->source_previous_c==s->response_history[s->response_count-1];
+    bool same_inputs=s->response_count && o->engine_load==s->response_load &&
+        o->vehicle_speed_kph==s->response_speed && o->ambient_c==s->response_ambient &&
+        o->control_target_c==s->response_target && o->fan_actual==s->response_fan;
+    if(!valid || !contiguous || !same_inputs) {
+        s->response_count=0;s->response_active=false;s->response_streak=0;
+    }
+    if(!valid)return 0;
+    if(s->response_count==5) {
+        if(!s->response_active) {
+            s->response_anchor_ms=s->response_last_ms;
+            s->response_anchor=s->response_history[4];
+            s->response_slope=(s->response_history[4]-s->response_history[0])/
+                (4.0*ECU_SENSOR_PERIOD_MS/1000.0);
+            s->response_streak=0;s->response_sign=0;s->response_active=true;
+        }
+        double h=(o->source_ms-s->response_anchor_ms)/1000.0;
+        double residual=o->source_c-s->response_anchor-s->response_slope*h;
+        double bound=.20+.50*h+1.50*h*h;
+        s->response_residual=residual;
+        int sign=residual>0?1:-1;
+        if(h<=.300001 && fabs(residual)>bound) {
+            s->response_streak=sign==s->response_sign?s->response_streak+1:1;
+            s->response_sign=sign;
+            if(s->response_streak>=2)s->response_strength=fmin(1.0,(fabs(residual)-bound)/2.0);
+        } else {s->response_active=false;s->response_streak=0;}
+        if(h>=.299999)s->response_active=false;
+    }
+    if(s->response_count==5) {
+        for(unsigned int i=0;i<4;i++)s->response_history[i]=s->response_history[i+1];
+        s->response_count=4;
+    }
+    s->response_history[s->response_count++]=o->source_c;
+    s->response_last_ms=o->source_ms;s->response_load=o->engine_load;
+    s->response_speed=o->vehicle_speed_kph;s->response_ambient=o->ambient_c;
+    s->response_target=o->control_target_c;s->response_fan=o->fan_actual;
+    return s->response_strength;
+}
+
 #include <string.h>
 static double unit(double x) { return x<0?0:x>1?1:x; }
 static void support(ds_mass_t *m,unsigned int subset,double strength)
@@ -100,6 +158,7 @@ void clo_revised_step(clo_revised_t *state,const clo_final_config_t *c,const run
     state->previous_local_excess=excess;
     state->previous_local_direction=direction;
     state->previous_local_ms=o->source_ms;
+    local=fmax(local,sensor_response(state,o));
     s->evidence.strength[3] = fmax(s->evidence.strength[3], local);
     s->evidence.available[3] = s->evidence.available[3] || local > 0;
     /* Establish precedence only from a directly observed contract violation,

@@ -44,5 +44,23 @@ int main(int argc,char **argv) {
  if(test==27){for(unsigned t=0;t<3000;t+=100){o=normal(t);o.source_c=o.coolant_measured_c=92+.005f*t;o.source_previous_valid=t>0;o.source_previous_ms=t?t-100:0;o.source_previous_c=o.source_c-.5f;clo_revised_step(&a,&c,&o);assert(!a.fusion.output.alarm);}}
  if(test==28){o=normal(100);o.source_previous_valid=true;o.source_previous_ms=0;o.source_previous_c=92;o.source_c=o.coolant_measured_c=92.5f;clo_revised_step(&a,&c,&o);o=normal(300);o.source_previous_valid=true;o.source_previous_ms=200;o.source_previous_c=92.5f;o.source_c=o.coolant_measured_c=92;clo_revised_step(&a,&c,&o);assert(a.fusion.evidence.strength[3]<=.125);}
  if(test==29){for(unsigned t=0;t<10000;t+=100){o=normal(t);o.source_c=o.coolant_measured_c=70+.002f*t;o.source_previous_valid=t>0;o.source_previous_ms=t?t-100:0;o.source_previous_c=o.source_c-.2f;clo_revised_step(&a,&c,&o);assert(!a.fusion.output.alarm);}}
+ if(test>=30 && test<=34) {
+  bool detected=false;float previous=92;
+  for(unsigned t=0;t<5000;t+=100) {
+   o=normal(t);float y=92+.0005f*t;
+   if(test==30 && t>=1000)y+=1.1f;
+   if(test==31)y+=((t*1103515245U+12345U)%201-100.0f)*.001f;
+   if(test==32 && t>=1000)y-=1.1f;
+   if(test==33 && t>=1000){y+=1.1f;o.source_valid=false;}
+   if(test==34 && t>=1000){y+=1.1f;o.control_target_c=99;o.target_register_c=o.target_shadow_c=99;}
+   o.source_c=o.coolant_measured_c=y;o.source_previous_valid=t>0;
+   o.source_previous_ms=t?t-100:0;o.source_previous_c=previous;previous=y;
+   clo_revised_step(&a,&c,&o);detected|=a.fusion.output.alarm;
+   if(test==31 || test==33 || test==34)assert(a.response_strength==0);
+   if(a.fusion.output.localization_valid)assert(a.fusion.output.estimated_origin==CLO_SENSOR_CONTROL);
+  }
+  if(test==30 || test==32)assert(detected);
+  else assert(!detected);
+ }
  return 0;
 }

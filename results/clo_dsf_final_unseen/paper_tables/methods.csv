@@ -1,0 +1,7 @@
+method,faulty_runs,detected,benign_runs,benign_false_alarms,silent_plant,latency_median_ms,latency_p95_ms
+Revised CLO-DSF,1200,1047,300,0,90,0.0,300.0
+Weighted Sum,1200,1026,300,150,83,0.0,11275.0
+Simple OR,1200,957,300,150,152,100.0,11319.999999999993
+Plain DS,1200,910,300,150,199,100.0,11500.0
+Hybrid,1200,913,300,200,142,1200.0,12939.999999999998
+Timing Monitor,240,240,0,0,0,50.0,100.0

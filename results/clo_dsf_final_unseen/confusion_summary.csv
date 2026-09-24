@@ -1,0 +1,13 @@
+origin,unit,MEMORY,TIMING,COMMUNICATION,SENSOR_CONTROL,ACTUATOR,UNKNOWN
+ALL,first_detection,177,240,240,150,240,0
+ALL,runtime_alarm_sample,60623,88220,74663,40256,105536,3442
+MEMORY,first_detection,177,0,0,0,0,0
+MEMORY,runtime_alarm_sample,60623,0,0,0,0,65
+TIMING,first_detection,0,240,0,0,0,0
+TIMING,runtime_alarm_sample,0,88220,0,0,0,0
+COMMUNICATION,first_detection,0,0,240,0,0,0
+COMMUNICATION,runtime_alarm_sample,0,0,74663,0,0,3
+SENSOR_CONTROL,first_detection,0,0,0,150,0,0
+SENSOR_CONTROL,runtime_alarm_sample,0,0,0,40256,0,0
+ACTUATOR,first_detection,0,0,0,0,240,0
+ACTUATOR,runtime_alarm_sample,0,0,0,0,105536,3374
