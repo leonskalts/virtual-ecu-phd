@@ -114,6 +114,87 @@ static double sensor_response(clo_revised_t *s,const runtime_observation_t *o)
     return s->response_strength;
 }
 
+/* A paired, time-aligned acquisition check, not an absolute plant observer.
+ * |mean(primary-reference)| tolerates 0.90 C: the prior legal primary
+ * triangle (A<=2.3 C,P<=24.2 s) has at most A*P/(4*32)=0.435 C
+ * signed window mean; add offsets <=0.20 C, bounded noise <=0.20 C,
+ * quantization <=0.005 C. 0.90 C rounds this envelope conservatively up.
+ * Full 320 acquisitions required. Opposite signs cancel; gaps reset.
+ * Existing 2 C evidence scale and all DS thresholds remain unchanged.
+ * Disagreement identifies the sensing subsystem, NEVER which sensor failed.
+ */
+static double redundant_sensor(clo_revised_t *s,const runtime_observation_t *o)
+{
+    s->reference_strength=0;
+    bool valid=o->reference_enabled && o->reference_valid && !o->reference_failed &&
+        o->source_valid && o->source_ms==o->time_ms &&
+        o->reference_ms==o->source_ms && isfinite(o->source_c) && isfinite(o->reference_c);
+    if(!valid || (s->reference_count && o->time_ms!=s->reference_last_ms+ECU_SENSOR_PERIOD_MS)) {
+        s->reference_count=0;s->reference_index=0;s->reference_sum=0;s->reference_mean=0;
+    }
+    /* Explicit local conversion-failure status; absent/unconfigured hardware
+     * never raises an alarm. A stale timestamp alone does not name an origin. */
+    if(o->reference_enabled && o->reference_failed && o->reference_ms==o->time_ms)
+        return s->reference_strength=1;
+    if(!valid)return 0;
+    double delta=(double)o->source_c-o->reference_c;
+    if(s->reference_count==320)s->reference_sum-=s->reference_window[s->reference_index];
+    else s->reference_count++;
+    s->reference_window[s->reference_index]=delta;s->reference_sum+=delta;
+    s->reference_index=(s->reference_index+1)%320;s->reference_last_ms=o->time_ms;
+    s->reference_mean=s->reference_sum/s->reference_count;
+    if(s->reference_count==320)
+        s->reference_strength=fmin(1.0,fmax(0.0,(fabs(s->reference_mean)-.90)/2.0));
+    return s->reference_strength;
+}
+
+/* Fast redundancy contract: independent-chain calibration cancels in changes.
+ * Combined bounded sample noise is <=0.20 C; two samples permit 0.40 C.
+ * Legal differential ramps up to 1.2 C/s add 1.2*dt. Freeze the last
+ * pre-event acquisition for at most 300 ms. Two consecutive same-direction
+ * out-of-envelope residuals certify persistence; one isolated spike cannot.
+ * Recurrent alternating pulses instead require >=3 excessive edges in 1 s:
+ * an isolated spike and its recovery supply at most two edges. Both tests
+ * are one short-history consistency provider, not independent DS sources.
+ * A confirmed contract violation supplies direct sensor evidence (as other
+ * runtime contract providers do), not a calibrated fault probability.
+ */
+static double fast_redundant_sensor(clo_revised_t *s,const runtime_observation_t *o)
+{
+    s->fast_strength=0;
+    bool valid=o->reference_enabled && o->reference_valid && !o->reference_failed &&
+        o->source_valid && o->source_ms==o->time_ms && o->reference_ms==o->source_ms &&
+        isfinite(o->source_c) && isfinite(o->reference_c);
+    if(!valid || (s->fast_valid && o->time_ms!=s->fast_last_ms+ECU_SENSOR_PERIOD_MS)) {
+        s->fast_valid=false;s->fast_active=false;s->fast_count=0;
+        s->fast_index=0;s->fast_edges=0;
+        for(unsigned int i=0;i<10;i++)s->fast_edge_history[i]=0;
+    }
+    if(!valid)return 0;
+    double delta=(double)o->source_c-o->reference_c;
+    bool edge=s->fast_valid && fabs(delta-s->fast_previous)>.40+1.2*ECU_SENSOR_PERIOD_MS/1000.;
+    s->fast_edges-=s->fast_edge_history[s->fast_index];
+    s->fast_edge_history[s->fast_index]=edge;s->fast_edges+=edge;
+    s->fast_index=(s->fast_index+1)%10;
+    if(s->fast_active && o->time_ms-s->fast_anchor_ms>300)s->fast_active=false;
+    if(edge && !s->fast_active) {
+        s->fast_anchor=s->fast_previous;s->fast_anchor_ms=s->fast_last_ms;
+        s->fast_active=true;s->fast_count=0;s->fast_sign=0;
+    }
+    if(s->fast_active) {
+        double h=(o->time_ms-s->fast_anchor_ms)/1000.;
+        double residual=delta-s->fast_anchor;
+        int sign=residual>0?1:-1;
+        if(fabs(residual)>.40+1.2*h) {
+            s->fast_count=sign==s->fast_sign?s->fast_count+1:1;s->fast_sign=sign;
+            if(s->fast_count>=2)s->fast_strength=1;
+        } else {s->fast_active=false;s->fast_count=0;}
+    }
+    if(s->fast_edges>=3)s->fast_strength=1;
+    s->fast_previous=delta;s->fast_last_ms=o->time_ms;s->fast_valid=true;
+    return s->fast_strength;
+}
+
 #include <string.h>
 static double unit(double x) { return x<0?0:x>1?1:x; }
 static void support(ds_mass_t *m,unsigned int subset,double strength)
@@ -165,6 +246,8 @@ void clo_revised_step(clo_revised_t *state,const clo_final_config_t *c,const run
     state->previous_local_direction=direction;
     state->previous_local_ms=o->source_ms;
     local=fmax(local,sensor_response(state,o));
+    local=fmax(local,redundant_sensor(state,o));
+    local=fmax(local,fast_redundant_sensor(state,o));
     s->evidence.strength[3] = fmax(s->evidence.strength[3], local);
     s->evidence.available[3] = s->evidence.available[3] || local > 0;
     /* Establish precedence only from a directly observed contract violation,

@@ -30,6 +30,11 @@ void runtime_observation_capture(const ecu_state_t *s, runtime_observation_t *o)
         .source_previous_ms = s->sensors.coolant_source_previous_ms,
         .source_valid = s->sensors.coolant_source_valid,
         .source_previous_valid = s->sensors.coolant_source_previous_valid,
+        .reference_c = s->temperature_reference.value_c,
+        .reference_ms = s->temperature_reference.sample_ms,
+        .reference_enabled = s->temperature_reference.initialized,
+        .reference_valid = s->temperature_reference.valid,
+        .reference_failed = s->temperature_reference.failed,
         .timing = s->timing_recorder.observation
     };
 }

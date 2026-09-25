@@ -28,6 +28,9 @@ typedef struct {
     float source_c, source_previous_c;
     unsigned int source_ms, source_previous_ms;
     bool source_valid, source_previous_valid;
+    float reference_c;
+    unsigned int reference_ms;
+    bool reference_enabled, reference_valid, reference_failed;
 } runtime_observation_t;
 
 struct ecu_state;

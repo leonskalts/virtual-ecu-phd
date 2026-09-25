@@ -1,150 +1,63 @@
-# Active diagnostic development: memory retained, no sensor anchor
+# Multi-timescale redundant-sensor development
 
-CURRENT adds an active protected-memory diagnostic. A new1200-case campaign used
-720 TRAIN cases (600 faults/120 benign; six families) and480 VALIDATION cases
-(400 faults/80 benign; four other families). Parameters were fixed before TRAIN and
-unchanged through VALIDATION. No final unseen holdout ran. No commit or push.
+One new development campaign: **1560 simulations**, TRAIN936 and VALIDATION624 (544 faults/80 benign), six/four disjoint operating families. No unseen holdout. All FAST parameters were fixed before TRAIN and locked unchanged for VALIDATION; no search/tuning was needed. The existing32s SLOW channel, other origins, physical sensor architecture and global thresholds remain unchanged.
 
-Validation detection is **362/400=90.5%**, versus340/400=85.0% for pre-change CURRENT.
-Wilson95% interval87.23–93.00%: the90% target is met on this development-validation
-cohort, not established as a population guarantee or unseen result. All22 gains are
-previously dormant stuck-cell cases. No primary threshold or fusion/localization
-rule was lowered, tuned or replaced. Weighted Sum is only an unchanged comparator.
+## Validation ablation
 
-## Active memory: a new measured storage contract
-
-The passive shadow cannot identify a stuck cell whose value still equals the
-intended value. The new checker tests the ability to change that same16-bit protected
-target word: save/read, write0/read, write65535/read, restore saved/read. It runs once
-per1000ms in an exclusive synchronous transaction between scheduled fault application
-and normal control use. No control/sensor task runs during the transaction. The
-trusted shadow and authorized calibration commit path are unchanged.
-
-The generic memory_diagnostic module has only read/write callbacks and ordinary
-readback comparisons. It contains no ECU state, faulty-bit identity, active-fault
-flag, injection label or reference truth. The separate virtual storage backend
-models a stuck cell rejecting an opposite write. That backend necessarily applies
-the simulated cell fault, just as other device models apply faults to measurements;
-its configuration is not passed to the checker or inference. This distinction is
-central: the added diagnostic observes unsuccessful writes, not a fault-active
-oracle or a repackaged passive checksum.
-
-This is an explicit extension of the virtual storage-access model. Previously,
-stuck bits were imposed at scheduler fault updates; diagnostic writes now exercise
-the corresponding persistent stuck-cell constraint within the atomic transaction.
-The original injector source/header and normal control/injection operations remain
-unchanged. Results are conditional on the new storage contract, not evidence that
-CRC alone can expose a value-correct stuck cell.
-
-Restore uses the actual saved register word, never the expected shadow. A pre-existing
-bit-flip therefore remains corrupted and is still detected by the original shadow
-channel. Both polarities across all16 bits are exercised without knowing the faulty
-bit. Legal calibration updates refresh the existing shadow through control_commit_target;
-probes neither change that metadata nor manufacture stored/used corruption.
-
-Fresh failed-check results join the existing MEMORY/ABNORMAL channel as direct
-contract evidence. Validity expires after1000ms and the next successful probe clears
-the diagnostic result. No additional independent DS source or propagation bonus is
-added. The current causal-precedence and sensor-response logic are unchanged.
-
-Six new tests cover all65536 clean16-bit values, all32 stuck-bit/polarity combinations,
-recovery, cadence, legal updates, bit-flip preservation, stale/future evidence and
-checker isolation. Eight representative TRAIN scenarios were compared against the
-pre-change executable before and after final backend packaging: raw physics/control
-logs and C summaries were byte-identical. Thus the tested probes do not leak test
-patterns into normal controller behavior.
-
-## Sensor anchor feasibility: no qualified window
-
-No physically justified ambient anchor exists in the current operating model:
-zero engine load retains a positive base heat source; zero speed selects hot idle,
-not engine off; safety shutdown scales operating inputs but does not remove that
-heat; startup has no certified ambient soak. No trusted runtime signal establishes
-a bounded zero-net-heat equilibrium independent of the measured coolant trajectory.
-Low load alone is insufficient, especially with continuing actuator and ambient
-changes. The algebraic radiator model is not an independent measured reference.
-
-No simulator-equation inversion, true coolant temperature, injected magnitude,
-future sample or fitted generic thermal predictor was used. No benign anchor fit
-was attempted because its prerequisite physical window is absent. Half the operating
-families include a zero-load/zero-speed interval to exercise the proposed context;
-all such intervals remain explicitly unqualified. Qualified-anchor cases0; all
-slow-drift cases belong to the no-anchor stratum. A2 is exactly A0 and A3 exactly A1;
-these are explicit aliases, not distinct implemented sensor algorithms.
-
-## Validation and ablation
-
-| Method | Detected /400 | Silent plant | Benign /80 | Median/P95 ms |
+| Method | Detection | Silent plant | Benign | Median/P95 |
 |---|---:|---:|---:|---:|
-| A0 CURRENT |340|37|0|0/400|
-| A1 active memory |362|37|0|0/500|
-| A2 anchor unavailable, identical to A0 |340|37|0|0/400|
-| A3 combined, identical to A1 |362|37|0|0/500|
-| Frozen Fair Weighted Sum |310|56|40|100/9600|
+| A0 retained redundant sensor | 468/544 (86.03%) | 20/347 | 0/80 | 0/47.4 s |
+| FAST only | 439/544 (80.70%) | 57/347 | 0/80 | 0/0.51 s |
+| SLOW only | 468/544 (86.03%) | 20/347 | 0/80 | 0/47.4 s |
+| FAST+SLOW (A1) | 535/544 (98.35%) | 9/347 | 0/80 | 0.1/45.93 s |
 
-A3 per origin: MEMORY80/80, TIMING80/80, COMMUNICATION80/80, SENSOR_CONTROL42/80,
-ACTUATOR80/80. Memory effective stuck bits42/42, all effective memory58/58, dormant
-stuck bits22/22, legal-update benign alarms0/40. Effective/dormant categorization is
-post-hoc from restored register/shadow contents, not from temporary test patterns.
-A0 versus A3:340 both,0 A0-only,22 A3-only,38 neither; no lost detections.
+**A0 and SLOW-only are identical aliases**, verified case-by-case, not independent experiments. FAST-only retains all inherited primary checks, other origins and reference conversion-failure status; only the slow averaging feature is removed. Every observer receives the same simulation stream.
 
-Slow drift0/32; qualified anchor unavailable (0-case denominator); without anchor0/32.
-Weak steps19/24, pulses23/24. Every sensor binary outcome equals A0. Plant-propagating
-detection282/319 (88.40%);37 silent misses remain:32 slow drifts and5 weak steps.
-The one missed pulse has no plant manifestation. All added dormant-memory detections
-are diagnostic integrity findings before stored/used-value corruption, not recovered
-silent plant effects. Do not claim improved plant safety coverage from those22 gains.
+Combined detection **98.35%**, Wilson95% **96.89–99.13%**. These descriptive case-level intervals do not model within-family dependence. All retained tests and cohorts are reported; none excluded to reach a target.
 
-First localization362/362 correct and localized. Runtime122963/122963 localized alarm
-samples correct; UNKNOWN1116/124079 (0.8994%), coverage99.1006%; wrong runs/samples0/0.
-The number of UNKNOWN samples is unchanged from A0; the rate falls because added
-memory alarms enlarge the denominator. No wrong confident origins were introduced.
+| Origin | Detection |
+|---|---:|
+| MEMORY | 80/80 |
+| TIMING | 80/80 |
+| COMMUNICATION | 80/80 |
+| SENSOR_CONTROL | 215/224 |
+| ACTUATOR | 80/80 |
 
-TRAIN supports, rather than substitutes for, validation: A0=483/600; A1/A3=518/600,
-with35 added dormant detections, no benign/wrong-origin alarms and unchanged sensor
-outcomes. Neither partition was used to tune the checking period or thresholds.
+## Sensor outcomes
 
-## Latency and overhead
+| Chain/model | Detection | Median/P95 |
+|---|---:|---:|
+| primary/sensor_bias_ramp | 48/48 | 37.4/58.165 s |
+| primary/sensor_bias | 31/32 | 0.1/0.1 s |
+| primary/sensor_interface_intermittent | 24/24 | 0.2/0.3849999999999998 s |
+| reference/sensor_bias_ramp | 48/48 | 36.55/60.9 s |
+| reference/sensor_bias | 32/32 | 0.1/0.1 s |
+| reference/sensor_interface_intermittent | 24/24 | 0.35/0.8849999999999998 s |
+| reference/sensor_dropout | 8/8 | 0.0/0.0 s |
+| common_mode/sensor_bias_ramp | 0/8 | NA/NA s |
 
-Dormant-memory detection latency from scheduled onset: median450ms/P951700ms;
-maximum1700ms. Alarm occurs on the same tick as the first failed probe for all22
-cases. Across all64 stuck-bit cases, first failed-probe latency median450ms,
-P951785ms,max2900ms. Intermittent active windows can fall between periodic probes;
-a one-second period does not imply every intermittent fault is found within one second.
-Existing effective-memory shadow detection can precede the first probe.
+FAST adds **67** validation detections and loses **0** relative toA0. On their 468 common detections it is faster in8, equal in460, slower in0. Both slow-drift chains remain48/48. Common-mode controls remain0/8 and are deliberately not targeted.
 
-The persistent state is16 bytes per ECU. Each probe requires four reads and three
-writes; polling is once per100ms scheduler tick, actual probes every1000ms. A120s
-inclusive run has121 probes (including both endpoints),847 protected-word accesses.
-There is no extra dependency or heap allocation. Simulation models the transaction
-as atomic with zero elapsed scheduler time; real hardware CPU time/WCET, interrupt
-exclusion and restore-failure handling have not been established. Timing-regression
-success is not a claim that the diagnostic is free on a physical ECU.
+Plant-propagating detection338/347; silent misses9. Pre/same/post-plant detections247/39/52. Benign alarms0/80, including independent noise/calibration, legal triangles/updates, isolated +/-0.9C reference spikes and small300/900ms transients. Zero observed alarms is not proof of zero population risk (Wilson95% upper4.58%).
 
-Aggregate P95 rises400 to500ms because A3 includes newly detected latent cases;
-no A0 detection is lost. This comparison is across different detection cohorts.
-The diagnostic period and overhead budget were not selected to reach90%.
+First-detection localization535/535. Runtime localized accuracy193409/193409; coverage193409/194487 (99.4457%); UNKNOWN1078 (0.5543%). Wrong origins0 runs/0 samples. Disagreement still identifies only SENSOR_CONTROL; sensor-member identity remains unresolved.
 
-## Final implementation and evidence
+## Interpretation and limitations
 
-Memory retention gate passes: validation detection/dormant coverage improve; no lost
-A0 detections or added benign alarms; full effective-memory/timing/communication/
-actuator coverage; no wrong origins; plant coverage does not regress. Sensor mechanism
-not retained because no qualified anchor exists. Current short-horizon sensor-response
-code and all primary thresholds/causal-precedence behavior remain unchanged.
+FAST is a short-history contract provider. With d=primary-reference, bounded noise permits0.40C change and legal differential slew permits1.2C/s. It requires two persistent same-direction departures from the pre-event acquisition within300ms, or at least three excessive edges in1s. This rejects a single spike plus recovery while allowing recurring pulse evidence. Confirmed violations produce direct evidence1; this is an explicit metrology-contract decision, not a calibrated probability. The correlated features are max-merged in the original sensor mass and never multiplied as independent DS channels.
 
-The simulation callback bodies were moved verbatim into their own module after the
-campaign completed and before validation outcomes were inspected, restoring the
-historical injector files. This was packaging only; function-body hash and final
-reproduction hashes are recorded. Final production build omits the temporary A0
-comparison object. All source/configuration choices are reproducible from the saved
-manifest, baseline commit and run_clo_dsf_active_diagnostic.py; reconstruct baseline.c
-from the task-start commit in temporary storage for its A0 observer. No candidate or
-frozen implementation tree exists.
+The 1.2C/s slope/noise contract must be qualified for real sensor placement, lag and wiring. Multiple large out-of-contract benign spikes may be observationally indistinguishable from faults; the campaign does not establish immunity to arbitrary burst noise. Simulated physical independence remains the previously documented assumption, and hidden plant truth/fault labels remain outside detector inference.
 
-Full regression passed:314 tests, build, Python compile, diff check,48 legacy and64
-RTL cases. Hybrid/HETIA and historical evidence outside CURRENT are unchanged; GUI
-session bytes preserved. Eight compressed validation traces; no bulk raw data.
-Ready for one new unseen holdout of the retained active-memory implementation,
-explicitly conditional on the virtual storage contract. Strongest remaining limitation:
-slow/common-mode sensor drift has no qualified independent anchor (0/32 here).
+The overall P95 is still governed by slow drift. Adding fast-detected cases changes the latency population; an overall percentile decrease alone does not mean slow-drift detection accelerated. Consult paired common detections and separate abrupt/slow latency in latency_summary.csv. No slow-channel retuning or claim of common-mode observability is made.
+
+The prior14/48 weak-step/pulse result and current campaign have different cohorts and denominators. The proper improvement comparison is A0 versusA1 on these exact new cases; do not interpret raw counts across campaigns as a paired result.
+
+Retention follows preserved slow/other-origin capability, no lost A0 detections, robust primary/reference abrupt detection, lower silent plant misses and zero observed false/wrong-origin alarms. Eight physics-parity checks against the retained baseline yielded identical plant/control raw and summary CSVs. Extra persistent detector state64B (4208 to4272B), O(1) arithmetic per100ms acquisition; no extra sensor, dependency or physical hardware WCET claim.
+
+## Final decision
+
+**Retain FAST.** Validation overall535/544=98.35% (Wilson95%96.89–99.13%), SENSOR_CONTROL215/224=95.98%; both requested detection margins reached. Weak steps63/64 and pulses48/48, versus A0 abrupt44/112. Primary steps31/32, reference steps32/32. Effective memory59/59 and dormant21/21 preserved. Nine remaining misses: eight common-mode drifts and one -0.765C permanent primary offset (fast_redundant_1517), not adjusted after validation.
+
+**Material overall latency goal not reached:** P9547.40s to45.93s is only3.10% lower on the same campaign; slow-only and combined slow-drift timings are identical. Eight common detections improve,460 are unchanged, none worsen. The earlier50s value came from a different campaign and is not the paired baseline.
+
+Ready for ONE new unseen holdout within the explicitly documented independent-sensor/noise contract; no unseen data were run here. All regression checks passed:325 tests, build/compile/diff,48 legacy and64 RTL. Preserved GUI and Hybrid/HETIA; no commit/push.

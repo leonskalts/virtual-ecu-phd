@@ -1,5 +1,6 @@
 #ifndef ECU_TYPES_H
 #define ECU_TYPES_H
+#include "redundant_temperature.h"
 
 #include "config.h"
 #include "detection_algorithm.h"
@@ -276,6 +277,7 @@ typedef struct ecu_state {
     scheduler_time_t time;
     plant_state_t plant;
     sensor_data_t sensors;
+    redundant_temperature_t temperature_reference;
     control_output_t control;
     actuator_feedback_t actuators;
     diagnostic_flags_t diagnostics;

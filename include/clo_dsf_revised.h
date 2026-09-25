@@ -19,6 +19,15 @@ typedef struct {
     unsigned int response_streak;
     int response_sign;
     bool response_active;
+    /* 32 s signed disagreement window, one correlated sensor feature. */
+    double reference_window[320], reference_sum, reference_mean, reference_strength;
+    unsigned int reference_count, reference_index, reference_last_ms;
+    /* Fast differential contract, independent of which sensor is faulty. */
+    double fast_previous, fast_anchor, fast_strength;
+    unsigned int fast_last_ms, fast_anchor_ms, fast_count, fast_index, fast_edges;
+    unsigned char fast_edge_history[10];
+    int fast_sign;
+    bool fast_valid, fast_active;
 } clo_revised_t;
 void clo_revised_init(clo_revised_t *s);
 void clo_revised_extract(clo_evidence_t *e, const runtime_observation_t *o);

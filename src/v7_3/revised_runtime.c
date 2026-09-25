@@ -49,6 +49,29 @@ void __wrap_cross_layer_fault_step(ecu_state_t *state)
  * Identical timestamp-keyed perturbations reach live and reference observations.
  * Intended for fault-free noise experiments, not transport fault composition. */
 static double sensor_jitter, sensor_drift;
+static bool reference_enabled;
+static unsigned int reference_seed;
+static float reference_offset,reference_noise;
+/* Experiment injection belongs to the sensor front end, never inference. */
+static unsigned int reference_fault_start,reference_fault_rise,reference_fault_duration;
+static unsigned int reference_fault_period,reference_fault_kind;
+static float reference_fault_magnitude;
+static void reference_acquire(ecu_state_t *state)
+{
+ if(!reference_enabled)return;
+ redundant_temperature_t *r=&state->temperature_reference;
+ if(!r->initialized)redundant_temperature_init(r,reference_seed,reference_offset,reference_noise);
+ redundant_temperature_sample(r,state->time.time_ms,state->plant.coolant_temp_true_c);
+ if(!state->log_file || !reference_fault_kind || state->time.time_ms<reference_fault_start)return;
+ unsigned int age=state->time.time_ms-reference_fault_start;
+ if(reference_fault_duration && age>=reference_fault_duration)return;
+ if(reference_fault_period && age%reference_fault_period>=reference_fault_period/2)return;
+ if(reference_fault_kind==3){r->valid=false;r->failed=true;return;}
+ float amount=reference_fault_magnitude;
+ if(reference_fault_kind==1)amount*=fminf(1,(float)age/reference_fault_rise);
+ if(reference_fault_kind==4){unsigned int phase=(state->time.time_ms/100)%6;amount*=phase==0||phase==3?1:phase==1||phase==4?-.5f:0;}
+ r->value_c+=amount;
+}
 static unsigned int sensor_variation_period=6000;
 /* Experiment-only ramp injection. Never passed to runtime inference; reference
  * ECU receives no ramp, so existing propagation scoring remains independent. */
@@ -64,6 +87,7 @@ static float sensor_variation(unsigned int ms)
 void __wrap_sensors_step(ecu_state_t *state)
 {
  __real_sensors_step(state);
+ reference_acquire(state);
  if(sensor_ramp_rise && state->log_file && state->time.time_ms>=sensor_ramp_start) {
   double elapsed=state->time.time_ms-sensor_ramp_start;
   float offset=(float)(sensor_ramp_offset*fmin(1.0,elapsed/sensor_ramp_rise));
@@ -116,7 +140,7 @@ static void log_header(FILE *f)
     for(int i=0;i<6;i++)fprintf(f,",%s_evidence,%s_detection_reliability,%s_origin_reliability",clo_channel_names[i],clo_channel_names[i],clo_channel_names[i]);
     for(int i=0;i<7;i++)fprintf(f,",detection_K_%d,localization_K_%d",i,i);
     for(unsigned int i=1;i<32;i++)fprintf(f,",origin_mass_%u",i);
-    fprintf(f,",detection_mass_normal,detection_mass_abnormal,detection_mass_ignorance,target_register_c,target_shadow_c,target_shadow_valid,control_target_c,control_execution_ms,source_c,source_previous_c,source_ms,source_previous_ms,source_valid,source_previous_valid,direct_origin_onset_ms,direct_origin_sources,sensor_established_first,ambiguous_onset,actuator_unresolved,delivered_sample_ms,delivered_sample_age_ms,response_residual_c,response_strength,memory_check_ms,memory_check_valid,memory_check_failed\n");
+    fprintf(f,",detection_mass_normal,detection_mass_abnormal,detection_mass_ignorance,target_register_c,target_shadow_c,target_shadow_valid,control_target_c,control_execution_ms,source_c,source_previous_c,source_ms,source_previous_ms,source_valid,source_previous_valid,direct_origin_onset_ms,direct_origin_sources,sensor_established_first,ambiguous_onset,actuator_unresolved,delivered_sample_ms,delivered_sample_age_ms,response_residual_c,response_strength,memory_check_ms,memory_check_valid,memory_check_failed,reference_c,reference_ms,reference_valid,reference_failed,reference_mean_c,reference_strength,fast_reference_strength,fast_reference_edges\n");
 }
 static void log_row(FILE *f,unsigned int now,const clo_revised_t *provenance,const runtime_observation_t *o)
 {
@@ -129,7 +153,7 @@ static void log_row(FILE *f,unsigned int now,const clo_revised_t *provenance,con
     for(int i=0;i<6;i++)fprintf(f,",%.17g,%.17g,%.17g",s->evidence.strength[i],s->evidence.available[i]?config.r_detection:0,s->evidence.available[i]?1.:0.);
     for(int i=0;i<7;i++)fprintf(f,",%.17g,%.17g",v->detection_conflict_steps[i],v->localization_conflict_steps[i]);
     for(unsigned int i=1;i<32;i++)fprintf(f,",%.17g",s->origin_mass.mass[c2_encode_origin_subset(i)]);
-    fprintf(f,",%.17g,%.17g,%.17g,%u,%u,%d,%.9g,%d,%.9g,%.9g,%u,%u,%d,%d,%u,%u,%d,%d,%u,%u,%u,%.17g,%.17g,%u,%d,%d\n",s->detection_mass.mass[C2_D_NORMAL],s->detection_mass.mass[C2_D_ABNORMAL],s->detection_mass.mass[DS_THETA],o->target_register_c,o->target_shadow_c,o->target_shadow_valid,o->control_target_c,o->control_execution_ms,o->source_c,o->source_previous_c,o->source_ms,o->source_previous_ms,o->source_valid,o->source_previous_valid,provenance->direct_onset_ms,provenance->direct_origins,provenance->sensor_established_first,provenance->ambiguous_onset,provenance->actuator_unresolved,o->sample_timestamp_ms,o->sample_age_ms,provenance->response_residual,provenance->response_strength,o->memory_check_ms,o->memory_check_valid,o->memory_check_failed);
+    fprintf(f,",%.17g,%.17g,%.17g,%u,%u,%d,%.9g,%d,%.9g,%.9g,%u,%u,%d,%d,%u,%u,%d,%d,%u,%u,%u,%.17g,%.17g,%u,%d,%d,%.9g,%u,%d,%d,%.17g,%.17g,%.17g,%u\n",s->detection_mass.mass[C2_D_NORMAL],s->detection_mass.mass[C2_D_ABNORMAL],s->detection_mass.mass[DS_THETA],o->target_register_c,o->target_shadow_c,o->target_shadow_valid,o->control_target_c,o->control_execution_ms,o->source_c,o->source_previous_c,o->source_ms,o->source_previous_ms,o->source_valid,o->source_previous_valid,provenance->direct_onset_ms,provenance->direct_origins,provenance->sensor_established_first,provenance->ambiguous_onset,provenance->actuator_unresolved,o->sample_timestamp_ms,o->sample_age_ms,provenance->response_residual,provenance->response_strength,o->memory_check_ms,o->memory_check_valid,o->memory_check_failed,o->reference_c,o->reference_ms,o->reference_valid,o->reference_failed,provenance->reference_mean,provenance->reference_strength,provenance->fast_strength,provenance->fast_edges);
 }
 static void old_score(int index,unsigned int now,const clo_dsf_t *s)
 {
@@ -245,6 +269,19 @@ int main(int argc,char **argv)
     if(target_update_count>=16 || sscanf(argv[i],"%u:%u%c",&t,&v,&extra)!=2 || v>UINT16_MAX || t%100 ||
        (target_update_count && t<=target_updates[target_update_count-1].time_ms))return 1;
     target_updates[target_update_count].time_ms=t;target_updates[target_update_count++].target=(uint16_t)v;
+   }
+   else if(!strcmp(key,"--revised-reference")) {
+    char extra;
+    if(sscanf(argv[i],"%u:%f:%f%c",&reference_seed,&reference_offset,&reference_noise,&extra)!=3 ||
+       !isfinite(reference_offset)||!isfinite(reference_noise)||reference_noise<0)return 1;
+    reference_enabled=true;
+   }
+   else if(!strcmp(key,"--revised-reference-fault")) {
+    char extra;
+    if(sscanf(argv[i],"%u:%u:%u:%u:%u:%f%c",&reference_fault_kind,&reference_fault_start,
+       &reference_fault_rise,&reference_fault_duration,&reference_fault_period,&reference_fault_magnitude,&extra)!=6 ||
+       reference_fault_kind<1||reference_fault_kind>4||!isfinite(reference_fault_magnitude)||
+       (reference_fault_kind==1&&!reference_fault_rise)||reference_fault_start%100)return 1;
    }
    else if(!strcmp(key,"--revised-sensor-ramp")) {
     char extra;
