@@ -27,6 +27,7 @@ void control_commit_target(ecu_state_t *state, uint16_t target_c)
 
 void control_init(ecu_state_t *state)
 {
+    state->control.memory_diagnostic = (memory_diagnostic_t){0};
     /* Conservative initial commands avoid aggressive cooling during warm-up. */
     state->control.nominal_control_target_c = ECU_TARGET_COOLANT_TEMP_C;
     control_commit_target(state, (uint16_t)ECU_TARGET_COOLANT_TEMP_C);

@@ -3,6 +3,8 @@
 #include "clo_final_observation_io.h"
 #include "ecu_types.h"
 #include "control.h"
+#include "memory_diagnostic_backend.h"
+#include "memory_diagnostic.h"
 #include <errno.h>
 #include <limits.h>
 #include <math.h>
@@ -37,6 +39,11 @@ void __wrap_cross_layer_fault_step(ecu_state_t *state)
   if (state->time.time_ms==target_updates[i].time_ms)
    control_commit_target(state,target_updates[i].target);
  __real_cross_layer_fault_step(state);
+ /* Synchronous scheduler: no control/sensor task runs inside this transaction.
+  * Snapshot is restored before returning; the legal shadow is never modified. */
+ if(enabled && state->log_file)
+  memory_diagnostic_step(&state->control.memory_diagnostic,state->time.time_ms,
+                         cross_layer_memory_read,cross_layer_memory_write,state);
 }
 /* Optional benign measurement workload. Defaults to exactly zero; not evidence.
  * Identical timestamp-keyed perturbations reach live and reference observations.
@@ -109,7 +116,7 @@ static void log_header(FILE *f)
     for(int i=0;i<6;i++)fprintf(f,",%s_evidence,%s_detection_reliability,%s_origin_reliability",clo_channel_names[i],clo_channel_names[i],clo_channel_names[i]);
     for(int i=0;i<7;i++)fprintf(f,",detection_K_%d,localization_K_%d",i,i);
     for(unsigned int i=1;i<32;i++)fprintf(f,",origin_mass_%u",i);
-    fprintf(f,",detection_mass_normal,detection_mass_abnormal,detection_mass_ignorance,target_register_c,target_shadow_c,target_shadow_valid,control_target_c,control_execution_ms,source_c,source_previous_c,source_ms,source_previous_ms,source_valid,source_previous_valid,direct_origin_onset_ms,direct_origin_sources,sensor_established_first,ambiguous_onset,actuator_unresolved,delivered_sample_ms,delivered_sample_age_ms,response_residual_c,response_strength\n");
+    fprintf(f,",detection_mass_normal,detection_mass_abnormal,detection_mass_ignorance,target_register_c,target_shadow_c,target_shadow_valid,control_target_c,control_execution_ms,source_c,source_previous_c,source_ms,source_previous_ms,source_valid,source_previous_valid,direct_origin_onset_ms,direct_origin_sources,sensor_established_first,ambiguous_onset,actuator_unresolved,delivered_sample_ms,delivered_sample_age_ms,response_residual_c,response_strength,memory_check_ms,memory_check_valid,memory_check_failed\n");
 }
 static void log_row(FILE *f,unsigned int now,const clo_revised_t *provenance,const runtime_observation_t *o)
 {
@@ -122,7 +129,7 @@ static void log_row(FILE *f,unsigned int now,const clo_revised_t *provenance,con
     for(int i=0;i<6;i++)fprintf(f,",%.17g,%.17g,%.17g",s->evidence.strength[i],s->evidence.available[i]?config.r_detection:0,s->evidence.available[i]?1.:0.);
     for(int i=0;i<7;i++)fprintf(f,",%.17g,%.17g",v->detection_conflict_steps[i],v->localization_conflict_steps[i]);
     for(unsigned int i=1;i<32;i++)fprintf(f,",%.17g",s->origin_mass.mass[c2_encode_origin_subset(i)]);
-    fprintf(f,",%.17g,%.17g,%.17g,%u,%u,%d,%.9g,%d,%.9g,%.9g,%u,%u,%d,%d,%u,%u,%d,%d,%u,%u,%u,%.17g,%.17g\n",s->detection_mass.mass[C2_D_NORMAL],s->detection_mass.mass[C2_D_ABNORMAL],s->detection_mass.mass[DS_THETA],o->target_register_c,o->target_shadow_c,o->target_shadow_valid,o->control_target_c,o->control_execution_ms,o->source_c,o->source_previous_c,o->source_ms,o->source_previous_ms,o->source_valid,o->source_previous_valid,provenance->direct_onset_ms,provenance->direct_origins,provenance->sensor_established_first,provenance->ambiguous_onset,provenance->actuator_unresolved,o->sample_timestamp_ms,o->sample_age_ms,provenance->response_residual,provenance->response_strength);
+    fprintf(f,",%.17g,%.17g,%.17g,%u,%u,%d,%.9g,%d,%.9g,%.9g,%u,%u,%d,%d,%u,%u,%d,%d,%u,%u,%u,%.17g,%.17g,%u,%d,%d\n",s->detection_mass.mass[C2_D_NORMAL],s->detection_mass.mass[C2_D_ABNORMAL],s->detection_mass.mass[DS_THETA],o->target_register_c,o->target_shadow_c,o->target_shadow_valid,o->control_target_c,o->control_execution_ms,o->source_c,o->source_previous_c,o->source_ms,o->source_previous_ms,o->source_valid,o->source_previous_valid,provenance->direct_onset_ms,provenance->direct_origins,provenance->sensor_established_first,provenance->ambiguous_onset,provenance->actuator_unresolved,o->sample_timestamp_ms,o->sample_age_ms,provenance->response_residual,provenance->response_strength,o->memory_check_ms,o->memory_check_valid,o->memory_check_failed);
 }
 static void old_score(int index,unsigned int now,const clo_dsf_t *s)
 {

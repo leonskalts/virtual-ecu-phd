@@ -38,3 +38,32 @@ Keep summaries, classification, exact manifest, findings, validation record and
 8 predetermined compressed traces. Preserve historical/previous final-unseen
 artifacts and GUI state. Full build/compile/diff/tests,48 legacy and64 RTL at end.
 No commit or push.
+
+## Active protected-memory readback diagnostic
+
+CURRENT additionally consumes the result of a periodic atomic target-register
+challenge, independent of whether control has used the stored value. Every1000ms
+it saves the actual16-bit word, writes/reads0, writes/reads65535, restores the saved
+word and verifies restoration. The shadow is neither challenged nor overwritten;
+authorized calibration updates still use the original commit path. Four reads plus
+three writes cover both stuck polarities of all16 bits. Persistent checker state
+is16 bytes per ECU; the simulator assigns no scheduler duration to these accesses.
+A hardware deployment needs exclusive access, a safe restore strategy and measured
+WCET; simulation results are not a real-time cost guarantee.
+
+The generic checker has no ECU or fault metadata dependency. A separate virtual
+storage backend models active stuck-cell write behavior; inference sees readback
+mismatch and timestamp only. This is an explicit new virtual-device contract, not
+a passive CRC capable of detecting a value-correct stuck cell. Bit-flipped stored
+values are restored unchanged by the probe, preserving the prior effective-memory
+shadow evidence. Ordinary injection/control behavior remains unchanged.
+
+A fresh failed check contributes direct MEMORY/ABNORMAL evidence in the existing
+memory channel; no new DS source, threshold or causal-precedence rule is added.
+Results expire after1000ms and are replaced by the next check. Intermittent faults
+can require more than one period when their active phase misses a probe.
+
+No qualified sensor anchor is implemented. The operating model has nonzero heat at
+zero load and lacks an engine-off/ambient-soak certificate. Low-load intervals must
+not be called ambient references. The existing short-horizon sensor channel remains
+unchanged, with slow common-mode drift a documented limitation.

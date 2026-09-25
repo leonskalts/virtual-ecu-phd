@@ -1,5 +1,6 @@
 #include "clo_dsf_revised.h"
 #include "config.h"
+#include "memory_diagnostic.h"
 #include <math.h>
 
 /* Contract: actuators_step realizes clamp(command) synchronously before this
@@ -27,7 +28,12 @@ void clo_revised_extract(clo_evidence_t *e, const runtime_observation_t *o)
     e->strength[2] = e->available[2] &&
         (o->target_register_c != o->target_shadow_c ||
          (o->control_execution_ms == (int)o->time_ms &&
-          (!isfinite(o->control_target_c) || o->control_target_c != (float)o->target_shadow_c))) ? 1.0 : 0.0;
+         (!isfinite(o->control_target_c) || o->control_target_c != (float)o->target_shadow_c))) ? 1.0 : 0.0;
+    if (o->memory_check_valid && o->memory_check_ms <= o->time_ms &&
+        o->time_ms - o->memory_check_ms < MEMORY_DIAGNOSTIC_PERIOD_MS) {
+        e->available[2] = true;
+        if (o->memory_check_failed) e->strength[2] = 1.0;
+    }
     e->available[4] = e->available[4] && o->time_ms % ECU_ACTUATOR_PERIOD_MS == 0;
     e->strength[4] = e->available[4] &&
         (outside_response_contract(o->pump_command, o->pump_actual) ||

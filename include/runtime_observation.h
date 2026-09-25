@@ -23,6 +23,8 @@ typedef struct {
     /* Trusted runtime integrity/acquisition boundary, no injection labels. */
     unsigned int target_register_c, target_shadow_c;
     bool target_shadow_valid;
+    unsigned int memory_check_ms;
+    bool memory_check_valid, memory_check_failed;
     float source_c, source_previous_c;
     unsigned int source_ms, source_previous_ms;
     bool source_valid, source_previous_valid;

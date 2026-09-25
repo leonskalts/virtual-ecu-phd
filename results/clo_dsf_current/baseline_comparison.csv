@@ -1,0 +1,9 @@
+partition,method,both,only_new,only_a0,neither
+development-train,Memory only,483,35,0,82
+development-train,Anchor unavailable,483,0,0,117
+development-train,Revised CLO-DSF,483,35,0,82
+development-train,Weighted Sum,410,53,73,64
+development-validation,Memory only,340,22,0,38
+development-validation,Anchor unavailable,340,0,0,60
+development-validation,Revised CLO-DSF,340,22,0,38
+development-validation,Weighted Sum,284,26,56,34

@@ -1,0 +1,21 @@
+partition,method,anchor_status,cases,detected,detection_rate
+development-train,Pre-change CLO-DSF,qualified_anchor,0,0,
+development-train,Pre-change CLO-DSF,no_qualified_anchor,48,0,0.0
+development-train,Memory only,qualified_anchor,0,0,
+development-train,Memory only,no_qualified_anchor,48,0,0.0
+development-train,Anchor unavailable,qualified_anchor,0,0,
+development-train,Anchor unavailable,no_qualified_anchor,48,0,0.0
+development-train,Revised CLO-DSF,qualified_anchor,0,0,
+development-train,Revised CLO-DSF,no_qualified_anchor,48,0,0.0
+development-train,Weighted Sum,qualified_anchor,0,0,
+development-train,Weighted Sum,no_qualified_anchor,48,24,0.5
+development-validation,Pre-change CLO-DSF,qualified_anchor,0,0,
+development-validation,Pre-change CLO-DSF,no_qualified_anchor,32,0,0.0
+development-validation,Memory only,qualified_anchor,0,0,
+development-validation,Memory only,no_qualified_anchor,32,0,0.0
+development-validation,Anchor unavailable,qualified_anchor,0,0,
+development-validation,Anchor unavailable,no_qualified_anchor,32,0,0.0
+development-validation,Revised CLO-DSF,qualified_anchor,0,0,
+development-validation,Revised CLO-DSF,no_qualified_anchor,32,0,0.0
+development-validation,Weighted Sum,qualified_anchor,0,0,
+development-validation,Weighted Sum,no_qualified_anchor,32,16,0.5

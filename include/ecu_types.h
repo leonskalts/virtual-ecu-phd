@@ -9,6 +9,7 @@
 #include "runtime_safety_policy.h"
 #include "safety_policy_v5.h"
 #include "scheduler_stress.h"
+#include "memory_diagnostic.h"
 
 #include <stdbool.h>
 #include <stdio.h>
@@ -176,6 +177,7 @@ typedef struct {
     /* Separately protected committed calibration; never written by the injector. */
     uint16_t target_shadow_c;
     bool target_shadow_valid;
+    memory_diagnostic_t memory_diagnostic;
     int last_execution_ms;
     float active_control_target_c;
     float control_target_deviation_c;
