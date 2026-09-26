@@ -32,5 +32,9 @@ int main(int argc,char **argv)
   sample(&s,&o,0,0,0);sample(&s,&o,100,.9,0);sample(&s,&o,300,.9,0);assert(!s.fast_strength&&s.fast_edges==0);
   o.time_ms=400;o.reference_valid=false;clo_revised_step(&s,&config,&o);assert(!s.fast_strength&&!s.fast_valid);
  }
+ if(mode==5)for(int swap=0;swap<2;swap++){
+  clo_revised_t s;clo_revised_init(&s);runtime_observation_t o={0};
+  for(unsigned t=0;t<=2000;t+=100){sample(&s,&o,t,t==1000?.7:t==1100?.5:0,swap);if(t==1100)assert(s.fast_strength==1);}
+ }
  return 0;
 }

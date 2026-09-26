@@ -22,12 +22,12 @@ int main(int argc,char **argv) {
   memory_diagnostic_step(&s.control.memory_diagnostic,1000,cross_layer_memory_read,cross_layer_memory_write,&s);
   assert(s.control.memory_diagnostic.failed && s.control.target_register_c==saved && s.control.target_shadow_c==saved);
   s.cross_layer_runtime.active=false;
-  memory_diagnostic_step(&s.control.memory_diagnostic,2000,cross_layer_memory_read,cross_layer_memory_write,&s);
+  memory_diagnostic_step(&s.control.memory_diagnostic,2100,cross_layer_memory_read,cross_layer_memory_write,&s);
   assert(!s.control.memory_diagnostic.failed && s.control.target_register_c==saved);
  }
  if(mode==2){uint16_t word=92;memory_diagnostic_t d={0};memory_diagnostic_step(&d,0,read_word,write_word,&word);
   memory_diagnostic_step(&d,999,read_word,write_word,&word);assert(d.checks==1);
-  word=103;memory_diagnostic_step(&d,1000,read_word,write_word,&word);assert(d.checks==2&&!d.failed&&word==103);
+  word=103;memory_diagnostic_step(&d,1100,read_word,write_word,&word);assert(d.checks==2&&!d.failed&&word==103);
   memory_diagnostic_step(&d,500,read_word,write_word,&word);assert(d.checks==2);
  }
  if(mode==3){ecu_state_t s={0};s.cross_layer_fault.enabled=true;s.cross_layer_fault.layer=FAULT_LAYER_MEMORY;s.cross_layer_fault.model=FAULT_MODEL_BIT_FLIP;s.cross_layer_runtime.active=true;s.control.target_register_c=93;s.control.target_shadow_c=92;
@@ -37,8 +37,16 @@ int main(int argc,char **argv) {
  if(mode==4){clo_evidence_t e={0};runtime_observation_t o={0};o.memory_check_valid=true;o.memory_check_failed=true;o.memory_check_ms=1000;
   o.time_ms=1000;clo_revised_extract(&e,&o);assert(e.available[2]&&e.strength[2]==1);
   o.time_ms=1999;clo_revised_extract(&e,&o);assert(e.strength[2]==1);
-  o.time_ms=2000;clo_revised_extract(&e,&o);assert(!e.available[2]&&e.strength[2]==0);
+  o.time_ms=2100;clo_revised_extract(&e,&o);assert(!e.available[2]&&e.strength[2]==0);
   o.time_ms=999;clo_revised_extract(&e,&o);assert(!e.available[2]&&e.strength[2]==0);
+ }
+ if(mode==5){uint16_t word=92;memory_diagnostic_t d={0};unsigned last=0,maxgap=0;
+  for(unsigned t=0;t<=10000;t+=100){unsigned checks=d.checks;memory_diagnostic_step(&d,t,read_word,write_word,&word);if(d.checks!=checks){if(checks&&t-last>maxgap)maxgap=t-last;last=t;assert(word==92&&!d.failed);}}
+  assert(d.checks==11&&d.operations==77&&maxgap==1100);
+  for(unsigned start=0;start<10000;start+=100){ecu_state_t e={0};e.cross_layer_fault.enabled=true;e.cross_layer_fault.layer=FAULT_LAYER_MEMORY;e.cross_layer_fault.model=FAULT_MODEL_STUCK_BIT;e.cross_layer_fault.bit_index=0;e.cross_layer_fault.stuck_polarity=0;e.control.target_register_c=92;int found=-1;
+   for(unsigned t=0;t<=start+10000;t+=100){e.cross_layer_runtime.active=t>=start&&(t-start)%2000<600;memory_diagnostic_step(&e.control.memory_diagnostic,t,cross_layer_memory_read,cross_layer_memory_write,&e);if(e.control.memory_diagnostic.failed&&found<0)found=(int)t;assert(e.control.target_register_c==92);}
+   assert(found>=(int)start&&found<=(int)(start+10000));
+  }
  }
  return 0;
 }

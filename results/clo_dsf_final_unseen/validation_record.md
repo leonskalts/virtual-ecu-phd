@@ -1,10 +1,8 @@
 # Validation record
 
-Baseline d040c341f22be2dcd4483c65786c07c696020f9c
+Baseline e8126d9f3da261a210f1d16c83d4af57245036e2; harness SHA256 2db7d7eca1349df4ad94aea25d7ac144fe9460eeb286a806d4cb7851f73007fa; executable SHA256 c6bf5a3022833931ae83e1e02a7dbac80dda29aa4006406fe353a0b975adbc1c; prior manifest SHA256 be3bd25bf33bb33f1bc54544ea6f070418cb0d93873325c515346b8410468547; manifest SHA256 58e4433bbefd6f26ecd0c9a4f48129bc4163e2e821ab4e89a198b610553bdba3.
 
-Before outcomes:1500 configurations validated. Algorithm unchanged. Runner SHA256 9b2966f91ae5855075a3efcf2a51f2639f9146a4e6024f1ecd02a9b32381c917
-
-Scientific and protocol SHA256:
+Pre-outcome scientific hashes:
 ```json
 {
   "Makefile": "febd61e4dd3e665fe5b533453ce931a1971ced79c11b3e60f4b1fe2b6a762a56",
@@ -18,7 +16,7 @@ Scientific and protocol SHA256:
   "include/clo_dsf.h": "fb8895897690205ade67bb72474fda72a8bb9397a13bcf054009b8004b2152d7",
   "include/clo_dsf_candidate2.h": "921e4caa96c824c72953261cd0bea5a29d0de357e69a9e972f372fe0f1a4bae3",
   "include/clo_dsf_final.h": "151475b2ccbd2b3dd50b06cd64bb6a5932b4b2a74834e59b78c0d4cae421f954",
-  "include/clo_dsf_revised.h": "54583131ff8723d465585c78b712b29949a11fb2e5290993794c8c5f6140d3f5",
+  "include/clo_dsf_revised.h": "ceb615c0c7fdcca62e9d354e9ce9d438a616360c82555d34271bfb70e2314a23",
   "include/clo_final_observation_io.h": "af3df00c1262e63246e2b10ae5d180e5c9f9b7dcbe4caac241159a9cdca99142",
   "include/clo_final_sparse_math.h": "461cdd57bf792d53efe75dc29cef6d441f24bfb64392052c9421801bac286bc8",
   "include/config.h": "eb481dc6fe5bca46e1c4a4fef773be421933c33b43ca385c8c88f8e013e16aa7",
@@ -27,16 +25,19 @@ Scientific and protocol SHA256:
   "include/detection_algorithm.h": "8230c347415e40d98c7c35f7f3c47654c0bc1257504c60b17d248c5de9431150",
   "include/diagnostics.h": "7cf690e3de1e183153a0e4518881ca9aa180983481e5bbc951b149f08259999b",
   "include/ds_evidence.h": "b9798ed2445e3db970bd6e6a23a2a7af12752d908fdf05511fe062bcd515a65c",
-  "include/ecu_types.h": "c116b0f0e2831ea2f137b8ddaca48f112a8a105886d78517881b20e0a252da97",
+  "include/ecu_types.h": "9db75d0b7e0c98ec54783eb8bf9491c6b154f5afd2f3a0ae16360ad713066ce4",
   "include/experiment.h": "37a13975880f1d259dea1e67d2cf31e4fa49df539bbfd38d75bddb8e3528a3c5",
   "include/experiment_ground_truth.h": "9d01ad1c5abb042bc8a928f6e369dbbbffe8bea452677a2ed805b835dc393e6c",
   "include/fault_injection.h": "e2dc9375f400d3505b0bf84cb5938e9c9547c0417efe7ffcbe5ae377168d1789",
   "include/fault_model.h": "0ea6dacb24bbffa5192a252f12fec5fa9ffc73d9c46309fe84e7758a8e0bb56b",
   "include/hazard_model.h": "540ec063274e629312b7d3d777d35c57c901342ef936a41502f8b488f98983da",
   "include/logger.h": "a9cbcff8b36a1ca75594a5f283a63dfadcf2fb3460c88345c89ce5fe2ab7eb57",
+  "include/memory_diagnostic.h": "aefb15b66033f3db7022c717b61c57bfa7f047d6ef76afea45e649845486c892",
+  "include/memory_diagnostic_backend.h": "0ec43b9c0ef43c987e0c95d9ce9151c8c97573688107dde0d0e449ec8f82e095",
   "include/metrics.h": "7dbbfaf3f6781df79c88a8616f3cce046904c15664c2c82d90fa837d35f73c31",
   "include/propagation_monitor.h": "eadcc4c103956b1204ea1c6923da31369b4bf501db8bb2c9c158b0cc14576b1d",
-  "include/runtime_observation.h": "ccd0f0bc1e5a7e1076645e395b3f6edc953d587ab477b0f31fb7638b81cf4293",
+  "include/redundant_temperature.h": "fdece6f4c7f8abd02f5547413370e80389f8f38e10bfa678b4dd72524e73cf2e",
+  "include/runtime_observation.h": "7fd084b6a4c6e05372858a9ad2c81a42872afae5e2704903c478089c9c8fad91",
   "include/runtime_safety_policy.h": "0bd2ef517faa18e28bf0aa451d9417d5ee542cdc6ab3dd15c911667add9cda65",
   "include/runtime_timing_observation.h": "93abae40373360d6fc824b887b459a33e830ced88951838b8489a7a95bb09565",
   "include/safety_monitor.h": "48757ad24c41d5434c1b424f13190ab56f373a812843c249ae9bb6dfef202111",
@@ -93,10 +94,6 @@ Scientific and protocol SHA256:
   "python/virtual_ecu/validation_v5_recovery.py": "e582aa207306c6175ac8fecef0608fb8b83cd833ca80caab151c1387bcee6a6a",
   "python/virtual_ecu/validation_v5_report.py": "21548422d1a99a780bcec89fc462ba520fa789689406b12a6a3ce94dfbad2ea7",
   "python/virtual_ecu/validation_v5_runner.py": "b66e6c0d1cb69e46fab21d5a0ed1cc39b6552e0bb51dd26b6d3dbfb222530bed",
-  "results/clo_dsf_current/thermal_contract.cfg": "ff206728eb72b4d6394b9f42a8434cba8b51cc0694f6b5512be6eec167c8fdee",
-  "results/clo_dsf_final_unseen/campaign_manifest.csv": "55393c52de7df536f5706680974d122caae64e4a4f7710a074d2e585a16f9afd",
-  "results/clo_dsf_final_unseen/overlap_audit.csv": "cbabeb84b619f90c0d5d0ee986d69ce14f244e50ac1ae072e83c6d530cb83427",
-  "results/clo_dsf_final_unseen/protocol.md": "f45a7d39e39248d5a501fa54d449c63f121c2187912e5b9a12196875597457cf",
   "results/cross_layer_safety_v7_1_dev/initial_config.cfg": "a7d99f7626ffe98ed59d8022982429dd43f834f3d6233699382e8b3d937c78af",
   "results/cross_layer_safety_v7_1_dev/selected_config.cfg": "6888f8c237113a3eaa1bc1f98a01554f688b0f2d81775ff2105af49c21cdbb91",
   "results/cross_layer_safety_v7_2_confirmation/final_reference.cfg": "6f62e972a27c765cae6a24daf9b7b98fb1513cd46fc226a128d87a6431e73ac7",
@@ -105,6 +102,7 @@ Scientific and protocol SHA256:
   "results/cross_layer_safety_v7_dev/clo_dsf_candidate.cfg": "2a678bb72a8ffb69ee010dd253448faa87d04a1e92b38c6e6d066227077b8293",
   "results/cross_layer_safety_v7_dev/initial_config.cfg": "0d966e20f36fa799bf59c4364ec27bee1fe58cfe7e3aea4d813e0ae426acc855",
   "results/cross_layer_safety_v7_dev/selected_config.cfg": "2a678bb72a8ffb69ee010dd253448faa87d04a1e92b38c6e6d066227077b8293",
+  "scripts/analyze_clo_dsf_complementarity.py": "cf844be978da49c45da7e1d92eb496d1fb77e85a455b04a8490661627056bbc6",
   "scripts/analyze_clo_dsf_revised_misses.py": "2688be68307a0504bafcbb1acce89d38a2c4c9b47061e0191e73cfe04467be53",
   "scripts/analyze_cross_layer_safety.py": "3ea72f58e919c34da5abbdf9cad1a10256fe68ffde19eadd0809aaf7324e0db0",
   "scripts/audit_clo_dsf_candidate2_traces.py": "663eec729f8f011043e63f4e9288dae6425ab1f7084d525f5f8d1da218bdac1b",
@@ -136,13 +134,17 @@ Scientific and protocol SHA256:
   "scripts/report_clo_dsf_revised_development.py": "c7d68b7c87b65906a85db22529cc6be0bd42d7db9e3ce944575909f528066804",
   "scripts/reproduce_clo_dsf_final_ablation.py": "3e5d90a9b9b7d07eceaf34ef157e33b93b789fa36f4e460c7e966ba9ffc84fbf",
   "scripts/run_batch_experiments.py": "594ab47e3fcecc08f028f9eca5a61761e99b2eea2c82130c60008dd4a813b1e6",
+  "scripts/run_clo_dsf_active_diagnostic.py": "4beda59e1eedef095960a4312a7ea2da96d62734c2917310459f80bbb5a6fa60",
   "scripts/run_clo_dsf_benign_contract.py": "c89104bce5b31ce797a8a4360f192e596fa0d3898b20199b464930934ca3b41b",
   "scripts/run_clo_dsf_candidate2_development.py": "34dc412b8737a9ea98884fbb5cd6d0adc08ac0442c863377e8d45cb338575cbd",
   "scripts/run_clo_dsf_current.py": "04c798d24111524e5af6621d152495c6672f7bc93b8f6d1eaf8d519262da05c6",
   "scripts/run_clo_dsf_development.py": "8e639b88afe40528e541ec2d180fd33c976cfdb1ec1f5cdb1e69f3256ea89092",
+  "scripts/run_clo_dsf_fast_redundancy.py": "0c4272f6a608724f827ed053b5bd8edd9c37bf018236d60d0dcafa05e9359de4",
   "scripts/run_clo_dsf_final_confirmation.py": "e6175f0835f5499eadddd630e27468cf3b4a7d9dbe54b11a8ce318d574fe59fb",
   "scripts/run_clo_dsf_final_holdout.py": "2c32ce0ae453896500dc644b67a9af330b487e858e6b02cbf6c084527e8505a0",
   "scripts/run_clo_dsf_final_unseen.py": "f37714e6036694ad69696c1e2b5f35bbac4db96f295c718b92ee27c0cd417ba7",
+  "scripts/run_clo_dsf_integrity_event.py": "5bee99955e8731ba2c0525133f98812cd0de1f3658bde106c0ea1b9d15263fd8",
+  "scripts/run_clo_dsf_redundant_sensor.py": "1e8858ec45b116273ef05948306b2c3fab8bcf5d9d5fb73d75977aac19192276",
   "scripts/run_clo_dsf_revised_development.py": "0f9fd35acd4d3f7de988615a305738515ddcde2a427cbbf08b1bccbc27ad17b8",
   "scripts/run_clo_dsf_sensor_response.py": "3d2de307b3ba51731f39531a081b158acb675cc294f87ea661823df61845afb9",
   "scripts/run_clo_dsf_slow_bias_development.py": "136a3b4e6890c6f4ba2aa5e39da437074edb66201370e7eb616dc4ff6aeb612c",
@@ -177,7 +179,7 @@ Scientific and protocol SHA256:
   "src/actuator_trace.c": "066e91642cef22759a918d3797e613d3d8ed1f373abb96ff9838ce090861cc99",
   "src/actuators.c": "5b1fcad84453fce451aa7d08cb23dc744fa2ff484c0fb22e0cfe72d234641ce3",
   "src/calibration_trace.c": "e537ce9a6884d4c1a22efa59a6f154d84d6bf0c51359e7180b0da5f1fa4d230f",
-  "src/control.c": "39be6119817829cee8f068d2fc3fc74aa38a6c9f08bb98b94112c5dc8af6536a",
+  "src/control.c": "f2ccfbdde47db2ef483b1b64f4b83c9e6a48e9ae0b4f6450666686814dc839f7",
   "src/cross_layer_config.c": "0ac07cf90296a041f82973ad754337c9c8ae9fc9f58dff6104e2a828dfe38457",
   "src/cross_layer_fault.c": "5e3a807d89598615aa93cc9c3849eb6f8c4a44b1f25c4e56d6672ff5deb8e01f",
   "src/detection_algorithm.c": "c4a024feb6eabc6d62bb6a4483d504cc39c3efa8fa64baf16c7c1fec13a7804d",
@@ -187,9 +189,12 @@ Scientific and protocol SHA256:
   "src/hazard_model.c": "c531b742fa8c639dfd515afcba00d136398d953f9cd2873a9ba57b19f2146b03",
   "src/logger.c": "3f30449d70bca3d2dd1f473853b875f195c67062a4f6775205f621e83aea760c",
   "src/main.c": "ce81833c12f36aca454251121efc18b835b30fe99cf2e434afd7370ed977e032",
+  "src/memory_diagnostic.c": "6b6fdea9cdef91abb836fffea60dc167739029e675dbb6e0431c2fe40e51208b",
+  "src/memory_diagnostic_backend.c": "a6d0ece226c89b8f9b5fa1d7809927ccad63eefbd2c50f02d5e608c565c8a5ed",
   "src/metrics.c": "b15690d244ba59b75532e299e53bd74f2bd946268e6b0b0d1c6c8f10d510c20a",
   "src/propagation_monitor.c": "1bf34f5ea6fa748844d8c3353fc13ce07d679574178e3b1f051861c684a920e3",
-  "src/runtime_observation.c": "34690aa9b53e2257515890d1d2847c37ba24c1efb2188bade51c4a2a95877bc3",
+  "src/redundant_temperature.c": "176da3fafddaf219b0515492be7225c72e59498ef1d3c10a74e771669d42a6d1",
+  "src/runtime_observation.c": "cae3370319989b38c52832293215d678444eedcf20dba9b93dc04f2444c323ea",
   "src/runtime_safety_config.c": "3af95ba0188b9ab123269d4aec2451f335589399f2ab79c8cbc6b59b9e1d870a",
   "src/runtime_safety_logger.c": "aff426aefcbe42b4e1c83ecd036d94ac8dc91acac6bcec1b4c7933982c9d36dc",
   "src/runtime_safety_policy.c": "ac6761caa9480effa52f3f721a980ed0ffaa02dbe44c46492788acb34eeaecb3",
@@ -216,8 +221,8 @@ Scientific and protocol SHA256:
   "src/v7_2/final_observation_io.c": "19446a5c5726dd650da092c634e8c7ade7f4101401ad152e73fae41afb3d9145",
   "src/v7_2/final_runtime.c": "d7f7262861914c20e2527cf19883968c1ea8fd0ebe315c33f9e39b5b8df3c4fb",
   "src/v7_2/final_sparse_math.c": "25be89984a88c16b8ca98f96493212dcd802904ad5c521e82c486e8af1f1775b",
-  "src/v7_3/clo_dsf_revised.c": "9c46e5f7d71ab7bbd09e0d5528aeada0bfa4bfb69d2e7452f528b585e9c75901",
-  "src/v7_3/revised_runtime.c": "8bb9e755499fad47e4aa5dc39d972efa5f3f1c6cfe4d7597938bb987e31b9e4e",
+  "src/v7_3/clo_dsf_revised.c": "684f025ef5f28e0d890767f20756a34964239ad38d89e9d7750c3f5180f2f1b5",
+  "src/v7_3/revised_runtime.c": "1febac2b4044a5ea67a16e53ab1acc71332b228f3add33365167761a25424d2f",
   "src/validation_v5_config.c": "67ddfb3421720339b33404e835790a93c877f22ce7d8debe619c63fcf829b4dc",
   "src/validation_v5_logger.c": "2d1c35b32c8420c1a097b657c4928d04436836bb6299bbc4b5b821ccc590efb2",
   "tests/candidate2_unit.c": "e1d93f54ef35e7372f56971d6771ac062028b1a47a9f7a839c0f83fabc8eafd1",
@@ -226,6 +231,7 @@ Scientific and protocol SHA256:
   "tests/clo_final_unit.c": "b6aa2961301410888e0adfc442387ba8cc381397c347c3805ebc2276c93b73ef",
   "tests/clo_revised_unit.c": "fa6d7812dc71c52a32889743743a487b5b348f6b432786b1c55c352d102828b2",
   "tests/current_observation_unit.c": "87d7e14e384ae30fee099bcc3c63e44e9da3a5c50ba95542db04de93deae8780",
+  "tests/fast_redundant_sensor_unit.c": "8dfd501d109d39b4626fc8fa121f3844c9fb994a33eed140fd504ea0f8a5656a",
   "tests/final_configuration_check.c": "c3e8e1a9b27ada5a1a0df792b79f1e8b4b574aadbf6b00aa04b41d7d17752307",
   "tests/final_sparse_unit.c": "d2a3744edb50dd02fa2b1e14463afda3ce4473e831f1eb26b956506a68d69bdd",
   "tests/fixtures/gui_v6_commands.json": "1d091b3a2149af3eec0e22454f655cbef0423ad02b0a13c6a215ad5e38da78c7",
@@ -237,6 +243,8 @@ Scientific and protocol SHA256:
   "tests/gui_window_capture.py": "4deb8cb17d941f57a10477d928cd5bd0ad11da3a5ca9cd7a1cfb8a236dff963b",
   "tests/historical_identity.py": "81df399b14991f36e3efdcc5004a781e19a9ee7991cca8d96c9da6331d4ef2fa",
   "tests/holdout_configuration_check.c": "d152c979bbfeb69f880d6a39a6dbcd651e7d6197fae2d54ea8808c7ce97a9867",
+  "tests/memory_diagnostic_unit.c": "46aa588f80d0a1d001d41ff35a721aab8378376ab0c153052d688739ef02e3fd",
+  "tests/redundant_temperature_unit.c": "e0a316e94661091dabb1ad412edfa40447578b83b9ca1186411de7532e6c558c",
   "tests/test_clo_dsf.py": "17f544e05b98e56b5e6850df6961033645c1bbe7e95be838f89f44890a1f97fd",
   "tests/test_clo_dsf_candidate2.py": "a0ebf7de9a9d27469cb93ee20fcafacbf7434971bd5ecbb251445e2aa4fc2e25",
   "tests/test_clo_dsf_candidate2_development.py": "72f63e18814b5e00bcfbb4e06372ceeef0625ba42f4e71eac2f1ed096fc2bb6f",
@@ -250,98 +258,25 @@ Scientific and protocol SHA256:
   "tests/test_cross_layer_safety.py": "0e9852fdbc958e7d43e89acfdc3f0a2de75f0087bc331d6f4458e5fcdb444182",
   "tests/test_cross_layer_v2.py": "5be048ebbf78f3bc38bd18ae98ed5ded59c2cac1596b8c6d03ef563953d37615",
   "tests/test_cross_layer_v3.py": "5f87e1e9bc386fcb19817bfc79a35f8882174d4f03626a2a67b0cd7a28869ce2",
+  "tests/test_fast_redundant_sensor.py": "bab04821a7548a76310720f890da50f80e2158f89baa5098dd269e0fc8c5328a",
   "tests/test_final_reproducibility.py": "1b67dca5faa5e2625d55ed6951e0d8243dceab6f360a8cb6d2455cc232f6cc8b",
   "tests/test_gui_ux.py": "e97c02020fe48a2e04dc32df1be2438339a1d5558106dc6c1c67650142ffb6fa",
   "tests/test_gui_v62.py": "14f2f8743023f1a7d7da5cd26830e12690d77a1c886278d9ecdd17f891231b55",
+  "tests/test_memory_diagnostic.py": "c25515557d8ea8d380aeedb00390355e8b27650b712254b705d666a68a8a1c25",
+  "tests/test_redundant_temperature.py": "97d3863f79943e9f8bb6f9eeb957babacde30bcaaa133daf78afefb86187a81a",
   "tests/test_runtime_safety_v4.py": "7eebd3bb71ba3190470009e5222ea7e71e4018225872adab81bf22503e08797f",
   "tests/test_validation_v5.py": "338f3ae7c294f1bfc352e506ccdfd080d5d89961fc37650c5bfafd1387d634e6"
 }
 ```
 
-1500/1500 cases completed once; registered scientific/protocol hashes unchanged after runtime. No outcomes used for tuning. Regression pending.
+## Completion and regression
 
-## CSV transport formatting correction
+Exactly1500 simulations executed once after protocol registration.940 distinct historical artifacts audited by content, including all reachable manifest/profile versions and prior committed unseen manifest;915 named saved profiles resolved, no unresolved historical profile. Zero configuration overlap proved by disjoint canonical complete profiles. Audit preflight performed no simulations.
 
-Initial build and Python compile passed. Plain git diff --check flagged CRLF CSV terminators from the existing writer as trailing whitespace, before tests began. After verifying every frozen hash at runtime completion, generated result CSVs were converted CRLF to LF only; parsed rows/fields/commands were asserted identical. No scientific file or protocol text changed. Registered manifest/audit bytes are reconstructible by replacing LF with CRLF; original hashes remain above. Final publication hashes:
-```json
-{
-  "results/clo_dsf_final_unseen/overlap_audit.csv": {
-    "registered_or_generated_sha256": "cbabeb84b619f90c0d5d0ee986d69ce14f244e50ac1ae072e83c6d530cb83427",
-    "final_lf_sha256": "72b34b1ec0f52995e818530b9ac334dbfd0c641bde07fa5d5e3b7ba55159320c"
-  },
-  "results/clo_dsf_final_unseen/campaign_manifest.csv": {
-    "registered_or_generated_sha256": "55393c52de7df536f5706680974d122caae64e4a4f7710a074d2e585a16f9afd",
-    "final_lf_sha256": "be3bd25bf33bb33f1bc54544ea6f070418cb0d93873325c515346b8410468547"
-  }
-}
-```
+All scientific implementation/config hashes unchanged after campaign and after regression. HEAD remains e8126d9f3da261a210f1d16c83d4af57245036e2. Full regression PASS:325 tests; build; Python compile; git diff --check;48 legacy;64 RTL. Hybrid/HETIA, historical evidence outside the authorized final-unseen directory, and CURRENT development results unchanged. Every initially tracked file outside the final-unseen directory verified against its initial hash. GUI preserved SHA256 3fdf2d807ea8661def7e447ff32be0ccf46d70e160e28390bff81aeffbab957a.
 
-## Final regression and preservation
+Build-product changes restored to verified initial Git bytes after testing; comparison-only pre-redundancy object was temporary. No source/config changes, no commits/push, no tuning or repeated holdout. Eight representative compressed traces retained; temporary per-run data deleted after scoring.
 
-BuildPASS; Python compilePASS; final git diff --checkPASS; unittest308/308PASS; legacy48/48PASS; RTL64/64PASS. Full tests executed once; initial formatting-only diff failure resolved before tests. No holdout run repeated.
+Final result1080/1200=90.00% is NOT above90%. One benign alarm/300, four confidently localized false-alarm samples; fault-only wrong-origin0/0. Final findings preserve these limitations, five dormant-probe-phase misses,13 actuator cases with no observed effect, subthreshold/short sensor misses and common-mode failures. No attempt to repair them.
 
-All245 scientific hashes unchanged after execution and final regression. Registered protocol unchanged; manifest/audit original CRLF hashes verified by exact reconstruction from final LF bytes. Every initially tracked file outside results/clo_dsf_final_unseen/ matches its task-start SHA256, including user-modified GUI bytes, CURRENT evidence, Hybrid/HETIA and legacy evidence. Rebuilt virtual_ecu_v7_1 and virtual_ecu_v7_2_reference restored from HEAD only after checking HEAD bytes match their recorded task-start hashes. CURRENT executable also matches task-start bytes. No source/config/threshold/evidence/fault-semantics changes. No commit or push.
-
-Regression record:
-```json
-{
-  "build": {
-    "exit": 0
-  },
-  "python_compile": {
-    "exit": 0
-  },
-  "diff_check": {
-    "exit": 0
-  },
-  "diff_check_initial": {
-    "exit": 2,
-    "cause": "CRLF CSV terminators; LF-only correction, identical parsed content"
-  },
-  "full_tests": {
-    "exit": 0
-  },
-  "legacy_cases": 48,
-  "rtl_cases": 64
-}
-```
-
-Final git status (only authorized results plus pre-existing GUI modification):
-```text
- M presets/gui_session_state.json
- M results/clo_dsf_final_unseen/campaign_manifest.csv
- M results/clo_dsf_final_unseen/case_summary.csv
- M results/clo_dsf_final_unseen/confidence_summary.csv
- M results/clo_dsf_final_unseen/confusion_summary.csv
- M results/clo_dsf_final_unseen/detection_summary.csv
- M results/clo_dsf_final_unseen/findings.md
- M results/clo_dsf_final_unseen/latency_tail_summary.csv
- M results/clo_dsf_final_unseen/localization_summary.csv
- M results/clo_dsf_final_unseen/overlap_audit.csv
- M results/clo_dsf_final_unseen/paired_comparison.csv
- M results/clo_dsf_final_unseen/paper_tables/methods.csv
- M results/clo_dsf_final_unseen/paper_tables/origins.csv
- M results/clo_dsf_final_unseen/plant_paired_summary.csv
- M results/clo_dsf_final_unseen/protocol.md
- M results/clo_dsf_final_unseen/subgroup_summary.csv
- D results/clo_dsf_final_unseen/supplemental_overlap_summary.csv
- D results/clo_dsf_final_unseen/unseen_0000_trace.csv.gz
- D results/clo_dsf_final_unseen/unseen_0024_trace.csv.gz
- D results/clo_dsf_final_unseen/unseen_0048_trace.csv.gz
- D results/clo_dsf_final_unseen/unseen_0072_trace.csv.gz
- D results/clo_dsf_final_unseen/unseen_0074_trace.csv.gz
- D results/clo_dsf_final_unseen/unseen_0096_trace.csv.gz
- D results/clo_dsf_final_unseen/unseen_0098_trace.csv.gz
- D results/clo_dsf_final_unseen/unseen_0120_trace.csv.gz
- M results/clo_dsf_final_unseen/validation_record.md
-?? results/clo_dsf_final_unseen/final_new_0000_trace.csv.gz
-?? results/clo_dsf_final_unseen/final_new_0024_trace.csv.gz
-?? results/clo_dsf_final_unseen/final_new_0048_trace.csv.gz
-?? results/clo_dsf_final_unseen/final_new_0072_trace.csv.gz
-?? results/clo_dsf_final_unseen/final_new_0084_trace.csv.gz
-?? results/clo_dsf_final_unseen/final_new_0090_trace.csv.gz
-?? results/clo_dsf_final_unseen/final_new_0096_trace.csv.gz
-?? results/clo_dsf_final_unseen/final_new_0120_trace.csv.gz
-```
-
-Status counts {" M": 17, " D": 9, "??": 8}; eight compressed traces. Result size before this final status append: 9693668 bytes.
+Reproduction: campaign_manifest.csv contains exact argument arrays ($ROOT and $WORK placeholders), full profile segments, seeds and all sensor/calibration/variation inputs. Write seven-column profiles using virtual_ecu.clo_dsf_holdout.prepare_work; build exact HEAD with clo_dsf_revised.mk. The diagnostic comparator core is git67bcc337:src/v7_3/clo_dsf_revised.c, compiled with symbol renaming through virtual_ecu.clo_dsf_current.build_prechange in temporary storage; its hash and compared executable hash are recorded above. All scalar metrics are reproducible from case_summary.csv using the repository aggregate/runtime_stats functions. This is reproducibility documentation, not an authorization to repeat/tune this final holdout.

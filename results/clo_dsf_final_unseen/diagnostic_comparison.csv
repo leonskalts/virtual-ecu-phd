@@ -1,0 +1,5 @@
+chain,group,total,current,pre_redundancy,added,lost
+primary,abrupt,70,50,35,15,0
+primary,slow,30,20,0,20,0
+reference,abrupt,70,48,0,48,0
+reference,slow,30,20,0,20,0

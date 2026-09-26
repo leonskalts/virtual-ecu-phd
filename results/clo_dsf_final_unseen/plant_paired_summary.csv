@@ -1,7 +1,0 @@
-group,plant_propagating,both_silent,only_clo_silent,only_weighted_silent,neither_silent,joint_detected,paired_latency_delta_median_ms,paired_latency_delta_p95_ms
-ALL,973,78,80,79,736,851,0.0,0.0
-MEMORY,182,0,0,1,181,183,0.0,580.0000000000011
-TIMING,194,0,0,0,194,240,0.0,0.0
-COMMUNICATION,119,0,0,8,111,178,-200.0,0.0
-SENSOR_CONTROL,238,78,80,23,57,57,-100.0,259.99999999999443
-ACTUATOR,240,0,0,47,193,193,0.0,0.0

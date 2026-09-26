@@ -24,6 +24,9 @@ typedef struct {
     unsigned int reference_count, reference_index, reference_last_ms;
     /* Fast differential contract, independent of which sensor is faulty. */
     double fast_previous, fast_anchor, fast_strength;
+    double fast_integral, fast_bound_integral;
+    unsigned int fast_integral_count;
+    int fast_integral_sign;
     unsigned int fast_last_ms, fast_anchor_ms, fast_count, fast_index, fast_edges;
     unsigned char fast_edge_history[10];
     int fast_sign;

@@ -137,3 +137,30 @@ unresolved sensor-member identity, with the original causal-precedence rules.
 Common-mode faults remain outside its observability. Repeated large impulsive
 noise that violates this contract may be indistinguishable from a fault pulse
 train; isolated-spike rejection is not a guarantee for arbitrary noise bursts.
+
+
+## Tractable-miss refinement
+
+The active memory transaction is unchanged, but its schedule sweeps the ten
+100ms phases of the nominal one-second period. Nine1100ms intervals followed
+by one100ms interval preserve ten probes per ten seconds. With the existing
+100ms caller cadence the maximum diagnostic gap and result-validity interval
+are1100ms. This breaks fixed-phase aliasing without a higher average access
+rate or injection metadata. Short isolated faults can still lie between checks;
+coverage is not guaranteed merely by changing phase. Atomic exclusive access,
+seven operations per check and restoration of the saved word remain required.
+
+FAST adds a signed two-sample integral within its existing300ms event anchor.
+Both same-direction residuals must exceed the original0.40C noise-only floor;
+their sum must exceed the sum of the original0.40+1.2*h envelopes. Recovery,
+sign reversal, missing samples and expired anchors clear the integral. This
+allows strong onset evidence to corroborate a weaker second acquisition without
+lowering the global DS threshold or the noise/slew contract. It is max-merged
+into the same sensor feature. SLOW, causal precedence and actuator logic are
+unchanged. Single-sample impulses remain ambiguous with legal benign excursions;
+no improvement of common-mode observability is claimed.
+
+The13 analyzed missed actuator runs had no command/response discrepancy or
+observed plant effect. No passive actuator feature was added to manufacture
+an alarm for an unexcited actuator. Any active actuator diagnostic would require
+a separately justified safe-excitation contract and is outside this change.

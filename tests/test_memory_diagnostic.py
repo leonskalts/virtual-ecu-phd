@@ -14,6 +14,6 @@ class MemoryDiagnosticTests(unittest.TestCase):
   code=(ROOT/'src/memory_diagnostic.c').read_text()
   for token in ['ecu_types','cross_layer','fault_model','bit_index','reference','plant','target_shadow']:
    self.assertNotIn(token,code)
-for i,name in enumerate(['all_clean_values_restore','all_stuck_polarities_and_recovery','period_and_legal_updates','bit_flip_is_not_stuck','evidence_freshness']):
+for i,name in enumerate(['all_clean_values_restore','all_stuck_polarities_and_recovery','period_and_legal_updates','bit_flip_is_not_stuck','evidence_freshness','phase_coverage_and_mean_cost']):
  def test(self,index=i):subprocess.run([str(self.exe),str(index)],check=True,capture_output=True)
  setattr(MemoryDiagnosticTests,'test_'+name,test)

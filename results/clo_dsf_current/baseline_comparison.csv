@@ -1,7 +1,0 @@
-partition,method,both,only_new,only_a0,neither
-development-train,FAST only,560,99,144,13
-development-train,SLOW only,704,0,0,112
-development-train,Revised CLO-DSF,704,99,0,13
-development-validation,FAST only,372,67,96,9
-development-validation,SLOW only,468,0,0,76
-development-validation,Revised CLO-DSF,468,67,0,9

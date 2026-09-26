@@ -3,6 +3,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 #define MEMORY_DIAGNOSTIC_PERIOD_MS 1000U
+#define MEMORY_DIAGNOSTIC_PHASE_STEP_MS 100U
+#define MEMORY_DIAGNOSTIC_MAX_INTERVAL_MS 1100U
 typedef struct {
     unsigned int checked_ms, checks, operations;
     bool valid, failed;

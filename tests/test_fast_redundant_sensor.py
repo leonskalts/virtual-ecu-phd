@@ -10,6 +10,6 @@ class FastRedundantSensorTests(unittest.TestCase):
   subprocess.run(['gcc','-std=c11','-Wall','-Wextra','-Werror','-Iinclude','tests/fast_redundant_sensor_unit.c',*objects,'-lm','-o',str(cls.exe)],cwd=ROOT,check=True)
  @classmethod
  def tearDownClass(cls):cls.tmp.cleanup()
-for i,name in enumerate(['symmetric_signed_steps','isolated_spike_rejection','pulse_train_and_recovery','bounded_noise_and_ramps','gaps_and_invalid_reset']):
+for i,name in enumerate(['symmetric_signed_steps','isolated_spike_rejection','pulse_train_and_recovery','bounded_noise_and_ramps','gaps_and_invalid_reset','bounded_signed_integral']):
  def test(self,index=i):subprocess.run([str(self.exe),str(index)],check=True,capture_output=True)
  setattr(FastRedundantSensorTests,'test_'+name,test)

@@ -30,7 +30,7 @@ void clo_revised_extract(clo_evidence_t *e, const runtime_observation_t *o)
          (o->control_execution_ms == (int)o->time_ms &&
          (!isfinite(o->control_target_c) || o->control_target_c != (float)o->target_shadow_c))) ? 1.0 : 0.0;
     if (o->memory_check_valid && o->memory_check_ms <= o->time_ms &&
-        o->time_ms - o->memory_check_ms < MEMORY_DIAGNOSTIC_PERIOD_MS) {
+        o->time_ms - o->memory_check_ms < MEMORY_DIAGNOSTIC_MAX_INTERVAL_MS) {
         e->available[2] = true;
         if (o->memory_check_failed) e->strength[2] = 1.0;
     }
@@ -168,6 +168,7 @@ static double fast_redundant_sensor(clo_revised_t *s,const runtime_observation_t
     if(!valid || (s->fast_valid && o->time_ms!=s->fast_last_ms+ECU_SENSOR_PERIOD_MS)) {
         s->fast_valid=false;s->fast_active=false;s->fast_count=0;
         s->fast_index=0;s->fast_edges=0;
+        s->fast_integral=0;s->fast_bound_integral=0;s->fast_integral_count=0;
         for(unsigned int i=0;i<10;i++)s->fast_edge_history[i]=0;
     }
     if(!valid)return 0;
@@ -180,11 +181,23 @@ static double fast_redundant_sensor(clo_revised_t *s,const runtime_observation_t
     if(edge && !s->fast_active) {
         s->fast_anchor=s->fast_previous;s->fast_anchor_ms=s->fast_last_ms;
         s->fast_active=true;s->fast_count=0;s->fast_sign=0;
+        s->fast_integral=0;s->fast_bound_integral=0;s->fast_integral_count=0;s->fast_integral_sign=0;
     }
     if(s->fast_active) {
         double h=(o->time_ms-s->fast_anchor_ms)/1000.;
         double residual=delta-s->fast_anchor;
         int sign=residual>0?1:-1;
+        /* Bounded signed-window certificate: both acquisitions must exceed
+         * the0.40C noise-only floor in the same direction; their mean must
+         * exceed the mean original slew+noise envelope. Never carry across
+         * a recovery, sign reversal, gap or expired300ms anchor. This uses
+         * the existing uncertainty bounds, not a lower detection threshold. */
+        if(fabs(residual)>.40 && (!s->fast_integral_count || sign==s->fast_integral_sign)) {
+            s->fast_integral+=fabs(residual);s->fast_bound_integral+=.40+1.2*h;
+            s->fast_integral_count++;s->fast_integral_sign=sign;
+            if(s->fast_integral_count>=2 && s->fast_integral>s->fast_bound_integral)
+                s->fast_strength=1;
+        } else {s->fast_integral=0;s->fast_bound_integral=0;s->fast_integral_count=0;}
         if(fabs(residual)>.40+1.2*h) {
             s->fast_count=sign==s->fast_sign?s->fast_count+1:1;s->fast_sign=sign;
             if(s->fast_count>=2)s->fast_strength=1;

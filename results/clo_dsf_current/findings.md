@@ -1,63 +1,62 @@
-# Multi-timescale redundant-sensor development
+# Tractable-miss refinement findings
 
-One new development campaign: **1560 simulations**, TRAIN936 and VALIDATION624 (544 faults/80 benign), six/four disjoint operating families. No unseen holdout. All FAST parameters were fixed before TRAIN and locked unchanged for VALIDATION; no search/tuning was needed. The existing32s SLOW channel, other origins, physical sensor architecture and global thresholds remain unchanged.
+Retain the phase-sweeping memory schedule and bounded FAST residual integral. Do not change actuator logic. This is DEVELOPMENT evidence, not an unseen holdout or manuscript generalization claim. Baseline commit: e8126d9f3da261a210f1d16c83d4af57245036e2.
 
-## Validation ablation
+## Root causes before implementation
 
-| Method | Detection | Silent plant | Benign | Median/P95 |
-|---|---:|---:|---:|---:|
-| A0 retained redundant sensor | 468/544 (86.03%) | 20/347 | 0/80 | 0/47.4 s |
-| FAST only | 439/544 (80.70%) | 57/347 | 0/80 | 0/0.51 s |
-| SLOW only | 468/544 (86.03%) | 20/347 | 0/80 | 0/47.4 s |
-| FAST+SLOW (A1) | 535/544 (98.35%) | 9/347 | 0/80 | 0.1/45.93 s |
+All 60 relevant previously seen misses were replayed individually and their runtime trace hashes matched the original traces. See root_cause_summary.csv for sensor chain, direction, magnitude, duration, phase and runtime evidence per case.
 
-**A0 and SLOW-only are identical aliases**, verified case-by-case, not independent experiments. FAST-only retains all inherited primary checks, other origins and reference conversion-failure status; only the slow averaging feature is removed. Every observer receives the same simulation stream.
+- Memory: A/B/C/D = 5/0/0/0. The fixed one-second probe aliases with 800 ms active / 1200 ms inactive bursts. No active-window probe occurred; this is classified primarily as scheduling (A), with inactive probes as its consequence. Each run contained 121 valid probes, full zero/all-one coverage and successful restoration. No end truncation or incomplete pattern coverage.
+- Actuator: A/B/C/D = 0/0/0/13. Command and actual agree throughout the interval; inactive pump commands provide no passive degradation evidence and there is no plant propagation. No justified persistence or confidence increase exists. A2 is explicitly the unchanged A0 control.
+- Weak steps: A/B/C/D/E/F = 3/17/0/0/2/0. Many 0.49 C, 100 ms excursions lack enough samples; two reference steps start an anchor but fail the widening second-sample envelope.
+- Pulses: A/B/C/D/E/F = 7/13/0/0/0/0. Weak 0.39 C pulses fall below the edge bound or end before sufficient repeated edges.
 
-Combined detection **98.35%**, Wilson95% **96.89–99.13%**. These descriptive case-level intervals do not model within-family dependence. All retained tests and cohorts are reported; none excluded to reach a target.
+## Retained mechanisms
+
+Memory probes visit ten phases: nine 1100 ms intervals followed by 100 ms. Mean interval remains 1000 ms, maximum 1100 ms at the existing 100 ms invocation cadence. Seven memory accesses per probe, unchanged average overhead. Unit checks cover every 100 ms onset phase of the tested 600/1400 ms burst cycle over ten seconds. The atomic save, zero/write/read, all-one/write/read and restore/read sequence is unchanged. Atomicity assumes the existing synchronous single-thread execution without a concurrent calibration write. This schedule breaks the tested alias; it does not guarantee arbitrary transients shorter than the maximum gap or every possible adversarial period. Fresh failed-probe evidence now lasts the maximum interval.
+
+FAST adds a same-sign residual integral inside the existing 300 ms anchor. With r_i the disagreement relative to the anchor and h_i elapsed seconds, require at least two same-sign samples, each |r_i| > 0.40 C, and sum |r_i| > sum (0.40 + 1.2 h_i). Recovery, sign reversal, gaps and anchor expiry reset accumulation. These are the existing noise and slew bounds; global threshold, existing onset/edge rules and SLOW sensitivity remain unchanged. Max-merge into the same sensor feature avoids double-counting. No sensor member is presumed faulty. No injection labels or hidden plant state enter the detector.
+
+## Strict campaign and ablations
+
+1560 simulations: TRAIN 936 (816 faults, 120 benign), VALIDATION 624 (544 faults, 80 benign). Six/four disjoint operating families; new deterministic profiles and seeds. All parameters fixed before TRAIN and locked unchanged before VALIDATION. No outcome-driven adjustment. Each simulation provides the same physical trajectory for every ablation; independent old/new restored probe transactions supply each observer its own diagnostic timestamps. Eight baseline/current production replay checks produced byte-identical plant/control outputs.
+
+| Validation method | Detected / 544 | Silent plant | Benign / 80 |
+|---|---:|---:|---:|
+| A0 current | 514 | 11 | 0 |
+| A1 memory only | 526 | 11 | 0 |
+| A2 actuator unchanged | 514 | 11 | 0 |
+| A3 FAST only | 518 | 9 | 0 |
+| A4 combined | 530 | 9 | 0 |
+
+Memory adds 12 detections, FAST adds 4, actuator adds 0. No A0 detections lost. TRAIN gains were +14 memory and +18 FAST; validation gains are independently positive. Timing, communication, slow drift and common-mode outcomes remain unchanged case-by-case. All ablations have zero wrong confident origins.
+
+A4 overall: 530/544 = 97.43%; Wilson 95% interval 95.73–98.46%. These are descriptive case-level intervals, not an independence claim for grouped profiles.
 
 | Origin | Detection |
 |---|---:|
 | MEMORY | 80/80 |
 | TIMING | 80/80 |
 | COMMUNICATION | 80/80 |
-| SENSOR_CONTROL | 215/224 |
+| SENSOR_CONTROL | 210/224 |
 | ACTUATOR | 80/80 |
 
-## Sensor outcomes
+Effective memory 48/48; dormant stuck faults 32/32 (A0 20/32); phase misses 0; legal calibration update alarms 0/40. Dormant here means no ordinary stored-value corruption: active probing legitimately exposes a write/read inconsistency. This is distinct from an alarm without any diagnostic evidence.
 
-| Chain/model | Detection | Median/P95 |
-|---|---:|---:|
-| primary/sensor_bias_ramp | 48/48 | 37.4/58.165 s |
-| primary/sensor_bias | 31/32 | 0.1/0.1 s |
-| primary/sensor_interface_intermittent | 24/24 | 0.2/0.3849999999999998 s |
-| reference/sensor_bias_ramp | 48/48 | 36.55/60.9 s |
-| reference/sensor_bias | 32/32 | 0.1/0.1 s |
-| reference/sensor_interface_intermittent | 24/24 | 0.35/0.8849999999999998 s |
-| reference/sensor_dropout | 8/8 | 0.0/0.0 s |
-| common_mode/sensor_bias_ramp | 0/8 | NA/NA s |
+Actuator transient/intermittent/permanent: 27/27, 27/27, 26/26. Weak degradation: 36/36. New validation command/response misses: 0. These results do not resolve the 13 historical unexcited-pump observability misses.
 
-FAST adds **67** validation detections and loses **0** relative toA0. On their 468 common detections it is faster in8, equal in460, slower in0. Both slow-drift chains remain48/48. Common-mode controls remain0/8 and are deliberately not targeted.
+Weak steps 64/64 (primary 32/32, reference 32/32; positive and negative 32/32 each). Pulses 42/48 (primary 22/24, reference 20/24). All registered pulses are positive; negative pulse generalization is not established. Sensor totals primary 102/104, reference 108/112 (including reference dropouts), positive 122/132, negative 88/92. Common-mode 0/8, unchanged. Independent slow drift 96/96: primary and reference 48/48 each.
 
-Plant-propagating detection338/347; silent misses9. Pre/same/post-plant detections247/39/52. Benign alarms0/80, including independent noise/calibration, legal triangles/updates, isolated +/-0.9C reference spikes and small300/900ms transients. Zero observed alarms is not proof of zero population risk (Wilson95% upper4.58%).
+Plant-propagating detection 333/342; silent plant 9 (8 common-mode plus 1 pulse), down from 11. Benign alarms 0/80. Median/P95 100/42855 ms versus A0 100/42900 ms: no material P95 improvement; retained SLOW evidence still determines the long tail.
 
-First-detection localization535/535. Runtime localized accuracy193409/193409; coverage193409/194487 (99.4457%); UNKNOWN1078 (0.5543%). Wrong origins0 runs/0 samples. Disagreement still identifies only SENSOR_CONTROL; sensor-member identity remains unresolved.
+First-detection localization 530/530 correct and localized. Runtime localized accuracy 182672/182672; wrong-origin runs/samples 0/0. Runtime UNKNOWN 1052/183724 = 0.5726%; coverage 99.4274%. UNKNOWN samples are excluded from accuracy among localized samples.
 
-## Interpretation and limitations
+## Limits and readiness
 
-FAST is a short-history contract provider. With d=primary-reference, bounded noise permits0.40C change and legal differential slew permits1.2C/s. It requires two persistent same-direction departures from the pre-event acquisition within300ms, or at least three excessive edges in1s. This rejects a single spike plus recovery while allowing recurring pulse evidence. Confirmed violations produce direct evidence1; this is an explicit metrology-contract decision, not a calibrated probability. The correlated features are max-merged in the original sensor mass and never multiplied as independent DS channels.
+Fourteen validation misses remain: eight common-mode faults and six pulses. Common-mode lacks an independent reference. The new campaign uses 200 ms steps and 500 ms finite pulses; success does not establish recovery of the historical 100 ms weak impulses, which remain confounded with benign impulses. A known previously seen isolated benign impulse alarm in the unchanged FAST path was not claimed fixed; zero alarms applies to this campaign. No detection capability regressed in the registered validation, but the maximum memory interval increases from 1000 to 1100 ms and may delay individual detections. Ready for one genuinely new unseen holdout with these limitations declared; none run here.
 
-The 1.2C/s slope/noise contract must be qualified for real sensor placement, lag and wiring. Multiple large out-of-contract benign spikes may be observationally indistinguishable from faults; the campaign does not establish immunity to arbitrary burst noise. Simulated physical independence remains the previously documented assumption, and hidden plant truth/fault labels remain outside detector inference.
+## Verification and storage
 
-The overall P95 is still governed by slow drift. Adding fast-detected cases changes the latency population; an overall percentile decrease alone does not mean slow-drift detection accelerated. Consult paired common detections and separate abrupt/slow latency in latency_summary.csv. No slow-channel retuning or claim of common-mode observability is made.
+327 tests, build, Python compile, git diff --check, 48 legacy and 64 RTL cases PASS. Frozen scientific/config/manifest hashes unchanged throughout outcomes. Hybrid/HETIA and historical evidence match task-start hashes; GUI state preserved byte-for-byte. No commit or push. Eight compressed representative traces; raw campaign data deleted after processing.
 
-The prior14/48 weak-step/pulse result and current campaign have different cohorts and denominators. The proper improvement comparison is A0 versusA1 on these exact new cases; do not interpret raw counts across campaigns as a paired result.
-
-Retention follows preserved slow/other-origin capability, no lost A0 detections, robust primary/reference abrupt detection, lower silent plant misses and zero observed false/wrong-origin alarms. Eight physics-parity checks against the retained baseline yielded identical plant/control raw and summary CSVs. Extra persistent detector state64B (4208 to4272B), O(1) arithmetic per100ms acquisition; no extra sensor, dependency or physical hardware WCET claim.
-
-## Final decision
-
-**Retain FAST.** Validation overall535/544=98.35% (Wilson95%96.89–99.13%), SENSOR_CONTROL215/224=95.98%; both requested detection margins reached. Weak steps63/64 and pulses48/48, versus A0 abrupt44/112. Primary steps31/32, reference steps32/32. Effective memory59/59 and dormant21/21 preserved. Nine remaining misses: eight common-mode drifts and one -0.765C permanent primary offset (fast_redundant_1517), not adjusted after validation.
-
-**Material overall latency goal not reached:** P9547.40s to45.93s is only3.10% lower on the same campaign; slow-only and combined slow-drift timings are identical. Eight common detections improve,460 are unchanged, none worsen. The earlier50s value came from a different campaign and is not the paired baseline.
-
-Ready for ONE new unseen holdout within the explicitly documented independent-sensor/noise contract; no unseen data were run here. All regression checks passed:325 tests, build/compile/diff,48 legacy and64 RTL. Preserved GUI and Hybrid/HETIA; no commit/push.
+The campaign script records the exact design and comparison adapter. Its scratch inputs can be reconstructed at /tmp/clo-tractable: baseline.c from the baseline commit's src/v7_3/clo_dsf_revised.c, memory.c from src/memory_diagnostic.c, plus root_cause_summary.csv copied from this result and classification_complete marker after checking the recorded classification. The script refuses accidental overwrite of an existing tractable campaign. Do not rerun it as an unseen evaluation.
