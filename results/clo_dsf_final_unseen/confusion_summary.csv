@@ -1,13 +1,7 @@
-origin,unit,MEMORY,TIMING,COMMUNICATION,SENSOR_CONTROL,ACTUATOR,UNKNOWN
-ALL,first_detection,235,240,240,138,227,0
-ALL,runtime_alarm_sample,89569,89736,65477,44610,98489,2798
-MEMORY,first_detection,235,0,0,0,0,0
-MEMORY,runtime_alarm_sample,89569,0,0,0,0,0
-TIMING,first_detection,0,240,0,0,0,0
-TIMING,runtime_alarm_sample,0,89736,0,0,0,0
-COMMUNICATION,first_detection,0,0,240,0,0,0
-COMMUNICATION,runtime_alarm_sample,0,0,65477,0,0,1
-SENSOR_CONTROL,first_detection,0,0,0,138,0,0
-SENSOR_CONTROL,runtime_alarm_sample,0,0,0,44606,0,0
-ACTUATOR,first_detection,0,0,0,0,227,0
-ACTUATOR,runtime_alarm_sample,0,0,0,0,98489,2797
+true_origin,MEMORY,TIMING,COMMUNICATION,SENSOR_CONTROL,ACTUATOR,UNKNOWN,unit
+MEMORY,68533,0,0,0,0,1,all runtime alarm samples
+TIMING,0,80905,0,0,0,0,all runtime alarm samples
+COMMUNICATION,0,0,64787,0,0,4,all runtime alarm samples
+SENSOR_CONTROL,0,0,0,57271,0,0,all runtime alarm samples
+ACTUATOR,0,0,0,0,73706,2113,all runtime alarm samples
+NORMAL,0,0,0,0,0,0,all runtime alarm samples

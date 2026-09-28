@@ -1,6 +1,6 @@
-endpoint,numerator,denominator,ci_low,ci_high
-detection,1080,1200,0.8817289167132706,0.9157182828045415
-plant_detection,705,756,0.9123855421416884,0.9483203227568071
-benign_alarms,1,300,0.0005886577218511581,0.018636693694531237
-first_accuracy,1080,1080,0.9964557004260808,1
-runtime_accuracy,387877,387881,0.999973482029491,0.9999959896859383
+endpoint,numerator,denominator,wilson95_low,wilson95_high,interpretation
+overall_detection,1051,1200,0.8559670357181328,0.8933010621621447,descriptive grouped campaign cases
+plant_conditioned_detection,669,720,0.9080615327804168,0.9457165873715646,descriptive grouped campaign cases
+benign_alarm_rate,0,300,8.673617379884035e-19,0.012642971224546034,descriptive grouped campaign cases
+first_localized_accuracy,1051,1051,0.9963582595388419,0.9999999999999999,descriptive grouped campaign cases
+runtime_localized_accuracy,345202,345202,0.9999888719761968,0.9999999999999999,descriptive only; runtime samples are correlated
