@@ -1,0 +1,13 @@
+method,origin,MEMORY,TIMING,COMMUNICATION,SENSOR_CONTROL,ACTUATOR,UNKNOWN,unit
+CURRENT CLO-DSF,MEMORY,19808,0,0,0,0,1,all runtime alarm samples including pre-onset
+CURRENT CLO-DSF,TIMING,0,24514,0,0,0,0,all runtime alarm samples including pre-onset
+CURRENT CLO-DSF,COMMUNICATION,0,0,18919,0,0,0,all runtime alarm samples including pre-onset
+CURRENT CLO-DSF,SENSOR_CONTROL,0,0,0,18199,0,0,all runtime alarm samples including pre-onset
+CURRENT CLO-DSF,ACTUATOR,0,0,0,0,23051,717,all runtime alarm samples including pre-onset
+CURRENT CLO-DSF,NORMAL,0,0,0,0,0,0,all runtime alarm samples including pre-onset
+Weighted Sum,MEMORY,0,0,0,0,0,22786,all runtime alarm samples including pre-onset
+Weighted Sum,TIMING,0,0,0,0,0,32946,all runtime alarm samples including pre-onset
+Weighted Sum,COMMUNICATION,0,0,0,0,0,22557,all runtime alarm samples including pre-onset
+Weighted Sum,SENSOR_CONTROL,0,0,0,0,0,13544,all runtime alarm samples including pre-onset
+Weighted Sum,ACTUATOR,0,0,0,0,0,22224,all runtime alarm samples including pre-onset
+Weighted Sum,NORMAL,0,0,0,0,0,16650,all runtime alarm samples including pre-onset

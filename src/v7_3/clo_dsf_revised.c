@@ -258,9 +258,28 @@ void clo_revised_step(clo_revised_t *state,const clo_final_config_t *c,const run
     state->previous_local_excess=excess;
     state->previous_local_direction=direction;
     state->previous_local_ms=o->source_ms;
-    local=fmax(local,sensor_response(state,o));
-    local=fmax(local,redundant_sensor(state,o));
-    local=fmax(local,fast_redundant_sensor(state,o));
+    /* A startup thermal transient can violate absolute slew without sensor
+     * inconsistency. Qualify that provider against its own2.5C/s contract:
+     * five consecutive contiguous in-envelope acquisitions (the existing
+     * forecast history length). This gates ORIGIN only, never anomaly.
+     * Differential/forecast/status providers retain their own qualification,
+     * allowing legitimate early faults to alarm and localize independently. */
+    bool slew_contiguous=valid && o->source_ms==o->source_previous_ms+ECU_SENSOR_PERIOD_MS &&
+        (!state->slew_qualification_count || o->source_previous_ms==state->slew_qualification_ms);
+    if(!slew_contiguous)state->slew_qualification_count=0;
+    if(slew_contiguous && state->slew_qualification_count<5) {
+        if(fabs(o->source_c-o->source_previous_c)<=2.5*ECU_SENSOR_PERIOD_MS/1000.)
+            state->slew_qualification_count++;
+        else state->slew_qualification_count=0;
+    }
+    state->slew_qualification_ms=o->source_ms;
+    double origin_local=state->slew_qualification_count>=5 ? local :
+        (o->source_valid && o->source_ms==o->time_ms && isfinite(o->source_c) &&
+         (o->source_c<ECU_SENSOR_IMPLAUSIBLE_LOW_C || o->source_c>ECU_SENSOR_IMPLAUSIBLE_HIGH_C) ? 1.0 : 0.0);
+    double independent=fmax(sensor_response(state,o),redundant_sensor(state,o));
+    independent=fmax(independent,fast_redundant_sensor(state,o));
+    local=fmax(local,independent);
+    origin_local=fmax(origin_local,independent);
     s->evidence.strength[3] = fmax(s->evidence.strength[3], local);
     s->evidence.available[3] = s->evidence.available[3] || local > 0;
     /* Establish precedence only from a directly observed contract violation,
@@ -296,7 +315,7 @@ void clo_revised_step(clo_revised_t *state,const clo_final_config_t *c,const run
     if(direct && !state->direct_origins) {
         state->direct_origins=direct;
         state->direct_onset_ms=o->time_ms;
-        if(direct_count>1 || (local>=c->confirmed_threshold && !state->sensor_established_first))
+        if(direct_count>1 || (origin_local>=c->confirmed_threshold && !state->sensor_established_first))
             state->ambiguous_onset=true;
     }
     const bool downstream_sensor=state->direct_origins &&
@@ -320,7 +339,7 @@ void clo_revised_step(clo_revised_t *state,const clo_final_config_t *c,const run
          * observations twice. Singleton support never exceeds local evidence. */
         unsigned int subset = c2_origin_support[i];
         double origin_strength = strength;
-        if (i == 3 && local > 0) { subset = c2_origin_blocks[3]; origin_strength = local; }
+        if (i == 3 && local > 0) { subset = c2_origin_blocks[3]; origin_strength = origin_local; }
         /* Suppress contamination only in localization. Detection above still
          * receives the entire measured anomaly. No propagation bonus/locking. */
         if(i==3 && downstream_sensor)origin_strength=0;
@@ -341,6 +360,15 @@ void clo_revised_step(clo_revised_t *state,const clo_final_config_t *c,const run
         if(s->confirmation_count<c->confirmation_persistence)s->confirmation_count++;
     } else s->confirmation_count=0;
     v->alarm=s->confirmation_count>=c->confirmation_persistence;
+    /* Unqualified absolute-slew history may accumulate, but cannot alone
+     * confirm an anomaly. Any independently qualified provider can corroborate;
+     * this is the same runtime qualification used for origin, not a timer. */
+    bool qualified_current=origin_local>0 || s->evidence.strength[3]>local;
+    for(int i=0;i<CLO_CHANNELS;i++)
+        if(i!=3 && i!=5 && s->evidence.available[i] && s->evidence.strength[i]>0)
+            qualified_current=true;
+    if(qualified_current)state->qualified_anomaly_episode=true;
+    if(state->slew_qualification_count<5 && !state->qualified_anomaly_episode)v->alarm=false;
     v->state=v->alarm?CLO_STATE_CONFIRMED:v->anomaly_decision_score>=c->suspect_threshold?CLO_STATE_SUSPECT:CLO_STATE_NORMAL;
     if(v->alarm && v->alarm_timestamp_ms<0)v->alarm_timestamp_ms=(int)o->time_ms;
     c2_origin_betp(&origin,v->origin_scores);
@@ -358,7 +386,7 @@ void clo_revised_step(clo_revised_t *state,const clo_final_config_t *c,const run
         v->origin_margin>=c->localization_margin_threshold && v->origin_ignorance<=c->ignorance_limit;
     if(state->ambiguous_onset)v->localization_valid=false;
     v->estimated_origin=v->localization_valid?v->leading_origin:0;
-    if(!state->direct_origins && local>0 && v->localization_valid &&
+    if(!state->direct_origins && origin_local>0 && v->localization_valid &&
        v->estimated_origin==CLO_SENSOR_CONTROL)state->sensor_established_first=true;
     /* Quiet recovery closes the episode. A subsequent unrelated sensor event
      * can establish its own origin. Earlier mass still decays normally to UNKNOWN. */
@@ -366,6 +394,7 @@ void clo_revised_step(clo_revised_t *state,const clo_final_config_t *c,const run
     for(int i=0;i<CLO_CHANNELS;i++)
         if(s->evidence.available[i] && s->evidence.strength[i]>0)evidence_quiet=false;
     if(v->state==CLO_STATE_NORMAL && evidence_quiet && actuator_recovered) {
+        state->qualified_anomaly_episode=false;
         state->actuator_unresolved=0;
         state->direct_origins=0;
         state->direct_onset_ms=0;

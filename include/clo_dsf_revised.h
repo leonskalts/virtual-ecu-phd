@@ -7,6 +7,9 @@ typedef struct {
     clo_final_t fusion;
     unsigned int direct_onset_ms, direct_origins, actuator_unresolved;
     bool sensor_established_first, ambiguous_onset;
+    bool qualified_anomaly_episode;
+    /* Absolute-slew provider needs five consecutive in-envelope acquisitions. */
+    unsigned int slew_qualification_count, slew_qualification_ms;
     double previous_local_excess;
     unsigned int previous_local_ms;
     int previous_local_direction;

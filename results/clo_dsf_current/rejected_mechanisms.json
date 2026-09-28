@@ -1,0 +1,22 @@
+{
+  "supervised_ml": {
+    "retained": false,
+    "validation_faults": 396,
+    "A0_detected": 331,
+    "A2_detected": 366,
+    "benign_runs": 108,
+    "A0_benign_alarms": 0,
+    "A2_benign_alarms": 17,
+    "wrong_origin_samples": 0,
+    "reason": "Failed95% detection and1% benign gates"
+  },
+  "other_rejected": [
+    "one-class ML",
+    "control-action contracts",
+    "radiator reference",
+    "multi-node thermal model",
+    "active actuator excitation",
+    "pre-mission actuator BIST",
+    "passive actuator-health extension"
+  ]
+}
