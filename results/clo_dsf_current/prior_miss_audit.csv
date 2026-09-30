@@ -1,0 +1,98 @@
+partition,run_id,origin,domain,kind,duration_ms,audit_class,audit_evidence,triplex_peak,max_sensor_strength,raw_consensus_peak,first_positive_feature_ms,effective_memory_corruption,actuator_excited
+TRAIN,triplex_0001,MEMORY,NONE,none,900,D,memory/probe-limited; unchanged,0.0,0,,-1,0,0
+TRAIN,triplex_0016,MEMORY,NONE,none,500,D,memory/probe-limited; unchanged,0.0,0,,-1,0,0
+TRAIN,triplex_0054,ACTUATOR,NONE,none,900,E,no passive actuator evidence,0.0,0,,-1,0,0
+TRAIN,triplex_0055,ACTUATOR,NONE,none,3100,E,no passive actuator evidence,0.0,0,,-1,0,0
+TRAIN,triplex_0057,ACTUATOR,NONE,none,14900,E,no passive actuator evidence,0.0,0,,-1,0,0
+TRAIN,triplex_0058,ACTUATOR,NONE,none,900,E,no passive actuator evidence,0.0,0,,-1,0,0
+TRAIN,triplex_0060,ACTUATOR,NONE,none,7900,E,no passive actuator evidence,0.0,0,,-1,0,0
+TRAIN,triplex_0061,ACTUATOR,NONE,none,14900,E,no passive actuator evidence,0.0,0,,-1,0,0
+TRAIN,triplex_0062,ACTUATOR,NONE,none,0,E,no passive actuator evidence,0.0,0,,-1,0,0
+TRAIN,triplex_0063,ACTUATOR,NONE,none,3100,E,no passive actuator evidence,0.0,0,,-1,0,0
+TRAIN,triplex_0064,ACTUATOR,NONE,none,7900,E,no passive actuator evidence,0.0,0,,-1,0,0
+TRAIN,triplex_0066,ACTUATOR,NONE,none,900,E,no passive actuator evidence,0.0,0,,-1,0,0
+TRAIN,triplex_0067,ACTUATOR,NONE,none,3100,E,no passive actuator evidence,0.0,0,,-1,0,0
+TRAIN,triplex_0069,ACTUATOR,NONE,none,14900,E,no passive actuator evidence,0.0,0,,-1,0,0
+TRAIN,triplex_0070,ACTUATOR,NONE,none,900,E,no passive actuator evidence,0.0,0,,-1,0,0
+TRAIN,triplex_0084,SENSOR_CONTROL,B,pulse,100,B,corroborated short innovation present,0.0,0,0.22271942138671874,-1,0,0
+TRAIN,triplex_0150,MEMORY,NONE,none,900,D,memory/probe-limited; unchanged,0.0,0,,-1,0,0
+TRAIN,triplex_0160,MEMORY,NONE,none,2700,D,memory/probe-limited; unchanged,0.0,0,,-1,0,0
+TRAIN,triplex_0165,MEMORY,NONE,none,500,D,memory/probe-limited; unchanged,0.0,0,,-1,0,0
+TRAIN,triplex_0204,ACTUATOR,NONE,none,3100,E,no passive actuator evidence,0.0,0,,-1,0,0
+TRAIN,triplex_0208,ACTUATOR,NONE,none,3100,E,no passive actuator evidence,0.0,0,,-1,0,0
+TRAIN,triplex_0212,ACTUATOR,NONE,none,0,E,no passive actuator evidence,0.0,0,,-1,0,0
+TRAIN,triplex_0216,ACTUATOR,NONE,none,3100,E,no passive actuator evidence,0.0,0,,-1,0,0
+TRAIN,triplex_0220,ACTUATOR,NONE,none,3100,E,no passive actuator evidence,0.0,0,,-1,0,0
+TRAIN,triplex_0310,MEMORY,NONE,none,500,D,memory/probe-limited; unchanged,0.0,0,,-1,0,0
+TRAIN,triplex_0354,ACTUATOR,NONE,none,7900,E,no passive actuator evidence,0.0,0,,-1,0,0
+TRAIN,triplex_0358,ACTUATOR,NONE,none,7900,E,no passive actuator evidence,0.0,0,,-1,0,0
+TRAIN,triplex_0362,ACTUATOR,NONE,none,0,E,no passive actuator evidence,0.0,0,,-1,0,0
+TRAIN,triplex_0366,ACTUATOR,NONE,none,7900,E,no passive actuator evidence,0.0,0,,-1,0,0
+TRAIN,triplex_0370,ACTUATOR,NONE,none,7900,E,no passive actuator evidence,0.0,0,,-1,0,0
+TRAIN,triplex_0383,SENSOR_CONTROL,B,step,0,A,corroborated short innovation present,0.0,0,0.028494110107421866,-1,0,0
+TRAIN,triplex_0460,MEMORY,NONE,none,900,D,memory/probe-limited; unchanged,0.0,0.029964447021484375,,72800,0,0
+TRAIN,triplex_0504,ACTUATOR,NONE,none,14900,E,no passive actuator evidence,0.0,0,,-1,0,0
+TRAIN,triplex_0508,ACTUATOR,NONE,none,14900,E,no passive actuator evidence,0.0,0,,-1,0,0
+TRAIN,triplex_0512,ACTUATOR,NONE,none,0,E,no passive actuator evidence,0.0,0,,-1,0,0
+TRAIN,triplex_0516,ACTUATOR,NONE,none,14900,E,no passive actuator evidence,0.0,0,,-1,0,0
+TRAIN,triplex_0520,ACTUATOR,NONE,none,14900,E,no passive actuator evidence,0.0,0,,-1,0,0
+TRAIN,triplex_0535,SENSOR_CONTROL,B,pulse,100,B,corroborated short innovation present,0.0,0,0.04593109130859374,-1,0,0
+TRAIN,triplex_0604,MEMORY,NONE,none,500,D,memory/probe-limited; unchanged,0.0,0,,-1,0,0
+TRAIN,triplex_0654,ACTUATOR,NONE,none,900,E,no passive actuator evidence,0.0,0,,-1,0,0
+TRAIN,triplex_0658,ACTUATOR,NONE,none,900,E,no passive actuator evidence,0.0,0,,-1,0,0
+TRAIN,triplex_0662,ACTUATOR,NONE,none,0,E,no passive actuator evidence,0.0,0,,-1,0,0
+TRAIN,triplex_0666,ACTUATOR,NONE,none,900,E,no passive actuator evidence,0.0,0,,-1,0,0
+TRAIN,triplex_0670,ACTUATOR,NONE,none,900,E,no passive actuator evidence,0.0,0,,-1,0,0
+TRAIN,triplex_0684,SENSOR_CONTROL,B,pulse,100,B,corroborated short innovation present,0.0,0,0.23969482421875,-1,0,0
+TRAIN,triplex_0804,ACTUATOR,NONE,none,3100,E,no passive actuator evidence,0.0,0,,-1,0,0
+TRAIN,triplex_0808,ACTUATOR,NONE,none,3100,E,no passive actuator evidence,0.0,0,,-1,0,0
+TRAIN,triplex_0812,ACTUATOR,NONE,none,0,E,no passive actuator evidence,0.0,0,,-1,0,0
+TRAIN,triplex_0816,ACTUATOR,NONE,none,3100,E,no passive actuator evidence,0.0,0,,-1,0,0
+TRAIN,triplex_0820,ACTUATOR,NONE,none,3100,E,no passive actuator evidence,0.0,0,,-1,0,0
+TRAIN,triplex_0910,MEMORY,NONE,none,500,D,memory/probe-limited; unchanged,0.0,0,,-1,0,0
+TRAIN,triplex_0954,ACTUATOR,NONE,none,7900,E,no passive actuator evidence,0.0,0,,-1,0,0
+TRAIN,triplex_0958,ACTUATOR,NONE,none,7900,E,no passive actuator evidence,0.0,0,,-1,0,0
+TRAIN,triplex_0962,ACTUATOR,NONE,none,0,E,no passive actuator evidence,0.0,0,,-1,0,0
+TRAIN,triplex_0966,ACTUATOR,NONE,none,7900,E,no passive actuator evidence,0.0,0,,-1,0,0
+TRAIN,triplex_0970,ACTUATOR,NONE,none,7900,E,no passive actuator evidence,0.0,0,,-1,0,0
+TRAIN,triplex_0986,SENSOR_CONTROL,B,stuck,0,C,no qualifying abrupt consensus; gradual/topology evidence only,0.06416101455688478,0.12702885866165164,0.0,67900,0,0
+TRAIN,triplex_1059,MEMORY,NONE,none,500,D,memory/probe-limited; unchanged,0.0,0,,-1,0,0
+TRAIN,triplex_1104,ACTUATOR,NONE,none,14900,E,no passive actuator evidence,0.0,0,,-1,0,0
+TRAIN,triplex_1108,ACTUATOR,NONE,none,14900,E,no passive actuator evidence,0.0,0,,-1,0,0
+TRAIN,triplex_1112,ACTUATOR,NONE,none,0,E,no passive actuator evidence,0.0,0,,-1,0,0
+TRAIN,triplex_1116,ACTUATOR,NONE,none,14900,E,no passive actuator evidence,0.0,0,,-1,0,0
+TRAIN,triplex_1120,ACTUATOR,NONE,none,14900,E,no passive actuator evidence,0.0,0,,-1,0,0
+TRAIN,triplex_1135,SENSOR_CONTROL,B,pulse,100,B,corroborated short innovation present,0.0,0,0.05118774414062499,-1,0,0
+CALIBRATION,triplex_1212,MEMORY,NONE,none,500,D,memory/probe-limited; unchanged,0.0,0,,-1,0,0
+CALIBRATION,triplex_1254,ACTUATOR,NONE,none,900,E,no passive actuator evidence,0.0,0,,-1,0,0
+CALIBRATION,triplex_1258,ACTUATOR,NONE,none,900,E,no passive actuator evidence,0.0,0,,-1,0,0
+CALIBRATION,triplex_1262,ACTUATOR,NONE,none,0,E,no passive actuator evidence,0.0,0,,-1,0,0
+CALIBRATION,triplex_1266,ACTUATOR,NONE,none,900,E,no passive actuator evidence,0.0,0,,-1,0,0
+CALIBRATION,triplex_1270,ACTUATOR,NONE,none,900,E,no passive actuator evidence,0.0,0,,-1,0,0
+CALIBRATION,triplex_1284,SENSOR_CONTROL,B,pulse,100,B,corroborated short innovation present,0.0,0,0.29398178100585937,-1,0,0
+CALIBRATION,triplex_1353,MEMORY,NONE,none,500,D,memory/probe-limited; unchanged,0.0,0,,-1,0,0
+CALIBRATION,triplex_1357,MEMORY,NONE,none,500,D,memory/probe-limited; unchanged,0.0,0,,-1,0,0
+CALIBRATION,triplex_1363,MEMORY,NONE,none,1700,D,memory/probe-limited; unchanged,0.0,0,,-1,0,0
+CALIBRATION,triplex_1404,ACTUATOR,NONE,none,3100,E,no passive actuator evidence,0.0,0,,-1,0,0
+CALIBRATION,triplex_1408,ACTUATOR,NONE,none,3100,E,no passive actuator evidence,0.0,0,,-1,0,0
+CALIBRATION,triplex_1412,ACTUATOR,NONE,none,0,E,no passive actuator evidence,0.0,0,,-1,0,0
+CALIBRATION,triplex_1416,ACTUATOR,NONE,none,3100,E,no passive actuator evidence,0.0,0,,-1,0,0
+CALIBRATION,triplex_1420,ACTUATOR,NONE,none,3100,E,no passive actuator evidence,0.0,0,,-1,0,0
+CALIBRATION,triplex_1500,MEMORY,NONE,none,500,D,memory/probe-limited; unchanged,0.0,0,,-1,0,0
+CALIBRATION,triplex_1501,MEMORY,NONE,none,900,D,memory/probe-limited; unchanged,0.0,0,,-1,0,0
+CALIBRATION,triplex_1507,MEMORY,NONE,none,2700,D,memory/probe-limited; unchanged,0.0,0,,-1,0,0
+CALIBRATION,triplex_1516,MEMORY,NONE,none,500,D,memory/probe-limited; unchanged,0.0,0,,-1,0,0
+CALIBRATION,triplex_1554,ACTUATOR,NONE,none,900,E,no passive actuator evidence,0.0,0,,-1,0,0
+CALIBRATION,triplex_1558,ACTUATOR,NONE,none,900,E,no passive actuator evidence,0.0,0,,-1,0,0
+CALIBRATION,triplex_1562,ACTUATOR,NONE,none,0,E,no passive actuator evidence,0.0,0,,-1,0,0
+CALIBRATION,triplex_1566,ACTUATOR,NONE,none,900,E,no passive actuator evidence,0.0,0,,-1,0,0
+CALIBRATION,triplex_1570,ACTUATOR,NONE,none,900,E,no passive actuator evidence,0.0,0,,-1,0,0
+CALIBRATION,triplex_1586,SENSOR_CONTROL,B,stuck,0,C,no qualifying abrupt consensus; gradual/topology evidence only,0.0,0,0.0,-1,0,0
+CALIBRATION,triplex_1665,MEMORY,NONE,none,500,D,memory/probe-limited; unchanged,0.0,0,,-1,0,0
+CALIBRATION,triplex_1704,ACTUATOR,NONE,none,3100,E,no passive actuator evidence,0.0,0,,-1,0,0
+CALIBRATION,triplex_1708,ACTUATOR,NONE,none,3100,E,no passive actuator evidence,0.0,0,,-1,0,0
+CALIBRATION,triplex_1712,ACTUATOR,NONE,none,0,E,no passive actuator evidence,0.0,0,,-1,0,0
+CALIBRATION,triplex_1716,ACTUATOR,NONE,none,3100,E,no passive actuator evidence,0.0,0,,-1,0,0
+CALIBRATION,triplex_1720,ACTUATOR,NONE,none,3100,E,no passive actuator evidence,0.0,0,,-1,0,0
+CALIBRATION,triplex_1735,SENSOR_CONTROL,B,pulse,100,B,corroborated short innovation present,0.0,0,0.08283828735351562,-1,0,0
+CALIBRATION,triplex_1736,SENSOR_CONTROL,B,stuck,0,C,no qualifying abrupt consensus; gradual/topology evidence only,0.12433247566223143,0.047436535358428955,0.0,70800,0,0

@@ -1,0 +1,17 @@
+{
+  "locked_at": "2026-09-29T14:00:05.306870+00:00",
+  "files": {
+    "/home/leonskal/code/virtual-ecu-phd/scripts/run_clo_dsf_triplex_latch.py": "7dc3855f4b08a4f9df5edbbfcc7ca3c3c9a0482d03416b1d3e76f4d7faf60391",
+    "/home/leonskal/code/virtual-ecu-phd/scripts/run_clo_dsf_triplex.py": "32cc9dd07c89637b4cae16141043a172897adb2f80aa030fc8577f3744cc6070",
+    "/home/leonskal/code/virtual-ecu-phd/src/v7_3/triplex_latch.c": "9000a07123543c936338ac0698e93f32bb3b6b124c5c127f288ca3b8f6e1b367",
+    "/home/leonskal/code/virtual-ecu-phd/include/triplex_latch.h": "188d79f484d4878147fd9a176c7cb4e670002ca5454ce4223bcfe6a6e7bdc941",
+    "/home/leonskal/code/virtual-ecu-phd/src/v7_3/triplex_consistency.c": "be679e4184818f6c679ddb7af0dfe7d4d7342fa3eb76958f71ab06fa297f5bd4",
+    "/home/leonskal/code/virtual-ecu-phd/src/v7_3/diagnostic_temperature.c": "b4cd951328299da10fa5b4c0a504e79f9cf8a252b861304e38e77546be4e7be9",
+    "/home/leonskal/code/virtual-ecu-phd/src/v7_3/clo_dsf_revised.c": "5f10bea9f363c983ffc596aa2d1573a03391b84b2560e13ee3490764b5d7e1d7",
+    "/home/leonskal/code/virtual-ecu-phd/results/cross_layer_safety_v7_3_dev/revised.cfg": "6f62e972a27c765cae6a24daf9b7b98fb1513cd46fc226a128d87a6431e73ac7",
+    "/home/leonskal/code/virtual-ecu-phd/results/clo_dsf_current/architecture_definition.md": "2ad9b90a6c7a9e11db9b33b1b20c04620823991ba2914c98dcab44660c989c33",
+    "/home/leonskal/code/virtual-ecu-phd/results/clo_dsf_current/campaign_manifest.csv": "d619cbd26d76f3bcb450741a575bc5144f6e1bd6841ab91995963470fe9edf8e",
+    "/home/leonskal/code/virtual-ecu-phd/scripts/report_clo_dsf_triplex_latch.py": "5b8df724f9ec9ad1c1a87d2e675c9fcb7d2442f682fe439b196c519d1409ffa8",
+    "/home/leonskal/code/virtual-ecu-phd/tests/test_triplex_latch.py": "6fbdf1b44e21868d720d0172da80c81a8a2a60fb32d19ce4cfae705c930b9492"
+  }
+}

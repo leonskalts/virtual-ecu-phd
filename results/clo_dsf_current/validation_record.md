@@ -1,11 +1,40 @@
-# Final pre-freeze record
+# Validation record
 
-All prior campaigns are seen development evidence. Historical identity registry covers working manifests, Git history manifest/profile blobs, and surviving overwritten scratch manifests/overlap audits. The immediate prior final manifest and latest TRAIN/CALIBRATION/VALIDATION split manifest are preserved.
+Mandatory benign gate failed;480 fault-validation runs not executed.
 
-Retained source is byte-identical to the start of the final freeze task; startup qualification changes relative to old Git HEAD were already validated before this task. Rejected model/training executables are removed; compact rejection decision retained. Obsolete CURRENT tables and eight superseded representative traces were already deleted during earlier development; their originals remain in Git history. No legitimate source/history files are deleted by cleanup. Previously deleted historical final-result files were restored for preservation in the freeze commit.
-
-GUI preset bytes are preserved and will remain unstaged. Full pre-freeze regression pending.
-
-Full pre-freeze regression PASS:328 tests,build,compile,diff,48legacy,64RTL; Hybrid/HETIA source and historical evidence hashes unchanged. Retained CURRENT scientific source/config/binary and GUI match task-start bytes. Build-relinked historical v7.1/v7.2 binaries restored byte-for-byte to their initial versions.
-
-Previous uncommitted final campaign manifest,summary,findings preserved as historical_final_* here. Old final result directory restored completely from existing HEAD to preserve consistent legitimate historical files in Git; redundant untracked traces omitted. The new holdout will replace that directory only after registry audit.
+{
+  "head": "1bc6b12d970acc702dea62ad2507f5709a5254cc",
+  "planned": 2400,
+  "executed": 1920,
+  "historical_train_cal_sensor_replays": 10,
+  "gate": {
+    "runs": 120,
+    "A2_alarms": 1,
+    "A2_wrong_samples": 1,
+    "cold_regressions": 1,
+    "passed": false,
+    "methods": {
+      "A0": {
+        "alarms": 0,
+        "wrong_samples": 0
+      },
+      "A1": {
+        "alarms": 0,
+        "wrong_samples": 0
+      },
+      "A2": {
+        "alarms": 1,
+        "wrong_samples": 1
+      }
+    }
+  },
+  "protected_unchanged": 21255,
+  "archived_previous_files": 7,
+  "focused_unit": "PASS",
+  "build": "PASS",
+  "python_compile": "PASS",
+  "full_regression": "NOT RUN: not retained; STOP",
+  "retained": "CURRENT",
+  "sensor_c_sha256": "b4cd951328299da10fa5b4c0a504e79f9cf8a252b861304e38e77546be4e7be9",
+  "gui_sha256": "3fdf2d807ea8661def7e447ff32be0ccf46d70e160e28390bff81aeffbab957a"
+}

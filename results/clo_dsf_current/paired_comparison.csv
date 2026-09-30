@@ -1,0 +1,7 @@
+phase,space,both,A1_only,A2_only,neither,gain_weak_step,gain_pulse,gain_common_mode,gain_memory,gain_other,gains_with_plant,mcnemar_exact_p
+TRAIN,ORIGINAL,735,0,1,64,0,1,0,0,0,0,1.0
+TRAIN,EXPANDED,873,0,1,86,0,1,0,0,0,0,1.0
+CALIBRATION,ORIGINAL,370,0,1,29,0,1,0,0,0,0,1.0
+CALIBRATION,EXPANDED,435,0,1,44,0,1,0,0,0,0,1.0
+BENIGN_VALIDATION,ORIGINAL,0,0,0,0,0,0,0,0,0,0,1.0
+BENIGN_VALIDATION,EXPANDED,0,0,0,0,0,0,0,0,0,0,1.0

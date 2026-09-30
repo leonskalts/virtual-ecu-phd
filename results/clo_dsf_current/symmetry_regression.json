@@ -1,0 +1,19 @@
+{
+  "build": {
+    "exit": 0
+  },
+  "python_compile": {
+    "exit": 0
+  },
+  "full_tests": {
+    "exit": 0
+  },
+  "diff_check": {
+    "exit": 0
+  },
+  "legacy_cases": 48,
+  "rtl_cases": 64,
+  "historical_Hybrid_HETIA_results_unchanged": true,
+  "source_headers_GUI_unchanged": true,
+  "unit_tests": 339
+}

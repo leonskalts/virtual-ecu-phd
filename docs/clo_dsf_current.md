@@ -43,3 +43,57 @@ manifests and compact summaries. All earlier campaigns, including previous
 holdout must record the freeze commit, lock its manifest/protocol before outcomes,
 execute each case once and report all faults including latent/unobservable cases.
 No further selection, tuning or reruns for poor performance are permitted.
+
+## Subsequent conflict-aware development (no replacement retained)
+
+The9f993587 freeze and its separately preserved holdout evidence remain historical
+classical baseline/reference evidence. A new2100-case TRAIN/CALIBRATION/VALIDATION
+campaign tested Dempster,Yager,Dubois-Prade and sequential binary PCR6,without
+changing providers or thresholds. All scored319/360validation faults,0/90benign
+alarms and0wrong confident origins. None reaches95%; no replacement is retained.
+
+Anomaly masses contain only ABNORMAL and ignorance,so detection conflict is
+identically zero. Standard conflict redistribution cannot improve those masses.
+The selectable C layer defaults to classical Dempster; alternative state selections
+are available for reproducibility but are not enabled in the production adapter.
+No CLO-DSF+ or new mathematics is claimed. Full335tests,build/compile/diff,48legacy
+and64RTL pass; baseline behavior matches frozen source across2522100sample steps.
+See the preserved previous_fusion_development.tar.gz in results/clo_dsf_current/ for that audit and its findings. No new unseen
+holdout was run. Modified detector code is not committed or pushed.
+
+## Binary-frame development result (rejected)
+
+The subsequent2400-case grouped binary NORMAL/ABNORMAL/ignorance study produced
+meaningful conflict but failed the95% retention gate:417/480 validation detections
+versus413/480 classical,0/120 benign alarms,0wrong confident origins. Four gains
+(three weak steps,one pulse), no losses; exact McNemar p0.125. Plant misses14versus16.
+First-alarm origin coverage fell to363/417; the unchanged localizer correctly leaves
+new early detections UNKNOWN. Dempster,Yager,PCR6 detected the same validation set.
+The binary module is experimental and unlinked; CURRENT remains classical. No
+new unseen or commit/push. See results/clo_dsf_current_history.tar.gz for this rejected binary development result and its selection record.
+
+## Triplex observability development (not retained)
+
+The2400-case grouped third-coolant-chain study recovered all32/32 validation AB
+common-mode cases (22 additional) and all170/170 original-space plant-propagating
+cases. No benign alarms or wrong confident origins. Original-space343/384 (89.32%)
+and expanded-space415/480 (86.46%) fail the95% retention gate. Global ABC slow drift
+remains0/8; all33 never-excited actuators remain missed. No actuator telemetry was
+justified. CURRENT stays classical; sensor/model/provider modules are experimental
+and unlinked. Historical CURRENT artifacts are preserved in
+results/clo_dsf_current_history.tar.gz. See results/clo_dsf_current/findings.md for
+the new development evidence, fairness denominators, limits and regression record.
+
+## Final triplex latch refinement (stopped at benign gate)
+
+The fixed300ms consensus latch gained one pulse in TRAIN and one in CALIBRATION,
+but failed the separate benign validation gate:1/120 alarms,one wrong confident
+SENSOR_CONTROL sample and one added alarm in a cold-start workload. CURRENT and
+triplex-only both had0/120. The480 planned fault-validation cases were not run.
+CURRENT remains retained; neither triplex nor latch was promoted. No unseen,commit
+or push. See results/clo_dsf_current/findings.md; prior triplex findings are preserved
+in results/clo_dsf_triplex_development_history.tar.gz.
+
+## Final retained Triplex freeze
+
+The retained architecture is A1 Triplex from the symmetry audit (437/480). See results/clo_dsf_current/triplex_freeze_record.md for exact build/evaluation entry points and cleanup equivalence. Rejected latch and alternative fusion experiments are not part of the retained executable. The idle pump-performance observability boundary remains unchanged.

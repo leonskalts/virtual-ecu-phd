@@ -1,0 +1,30 @@
+{
+  "head": "1bc6b12d970acc702dea62ad2507f5709a5254cc",
+  "misses": 33,
+  "categories": {
+    "A": 0,
+    "B": 0,
+    "C": 0,
+    "D": 0,
+    "E": 33,
+    "F": 0
+  },
+  "idle_observable": 0,
+  "excitation_required": 33,
+  "wholly_unsupported_fault_cases": 0,
+  "electrical_mapping_supported_cases": 0,
+  "implemented": false,
+  "simulations_run": 0,
+  "scientific_sources_and_GUI_unchanged": true,
+  "evidence_hashes": {
+    "results/clo_dsf_current/symmetry_validation_manifest.csv": "784b7f6a54a712b9a8de3103f0fc1ce834317b52e91121f3165f071779c0a1f2",
+    "results/clo_dsf_current/symmetry_case_summary.csv": "cd84ea41ddbce5054a0b2c4f4d29728464688e48319f6faf310fbaec498bebc2"
+  },
+  "audited_source_hashes": {
+    "src/actuators.c": "5b1fcad84453fce451aa7d08cb23dc744fa2ff484c0fb22e0cfe72d234641ce3",
+    "src/thermal_plant.c": "162cff8f8729f524716f96836f78f3ebd5ae6b61818a461c7ca152c5e53aa106",
+    "src/fault_injection.c": "52553d6d5b3e5f1d461dd52cf19be14941481581f1eb4613710dd0cee207d992",
+    "src/runtime_observation.c": "cae3370319989b38c52832293215d678444eedcf20dba9b93dc04f2444c323ea"
+  },
+  "no_commit_push_unseen": true
+}

@@ -1,0 +1,3 @@
+space,both,A0_only,A1_only,neither,common_mode,weak_steps,pulses,memory,actuator,other,mcnemar_exact_p
+ORIGINAL,347,0,14,39,14,0,0,0,0,0,0.0001220703125
+EXPANDED,383,0,43,54,14,8,6,0,0,15,2.2737367544323206e-13

@@ -1,0 +1,12 @@
+{
+  "original_at_least91": true,
+  "benign_at_most01": true,
+  "zero_wrong": true,
+  "plant_at_least95": true,
+  "AB_at_least90": true,
+  "no_unprincipled_correction": true,
+  "TIMING_preserved": true,
+  "COMMUNICATION_preserved": true,
+  "MEMORY_preserved": true,
+  "retained": true
+}

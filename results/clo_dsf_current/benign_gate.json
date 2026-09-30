@@ -1,0 +1,21 @@
+{
+  "runs": 120,
+  "A2_alarms": 1,
+  "A2_wrong_samples": 1,
+  "cold_regressions": 1,
+  "passed": false,
+  "methods": {
+    "A0": {
+      "alarms": 0,
+      "wrong_samples": 0
+    },
+    "A1": {
+      "alarms": 0,
+      "wrong_samples": 0
+    },
+    "A2": {
+      "alarms": 1,
+      "wrong_samples": 1
+    }
+  }
+}

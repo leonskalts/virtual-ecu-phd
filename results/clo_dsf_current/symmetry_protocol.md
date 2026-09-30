@@ -1,0 +1,4 @@
+# Preregistered symmetry audit verification
+No algorithm fix selected after code audit and permutation tests. No tuning or parameter selection. TRAIN150 family0; CALIBRATION150 family4. Freeze sources before generating VALIDATION600 families12–15:96 each of five original fault origins plus120 benign. Sensor A/B/AB32 each; ramp/step/pulse32 each. Balanced signs, short/long pulses, fixed new magnitudes/rates/seeds/profiles. Full actuator templates retain cold initially-unexcited cases. Original space only; no C fault expansion. Runtime inference unchanged. No latch or unseen.
+
+A0/A1 same observations. Report all outcomes; no exclusions/retries/tuning after validation. Retain only >=91% original, benign<=1%, zero wrong origins, plant>=95%, AB>=90%, no paired timing/communication/effective-memory losses. Full regression only if retained. Historic summaries/manifests remain unchanged. Raw per-run data deleted; no new representative traces planned.
