@@ -1,0 +1,9 @@
+# Twelve restricted sensor features
+
+Current physical sensor/control strength; its causal10-frame mean, maximum and first difference/0.1s; signed A-B, A-alignedC and B-alignedC residuals; retained AB FAST and SLOW strengths; retained AC and BC strengths; qualified-history flag. Inputs come from the retained observer's physical extraction and timestamped readouts. Alarm, final anomaly decision, origin output, scenario ID, injection fields, hidden plant truth and future samples are excluded. Acquisition/consumption freshness and startup qualification are checked independently of final decisions.
+
+A qualified inference requires >=1s startup, retained five-sample slew qualification, qualified C readout, fresh valid A/B, no stale consumption, and ten consecutive eligible acquisitions. Missing/invalid history means vacuous ML mass, not healthy evidence. At qualified inference, the ten-frame window consists entirely of eligible current/past observations. Sensor derivative is the derivative of physical evidence strength; it is not a hidden physical-temperature derivative.
+
+The standalone SVM gets the identical twelve-feature pool and may evaluate invalid-history flags. It is trained on all frames, including unqualified ones. The ML provider is trained/evaluated only when qualified, as mandatory for evidence admission. Standalone target is any fault; provider target is sensor/control fault versus all other states. Other fault origins are negative examples for the scoped provider. Differences in training target are explicit and neither model receives injection information at inference.
+
+The standalone comparison is deliberately sensor-feature matched, not the earlier full cross-layer feature baseline. Its missing memory/timing/actuator measurements are a limitation of the requested comparison; an overall hybrid win would not establish superiority over earlier full-observability SVMs.

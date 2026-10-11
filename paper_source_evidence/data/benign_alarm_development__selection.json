@@ -1,0 +1,120 @@
+{
+  "selected": 2,
+  "eligible": true,
+  "family": [
+    {
+      "index": 0,
+      "method": "A2 original",
+      "TRAIN": {
+        "detected": 1128,
+        "benign": 45,
+        "lost": [],
+        "plant_lost": [],
+        "integrity_lost": [],
+        "wrong_fault_runs": 0
+      },
+      "CALIBRATION": {
+        "detected": 1126,
+        "benign": 44,
+        "lost": [],
+        "plant_lost": [],
+        "integrity_lost": [],
+        "wrong_fault_runs": 0
+      },
+      "eligible": false
+    },
+    {
+      "index": 1,
+      "method": "G1",
+      "TRAIN": {
+        "detected": 1128,
+        "benign": 1,
+        "lost": [],
+        "plant_lost": [],
+        "integrity_lost": [],
+        "wrong_fault_runs": 0
+      },
+      "CALIBRATION": {
+        "detected": 1126,
+        "benign": 1,
+        "lost": [],
+        "plant_lost": [],
+        "integrity_lost": [],
+        "wrong_fault_runs": 0
+      },
+      "eligible": true
+    },
+    {
+      "index": 2,
+      "method": "G2",
+      "TRAIN": {
+        "detected": 1128,
+        "benign": 0,
+        "lost": [],
+        "plant_lost": [],
+        "integrity_lost": [],
+        "wrong_fault_runs": 0
+      },
+      "CALIBRATION": {
+        "detected": 1126,
+        "benign": 0,
+        "lost": [],
+        "plant_lost": [],
+        "integrity_lost": [],
+        "wrong_fault_runs": 0
+      },
+      "eligible": true
+    },
+    {
+      "index": 3,
+      "method": "G3",
+      "TRAIN": {
+        "detected": 1128,
+        "benign": 45,
+        "lost": [],
+        "plant_lost": [],
+        "integrity_lost": [],
+        "wrong_fault_runs": 0
+      },
+      "CALIBRATION": {
+        "detected": 1126,
+        "benign": 44,
+        "lost": [],
+        "plant_lost": [],
+        "integrity_lost": [],
+        "wrong_fault_runs": 0
+      },
+      "eligible": false
+    },
+    {
+      "index": 4,
+      "method": "G4",
+      "TRAIN": {
+        "detected": 1128,
+        "benign": 0,
+        "lost": [],
+        "plant_lost": [],
+        "integrity_lost": [],
+        "wrong_fault_runs": 0
+      },
+      "CALIBRATION": {
+        "detected": 1126,
+        "benign": 0,
+        "lost": [],
+        "plant_lost": [],
+        "integrity_lost": [],
+        "wrong_fault_runs": 0
+      },
+      "eligible": true
+    }
+  ],
+  "svm_unchanged": {
+    "sha256": "784738ad33c8459664f313e7ea908fc58da905e071bf70246b503ae13b67119c",
+    "model": "linear_0.1",
+    "rank": 1189,
+    "threshold": -0.999752366177874,
+    "n": 1200,
+    "exceedances": 11
+  },
+  "selection_data": "NEW TRAIN/CAL only"
+}

@@ -1,0 +1,410 @@
+run_id,method,origin,model,behavior,kind,domain,magnitude,duration_ms,effective_memory_corruption,active_probe_samples,actuator_excited,integrity_observed,plant_manifestation,reason
+ifu_0000,A0,MEMORY,stuck_bit,transient,none,NONE,1,100,0,0,0,0,0,Dormant stored value; no detected inconsistency during finite probe window
+ifu_0000,A2,MEMORY,stuck_bit,transient,none,NONE,1,100,0,0,0,0,0,Dormant stored value; no detected inconsistency during finite probe window
+ifu_0000,SVM-INT default,MEMORY,stuck_bit,transient,none,NONE,1,100,0,0,0,0,0,Dormant stored value; no detected inconsistency during finite probe window
+ifu_0000,SVM-INT CAL1,MEMORY,stuck_bit,transient,none,NONE,1,100,0,0,0,0,0,Dormant stored value; no detected inconsistency during finite probe window
+ifu_0015,A0,MEMORY,stuck_bit,transient,none,NONE,3,700,0,2,0,0,0,Dormant stored value; no detected inconsistency during finite probe window
+ifu_0016,A0,MEMORY,stuck_bit,intermittent,none,NONE,3,1300,0,2,0,0,0,Dormant stored value; no detected inconsistency during finite probe window
+ifu_0072,A0,SENSOR_CONTROL,sensor_bias,permanent,step,A,0.4326928199999999,0,0,375,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0073,A0,SENSOR_CONTROL,sensor_bias,permanent,step,B,0.4326928199999999,0,0,375,0,1,0,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0075,A0,SENSOR_CONTROL,sensor_bias,permanent,step,AB,0.4326928199999999,0,0,375,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0077,A0,SENSOR_CONTROL,sensor_bias,permanent,step,A,0.48420386999999987,0,0,373,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0078,A0,SENSOR_CONTROL,sensor_bias,permanent,step,B,0.48420386999999987,0,0,373,0,1,0,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0080,A0,SENSOR_CONTROL,sensor_bias,permanent,step,AB,0.48420386999999987,0,0,373,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0087,A0,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,A,-0.5563193399999999,50,0,0,0,0,0,Short pulse with no captured integrity violation; acquisition-window limit
+ifu_0087,A2,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,A,-0.5563193399999999,50,0,0,0,0,0,Short pulse with no captured integrity violation; acquisition-window limit
+ifu_0087,SVM-INT default,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,A,-0.5563193399999999,50,0,0,0,0,0,Short pulse with no captured integrity violation; acquisition-window limit
+ifu_0087,SVM-INT CAL1,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,A,-0.5563193399999999,50,0,0,0,0,0,Short pulse with no captured integrity violation; acquisition-window limit
+ifu_0088,A0,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,B,-0.5563193399999999,50,0,0,0,0,0,Short pulse with no captured integrity violation; acquisition-window limit
+ifu_0088,A2,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,B,-0.5563193399999999,50,0,0,0,0,0,Short pulse with no captured integrity violation; acquisition-window limit
+ifu_0088,SVM-INT default,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,B,-0.5563193399999999,50,0,0,0,0,0,Short pulse with no captured integrity violation; acquisition-window limit
+ifu_0088,SVM-INT CAL1,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,B,-0.5563193399999999,50,0,0,0,0,0,Short pulse with no captured integrity violation; acquisition-window limit
+ifu_0089,A0,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,C,-0.5563193399999999,50,0,0,0,0,0,Short pulse with no captured integrity violation; acquisition-window limit
+ifu_0089,A2,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,C,-0.5563193399999999,50,0,0,0,0,0,Short pulse with no captured integrity violation; acquisition-window limit
+ifu_0089,SVM-INT default,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,C,-0.5563193399999999,50,0,0,0,0,0,Short pulse with no captured integrity violation; acquisition-window limit
+ifu_0089,SVM-INT CAL1,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,C,-0.5563193399999999,50,0,0,0,0,0,Short pulse with no captured integrity violation; acquisition-window limit
+ifu_0090,A0,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,AB,-0.5563193399999999,50,0,0,0,0,0,Short pulse with no captured integrity violation; acquisition-window limit
+ifu_0090,A2,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,AB,-0.5563193399999999,50,0,0,0,0,0,Short pulse with no captured integrity violation; acquisition-window limit
+ifu_0090,SVM-INT default,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,AB,-0.5563193399999999,50,0,0,0,0,0,Short pulse with no captured integrity violation; acquisition-window limit
+ifu_0090,SVM-INT CAL1,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,AB,-0.5563193399999999,50,0,0,0,0,0,Short pulse with no captured integrity violation; acquisition-window limit
+ifu_0091,A0,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,ABC,-0.5563193399999999,50,0,0,0,0,0,Short pulse with no captured integrity violation; acquisition-window limit
+ifu_0091,A2,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,ABC,-0.5563193399999999,50,0,0,0,0,0,Short pulse with no captured integrity violation; acquisition-window limit
+ifu_0091,SVM-INT default,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,ABC,-0.5563193399999999,50,0,0,0,0,0,Short pulse with no captured integrity violation; acquisition-window limit
+ifu_0091,SVM-INT CAL1,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,ABC,-0.5563193399999999,50,0,0,0,0,0,Short pulse with no captured integrity violation; acquisition-window limit
+ifu_0096,A0,ACTUATOR,pump_degraded,transient,none,NONE,0.989,7900,0,31,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0096,A2,ACTUATOR,pump_degraded,transient,none,NONE,0.989,7900,0,31,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0096,SVM-INT default,ACTUATOR,pump_degraded,transient,none,NONE,0.989,7900,0,31,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0096,SVM-INT CAL1,ACTUATOR,pump_degraded,transient,none,NONE,0.989,7900,0,31,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0100,A0,ACTUATOR,pump_degraded,intermittent,none,NONE,0.971,7900,0,62,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0100,A2,ACTUATOR,pump_degraded,intermittent,none,NONE,0.971,7900,0,62,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0100,SVM-INT default,ACTUATOR,pump_degraded,intermittent,none,NONE,0.971,7900,0,62,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0100,SVM-INT CAL1,ACTUATOR,pump_degraded,intermittent,none,NONE,0.971,7900,0,62,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0104,A0,ACTUATOR,pump_degraded,permanent,none,NONE,0.937,0,0,370,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0104,A2,ACTUATOR,pump_degraded,permanent,none,NONE,0.937,0,0,370,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0104,SVM-INT default,ACTUATOR,pump_degraded,permanent,none,NONE,0.937,0,0,370,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0104,SVM-INT CAL1,ACTUATOR,pump_degraded,permanent,none,NONE,0.937,0,0,370,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0108,A0,ACTUATOR,pump_degraded,transient,none,NONE,0.769,7900,0,31,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0108,A2,ACTUATOR,pump_degraded,transient,none,NONE,0.769,7900,0,31,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0108,SVM-INT default,ACTUATOR,pump_degraded,transient,none,NONE,0.769,7900,0,31,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0108,SVM-INT CAL1,ACTUATOR,pump_degraded,transient,none,NONE,0.769,7900,0,31,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0112,A0,ACTUATOR,pump_degraded,intermittent,none,NONE,0.619,7900,0,59,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0112,A2,ACTUATOR,pump_degraded,intermittent,none,NONE,0.619,7900,0,59,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0112,SVM-INT default,ACTUATOR,pump_degraded,intermittent,none,NONE,0.619,7900,0,59,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0112,SVM-INT CAL1,ACTUATOR,pump_degraded,intermittent,none,NONE,0.619,7900,0,59,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0252,A0,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,ABC,0.6902480699999999,1100,0,4,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0257,A0,SENSOR_CONTROL,sensor_bias_ramp,permanent,ramp,ABC,3.9426557669999993,0,0,366,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0259,A0,SENSOR_CONTROL,sensor_bias,permanent,step,B,-0.5254127099999999,0,0,365,0,1,0,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0261,A0,SENSOR_CONTROL,sensor_bias,permanent,step,AB,-0.5254127099999999,0,0,365,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0267,A0,SENSOR_CONTROL,sensor_bias_ramp,permanent,ramp,ABC,-3.6150454889999994,0,0,363,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0268,A0,SENSOR_CONTROL,sensor_bias,permanent,step,A,-0.48420386999999987,0,0,374,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0269,A0,SENSOR_CONTROL,sensor_bias,permanent,step,B,-0.48420386999999987,0,0,374,0,1,0,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0271,A0,SENSOR_CONTROL,sensor_bias,permanent,step,AB,-0.48420386999999987,0,0,374,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0272,A0,SENSOR_CONTROL,sensor_bias,permanent,step,ABC,-0.48420386999999987,0,0,374,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0273,A0,SENSOR_CONTROL,sensor_bias,permanent,step,A,-0.5151104999999999,0,0,372,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0274,A0,SENSOR_CONTROL,sensor_bias,permanent,step,B,-0.5151104999999999,0,0,372,0,1,0,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0276,A0,ACTUATOR,pump_degraded,transient,none,NONE,0.989,14900,0,58,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0276,A2,ACTUATOR,pump_degraded,transient,none,NONE,0.989,14900,0,58,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0276,SVM-INT default,ACTUATOR,pump_degraded,transient,none,NONE,0.989,14900,0,58,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0276,SVM-INT CAL1,ACTUATOR,pump_degraded,transient,none,NONE,0.989,14900,0,58,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0280,A0,ACTUATOR,pump_degraded,intermittent,none,NONE,0.971,14900,0,120,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0280,A2,ACTUATOR,pump_degraded,intermittent,none,NONE,0.971,14900,0,120,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0280,SVM-INT default,ACTUATOR,pump_degraded,intermittent,none,NONE,0.971,14900,0,120,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0280,SVM-INT CAL1,ACTUATOR,pump_degraded,intermittent,none,NONE,0.971,14900,0,120,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0284,A0,ACTUATOR,pump_degraded,permanent,none,NONE,0.937,0,0,368,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0284,A2,ACTUATOR,pump_degraded,permanent,none,NONE,0.937,0,0,368,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0284,SVM-INT default,ACTUATOR,pump_degraded,permanent,none,NONE,0.937,0,0,368,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0284,SVM-INT CAL1,ACTUATOR,pump_degraded,permanent,none,NONE,0.937,0,0,368,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0288,A0,ACTUATOR,pump_degraded,transient,none,NONE,0.769,14900,0,59,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0288,A2,ACTUATOR,pump_degraded,transient,none,NONE,0.769,14900,0,59,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0288,SVM-INT default,ACTUATOR,pump_degraded,transient,none,NONE,0.769,14900,0,59,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0288,SVM-INT CAL1,ACTUATOR,pump_degraded,transient,none,NONE,0.769,14900,0,59,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0292,A0,ACTUATOR,pump_degraded,intermittent,none,NONE,0.619,14900,0,119,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0292,A2,ACTUATOR,pump_degraded,intermittent,none,NONE,0.619,14900,0,119,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0292,SVM-INT default,ACTUATOR,pump_degraded,intermittent,none,NONE,0.619,14900,0,119,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0292,SVM-INT CAL1,ACTUATOR,pump_degraded,intermittent,none,NONE,0.619,14900,0,119,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0364,A0,MEMORY,stuck_bit,intermittent,none,NONE,3,100,0,1,0,0,0,Dormant stored value; no detected inconsistency during finite probe window
+ifu_0370,A0,MEMORY,stuck_bit,intermittent,none,NONE,4,100,0,0,0,0,0,Dormant stored value; no detected inconsistency during finite probe window
+ifu_0370,A2,MEMORY,stuck_bit,intermittent,none,NONE,4,100,0,0,0,0,0,Dormant stored value; no detected inconsistency during finite probe window
+ifu_0370,SVM-INT default,MEMORY,stuck_bit,intermittent,none,NONE,4,100,0,0,0,0,0,Dormant stored value; no detected inconsistency during finite probe window
+ifu_0370,SVM-INT CAL1,MEMORY,stuck_bit,intermittent,none,NONE,4,100,0,0,0,0,0,Dormant stored value; no detected inconsistency during finite probe window
+ifu_0372,A0,MEMORY,stuck_bit,transient,none,NONE,0,400,0,1,0,0,0,Dormant stored value; no detected inconsistency during finite probe window
+ifu_0373,A0,MEMORY,stuck_bit,intermittent,none,NONE,0,700,0,2,0,0,0,Dormant stored value; no detected inconsistency during finite probe window
+ifu_0433,A0,SENSOR_CONTROL,sensor_bias,permanent,step,ABC,-0.5563193399999999,0,0,371,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0439,A0,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,A,0.4326928199999999,250,0,1,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0440,A0,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,B,0.4326928199999999,250,0,1,0,1,0,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0441,A0,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,C,0.4326928199999999,250,0,1,0,1,0,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0442,A0,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,AB,0.4326928199999999,250,0,1,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0443,A0,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,ABC,0.4326928199999999,250,0,1,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0448,A0,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,ABC,-0.6902480699999999,1700,0,7,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0453,A0,SENSOR_CONTROL,sensor_bias_ramp,permanent,ramp,ABC,3.9560486399999992,0,0,365,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0454,A0,SENSOR_CONTROL,sensor_bias,permanent,step,A,0.5254127099999999,0,0,363,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0455,A0,SENSOR_CONTROL,sensor_bias,permanent,step,B,0.5254127099999999,0,0,363,0,1,0,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0456,A0,ACTUATOR,pump_degraded,transient,none,NONE,0.989,900,0,4,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0456,A2,ACTUATOR,pump_degraded,transient,none,NONE,0.989,900,0,4,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0456,SVM-INT default,ACTUATOR,pump_degraded,transient,none,NONE,0.989,900,0,4,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0456,SVM-INT CAL1,ACTUATOR,pump_degraded,transient,none,NONE,0.989,900,0,4,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0460,A0,ACTUATOR,pump_degraded,intermittent,none,NONE,0.971,900,0,7,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0460,A2,ACTUATOR,pump_degraded,intermittent,none,NONE,0.971,900,0,7,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0460,SVM-INT default,ACTUATOR,pump_degraded,intermittent,none,NONE,0.971,900,0,7,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0460,SVM-INT CAL1,ACTUATOR,pump_degraded,intermittent,none,NONE,0.971,900,0,7,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0464,A0,ACTUATOR,pump_degraded,permanent,none,NONE,0.937,0,0,366,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0464,A2,ACTUATOR,pump_degraded,permanent,none,NONE,0.937,0,0,366,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0464,SVM-INT default,ACTUATOR,pump_degraded,permanent,none,NONE,0.937,0,0,366,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0464,SVM-INT CAL1,ACTUATOR,pump_degraded,permanent,none,NONE,0.937,0,0,366,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0468,A0,ACTUATOR,pump_degraded,transient,none,NONE,0.769,900,0,3,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0468,A2,ACTUATOR,pump_degraded,transient,none,NONE,0.769,900,0,3,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0468,SVM-INT default,ACTUATOR,pump_degraded,transient,none,NONE,0.769,900,0,3,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0468,SVM-INT CAL1,ACTUATOR,pump_degraded,transient,none,NONE,0.769,900,0,3,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0472,A0,ACTUATOR,pump_degraded,intermittent,none,NONE,0.619,900,0,6,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0472,A2,ACTUATOR,pump_degraded,intermittent,none,NONE,0.619,900,0,6,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0472,SVM-INT default,ACTUATOR,pump_degraded,intermittent,none,NONE,0.619,900,0,6,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0472,SVM-INT CAL1,ACTUATOR,pump_degraded,intermittent,none,NONE,0.619,900,0,6,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0543,A0,MEMORY,stuck_bit,transient,none,NONE,4,100,0,1,0,0,0,Dormant stored value; no detected inconsistency during finite probe window
+ifu_0544,A0,MEMORY,stuck_bit,intermittent,none,NONE,4,200,0,0,0,0,0,Dormant stored value; no detected inconsistency during finite probe window
+ifu_0544,A2,MEMORY,stuck_bit,intermittent,none,NONE,4,200,0,0,0,0,0,Dormant stored value; no detected inconsistency during finite probe window
+ifu_0544,SVM-INT default,MEMORY,stuck_bit,intermittent,none,NONE,4,200,0,0,0,0,0,Dormant stored value; no detected inconsistency during finite probe window
+ifu_0544,SVM-INT CAL1,MEMORY,stuck_bit,intermittent,none,NONE,4,200,0,0,0,0,0,Dormant stored value; no detected inconsistency during finite probe window
+ifu_0613,A0,SENSOR_CONTROL,sensor_bias,permanent,step,AB,0.5254127099999999,0,0,363,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0619,A0,SENSOR_CONTROL,sensor_bias_ramp,permanent,ramp,ABC,-3.6377103509999995,0,0,361,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0623,A0,SENSOR_CONTROL,sensor_bias,permanent,step,AB,0.5563193399999999,0,0,371,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0626,A0,SENSOR_CONTROL,sensor_bias,permanent,step,B,0.5975281799999999,0,0,370,0,1,0,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0634,A0,SENSOR_CONTROL,sensor_bias,permanent,step,ABC,1.12294089,0,0,368,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0635,A0,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,A,-0.48420386999999987,50,0,0,0,0,0,Short pulse with no captured integrity violation; acquisition-window limit
+ifu_0635,A2,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,A,-0.48420386999999987,50,0,0,0,0,0,Short pulse with no captured integrity violation; acquisition-window limit
+ifu_0635,SVM-INT default,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,A,-0.48420386999999987,50,0,0,0,0,0,Short pulse with no captured integrity violation; acquisition-window limit
+ifu_0635,SVM-INT CAL1,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,A,-0.48420386999999987,50,0,0,0,0,0,Short pulse with no captured integrity violation; acquisition-window limit
+ifu_0636,A0,ACTUATOR,pump_degraded,transient,none,NONE,0.989,3100,0,12,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0636,A2,ACTUATOR,pump_degraded,transient,none,NONE,0.989,3100,0,12,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0636,SVM-INT default,ACTUATOR,pump_degraded,transient,none,NONE,0.989,3100,0,12,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0636,SVM-INT CAL1,ACTUATOR,pump_degraded,transient,none,NONE,0.989,3100,0,12,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0640,A0,ACTUATOR,pump_degraded,intermittent,none,NONE,0.971,3100,0,26,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0640,A2,ACTUATOR,pump_degraded,intermittent,none,NONE,0.971,3100,0,26,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0640,SVM-INT default,ACTUATOR,pump_degraded,intermittent,none,NONE,0.971,3100,0,26,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0640,SVM-INT CAL1,ACTUATOR,pump_degraded,intermittent,none,NONE,0.971,3100,0,26,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0644,A0,ACTUATOR,pump_degraded,permanent,none,NONE,0.937,0,0,365,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0644,A2,ACTUATOR,pump_degraded,permanent,none,NONE,0.937,0,0,365,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0644,SVM-INT default,ACTUATOR,pump_degraded,permanent,none,NONE,0.937,0,0,365,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0644,SVM-INT CAL1,ACTUATOR,pump_degraded,permanent,none,NONE,0.937,0,0,365,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0648,A0,ACTUATOR,pump_degraded,transient,none,NONE,0.769,3100,0,12,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0648,A2,ACTUATOR,pump_degraded,transient,none,NONE,0.769,3100,0,12,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0648,SVM-INT default,ACTUATOR,pump_degraded,transient,none,NONE,0.769,3100,0,12,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0648,SVM-INT CAL1,ACTUATOR,pump_degraded,transient,none,NONE,0.769,3100,0,12,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0652,A0,ACTUATOR,pump_degraded,intermittent,none,NONE,0.619,3100,0,22,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0652,A2,ACTUATOR,pump_degraded,intermittent,none,NONE,0.619,3100,0,22,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0652,SVM-INT default,ACTUATOR,pump_degraded,intermittent,none,NONE,0.619,3100,0,22,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0652,SVM-INT CAL1,ACTUATOR,pump_degraded,intermittent,none,NONE,0.619,3100,0,22,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0735,A0,MEMORY,stuck_bit,transient,none,NONE,2,200,0,2,0,0,0,Dormant stored value; no detected inconsistency during finite probe window
+ifu_0736,A0,MEMORY,stuck_bit,intermittent,none,NONE,2,400,0,3,0,0,0,Dormant stored value; no detected inconsistency during finite probe window
+ifu_0792,A0,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,B,-0.5151104999999999,150,0,1,0,1,0,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0793,A0,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,C,-0.5151104999999999,150,0,1,0,1,0,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0794,A0,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,AB,-0.5151104999999999,150,0,1,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0800,A0,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,ABC,0.6902480699999999,1100,0,5,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0805,A0,SENSOR_CONTROL,sensor_bias_ramp,permanent,ramp,ABC,3.982834385999999,0,0,363,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0806,A0,SENSOR_CONTROL,sensor_bias,permanent,step,A,-0.5254127099999999,0,0,362,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0807,A0,SENSOR_CONTROL,sensor_bias,permanent,step,B,-0.5254127099999999,0,0,362,0,1,0,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0809,A0,SENSOR_CONTROL,sensor_bias,permanent,step,AB,-0.5254127099999999,0,0,362,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0815,A0,SENSOR_CONTROL,sensor_bias_ramp,permanent,ramp,ABC,-3.6490427819999995,0,0,358,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0816,A0,ACTUATOR,pump_degraded,transient,none,NONE,0.989,900,0,6,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0816,A2,ACTUATOR,pump_degraded,transient,none,NONE,0.989,900,0,6,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0816,SVM-INT default,ACTUATOR,pump_degraded,transient,none,NONE,0.989,900,0,6,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0816,SVM-INT CAL1,ACTUATOR,pump_degraded,transient,none,NONE,0.989,900,0,6,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0820,A0,ACTUATOR,pump_degraded,intermittent,none,NONE,0.971,900,0,7,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0820,A2,ACTUATOR,pump_degraded,intermittent,none,NONE,0.971,900,0,7,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0820,SVM-INT default,ACTUATOR,pump_degraded,intermittent,none,NONE,0.971,900,0,7,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0820,SVM-INT CAL1,ACTUATOR,pump_degraded,intermittent,none,NONE,0.971,900,0,7,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0824,A0,ACTUATOR,pump_degraded,permanent,none,NONE,0.937,0,0,370,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0824,A2,ACTUATOR,pump_degraded,permanent,none,NONE,0.937,0,0,370,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0824,SVM-INT default,ACTUATOR,pump_degraded,permanent,none,NONE,0.937,0,0,370,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0824,SVM-INT CAL1,ACTUATOR,pump_degraded,permanent,none,NONE,0.937,0,0,370,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0828,A0,ACTUATOR,pump_degraded,transient,none,NONE,0.769,900,0,5,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0828,A2,ACTUATOR,pump_degraded,transient,none,NONE,0.769,900,0,5,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0828,SVM-INT default,ACTUATOR,pump_degraded,transient,none,NONE,0.769,900,0,5,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0828,SVM-INT CAL1,ACTUATOR,pump_degraded,transient,none,NONE,0.769,900,0,5,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0832,A0,ACTUATOR,pump_degraded,intermittent,none,NONE,0.619,900,0,6,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0832,A2,ACTUATOR,pump_degraded,intermittent,none,NONE,0.619,900,0,6,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0832,SVM-INT default,ACTUATOR,pump_degraded,intermittent,none,NONE,0.619,900,0,6,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0832,SVM-INT CAL1,ACTUATOR,pump_degraded,intermittent,none,NONE,0.619,900,0,6,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0901,A0,MEMORY,stuck_bit,intermittent,none,NONE,1,100,0,1,0,0,0,Dormant stored value; no detected inconsistency during finite probe window
+ifu_0909,A0,MEMORY,stuck_bit,transient,none,NONE,2,400,0,2,0,0,0,Dormant stored value; no detected inconsistency during finite probe window
+ifu_0915,A0,MEMORY,stuck_bit,transient,none,NONE,3,400,0,1,0,0,0,Dormant stored value; no detected inconsistency during finite probe window
+ifu_0916,A0,MEMORY,stuck_bit,intermittent,none,NONE,3,700,0,3,0,0,0,Dormant stored value; no detected inconsistency during finite probe window
+ifu_0972,A0,SENSOR_CONTROL,sensor_bias,permanent,step,A,-0.4326928199999999,0,0,369,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0973,A0,SENSOR_CONTROL,sensor_bias,permanent,step,B,-0.4326928199999999,0,0,369,0,1,0,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0975,A0,SENSOR_CONTROL,sensor_bias,permanent,step,AB,-0.4326928199999999,0,0,369,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0976,A0,SENSOR_CONTROL,sensor_bias,permanent,step,ABC,-0.4326928199999999,0,0,369,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0977,A0,SENSOR_CONTROL,sensor_bias,permanent,step,A,-0.48420386999999987,0,0,368,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0978,A0,SENSOR_CONTROL,sensor_bias,permanent,step,B,-0.48420386999999987,0,0,368,0,1,0,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0980,A0,SENSOR_CONTROL,sensor_bias,permanent,step,AB,-0.48420386999999987,0,0,368,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0981,A0,SENSOR_CONTROL,sensor_bias,permanent,step,ABC,-0.48420386999999987,0,0,368,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0991,A0,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,ABC,0.5563193399999999,250,0,0,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_0996,A0,ACTUATOR,pump_degraded,transient,none,NONE,0.989,3100,0,12,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0996,A2,ACTUATOR,pump_degraded,transient,none,NONE,0.989,3100,0,12,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0996,SVM-INT default,ACTUATOR,pump_degraded,transient,none,NONE,0.989,3100,0,12,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_0996,SVM-INT CAL1,ACTUATOR,pump_degraded,transient,none,NONE,0.989,3100,0,12,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1000,A0,ACTUATOR,pump_degraded,intermittent,none,NONE,0.971,3100,0,23,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1000,A2,ACTUATOR,pump_degraded,intermittent,none,NONE,0.971,3100,0,23,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1000,SVM-INT default,ACTUATOR,pump_degraded,intermittent,none,NONE,0.971,3100,0,23,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1000,SVM-INT CAL1,ACTUATOR,pump_degraded,intermittent,none,NONE,0.971,3100,0,23,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1004,A0,ACTUATOR,pump_degraded,permanent,none,NONE,0.937,0,0,368,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1004,A2,ACTUATOR,pump_degraded,permanent,none,NONE,0.937,0,0,368,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1004,SVM-INT default,ACTUATOR,pump_degraded,permanent,none,NONE,0.937,0,0,368,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1004,SVM-INT CAL1,ACTUATOR,pump_degraded,permanent,none,NONE,0.937,0,0,368,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1008,A0,ACTUATOR,pump_degraded,transient,none,NONE,0.769,3100,0,14,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1008,A2,ACTUATOR,pump_degraded,transient,none,NONE,0.769,3100,0,14,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1008,SVM-INT default,ACTUATOR,pump_degraded,transient,none,NONE,0.769,3100,0,14,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1008,SVM-INT CAL1,ACTUATOR,pump_degraded,transient,none,NONE,0.769,3100,0,14,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1012,A0,ACTUATOR,pump_degraded,intermittent,none,NONE,0.619,3100,0,23,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1012,A2,ACTUATOR,pump_degraded,intermittent,none,NONE,0.619,3100,0,23,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1012,SVM-INT default,ACTUATOR,pump_degraded,intermittent,none,NONE,0.619,3100,0,23,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1012,SVM-INT CAL1,ACTUATOR,pump_degraded,intermittent,none,NONE,0.619,3100,0,23,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1152,A0,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,ABC,-0.6902480699999999,700,0,4,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_1157,A0,SENSOR_CONTROL,sensor_bias_ramp,permanent,ramp,ABC,4.009620131999999,0,0,360,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_1159,A0,SENSOR_CONTROL,sensor_bias,permanent,step,B,0.5254127099999999,0,0,358,0,1,0,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_1160,A0,SENSOR_CONTROL,sensor_bias,permanent,step,C,0.5254127099999999,0,0,358,0,1,0,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_1161,A0,SENSOR_CONTROL,sensor_bias,permanent,step,AB,0.5254127099999999,0,0,358,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_1162,A0,SENSOR_CONTROL,sensor_bias,permanent,step,ABC,0.5254127099999999,0,0,358,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_1167,A0,SENSOR_CONTROL,sensor_bias_ramp,permanent,ramp,ABC,-3.671707643999999,0,0,355,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_1168,A0,SENSOR_CONTROL,sensor_bias,permanent,step,A,0.48420386999999987,0,0,368,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_1169,A0,SENSOR_CONTROL,sensor_bias,permanent,step,B,0.48420386999999987,0,0,368,0,1,0,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_1170,A0,SENSOR_CONTROL,sensor_bias,permanent,step,C,0.48420386999999987,0,0,368,0,1,0,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_1171,A0,SENSOR_CONTROL,sensor_bias,permanent,step,AB,0.48420386999999987,0,0,368,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_1172,A0,SENSOR_CONTROL,sensor_bias,permanent,step,ABC,0.48420386999999987,0,0,368,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_1173,A0,SENSOR_CONTROL,sensor_bias,permanent,step,A,0.5151104999999999,0,0,367,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_1174,A0,SENSOR_CONTROL,sensor_bias,permanent,step,B,0.5151104999999999,0,0,367,0,1,0,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_1175,A0,SENSOR_CONTROL,sensor_bias,permanent,step,C,0.5151104999999999,0,0,367,0,1,0,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_1176,A0,ACTUATOR,pump_degraded,transient,none,NONE,0.989,7900,0,33,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1176,A2,ACTUATOR,pump_degraded,transient,none,NONE,0.989,7900,0,33,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1176,SVM-INT default,ACTUATOR,pump_degraded,transient,none,NONE,0.989,7900,0,33,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1176,SVM-INT CAL1,ACTUATOR,pump_degraded,transient,none,NONE,0.989,7900,0,33,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1180,A0,ACTUATOR,pump_degraded,intermittent,none,NONE,0.971,7900,0,60,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1180,A2,ACTUATOR,pump_degraded,intermittent,none,NONE,0.971,7900,0,60,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1180,SVM-INT default,ACTUATOR,pump_degraded,intermittent,none,NONE,0.971,7900,0,60,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1180,SVM-INT CAL1,ACTUATOR,pump_degraded,intermittent,none,NONE,0.971,7900,0,60,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1184,A0,ACTUATOR,pump_degraded,permanent,none,NONE,0.937,0,0,370,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1184,A2,ACTUATOR,pump_degraded,permanent,none,NONE,0.937,0,0,370,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1184,SVM-INT default,ACTUATOR,pump_degraded,permanent,none,NONE,0.937,0,0,370,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1184,SVM-INT CAL1,ACTUATOR,pump_degraded,permanent,none,NONE,0.937,0,0,370,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1188,A0,ACTUATOR,pump_degraded,transient,none,NONE,0.769,7900,0,32,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1188,A2,ACTUATOR,pump_degraded,transient,none,NONE,0.769,7900,0,32,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1188,SVM-INT default,ACTUATOR,pump_degraded,transient,none,NONE,0.769,7900,0,32,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1188,SVM-INT CAL1,ACTUATOR,pump_degraded,transient,none,NONE,0.769,7900,0,32,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1192,A0,ACTUATOR,pump_degraded,intermittent,none,NONE,0.619,7900,0,61,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1192,A2,ACTUATOR,pump_degraded,intermittent,none,NONE,0.619,7900,0,61,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1192,SVM-INT default,ACTUATOR,pump_degraded,intermittent,none,NONE,0.619,7900,0,61,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1192,SVM-INT CAL1,ACTUATOR,pump_degraded,intermittent,none,NONE,0.619,7900,0,61,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1273,A0,MEMORY,stuck_bit,intermittent,none,NONE,0,400,0,1,0,0,0,Dormant stored value; no detected inconsistency during finite probe window
+ifu_1332,A0,SENSOR_CONTROL,sensor_bias,permanent,step,AB,0.5563193399999999,0,0,365,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_1333,A0,SENSOR_CONTROL,sensor_bias,permanent,step,ABC,0.5563193399999999,0,0,365,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_1339,A0,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,A,-0.4326928199999999,150,0,1,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_1340,A0,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,B,-0.4326928199999999,150,0,1,0,1,0,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_1342,A0,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,AB,-0.4326928199999999,150,0,1,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_1348,A0,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,ABC,0.6902480699999999,1100,0,7,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_1353,A0,SENSOR_CONTROL,sensor_bias_ramp,permanent,ramp,ABC,4.023013004999999,0,0,358,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_1354,A0,SENSOR_CONTROL,sensor_bias,permanent,step,A,-0.5254127099999999,0,0,356,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_1356,A0,ACTUATOR,pump_degraded,transient,none,NONE,0.989,14900,0,61,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1356,A2,ACTUATOR,pump_degraded,transient,none,NONE,0.989,14900,0,61,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1356,SVM-INT default,ACTUATOR,pump_degraded,transient,none,NONE,0.989,14900,0,61,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1356,SVM-INT CAL1,ACTUATOR,pump_degraded,transient,none,NONE,0.989,14900,0,61,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1360,A0,ACTUATOR,pump_degraded,intermittent,none,NONE,0.971,14900,0,120,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1360,A2,ACTUATOR,pump_degraded,intermittent,none,NONE,0.971,14900,0,120,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1360,SVM-INT default,ACTUATOR,pump_degraded,intermittent,none,NONE,0.971,14900,0,120,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1360,SVM-INT CAL1,ACTUATOR,pump_degraded,intermittent,none,NONE,0.971,14900,0,120,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1364,A0,ACTUATOR,pump_degraded,permanent,none,NONE,0.937,0,0,371,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1364,A2,ACTUATOR,pump_degraded,permanent,none,NONE,0.937,0,0,371,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1364,SVM-INT default,ACTUATOR,pump_degraded,permanent,none,NONE,0.937,0,0,371,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1364,SVM-INT CAL1,ACTUATOR,pump_degraded,permanent,none,NONE,0.937,0,0,371,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1368,A0,ACTUATOR,pump_degraded,transient,none,NONE,0.769,14900,0,62,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1368,A2,ACTUATOR,pump_degraded,transient,none,NONE,0.769,14900,0,62,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1368,SVM-INT default,ACTUATOR,pump_degraded,transient,none,NONE,0.769,14900,0,62,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1368,SVM-INT CAL1,ACTUATOR,pump_degraded,transient,none,NONE,0.769,14900,0,62,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1372,A0,ACTUATOR,pump_degraded,intermittent,none,NONE,0.619,14900,0,119,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1372,A2,ACTUATOR,pump_degraded,intermittent,none,NONE,0.619,14900,0,119,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1372,SVM-INT default,ACTUATOR,pump_degraded,intermittent,none,NONE,0.619,14900,0,119,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1372,SVM-INT CAL1,ACTUATOR,pump_degraded,intermittent,none,NONE,0.619,14900,0,119,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1444,A0,MEMORY,stuck_bit,intermittent,none,NONE,4,100,0,0,0,0,0,Dormant stored value; no detected inconsistency during finite probe window
+ifu_1444,A2,MEMORY,stuck_bit,intermittent,none,NONE,4,100,0,0,0,0,0,Dormant stored value; no detected inconsistency during finite probe window
+ifu_1444,SVM-INT default,MEMORY,stuck_bit,intermittent,none,NONE,4,100,0,0,0,0,0,Dormant stored value; no detected inconsistency during finite probe window
+ifu_1444,SVM-INT CAL1,MEMORY,stuck_bit,intermittent,none,NONE,4,100,0,0,0,0,0,Dormant stored value; no detected inconsistency during finite probe window
+ifu_1447,A0,MEMORY,stuck_bit,intermittent,none,NONE,0,700,0,2,0,0,0,Dormant stored value; no detected inconsistency during finite probe window
+ifu_1452,A0,MEMORY,stuck_bit,transient,none,NONE,1,400,0,1,0,0,0,Dormant stored value; no detected inconsistency during finite probe window
+ifu_1513,A0,SENSOR_CONTROL,sensor_bias,permanent,step,AB,-0.5254127099999999,0,0,353,0,1,0,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_1514,A0,SENSOR_CONTROL,sensor_bias,permanent,step,ABC,-0.5254127099999999,0,0,353,0,1,0,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_1519,A0,SENSOR_CONTROL,sensor_bias_ramp,permanent,ramp,ABC,-3.6943725059999997,0,0,352,0,1,0,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_1521,A0,SENSOR_CONTROL,sensor_bias,permanent,step,B,-0.5563193399999999,0,0,366,0,1,0,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_1524,A0,SENSOR_CONTROL,sensor_bias,permanent,step,ABC,-0.5563193399999999,0,0,366,0,1,0,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_1529,A0,SENSOR_CONTROL,sensor_bias,permanent,step,ABC,-0.5975281799999999,0,0,364,0,1,0,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_1535,A0,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,A,0.48420386999999987,250,0,1,0,1,0,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_1536,A0,ACTUATOR,pump_degraded,transient,none,NONE,0.989,900,0,5,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1536,A2,ACTUATOR,pump_degraded,transient,none,NONE,0.989,900,0,5,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1536,SVM-INT default,ACTUATOR,pump_degraded,transient,none,NONE,0.989,900,0,5,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1536,SVM-INT CAL1,ACTUATOR,pump_degraded,transient,none,NONE,0.989,900,0,5,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1537,A0,ACTUATOR,pump_degraded,intermittent,none,NONE,0.989,3100,0,24,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1537,A2,ACTUATOR,pump_degraded,intermittent,none,NONE,0.989,3100,0,24,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1537,SVM-INT default,ACTUATOR,pump_degraded,intermittent,none,NONE,0.989,3100,0,24,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1537,SVM-INT CAL1,ACTUATOR,pump_degraded,intermittent,none,NONE,0.989,3100,0,24,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1538,A0,ACTUATOR,pump_degraded,permanent,none,NONE,0.989,0,0,354,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1538,A2,ACTUATOR,pump_degraded,permanent,none,NONE,0.989,0,0,354,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1538,SVM-INT default,ACTUATOR,pump_degraded,permanent,none,NONE,0.989,0,0,354,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1538,SVM-INT CAL1,ACTUATOR,pump_degraded,permanent,none,NONE,0.989,0,0,354,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1539,A0,ACTUATOR,pump_degraded,transient,none,NONE,0.971,14900,0,58,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1539,A2,ACTUATOR,pump_degraded,transient,none,NONE,0.971,14900,0,58,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1539,SVM-INT default,ACTUATOR,pump_degraded,transient,none,NONE,0.971,14900,0,58,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1539,SVM-INT CAL1,ACTUATOR,pump_degraded,transient,none,NONE,0.971,14900,0,58,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1540,A0,ACTUATOR,pump_degraded,intermittent,none,NONE,0.971,900,0,6,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1540,A2,ACTUATOR,pump_degraded,intermittent,none,NONE,0.971,900,0,6,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1540,SVM-INT default,ACTUATOR,pump_degraded,intermittent,none,NONE,0.971,900,0,6,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1540,SVM-INT CAL1,ACTUATOR,pump_degraded,intermittent,none,NONE,0.971,900,0,6,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1541,A0,ACTUATOR,pump_degraded,permanent,none,NONE,0.971,0,0,346,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1541,A2,ACTUATOR,pump_degraded,permanent,none,NONE,0.971,0,0,346,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1541,SVM-INT default,ACTUATOR,pump_degraded,permanent,none,NONE,0.971,0,0,346,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1541,SVM-INT CAL1,ACTUATOR,pump_degraded,permanent,none,NONE,0.971,0,0,346,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1542,A0,ACTUATOR,pump_degraded,transient,none,NONE,0.937,7900,0,32,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1542,A2,ACTUATOR,pump_degraded,transient,none,NONE,0.937,7900,0,32,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1542,SVM-INT default,ACTUATOR,pump_degraded,transient,none,NONE,0.937,7900,0,32,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1542,SVM-INT CAL1,ACTUATOR,pump_degraded,transient,none,NONE,0.937,7900,0,32,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1543,A0,ACTUATOR,pump_degraded,intermittent,none,NONE,0.937,14900,0,119,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1543,A2,ACTUATOR,pump_degraded,intermittent,none,NONE,0.937,14900,0,119,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1543,SVM-INT default,ACTUATOR,pump_degraded,intermittent,none,NONE,0.937,14900,0,119,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1543,SVM-INT CAL1,ACTUATOR,pump_degraded,intermittent,none,NONE,0.937,14900,0,119,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1544,A0,ACTUATOR,pump_degraded,permanent,none,NONE,0.937,0,0,369,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1544,A2,ACTUATOR,pump_degraded,permanent,none,NONE,0.937,0,0,369,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1544,SVM-INT default,ACTUATOR,pump_degraded,permanent,none,NONE,0.937,0,0,369,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1544,SVM-INT CAL1,ACTUATOR,pump_degraded,permanent,none,NONE,0.937,0,0,369,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1545,A0,ACTUATOR,pump_degraded,transient,none,NONE,0.873,3100,0,15,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1545,A2,ACTUATOR,pump_degraded,transient,none,NONE,0.873,3100,0,15,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1545,SVM-INT default,ACTUATOR,pump_degraded,transient,none,NONE,0.873,3100,0,15,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1545,SVM-INT CAL1,ACTUATOR,pump_degraded,transient,none,NONE,0.873,3100,0,15,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1546,A0,ACTUATOR,pump_degraded,intermittent,none,NONE,0.873,7900,0,65,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1546,A2,ACTUATOR,pump_degraded,intermittent,none,NONE,0.873,7900,0,65,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1546,SVM-INT default,ACTUATOR,pump_degraded,intermittent,none,NONE,0.873,7900,0,65,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1546,SVM-INT CAL1,ACTUATOR,pump_degraded,intermittent,none,NONE,0.873,7900,0,65,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1547,A0,ACTUATOR,pump_degraded,permanent,none,NONE,0.873,0,0,365,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1547,A2,ACTUATOR,pump_degraded,permanent,none,NONE,0.873,0,0,365,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1547,SVM-INT default,ACTUATOR,pump_degraded,permanent,none,NONE,0.873,0,0,365,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1547,SVM-INT CAL1,ACTUATOR,pump_degraded,permanent,none,NONE,0.873,0,0,365,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1548,A0,ACTUATOR,pump_degraded,transient,none,NONE,0.769,900,0,5,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1548,A2,ACTUATOR,pump_degraded,transient,none,NONE,0.769,900,0,5,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1548,SVM-INT default,ACTUATOR,pump_degraded,transient,none,NONE,0.769,900,0,5,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1548,SVM-INT CAL1,ACTUATOR,pump_degraded,transient,none,NONE,0.769,900,0,5,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1549,A0,ACTUATOR,pump_degraded,intermittent,none,NONE,0.769,3100,0,25,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1549,A2,ACTUATOR,pump_degraded,intermittent,none,NONE,0.769,3100,0,25,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1549,SVM-INT default,ACTUATOR,pump_degraded,intermittent,none,NONE,0.769,3100,0,25,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1549,SVM-INT CAL1,ACTUATOR,pump_degraded,intermittent,none,NONE,0.769,3100,0,25,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1550,A0,ACTUATOR,pump_degraded,permanent,none,NONE,0.769,0,0,354,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1550,A2,ACTUATOR,pump_degraded,permanent,none,NONE,0.769,0,0,354,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1550,SVM-INT default,ACTUATOR,pump_degraded,permanent,none,NONE,0.769,0,0,354,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1550,SVM-INT CAL1,ACTUATOR,pump_degraded,permanent,none,NONE,0.769,0,0,354,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1551,A0,ACTUATOR,pump_degraded,transient,none,NONE,0.619,14900,0,57,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1551,A2,ACTUATOR,pump_degraded,transient,none,NONE,0.619,14900,0,57,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1551,SVM-INT default,ACTUATOR,pump_degraded,transient,none,NONE,0.619,14900,0,57,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1551,SVM-INT CAL1,ACTUATOR,pump_degraded,transient,none,NONE,0.619,14900,0,57,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1552,A0,ACTUATOR,pump_degraded,intermittent,none,NONE,0.619,900,0,6,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1552,A2,ACTUATOR,pump_degraded,intermittent,none,NONE,0.619,900,0,6,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1552,SVM-INT default,ACTUATOR,pump_degraded,intermittent,none,NONE,0.619,900,0,6,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1552,SVM-INT CAL1,ACTUATOR,pump_degraded,intermittent,none,NONE,0.619,900,0,6,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1553,A0,ACTUATOR,pump_degraded,permanent,none,NONE,0.619,0,0,350,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1553,A2,ACTUATOR,pump_degraded,permanent,none,NONE,0.619,0,0,350,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1553,SVM-INT default,ACTUATOR,pump_degraded,permanent,none,NONE,0.619,0,0,350,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1553,SVM-INT CAL1,ACTUATOR,pump_degraded,permanent,none,NONE,0.619,0,0,350,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1626,A0,MEMORY,stuck_bit,transient,none,NONE,1,700,0,2,0,0,0,Dormant stored value; no detected inconsistency during finite probe window
+ifu_1635,A0,MEMORY,stuck_bit,transient,none,NONE,2,100,0,0,0,0,0,Dormant stored value; no detected inconsistency during finite probe window
+ifu_1635,A2,MEMORY,stuck_bit,transient,none,NONE,2,100,0,0,0,0,0,Dormant stored value; no detected inconsistency during finite probe window
+ifu_1635,SVM-INT default,MEMORY,stuck_bit,transient,none,NONE,2,100,0,0,0,0,0,Dormant stored value; no detected inconsistency during finite probe window
+ifu_1635,SVM-INT CAL1,MEMORY,stuck_bit,transient,none,NONE,2,100,0,0,0,0,0,Dormant stored value; no detected inconsistency during finite probe window
+ifu_1636,A0,MEMORY,stuck_bit,intermittent,none,NONE,2,200,0,1,0,0,0,Dormant stored value; no detected inconsistency during finite probe window
+ifu_1692,A0,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,B,0.5151104999999999,50,0,0,0,0,0,Short pulse with no captured integrity violation; acquisition-window limit
+ifu_1692,A2,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,B,0.5151104999999999,50,0,0,0,0,0,Short pulse with no captured integrity violation; acquisition-window limit
+ifu_1692,SVM-INT default,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,B,0.5151104999999999,50,0,0,0,0,0,Short pulse with no captured integrity violation; acquisition-window limit
+ifu_1692,SVM-INT CAL1,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,B,0.5151104999999999,50,0,0,0,0,0,Short pulse with no captured integrity violation; acquisition-window limit
+ifu_1693,A0,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,C,0.5151104999999999,50,0,0,0,1,0,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_1694,A0,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,AB,0.5151104999999999,50,0,0,0,0,0,Short pulse with no captured integrity violation; acquisition-window limit
+ifu_1694,A2,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,AB,0.5151104999999999,50,0,0,0,0,0,Short pulse with no captured integrity violation; acquisition-window limit
+ifu_1694,SVM-INT default,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,AB,0.5151104999999999,50,0,0,0,0,0,Short pulse with no captured integrity violation; acquisition-window limit
+ifu_1694,SVM-INT CAL1,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,AB,0.5151104999999999,50,0,0,0,0,0,Short pulse with no captured integrity violation; acquisition-window limit
+ifu_1695,A0,SENSOR_CONTROL,sensor_interface_intermittent,transient,pulse,ABC,0.5151104999999999,50,0,0,0,1,0,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_1705,A0,SENSOR_CONTROL,sensor_bias_ramp,permanent,ramp,ABC,4.049798750999999,0,0,354,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_1706,A0,SENSOR_CONTROL,sensor_bias,permanent,step,A,0.5254127099999999,0,0,352,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_1707,A0,SENSOR_CONTROL,sensor_bias,permanent,step,B,0.5254127099999999,0,0,352,0,1,0,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_1709,A0,SENSOR_CONTROL,sensor_bias,permanent,step,AB,0.5254127099999999,0,0,352,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_1710,A0,SENSOR_CONTROL,sensor_bias,permanent,step,ABC,0.5254127099999999,0,0,352,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_1715,A0,SENSOR_CONTROL,sensor_bias_ramp,permanent,ramp,ABC,-3.7057049369999997,0,0,351,0,1,1,Available evidence did not cross frozen method decision; see sufficient statistics
+ifu_1716,A0,ACTUATOR,pump_degraded,transient,none,NONE,0.989,3100,0,15,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1716,A2,ACTUATOR,pump_degraded,transient,none,NONE,0.989,3100,0,15,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1716,SVM-INT default,ACTUATOR,pump_degraded,transient,none,NONE,0.989,3100,0,15,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1716,SVM-INT CAL1,ACTUATOR,pump_degraded,transient,none,NONE,0.989,3100,0,15,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1720,A0,ACTUATOR,pump_degraded,intermittent,none,NONE,0.971,3100,0,23,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1720,A2,ACTUATOR,pump_degraded,intermittent,none,NONE,0.971,3100,0,23,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1720,SVM-INT default,ACTUATOR,pump_degraded,intermittent,none,NONE,0.971,3100,0,23,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1720,SVM-INT CAL1,ACTUATOR,pump_degraded,intermittent,none,NONE,0.971,3100,0,23,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1724,A0,ACTUATOR,pump_degraded,permanent,none,NONE,0.937,0,0,368,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1724,A2,ACTUATOR,pump_degraded,permanent,none,NONE,0.937,0,0,368,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1724,SVM-INT default,ACTUATOR,pump_degraded,permanent,none,NONE,0.937,0,0,368,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1724,SVM-INT CAL1,ACTUATOR,pump_degraded,permanent,none,NONE,0.937,0,0,368,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1728,A0,ACTUATOR,pump_degraded,transient,none,NONE,0.769,3100,0,15,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1728,A2,ACTUATOR,pump_degraded,transient,none,NONE,0.769,3100,0,15,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1728,SVM-INT default,ACTUATOR,pump_degraded,transient,none,NONE,0.769,3100,0,15,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1728,SVM-INT CAL1,ACTUATOR,pump_degraded,transient,none,NONE,0.769,3100,0,15,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1732,A0,ACTUATOR,pump_degraded,intermittent,none,NONE,0.619,3100,0,23,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1732,A2,ACTUATOR,pump_degraded,intermittent,none,NONE,0.619,3100,0,23,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1732,SVM-INT default,ACTUATOR,pump_degraded,intermittent,none,NONE,0.619,3100,0,23,0,0,0,No positive actuator command during active fault; no modeled idle-health observable
+ifu_1732,SVM-INT CAL1,ACTUATOR,pump_degraded,intermittent,none,NONE,0.619,3100,0,23,0,0,0,No positive actuator command during active fault; no modeled idle-health observable

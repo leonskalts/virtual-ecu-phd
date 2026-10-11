@@ -1,0 +1,11 @@
+{
+  "passed": true,
+  "frames_per_executable": 2161800,
+  "executables": 2,
+  "probability_max_absolute_error": 0,
+  "alarm_origin_mismatches": 0,
+  "observed_touched_stack_bytes": {
+    "rf_pipeline": 4184
+  },
+  "stack_scope": "Per-method method_step call on dedicated 1MiB x86-64 SysV stack; includes return address and called libc/libm, excludes replay worker/pthread. Dynamic binding warmed, method state reset before full case. A5 watermark detects writes, not untouched reservations; not proven WCET/stack bound. Reset stack not measured dynamically; compiler .su retained. No state/stack double counting."
+}

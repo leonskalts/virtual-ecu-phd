@@ -1,0 +1,17 @@
+{
+  "utc": "2026-10-08T13:28:13.450076+00:00",
+  "runs": 3600,
+  "frames": 46315,
+  "features": 41,
+  "positives": 17515,
+  "models": [
+    "LR_0.1",
+    "LR_1.0",
+    "LR_10.0",
+    "RF_8_2",
+    "RF_8_8",
+    "RF_None_2",
+    "RF_None_8"
+  ],
+  "source": "Exact original SVM-INT TRAIN configurations and identical at-most-eight frames/class/run sampling; labels used for fitting only."
+}

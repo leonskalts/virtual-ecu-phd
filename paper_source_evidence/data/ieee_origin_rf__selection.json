@@ -1,0 +1,19 @@
+{
+  "utc": "2026-10-08T14:42:42.074868+00:00",
+  "selected": {
+    "candidate": "RF_12_16",
+    "alarm_threshold": 0.9155568509788313,
+    "confidence": 0.7,
+    "margin": 0.0,
+    "detected": 1126,
+    "benign": 0,
+    "first_localized": 1126,
+    "first_correct": 1126,
+    "first_wrong": 0,
+    "runtime_localized": 445280,
+    "runtime_wrong": 0
+  },
+  "rule": "Zero CAL benign and zero confident CAL first/runtime origin errors; maximize detected faults then correct first-localized cases then localized samples, then predefined candidate order and confidence/margin.",
+  "faults": 1200,
+  "benign": 1200
+}

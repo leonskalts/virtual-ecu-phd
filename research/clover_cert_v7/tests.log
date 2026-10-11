@@ -1,0 +1,24 @@
+test_all_execution_prefixes_sound (test_reference_oracle.OracleTests) ... ok
+test_domain_exhaustive_counts (test_reference_oracle.OracleTests) ... ok
+test_exact_one_bit_numeric_difference (test_reference_oracle.OracleTests) ... ok
+test_finer_policy_cannot_add_competitors (test_reference_oracle.OracleTests) ... ok
+test_full_c_component_comparison (test_reference_oracle.OracleTests) ... ok
+test_index_against_independent_linear_reference (test_reference_oracle.OracleTests) ... ok
+test_longer_history_cannot_add_competitors (test_reference_oracle.OracleTests) ... ok
+test_memory_restore_and_matching_stuck (test_reference_oracle.OracleTests) ... ok
+test_model_spec_matches_executable_domain (test_reference_oracle.OracleTests) ... ok
+test_pair_results_independent_cross_product (test_reference_oracle.OracleTests) ... ok
+test_pending_delay_survives_recovery (test_reference_oracle.OracleTests) ... ok
+test_preserved_findings_and_source_anchors (test_reference_oracle.OracleTests) ... ok
+test_projection_no_oracle_fields (test_reference_oracle.OracleTests) ... ok
+test_pulse_acquisition_alignment (test_reference_oracle.OracleTests) ... ok
+test_pump_zero_and_positive_excitation (test_reference_oracle.OracleTests) ... ok
+test_replay_all_saved_ambiguities (test_reference_oracle.OracleTests) ... ok
+test_saved_frontier_independent_recount (test_reference_oracle.OracleTests) ... ok
+test_saved_positive_earliest_times (test_reference_oracle.OracleTests) ... ok
+test_unknown_for_unmodeled_history (test_reference_oracle.OracleTests) ... ok
+
+----------------------------------------------------------------------
+Ran 19 tests in 0.392s
+
+OK

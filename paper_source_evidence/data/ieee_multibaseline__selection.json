@@ -1,0 +1,48 @@
+{
+  "selected": {
+    "Weighted Sum": {
+      "candidate": "WS_1",
+      "method": "Weighted Sum",
+      "threshold": 0.1,
+      "detected": 889,
+      "benign": 0,
+      "benign_gate_met": true
+    },
+    "EWMA": {
+      "candidate": "EWMA_0.3",
+      "method": "EWMA",
+      "threshold": 0.5,
+      "detected": 1081,
+      "benign": 2,
+      "benign_gate_met": true
+    },
+    "CUSUM": {
+      "candidate": "CUSUM_0.05",
+      "method": "CUSUM",
+      "threshold": 1.0,
+      "detected": 1100,
+      "benign": 6,
+      "benign_gate_met": true
+    },
+    "Logistic Regression": {
+      "candidate": "LR_0.1",
+      "method": "Logistic Regression",
+      "threshold": -0.07970029479289659,
+      "detected": 1126,
+      "benign": 12,
+      "benign_gate_met": true
+    },
+    "Random Forest": {
+      "candidate": "RF_None_8",
+      "method": "Random Forest",
+      "threshold": 0.866690876857167,
+      "detected": 1135,
+      "benign": 12,
+      "benign_gate_met": true
+    }
+  },
+  "rule": "<=1% CAL benign, then maximum CAL fault edge detection, then fewer benign, then lexical candidate and threshold; if infeasible minimum benign then maximum detection",
+  "utc": "2026-10-08T13:34:25.327800+00:00",
+  "faults": 1200,
+  "benign": 1200
+}

@@ -1,0 +1,1 @@
+The a340ca5c frozen Triplex final unseen result remains unchanged on disk. For this subsequent architecture study it is DEVELOPMENT/REFERENCE evidence, not independent validation of multi-rate diagnostics. No outcomes from it are used to select rates.

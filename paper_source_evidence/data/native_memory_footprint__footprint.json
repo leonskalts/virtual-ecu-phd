@@ -1,0 +1,676 @@
+{
+  "clover": {
+    "payload": {
+      ".text": {
+        "content_bytes": 12455,
+        "span_bytes": 12605,
+        "internal_alignment_bytes": 150
+      },
+      ".rodata": {
+        "content_bytes": 348,
+        "span_bytes": 356,
+        "internal_alignment_bytes": 8
+      },
+      ".data": {
+        "content_bytes": 0,
+        "span_bytes": 0,
+        "internal_alignment_bytes": 0
+      },
+      ".bss": {
+        "content_bytes": 4413,
+        "span_bytes": 4432,
+        "internal_alignment_bytes": 19
+      },
+      ".eh_frame": {
+        "content_bytes": 492,
+        "span_bytes": 492,
+        "internal_alignment_bytes": 0
+      }
+    },
+    "payload_input_sections": {
+      ".text": [
+        {
+          "section": ".text.outside_response_contract",
+          "address": 4199504,
+          "bytes": 113
+        },
+        {
+          "section": ".text.ba_capture",
+          "address": 4199632,
+          "bytes": 244
+        },
+        {
+          "section": ".text.clo_triplex_core_extract",
+          "address": 4199888,
+          "bytes": 432
+        },
+        {
+          "section": ".text.clo_triplex_core_step",
+          "address": 4200320,
+          "bytes": 7998
+        },
+        {
+          "section": ".text.method_reset",
+          "address": 4208320,
+          "bytes": 60
+        },
+        {
+          "section": ".text.method_step",
+          "address": 4208384,
+          "bytes": 961
+        },
+        {
+          "section": ".text.ds_normalize.part.0",
+          "address": 4209360,
+          "bytes": 148
+        },
+        {
+          "section": ".text.ds_vacuous",
+          "address": 4209520,
+          "bytes": 57
+        },
+        {
+          "section": ".text.ds_belief",
+          "address": 4209584,
+          "bytes": 40
+        },
+        {
+          "section": ".text.ds_plausibility",
+          "address": 4209632,
+          "bytes": 36
+        },
+        {
+          "section": ".text.ds_discount",
+          "address": 4209680,
+          "bytes": 322
+        },
+        {
+          "section": ".text.ds_combine",
+          "address": 4210016,
+          "bytes": 562
+        },
+        {
+          "section": ".text.c2_extract",
+          "address": 4210592,
+          "bytes": 953
+        },
+        {
+          "section": ".text.c2_origin_betp",
+          "address": 4211552,
+          "bytes": 163
+        },
+        {
+          "section": ".text.clo_final_init",
+          "address": 4211728,
+          "bytes": 145
+        },
+        {
+          "section": ".text.sensor_confirmation_step",
+          "address": 4211888,
+          "bytes": 221
+        }
+      ],
+      ".rodata": [
+        {
+          "section": ".rodata.config",
+          "address": 4214784,
+          "bytes": 64
+        },
+        {
+          "section": ".rodata.cst4",
+          "address": 4214848,
+          "bytes": 40
+        },
+        {
+          "section": ".rodata.cst8",
+          "address": 4214888,
+          "bytes": 168
+        },
+        {
+          "section": ".rodata.cst16",
+          "address": 4215056,
+          "bytes": 32
+        },
+        {
+          "section": ".rodata.c2_origin_support",
+          "address": 4215088,
+          "bytes": 24
+        },
+        {
+          "section": ".rodata.c2_origin_blocks",
+          "address": 4215120,
+          "bytes": 20
+        }
+      ],
+      ".eh_frame": [
+        {
+          "section": ".eh_frame",
+          "address": 4215520,
+          "bytes": 492
+        }
+      ],
+      ".bss": [
+        {
+          "section": ".bss.state",
+          "address": 4223136,
+          "bytes": 4304
+        },
+        {
+          "section": ".bss.origin",
+          "address": 4227440,
+          "bytes": 4
+        },
+        {
+          "section": ".bss.alarm",
+          "address": 4227444,
+          "bytes": 4
+        },
+        {
+          "section": ".bss.gate",
+          "address": 4227448,
+          "bytes": 12
+        },
+        {
+          "section": ".bss.packet",
+          "address": 4227464,
+          "bytes": 8
+        },
+        {
+          "section": ".bss.triplex_extra_ambiguous",
+          "address": 4227472,
+          "bytes": 1
+        },
+        {
+          "section": ".bss.ba_provider",
+          "address": 4227488,
+          "bytes": 56
+        },
+        {
+          "section": ".bss.dc_origin",
+          "address": 4227544,
+          "bytes": 8
+        },
+        {
+          "section": ".bss.dc_mass",
+          "address": 4227552,
+          "bytes": 8
+        },
+        {
+          "section": ".bss.triplex_extra_strength",
+          "address": 4227560,
+          "bytes": 8
+        }
+      ]
+    },
+    "model_bytes_included_in_rodata": 0,
+    "ROM_payload_text_rodata_data_span": 12961,
+    "RAM_static_payload_span": 4432,
+    "executable_sections_with_harness": {
+      ".interp": 28,
+      ".note.gnu.property": 48,
+      ".note.gnu.build-id": 36,
+      ".note.ABI-tag": 32,
+      ".gnu.hash": 40,
+      ".dynsym": 432,
+      ".dynstr": 196,
+      ".gnu.version": 36,
+      ".gnu.version_r": 96,
+      ".rela.dyn": 96,
+      ".rela.plt": 312,
+      ".init": 27,
+      ".plt": 224,
+      ".plt.sec": 208,
+      ".text": 13245,
+      ".fini": 13,
+      ".rodata": 356,
+      ".eh_frame_hdr": 180,
+      ".eh_frame": 696,
+      ".init_array": 8,
+      ".fini_array": 8,
+      ".dynamic": 480,
+      ".got": 16,
+      ".got.plt": 128,
+      ".bss": 4464,
+      ".comment": 45
+    },
+    "ELF_file_bytes": 30024,
+    "LOAD_segments_with_harness": [
+      {
+        "offset": 0,
+        "vaddr": 4194304,
+        "file_bytes": 2152,
+        "memory_bytes": 2152,
+        "alignment": 4096
+      },
+      {
+        "offset": 4096,
+        "vaddr": 4198400,
+        "file_bytes": 13725,
+        "memory_bytes": 13725,
+        "alignment": 4096
+      },
+      {
+        "offset": 20480,
+        "vaddr": 4214784,
+        "file_bytes": 1232,
+        "memory_bytes": 1232,
+        "alignment": 4096
+      },
+      {
+        "offset": 24064,
+        "vaddr": 4222464,
+        "file_bytes": 640,
+        "memory_bytes": 5104,
+        "alignment": 4096
+      }
+    ],
+    "load_file_bytes_sum": 17749,
+    "load_memory_bytes_sum": 22213,
+    "libraries_not_included": "\tlinux-vdso.so.1 (0x00007ffc9bf90000)\n\tlibm.so.6 => /lib/x86_64-linux-gnu/libm.so.6 (0x00007137d1067000)\n\tlibc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007137d0e00000)\n\t/lib64/ld-linux-x86-64.so.2 (0x00007137d1158000)\n",
+    "sha256": "4b3e5f83cf6419cc7757ddb4446616eaca65c2c5ccbff27900f1360629a71871",
+    "observed_method_step_touched_stack_bytes": 3544,
+    "static_plus_observed_stack_bytes": 7976,
+    "ROM_including_method_unwind_bytes": 13453
+  },
+  "rf": {
+    "payload": {
+      ".text": {
+        "content_bytes": 1069,
+        "span_bytes": 1084,
+        "internal_alignment_bytes": 15
+      },
+      ".rodata": {
+        "content_bytes": 2438552,
+        "span_bytes": 2438560,
+        "internal_alignment_bytes": 8
+      },
+      ".data": {
+        "content_bytes": 0,
+        "span_bytes": 0,
+        "internal_alignment_bytes": 0
+      },
+      ".bss": {
+        "content_bytes": 4804,
+        "span_bytes": 4804,
+        "internal_alignment_bytes": 0
+      },
+      ".eh_frame": {
+        "content_bytes": 84,
+        "span_bytes": 84,
+        "internal_alignment_bytes": 0
+      }
+    },
+    "payload_input_sections": {
+      ".text": [
+        {
+          "section": ".text.method_reset",
+          "address": 4199344,
+          "bytes": 49
+        },
+        {
+          "section": ".text.method_step",
+          "address": 4199408,
+          "bytes": 1020
+        }
+      ],
+      ".rodata": [
+        {
+          "section": ".rodata.age_columns",
+          "address": 4202496,
+          "bytes": 56
+        },
+        {
+          "section": ".rodata.roots",
+          "address": 4202560,
+          "bytes": 800
+        },
+        {
+          "section": ".rodata.nodes",
+          "address": 4203360,
+          "bytes": 2437632
+        },
+        {
+          "section": ".rodata.cst8",
+          "address": 6640992,
+          "bytes": 48
+        },
+        {
+          "section": ".rodata.cst16",
+          "address": 6641040,
+          "bytes": 16
+        }
+      ],
+      ".eh_frame": [
+        {
+          "section": ".eh_frame",
+          "address": 6641328,
+          "bytes": 84
+        }
+      ],
+      ".bss": [
+        {
+          "section": ".bss.head",
+          "address": 6647932,
+          "bytes": 4
+        },
+        {
+          "section": ".bss.availability",
+          "address": 6647936,
+          "bytes": 2400
+        },
+        {
+          "section": ".bss.history",
+          "address": 6650336,
+          "bytes": 2400
+        }
+      ]
+    },
+    "model_bytes_included_in_rodata": 2438432,
+    "ROM_payload_text_rodata_data_span": 2439644,
+    "RAM_static_payload_span": 4804,
+    "executable_sections_with_harness": {
+      ".interp": 28,
+      ".note.gnu.property": 48,
+      ".note.gnu.build-id": 36,
+      ".note.ABI-tag": 32,
+      ".gnu.hash": 40,
+      ".dynsym": 312,
+      ".dynstr": 153,
+      ".gnu.version": 26,
+      ".gnu.version_r": 64,
+      ".rela.dyn": 96,
+      ".rela.plt": 192,
+      ".init": 27,
+      ".plt": 144,
+      ".plt.sec": 128,
+      ".text": 1724,
+      ".fini": 13,
+      ".rodata": 2438560,
+      ".eh_frame_hdr": 68,
+      ".eh_frame": 288,
+      ".init_array": 8,
+      ".fini_array": 8,
+      ".dynamic": 464,
+      ".got": 16,
+      ".got.plt": 88,
+      ".bss": 4832,
+      ".comment": 45
+    },
+    "ELF_file_bytes": 2453536,
+    "LOAD_segments_with_harness": [
+      {
+        "offset": 0,
+        "vaddr": 4194304,
+        "file_bytes": 1832,
+        "memory_bytes": 1832,
+        "alignment": 4096
+      },
+      {
+        "offset": 4096,
+        "vaddr": 4198400,
+        "file_bytes": 2041,
+        "memory_bytes": 2041,
+        "alignment": 4096
+      },
+      {
+        "offset": 8192,
+        "vaddr": 4202496,
+        "file_bytes": 2438920,
+        "memory_bytes": 2438920,
+        "alignment": 4096
+      },
+      {
+        "offset": 2448912,
+        "vaddr": 6647312,
+        "file_bytes": 584,
+        "memory_bytes": 5424,
+        "alignment": 4096
+      }
+    ],
+    "load_file_bytes_sum": 2443377,
+    "load_memory_bytes_sum": 2448217,
+    "libraries_not_included": "\tlinux-vdso.so.1 (0x00007ffe48fef000)\n\tlibc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007d5813400000)\n\t/lib64/ld-linux-x86-64.so.2 (0x00007d5813831000)\n",
+    "sha256": "7e279fcc32e992eb5c3b09baf00b5f3cd03dc093abf610a3dd2ec6e5858b6941",
+    "observed_method_step_touched_stack_bytes": 2160,
+    "static_plus_observed_stack_bytes": 6964,
+    "ROM_including_method_unwind_bytes": 2439728
+  },
+  "rf_pipeline": {
+    "payload": {
+      ".text": {
+        "content_bytes": 9238,
+        "span_bytes": 9305,
+        "internal_alignment_bytes": 67
+      },
+      ".rodata": {
+        "content_bytes": 2438808,
+        "span_bytes": 2438816,
+        "internal_alignment_bytes": 8
+      },
+      ".data": {
+        "content_bytes": 0,
+        "span_bytes": 0,
+        "internal_alignment_bytes": 0
+      },
+      ".bss": {
+        "content_bytes": 9333,
+        "span_bytes": 9360,
+        "internal_alignment_bytes": 27
+      },
+      ".eh_frame": {
+        "content_bytes": 324,
+        "span_bytes": 324,
+        "internal_alignment_bytes": 0
+      }
+    },
+    "payload_input_sections": {
+      ".text": [
+        {
+          "section": ".text.outside_response_contract",
+          "address": 4199504,
+          "bytes": 113
+        },
+        {
+          "section": ".text.clo_triplex_core_extract",
+          "address": 4199632,
+          "bytes": 432
+        },
+        {
+          "section": ".text.shared_provider_step",
+          "address": 4200064,
+          "bytes": 5561
+        },
+        {
+          "section": ".text.method_reset",
+          "address": 4205632,
+          "bytes": 81
+        },
+        {
+          "section": ".text.method_step",
+          "address": 4205728,
+          "bytes": 1896
+        },
+        {
+          "section": ".text.c2_extract",
+          "address": 4207632,
+          "bytes": 953
+        },
+        {
+          "section": ".text.clo_final_init",
+          "address": 4208592,
+          "bytes": 145
+        },
+        {
+          "section": ".text.ds_vacuous",
+          "address": 4208752,
+          "bytes": 57
+        }
+      ],
+      ".rodata": [
+        {
+          "section": ".rodata.provider_config",
+          "address": 4210688,
+          "bytes": 64
+        },
+        {
+          "section": ".rodata.age_columns",
+          "address": 4210752,
+          "bytes": 56
+        },
+        {
+          "section": ".rodata.roots",
+          "address": 4210816,
+          "bytes": 800
+        },
+        {
+          "section": ".rodata.nodes",
+          "address": 4211616,
+          "bytes": 2437632
+        },
+        {
+          "section": ".rodata.cst4",
+          "address": 6649248,
+          "bytes": 40
+        },
+        {
+          "section": ".rodata.cst8",
+          "address": 6649288,
+          "bytes": 184
+        },
+        {
+          "section": ".rodata.cst16",
+          "address": 6649472,
+          "bytes": 32
+        }
+      ],
+      ".eh_frame": [
+        {
+          "section": ".eh_frame",
+          "address": 6649824,
+          "bytes": 324
+        }
+      ],
+      ".bss": [
+        {
+          "section": ".bss.provider_state",
+          "address": 6656160,
+          "bytes": 4304
+        },
+        {
+          "section": ".bss.head",
+          "address": 6660464,
+          "bytes": 4
+        },
+        {
+          "section": ".bss.availability",
+          "address": 6660480,
+          "bytes": 2400
+        },
+        {
+          "section": ".bss.history",
+          "address": 6662880,
+          "bytes": 2400
+        },
+        {
+          "section": ".bss.shared_e",
+          "address": 6665280,
+          "bytes": 144
+        },
+        {
+          "section": ".bss.triplex_extra_ambiguous",
+          "address": 6665424,
+          "bytes": 1
+        },
+        {
+          "section": ".bss.ba_provider",
+          "address": 6665440,
+          "bytes": 56
+        },
+        {
+          "section": ".bss.dc_origin",
+          "address": 6665496,
+          "bytes": 8
+        },
+        {
+          "section": ".bss.dc_mass",
+          "address": 6665504,
+          "bytes": 8
+        },
+        {
+          "section": ".bss.triplex_extra_strength",
+          "address": 6665512,
+          "bytes": 8
+        }
+      ]
+    },
+    "model_bytes_included_in_rodata": 2438432,
+    "ROM_payload_text_rodata_data_span": 2448121,
+    "RAM_static_payload_span": 9360,
+    "executable_sections_with_harness": {
+      ".interp": 28,
+      ".note.gnu.property": 48,
+      ".note.gnu.build-id": 36,
+      ".note.ABI-tag": 32,
+      ".gnu.hash": 40,
+      ".dynsym": 432,
+      ".dynstr": 196,
+      ".gnu.version": 36,
+      ".gnu.version_r": 96,
+      ".rela.dyn": 96,
+      ".rela.plt": 312,
+      ".init": 27,
+      ".plt": 224,
+      ".plt.sec": 208,
+      ".text": 9945,
+      ".fini": 13,
+      ".rodata": 2438816,
+      ".eh_frame_hdr": 116,
+      ".eh_frame": 528,
+      ".init_array": 8,
+      ".fini_array": 8,
+      ".dynamic": 480,
+      ".got": 16,
+      ".got.plt": 128,
+      ".bss": 9392,
+      ".comment": 45
+    },
+    "ELF_file_bytes": 2462688,
+    "LOAD_segments_with_harness": [
+      {
+        "offset": 0,
+        "vaddr": 4194304,
+        "file_bytes": 2152,
+        "memory_bytes": 2152,
+        "alignment": 4096
+      },
+      {
+        "offset": 4096,
+        "vaddr": 4198400,
+        "file_bytes": 10425,
+        "memory_bytes": 10425,
+        "alignment": 4096
+      },
+      {
+        "offset": 16384,
+        "vaddr": 4210688,
+        "file_bytes": 2439464,
+        "memory_bytes": 2439464,
+        "alignment": 4096
+      },
+      {
+        "offset": 2457088,
+        "vaddr": 6655488,
+        "file_bytes": 640,
+        "memory_bytes": 10032,
+        "alignment": 4096
+      }
+    ],
+    "load_file_bytes_sum": 2452681,
+    "load_memory_bytes_sum": 2462073,
+    "libraries_not_included": "\tlinux-vdso.so.1 (0x00007ffe517fb000)\n\tlibm.so.6 => /lib/x86_64-linux-gnu/libm.so.6 (0x000071be14b5d000)\n\tlibc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x000071be14800000)\n\t/lib64/ld-linux-x86-64.so.2 (0x000071be14c4e000)\n",
+    "sha256": "6bf491a13e8a1beb9a4c16e4b80cfc0ac09f8036b9bc23bc0c0bbc1b2e40c598",
+    "observed_method_step_touched_stack_bytes": 4184,
+    "static_plus_observed_stack_bytes": 13544,
+    "ROM_including_method_unwind_bytes": 2448445
+  }
+}

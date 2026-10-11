@@ -1,0 +1,6 @@
+run_id,origin,model,behavior,kind,domain,start_ms,duration_ms,first_post_alarm_ms,latency_ms,plant_manifestation,integrity_observed,actuator_excited,effective_memory_corruption,active_probe_samples,fault_active_at_RF_alarm
+ieee_0096,ACTUATOR,pump_degraded,transient,none,NONE,30400,7900,30700,300,0,0,0,0,31,True
+ieee_0100,ACTUATOR,pump_degraded,intermittent,none,NONE,33200,7900,33500,300,0,0,0,0,62,True
+ieee_0104,ACTUATOR,pump_degraded,permanent,none,NONE,27500,0,30400,2900,0,0,0,0,370,True
+ieee_0108,ACTUATOR,pump_degraded,transient,none,NONE,30300,7900,30500,200,0,0,0,0,31,True
+ieee_0112,ACTUATOR,pump_degraded,intermittent,none,NONE,32200,7900,33300,1100,0,0,0,0,59,True

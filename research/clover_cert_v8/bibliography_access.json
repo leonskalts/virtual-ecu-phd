@@ -1,0 +1,55 @@
+{
+  "checked_date": "2026-10-11",
+  "scope": "targeted collision check, not systematic exhaustive novelty review",
+  "records": [
+    {
+      "authors": "Bittner et al.",
+      "publication": "AAAI 2012",
+      "url": "https://ojs.aaai.org/index.php/AAAI/article/download/8225/8083",
+      "access": "FULL_TEXT_SECTIONS_EXAMINED",
+      "verification_scope": "Parameterized twin plant, Figures 2/3, Equation 1, pp.714\u2013716; conference date confirmed by PDF despite portal posting date."
+    },
+    {
+      "authors": "Kang et al.",
+      "publication": "Automatica 172, 2025, 112004",
+      "url": "https://www.alessandro-giua.it/UNICA/PAPERS/JOUR/25aut_draft.pdf",
+      "access": "FULL_AUTHOR_DRAFT_SECTIONS_EXAMINED",
+      "verification_scope": "Joint/stealthy joint diagnoser and Theorems 2\u20133, draft pp.10\u201312; not a software reproduction."
+    },
+    {
+      "authors": "Li et al.",
+      "publication": "Frontiers of Computer Science 20, 2026, 2006403",
+      "url": "https://link.springer.com/article/10.1007/s11704-025-41289-1",
+      "access": "ABSTRACT_AND_METADATA_ONLY",
+      "verification_scope": "Publisher subscription preview; HEP PDF control resolved to an image. No algorithm internals inferred."
+    },
+    {
+      "authors": "Haddad et al.",
+      "publication": "CONCUR 2026, 37:1\u201316",
+      "url": "https://drops.dagstuhl.de/storage/00lipics/lipics-vol391-concur2026/LIPIcs.CONCUR.2026.37/LIPIcs.CONCUR.2026.37.pdf",
+      "access": "FULL_TEXT_SECTIONS_EXAMINED",
+      "verification_scope": "Weighted transition/belief/control definitions, Section 4 games and Section 4.3 size bounds."
+    },
+    {
+      "authors": "Johannsen et al.",
+      "publication": "R2U2 Version 3.0, CAV 2023",
+      "url": "https://cgjohannsen.com/papers/JJKRZ23.pdf",
+      "access": "FULL_AUTHOR_PDF_SECTIONS_EXAMINED",
+      "verification_scope": "Sections 2.2/2.4/3/4: contracts, common subexpressions, resource equations, static arenas."
+    },
+    {
+      "authors": "Hipler et al.",
+      "publication": "Information and Software Technology 191, 2026, 108004",
+      "url": "https://www.sciencedirect.com/science/article/pii/S095058492500343X",
+      "access": "ABSTRACT_AND_METADATA_ONLY",
+      "verification_scope": "Full journal PDF retrieval failed; institutional record https://www.isp.uni-luebeck.de/node/1503 checked. Not conflated with 2022 predecessor."
+    },
+    {
+      "authors": "Kallwies, Leucker, Sanchez",
+      "publication": "ATVA 2022 / arXiv predecessor",
+      "url": "https://arxiv.org/pdf/2207.05678",
+      "access": "FULL_PREDECESSOR_SECTIONS_EXAMINED",
+      "verification_scope": "22-page v1, symbolic unfolding/pruning; not proof of journal-version algorithm details."
+    }
+  ]
+}

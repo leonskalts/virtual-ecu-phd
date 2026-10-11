@@ -1,0 +1,956 @@
+[
+  {
+    "path": "docs/cross_layer_observability_model.md",
+    "sha256": "52135f5df9e9aada974ee439bdfafe3e4ed23a034b09be45796bf760011e6f72",
+    "lines": 193,
+    "git_tracked": false,
+    "matching_recorded_manifests": [],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "docs/paper_blueprint.md",
+    "sha256": "1f5f2eed01dc8f58cb46d5ded6dc4140678f8d35e102d41e4e12c86a0855ff06",
+    "lines": 215,
+    "git_tracked": false,
+    "matching_recorded_manifests": [],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "include/clo_dsf_candidate2.h",
+    "sha256": "921e4caa96c824c72953261cd0bea5a29d0de357e69a9e972f372fe0f1a4bae3",
+    "lines": 47,
+    "git_tracked": true,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/protected_hashes.json",
+      "results/ieee_origin_rf/scientific_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "include/clo_dsf_final.h",
+    "sha256": "151475b2ccbd2b3dd50b06cd64bb6a5932b4b2a74834e59b78c0d4cae421f954",
+    "lines": 22,
+    "git_tracked": true,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/protected_hashes.json",
+      "results/ieee_origin_rf/scientific_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "include/clo_dsf_revised.h",
+    "sha256": "206fa839cdb9c008a319ef22f3d0fe3081f179feeef809086c8cf7baa15247b2",
+    "lines": 42,
+    "git_tracked": true,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/protected_hashes.json",
+      "results/ieee_origin_rf/scientific_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "include/config.h",
+    "sha256": "eb481dc6fe5bca46e1c4a4fef773be421933c33b43ca385c8c88f8e013e16aa7",
+    "lines": 46,
+    "git_tracked": true,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/protected_hashes.json",
+      "results/ieee_origin_rf/scientific_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "include/cross_layer_fault.h",
+    "sha256": "7865bcb55c7bec755aaf4a28073de8aa2b6b687cfa1d336a5bbd597c2fb1dd0f",
+    "lines": 22,
+    "git_tracked": true,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/protected_hashes.json",
+      "results/ieee_origin_rf/scientific_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "include/digital_sensor_integrity.h",
+    "sha256": "3d0518aa54b9e51b45f533423fad23d77cc8f70ac6827ebdd78cc4c412a3bdff",
+    "lines": 11,
+    "git_tracked": false,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/protected_hashes.json",
+      "results/ieee_origin_rf/scientific_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "include/memory_diagnostic.h",
+    "sha256": "7d66530fcbbcfaab612ad9f01a2fe57b3ad20da9cf9ce4216127fde6443e306c",
+    "lines": 18,
+    "git_tracked": true,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/protected_hashes.json",
+      "results/ieee_origin_rf/scientific_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "include/runtime_observation.h",
+    "sha256": "7fd084b6a4c6e05372858a9ad2c81a42872afae5e2704903c478089c9c8fad91",
+    "lines": 38,
+    "git_tracked": true,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/protected_hashes.json",
+      "results/ieee_origin_rf/scientific_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "include/runtime_timing_observation.h",
+    "sha256": "93abae40373360d6fc824b887b459a33e830ced88951838b8489a7a95bb09565",
+    "lines": 28,
+    "git_tracked": true,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/protected_hashes.json",
+      "results/ieee_origin_rf/scientific_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "python/virtual_ecu/comparative_backends.py",
+    "sha256": "49736a4ba235118f3fb6704d0018213a200d5990f43a68aef4bebe61a0e81c88",
+    "lines": 98,
+    "git_tracked": false,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/protected_hashes.json",
+      "results/ieee_origin_rf/scientific_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "python/virtual_ecu/ieee_baselines.py",
+    "sha256": "d60e7e861e22c031dbae50657286673f2fb55bf73dc0a079c07867accf28f284",
+    "lines": 45,
+    "git_tracked": false,
+    "matching_recorded_manifests": [
+      "results/ieee_origin_rf/scientific_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "python/virtual_ecu/origin_rf.py",
+    "sha256": "820e7e1fb1c247831a702ada2c1449db6cf437748db0d398fab695417825cab3",
+    "lines": 60,
+    "git_tracked": false,
+    "matching_recorded_manifests": [
+      "results/ieee_origin_rf/scientific_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "results/benign_alarm_development/protocol.md",
+    "sha256": "221be3f4ff1476bb25c103463a21488480ed913e4575c3085d83578798c9296c",
+    "lines": 15,
+    "git_tracked": false,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/protected_hashes.json",
+      "results/benign_alarm_development/artifact_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM EXPERIMENT ARTIFACT"
+  },
+  {
+    "path": "results/clo_dsf_current/symmetry_findings.md",
+    "sha256": "103b22790d869b9b51a7ef56d4b233c4a67b178d5368416185670f9d7c60f18a",
+    "lines": 33,
+    "git_tracked": true,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/protected_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM EXPERIMENT ARTIFACT"
+  },
+  {
+    "path": "results/clo_dsf_current/triplex_freeze_record.md",
+    "sha256": "ff11ee6d32115bbfa636ba62fbae34ac0a85c02a61aa2e21f676f354808c37fc",
+    "lines": 13,
+    "git_tracked": true,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/protected_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM EXPERIMENT ARTIFACT"
+  },
+  {
+    "path": "results/clo_dsf_current/triplex_only_findings.md",
+    "sha256": "4f9690aa9579b25e44950f367e6b3ce04c545eae4f004dbf3a03c351a9f3a621",
+    "lines": 13,
+    "git_tracked": true,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/protected_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM EXPERIMENT ARTIFACT"
+  },
+  {
+    "path": "results/cross_layer_safety_v7_3_dev/revised.cfg",
+    "sha256": "6f62e972a27c765cae6a24daf9b7b98fb1513cd46fc226a128d87a6431e73ac7",
+    "lines": 8,
+    "git_tracked": true,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/protected_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM EXPERIMENT ARTIFACT"
+  },
+  {
+    "path": "results/digital_integrity_development/boundary_parity.json",
+    "sha256": "be3a7c90eb1bc660764caafc36ea2868e4de60341f6df652b1048f3d8a0f5890",
+    "lines": 18,
+    "git_tracked": false,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/protected_hashes.json",
+      "results/digital_integrity_development/artifact_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM EXPERIMENT ARTIFACT"
+  },
+  {
+    "path": "results/digital_integrity_development/protocol.md",
+    "sha256": "65269234c89dbc07f764c062e67bcdf53caf1542132aed2dbeae9801eed60096",
+    "lines": 11,
+    "git_tracked": false,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/protected_hashes.json",
+      "results/digital_integrity_development/artifact_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM EXPERIMENT ARTIFACT"
+  },
+  {
+    "path": "results/frozen_robustness/protocol.md",
+    "sha256": "9ccd0744abdf04ae1f58716bd88499306f74172c2b04afe77235d04f3c5b2bd9",
+    "lines": 26,
+    "git_tracked": false,
+    "matching_recorded_manifests": [
+      "results/frozen_robustness/artifact_hashes.json",
+      "results/frozen_robustness/freeze.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM EXPERIMENT ARTIFACT"
+  },
+  {
+    "path": "results/ieee_multibaseline/methodology.md",
+    "sha256": "fe5abeee61009989d934150aaebd908ef35dded1a3ee4e1b142734e9cdc58515",
+    "lines": 40,
+    "git_tracked": false,
+    "matching_recorded_manifests": [
+      "results/ieee_multibaseline/artifact_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM EXPERIMENT ARTIFACT"
+  },
+  {
+    "path": "results/ieee_multibaseline/observability_scope.md",
+    "sha256": "514d48856961f7429b30532adb591939b1da14ab7185307ec4fb04dd6987e0ac",
+    "lines": 12,
+    "git_tracked": false,
+    "matching_recorded_manifests": [
+      "results/ieee_multibaseline/artifact_hashes.json",
+      "results/ieee_multibaseline/registration_lock.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM EXPERIMENT ARTIFACT"
+  },
+  {
+    "path": "results/ieee_multibaseline/protocol.md",
+    "sha256": "9205ee82d48105314e3df8ca374b15aaf847613ac70503158ff75e396fe5508a",
+    "lines": 41,
+    "git_tracked": false,
+    "matching_recorded_manifests": [
+      "results/ieee_multibaseline/artifact_hashes.json",
+      "results/ieee_multibaseline/registration_lock.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM EXPERIMENT ARTIFACT"
+  },
+  {
+    "path": "results/ieee_multibaseline/rf_only_posthoc.csv",
+    "sha256": "7b01d678e872cb05b0bd7cec768f2f4874a46917c968bd6b7d37a35ee13a6771",
+    "lines": 6,
+    "git_tracked": false,
+    "matching_recorded_manifests": [
+      "results/ieee_multibaseline/artifact_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM EXPERIMENT ARTIFACT"
+  },
+  {
+    "path": "results/ieee_origin_rf/findings.md",
+    "sha256": "3eb8a91ba6889e6738d3ffb4ada2e7c7105341fca7a9b031a914888366c8c585",
+    "lines": 67,
+    "git_tracked": false,
+    "matching_recorded_manifests": [
+      "results/ieee_origin_rf/artifact_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM EXPERIMENT ARTIFACT"
+  },
+  {
+    "path": "results/ieee_origin_rf/input_schema.json",
+    "sha256": "88956ad6a41b651ff0715a76dfcbaeff00ae5146b082c1ef13f5290255a27458",
+    "lines": 89,
+    "git_tracked": false,
+    "matching_recorded_manifests": [
+      "results/ieee_origin_rf/artifact_hashes.json",
+      "results/ieee_origin_rf/registration_lock.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM EXPERIMENT ARTIFACT"
+  },
+  {
+    "path": "results/ieee_origin_rf/instrumentation.json",
+    "sha256": "676a7e4b5fc20e43d6f77c1aeb1c30377ccfcd165ec350cd8846327f9a48dc9d",
+    "lines": 123,
+    "git_tracked": false,
+    "matching_recorded_manifests": [
+      "results/ieee_origin_rf/artifact_hashes.json",
+      "results/ieee_origin_rf/registration_lock.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM EXPERIMENT ARTIFACT"
+  },
+  {
+    "path": "results/ieee_origin_rf/methodology.md",
+    "sha256": "94e7f2f860812f55f04805c67f5ec08db732b52c603dd8cc84ed98cc6edcbaa8",
+    "lines": 15,
+    "git_tracked": false,
+    "matching_recorded_manifests": [
+      "results/ieee_origin_rf/artifact_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM EXPERIMENT ARTIFACT"
+  },
+  {
+    "path": "results/ieee_origin_rf/protocol.md",
+    "sha256": "1ad549c71ad6dce95057b13f0729dcb70b0e677007f9f74cb75b66c3f2cfa18a",
+    "lines": 37,
+    "git_tracked": false,
+    "matching_recorded_manifests": [
+      "results/ieee_origin_rf/artifact_hashes.json",
+      "results/ieee_origin_rf/registration_lock.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM EXPERIMENT ARTIFACT"
+  },
+  {
+    "path": "results/integrity_final_unseen/freeze.json",
+    "sha256": "9dfe00fc25a89f1a7381fb35a1284156c05f6a87bdbc06956e8e76c930a0cda1",
+    "lines": 1823,
+    "git_tracked": false,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/artifact_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM EXPERIMENT ARTIFACT"
+  },
+  {
+    "path": "results/integrity_final_unseen/protected_hashes.json",
+    "sha256": "cab196bcc0c9fd50be2fd54d065f02eedd888bf018f636a36caccc767da2ebc1",
+    "lines": 38038,
+    "git_tracked": false,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/freeze.json",
+      "results/integrity_final_unseen/artifact_hashes.json",
+      "results/integrity_final_unseen/freeze.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM EXPERIMENT ARTIFACT"
+  },
+  {
+    "path": "results/integrity_final_unseen/protocol.md",
+    "sha256": "f4366f3c83419483d28a54440bd5578f267788e541bca6f0bae4b0cbc3c73bc7",
+    "lines": 13,
+    "git_tracked": false,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/freeze.json",
+      "results/integrity_final_unseen/artifact_hashes.json",
+      "results/integrity_final_unseen/freeze.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM EXPERIMENT ARTIFACT"
+  },
+  {
+    "path": "results/integrity_final_unseen/registration.json",
+    "sha256": "c0a4247521e14cbb8c5e6142659f5106c9c1f9021960b63565621eeb7c955149",
+    "lines": 233,
+    "git_tracked": false,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/freeze.json",
+      "results/integrity_final_unseen/artifact_hashes.json",
+      "results/integrity_final_unseen/freeze.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM EXPERIMENT ARTIFACT"
+  },
+  {
+    "path": "results/native_memory_footprint/findings.md",
+    "sha256": "8c009fbedc187bd6c720457e1fe5fa2a0885037d844c1deb3bd255077cb56f45",
+    "lines": 59,
+    "git_tracked": false,
+    "matching_recorded_manifests": [
+      "results/native_memory_footprint/artifact_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM EXPERIMENT ARTIFACT"
+  },
+  {
+    "path": "results/native_resource_benchmark/findings.md",
+    "sha256": "d85eaf56f3c37b914533b6ce6b0ae13c4513ae9106fd12d94d396d9a1acc15a3",
+    "lines": 36,
+    "git_tracked": false,
+    "matching_recorded_manifests": [
+      "results/native_resource_benchmark/artifact_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM EXPERIMENT ARTIFACT"
+  },
+  {
+    "path": "results/rtl_integrity_poc/record.json",
+    "sha256": "978eb5f908c4418c6db58b6c389e86b51e144f1c8508f36b8fdca19ca9b50046",
+    "lines": 21,
+    "git_tracked": false,
+    "matching_recorded_manifests": [],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM EXPERIMENT ARTIFACT"
+  },
+  {
+    "path": "results/rtl_integrity_poc/simulation.log",
+    "sha256": "2e1750f4cac236a2a52019ec4561645d950b13a6f659bc06bac18992f971a48b",
+    "lines": 1,
+    "git_tracked": false,
+    "matching_recorded_manifests": [],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM EXPERIMENT ARTIFACT"
+  },
+  {
+    "path": "results/rtl_integrity_poc/statistics.json",
+    "sha256": "2577fe4b129b2a8214df303c1e002ac31c68c9f91bc2ef9904b612e904382564",
+    "lines": 93,
+    "git_tracked": false,
+    "matching_recorded_manifests": [],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM EXPERIMENT ARTIFACT"
+  },
+  {
+    "path": "results/rtl_integrity_poc/synthesis.ys",
+    "sha256": "f396e02f4e14d8e3213cd966861f809f165062b48f6899b5edd023bbdd8c5224",
+    "lines": 9,
+    "git_tracked": false,
+    "matching_recorded_manifests": [],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM EXPERIMENT ARTIFACT"
+  },
+  {
+    "path": "results/rtl_integrity_poc/timing.log",
+    "sha256": "836d9bb7bf2715a7f02f4ad0ee8f53339169d5f2949b302971c2c0cd701a9a6f",
+    "lines": 386,
+    "git_tracked": false,
+    "matching_recorded_manifests": [],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM EXPERIMENT ARTIFACT"
+  },
+  {
+    "path": "results/rtl_integrity_poc/timing.tcl",
+    "sha256": "aba9dc20310a9fb037cebf302c10ca6f501175fb8da9f3725a9dd60daa026e98",
+    "lines": 10,
+    "git_tracked": false,
+    "matching_recorded_manifests": [],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM EXPERIMENT ARTIFACT"
+  },
+  {
+    "path": "rtl/integrity/digital_integrity_monitor.v",
+    "sha256": "93b6c2f47e02f0447cda354964d8ea558a957ece0329910e5adceb78483f3a6c",
+    "lines": 62,
+    "git_tracked": false,
+    "matching_recorded_manifests": [
+      "results/rtl_integrity_poc/record.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "scripts/report_comparative_benchmark.py",
+    "sha256": "834422d6ceb5cae6b98c11c7c29b1ccb70e56339d5543c822d08e4cedac5755c",
+    "lines": 88,
+    "git_tracked": false,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/protected_hashes.json",
+      "results/ieee_origin_rf/scientific_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "scripts/run_benign_alarm.py",
+    "sha256": "a4b95304ab100fb6d4e82e609dd42b811dc498daa79bcc598a4e16bb76326315",
+    "lines": 169,
+    "git_tracked": false,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/protected_hashes.json",
+      "results/ieee_origin_rf/scientific_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "scripts/run_clo_dsf_multirate.py",
+    "sha256": "a7a1cd13b5e45b4a49345a22a693be46cc6c27aa68bdb5b57d4a415d38e0d104",
+    "lines": 230,
+    "git_tracked": false,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/protected_hashes.json",
+      "results/ieee_origin_rf/scientific_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "scripts/run_digital_integrity.py",
+    "sha256": "63fa7f99fcd770e6e7be4666abaa4ab5a8a47d455a6b25d989929669c175a16f",
+    "lines": 170,
+    "git_tracked": false,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/protected_hashes.json",
+      "results/ieee_origin_rf/scientific_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "scripts/run_dynamic_consensus.py",
+    "sha256": "ed6cdda1862b8c934622ff5963c80d0c7c20a3db212030501203ea83c176e32d",
+    "lines": 178,
+    "git_tracked": false,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/protected_hashes.json",
+      "results/ieee_origin_rf/scientific_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "scripts/run_frozen_robustness.py",
+    "sha256": "e4b86ef1f351b6ad6d9628b8007a28fd5688b1ccf32556005ccc4b809a027c63",
+    "lines": 133,
+    "git_tracked": false,
+    "matching_recorded_manifests": [
+      "results/ieee_origin_rf/scientific_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "scripts/run_ieee_multibaseline.py",
+    "sha256": "19b31017149dcef39ac110d75b292b8f25acb97885ab72567a7e59ce338ba00c",
+    "lines": 242,
+    "git_tracked": false,
+    "matching_recorded_manifests": [
+      "results/ieee_origin_rf/scientific_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "scripts/run_integrity_final_unseen.py",
+    "sha256": "a86d4954bf943460c98d97edeb74b946ef84cefe0bdf8b1003a0f79871ced4fa",
+    "lines": 159,
+    "git_tracked": false,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/protected_hashes.json",
+      "results/ieee_origin_rf/scientific_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "scripts/run_origin_rf.py",
+    "sha256": "7140f3e38439045dd2e5d08a66f4e703f369fb80ce63306323394f282c50a336",
+    "lines": 212,
+    "git_tracked": false,
+    "matching_recorded_manifests": [
+      "results/ieee_origin_rf/scientific_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "scripts/run_rtl_integrity_poc.py",
+    "sha256": "1cf782d998dd6542da79604bbc0536461bacace7938c593c24efb8fab7c354be",
+    "lines": 39,
+    "git_tracked": false,
+    "matching_recorded_manifests": [
+      "results/ieee_origin_rf/scientific_hashes.json",
+      "results/rtl_integrity_poc/record.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "scripts/run_triplex_plus.py",
+    "sha256": "5e04f3896dd4c6f9f988ff96f2fdd9eabfb784238ccedb6f6cf2a7b3f9fab141",
+    "lines": 218,
+    "git_tracked": false,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/protected_hashes.json",
+      "results/ieee_origin_rf/scientific_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "src/actuators.c",
+    "sha256": "5b1fcad84453fce451aa7d08cb23dc744fa2ff484c0fb22e0cfe72d234641ce3",
+    "lines": 117,
+    "git_tracked": true,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/protected_hashes.json",
+      "results/ieee_origin_rf/scientific_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "src/control.c",
+    "sha256": "f2ccfbdde47db2ef483b1b64f4b83c9e6a48e9ae0b4f6450666686814dc839f7",
+    "lines": 78,
+    "git_tracked": true,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/protected_hashes.json",
+      "results/ieee_origin_rf/scientific_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "src/cross_layer_config.c",
+    "sha256": "0ac07cf90296a041f82973ad754337c9c8ae9fc9f58dff6104e2a828dfe38457",
+    "lines": 201,
+    "git_tracked": true,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/protected_hashes.json",
+      "results/ieee_origin_rf/scientific_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "src/cross_layer_fault.c",
+    "sha256": "5e3a807d89598615aa93cc9c3849eb6f8c4a44b1f25c4e56d6672ff5deb8e01f",
+    "lines": 206,
+    "git_tracked": true,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/protected_hashes.json",
+      "results/ieee_origin_rf/scientific_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "src/experiment.c",
+    "sha256": "f6334c4fb6d71bd1fbfec067434722d9c38d4f6bb525fb10ea17cf1fffbaeadf",
+    "lines": 669,
+    "git_tracked": true,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/protected_hashes.json",
+      "results/ieee_origin_rf/scientific_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "src/fault_injection.c",
+    "sha256": "52553d6d5b3e5f1d461dd52cf19be14941481581f1eb4613710dd0cee207d992",
+    "lines": 168,
+    "git_tracked": true,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/protected_hashes.json",
+      "results/ieee_origin_rf/scientific_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "src/memory_diagnostic_backend.c",
+    "sha256": "a6d0ece226c89b8f9b5fa1d7809927ccad63eefbd2c50f02d5e608c565c8a5ed",
+    "lines": 26,
+    "git_tracked": true,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/protected_hashes.json",
+      "results/ieee_origin_rf/scientific_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "src/propagation_monitor.c",
+    "sha256": "1bf34f5ea6fa748844d8c3353fc13ce07d679574178e3b1f051861c684a920e3",
+    "lines": 153,
+    "git_tracked": true,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/protected_hashes.json",
+      "results/ieee_origin_rf/scientific_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "src/redundant_temperature.c",
+    "sha256": "176da3fafddaf219b0515492be7225c72e59498ef1d3c10a74e771669d42a6d1",
+    "lines": 22,
+    "git_tracked": true,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/protected_hashes.json",
+      "results/ieee_origin_rf/scientific_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "src/runtime_observation.c",
+    "sha256": "cae3370319989b38c52832293215d678444eedcf20dba9b93dc04f2444c323ea",
+    "lines": 62,
+    "git_tracked": true,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/protected_hashes.json",
+      "results/ieee_origin_rf/scientific_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "src/scheduler.c",
+    "sha256": "80d924e069d55926f6f2485db853ce8de06744c55c0119b640510e7641ec30d9",
+    "lines": 175,
+    "git_tracked": true,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/protected_hashes.json",
+      "results/ieee_origin_rf/scientific_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "src/sensor_delivery.c",
+    "sha256": "f3ea17440e15513808e77f3c8f41849da31f3504ea6441bca85b5c963e037d76",
+    "lines": 59,
+    "git_tracked": true,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/protected_hashes.json",
+      "results/ieee_origin_rf/scientific_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "src/sensors.c",
+    "sha256": "f19e601d68976a563a5edb031d76ca259689b32bef04958a81f6bd4a8947a352",
+    "lines": 137,
+    "git_tracked": true,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/protected_hashes.json",
+      "results/ieee_origin_rf/scientific_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "src/thermal_plant.c",
+    "sha256": "162cff8f8729f524716f96836f78f3ebd5ae6b61818a461c7ca152c5e53aa106",
+    "lines": 205,
+    "git_tracked": true,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/protected_hashes.json",
+      "results/ieee_origin_rf/scientific_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "src/v7/ds_evidence.c",
+    "sha256": "c763e3eb722629779b46b569badb3301cc8accf348b787e9d939f6af60854c92",
+    "lines": 85,
+    "git_tracked": true,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/protected_hashes.json",
+      "results/ieee_origin_rf/scientific_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "src/v7_1/candidate2_evidence.c",
+    "sha256": "8c486e59666e603f8423f8e0bc23d47551ce8a676f8045702a28cda3bbbbcab7",
+    "lines": 63,
+    "git_tracked": true,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/protected_hashes.json",
+      "results/ieee_origin_rf/scientific_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "src/v7_1/candidate2_observability.c",
+    "sha256": "d7b55e3db75e217dcf322b778511f47de8ccaf2b288b180b7b5761d65854ddb0",
+    "lines": 21,
+    "git_tracked": true,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/protected_hashes.json",
+      "results/ieee_origin_rf/scientific_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "src/v7_3/diagnostic_temperature.c",
+    "sha256": "b4cd951328299da10fa5b4c0a504e79f9cf8a252b861304e38e77546be4e7be9",
+    "lines": 27,
+    "git_tracked": true,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/protected_hashes.json",
+      "results/ieee_origin_rf/scientific_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "src/v7_3/digital_sensor_integrity.c",
+    "sha256": "10c0c9edf054003470e0b06ebfb0d2503341f71dfe1042efa1cad7774b2b7949",
+    "lines": 34,
+    "git_tracked": false,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/protected_hashes.json",
+      "results/ieee_origin_rf/scientific_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "src/v7_3/sensor_confirmation.c",
+    "sha256": "5cc7c433a4c93242f4678a363c0e54cb8e3344d7c404e92dafb7a6066818deae",
+    "lines": 15,
+    "git_tracked": false,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/protected_hashes.json",
+      "results/ieee_origin_rf/scientific_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "src/v7_3/triplex_consistency.c",
+    "sha256": "be679e4184818f6c679ddb7af0dfe7d4d7342fa3eb76958f71ab06fa297f5bd4",
+    "lines": 31,
+    "git_tracked": true,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/protected_hashes.json",
+      "results/ieee_origin_rf/scientific_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "tools/native_memory/build.py",
+    "sha256": "511762c61f7cf645856de22549a2e2f35304de894bbf8f5f8c054e4dde52754d",
+    "lines": 57,
+    "git_tracked": false,
+    "matching_recorded_manifests": [
+      "results/native_memory_footprint/artifact_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "tools/native_memory/build_pipeline.py",
+    "sha256": "1e850bc0a137bebfa31251729b7150e3f4fef4875968f26dbabf6795ad578903",
+    "lines": 47,
+    "git_tracked": false,
+    "matching_recorded_manifests": [
+      "results/native_memory_footprint/artifact_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "tools/native_memory/stack_call.S",
+    "sha256": "6c0102a5d1450d09ad7c531d7a8a429f09e0051550124d4977e8ec51f6d59a38",
+    "lines": 19,
+    "git_tracked": false,
+    "matching_recorded_manifests": [
+      "results/native_memory_footprint/artifact_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "tools/native_memory/stack_driver.c",
+    "sha256": "c983316c638ba8812f7d4a1fc93acf6b06616746d116ce739fb4f09ffb16f71a",
+    "lines": 14,
+    "git_tracked": false,
+    "matching_recorded_manifests": [
+      "results/native_memory_footprint/artifact_hashes.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "/tmp/clo-integrity-final-unseen/work/adapter.c",
+    "sha256": "061c050ab29046f6d1d8336002037cbf2c0c7d9c1df5615e9f61c2ab6ede303f",
+    "lines": 560,
+    "git_tracked": false,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/freeze.json",
+      "results/integrity_final_unseen/freeze.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "/tmp/clo-integrity-final-unseen/work/bridge.c",
+    "sha256": "d48249de80d3c60f05c4ef2c1cd224a24ed7335a19bd96f9d38919c998b52039",
+    "lines": 410,
+    "git_tracked": false,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/freeze.json",
+      "results/integrity_final_unseen/freeze.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  },
+  {
+    "path": "/tmp/clo-integrity-final-unseen/work/extended.c",
+    "sha256": "71b21a98d0b490749af22192d3c7d572529d3fcba824bf7fe4fd90d8abc92a91",
+    "lines": 419,
+    "git_tracked": false,
+    "matching_recorded_manifests": [
+      "results/integrity_final_unseen/freeze.json",
+      "results/integrity_final_unseen/freeze.json"
+    ],
+    "differing_recorded_manifests": [],
+    "evidence": "VERIFIED FROM SOURCE"
+  }
+]

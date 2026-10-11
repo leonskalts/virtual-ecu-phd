@@ -1,0 +1,3308 @@
+{
+  "schema_version": "CLOVER_CERT_V7",
+  "git_commit": "a340ca5cf0473d7dc572f7cd63e44fbc25b175a7",
+  "scope": "Source-grounded finite component abstraction, not full ECU trajectories or physical certificates",
+  "bounds": {
+    "time_ms": [
+      0,
+      100,
+      200,
+      300,
+      400
+    ],
+    "diagnostic_deadlines_ms": [
+      100,
+      200,
+      400
+    ],
+    "deadline_convention": "absolute observation deadline from experiment t=0, not fault onset; realizations starting later remain legitimate competing hypotheses",
+    "contexts": {
+      "zero_command": 60.0,
+      "positive_command": 92.0
+    },
+    "source_acquisition_period_ms": 100,
+    "seed": null,
+    "random_sampling": false
+  },
+  "comparison": {
+    "floats": "exact eight-hex-digit IEEE binary32 bits",
+    "integers": "exact",
+    "booleans": "exact",
+    "absolute_tolerance": 0,
+    "relative_tolerance": 0,
+    "nan_or_infinite": "not in finite domain"
+  },
+  "realizations": [
+    {
+      "origin": "healthy",
+      "kind": "healthy",
+      "start": 0,
+      "duration": 0,
+      "parameter": 0,
+      "aux": 0,
+      "id": "w000"
+    },
+    {
+      "origin": "memory",
+      "kind": "flip",
+      "start": 100,
+      "duration": 100,
+      "parameter": 0,
+      "aux": 0,
+      "id": "w001"
+    },
+    {
+      "origin": "memory",
+      "kind": "stuck",
+      "start": 100,
+      "duration": 100,
+      "parameter": 0,
+      "aux": 0,
+      "id": "w002"
+    },
+    {
+      "origin": "memory",
+      "kind": "stuck",
+      "start": 100,
+      "duration": 100,
+      "parameter": 0,
+      "aux": 1,
+      "id": "w003"
+    },
+    {
+      "origin": "memory",
+      "kind": "flip",
+      "start": 100,
+      "duration": 100,
+      "parameter": 2,
+      "aux": 0,
+      "id": "w004"
+    },
+    {
+      "origin": "memory",
+      "kind": "stuck",
+      "start": 100,
+      "duration": 100,
+      "parameter": 2,
+      "aux": 0,
+      "id": "w005"
+    },
+    {
+      "origin": "memory",
+      "kind": "stuck",
+      "start": 100,
+      "duration": 100,
+      "parameter": 2,
+      "aux": 1,
+      "id": "w006"
+    },
+    {
+      "origin": "timing",
+      "kind": "skip",
+      "start": 100,
+      "duration": 100,
+      "parameter": 0,
+      "aux": 0,
+      "id": "w007"
+    },
+    {
+      "origin": "timing",
+      "kind": "delay",
+      "start": 100,
+      "duration": 100,
+      "parameter": 100,
+      "aux": 0,
+      "id": "w008"
+    },
+    {
+      "origin": "timing",
+      "kind": "delay",
+      "start": 100,
+      "duration": 100,
+      "parameter": 200,
+      "aux": 0,
+      "id": "w009"
+    },
+    {
+      "origin": "communication",
+      "kind": "replay",
+      "start": 100,
+      "duration": 100,
+      "parameter": 100,
+      "aux": 0,
+      "id": "w010"
+    },
+    {
+      "origin": "communication",
+      "kind": "comm_delay",
+      "start": 100,
+      "duration": 100,
+      "parameter": 100,
+      "aux": 0,
+      "id": "w011"
+    },
+    {
+      "origin": "communication",
+      "kind": "drop",
+      "start": 100,
+      "duration": 100,
+      "parameter": 1,
+      "aux": 0,
+      "id": "w012"
+    },
+    {
+      "origin": "sensor",
+      "kind": "bias",
+      "start": 100,
+      "duration": 100,
+      "parameter": -4,
+      "aux": 0,
+      "id": "w013"
+    },
+    {
+      "origin": "sensor",
+      "kind": "bias",
+      "start": 100,
+      "duration": 100,
+      "parameter": 4,
+      "aux": 0,
+      "id": "w014"
+    },
+    {
+      "origin": "actuator",
+      "kind": "pump",
+      "start": 100,
+      "duration": 100,
+      "parameter": 0.0,
+      "aux": 0,
+      "id": "w015"
+    },
+    {
+      "origin": "actuator",
+      "kind": "pump",
+      "start": 100,
+      "duration": 100,
+      "parameter": 0.5,
+      "aux": 0,
+      "id": "w016"
+    },
+    {
+      "origin": "memory",
+      "kind": "flip",
+      "start": 100,
+      "duration": 200,
+      "parameter": 0,
+      "aux": 0,
+      "id": "w017"
+    },
+    {
+      "origin": "memory",
+      "kind": "stuck",
+      "start": 100,
+      "duration": 200,
+      "parameter": 0,
+      "aux": 0,
+      "id": "w018"
+    },
+    {
+      "origin": "memory",
+      "kind": "stuck",
+      "start": 100,
+      "duration": 200,
+      "parameter": 0,
+      "aux": 1,
+      "id": "w019"
+    },
+    {
+      "origin": "memory",
+      "kind": "flip",
+      "start": 100,
+      "duration": 200,
+      "parameter": 2,
+      "aux": 0,
+      "id": "w020"
+    },
+    {
+      "origin": "memory",
+      "kind": "stuck",
+      "start": 100,
+      "duration": 200,
+      "parameter": 2,
+      "aux": 0,
+      "id": "w021"
+    },
+    {
+      "origin": "memory",
+      "kind": "stuck",
+      "start": 100,
+      "duration": 200,
+      "parameter": 2,
+      "aux": 1,
+      "id": "w022"
+    },
+    {
+      "origin": "timing",
+      "kind": "delay",
+      "start": 100,
+      "duration": 200,
+      "parameter": 100,
+      "aux": 0,
+      "id": "w023"
+    },
+    {
+      "origin": "timing",
+      "kind": "delay",
+      "start": 100,
+      "duration": 200,
+      "parameter": 200,
+      "aux": 0,
+      "id": "w024"
+    },
+    {
+      "origin": "communication",
+      "kind": "replay",
+      "start": 100,
+      "duration": 200,
+      "parameter": 100,
+      "aux": 0,
+      "id": "w025"
+    },
+    {
+      "origin": "communication",
+      "kind": "comm_delay",
+      "start": 100,
+      "duration": 200,
+      "parameter": 100,
+      "aux": 0,
+      "id": "w026"
+    },
+    {
+      "origin": "communication",
+      "kind": "drop",
+      "start": 100,
+      "duration": 200,
+      "parameter": 1,
+      "aux": 0,
+      "id": "w027"
+    },
+    {
+      "origin": "sensor",
+      "kind": "bias",
+      "start": 100,
+      "duration": 200,
+      "parameter": -4,
+      "aux": 0,
+      "id": "w028"
+    },
+    {
+      "origin": "sensor",
+      "kind": "bias",
+      "start": 100,
+      "duration": 200,
+      "parameter": 4,
+      "aux": 0,
+      "id": "w029"
+    },
+    {
+      "origin": "actuator",
+      "kind": "pump",
+      "start": 100,
+      "duration": 200,
+      "parameter": 0.0,
+      "aux": 0,
+      "id": "w030"
+    },
+    {
+      "origin": "actuator",
+      "kind": "pump",
+      "start": 100,
+      "duration": 200,
+      "parameter": 0.5,
+      "aux": 0,
+      "id": "w031"
+    },
+    {
+      "origin": "memory",
+      "kind": "flip",
+      "start": 200,
+      "duration": 100,
+      "parameter": 0,
+      "aux": 0,
+      "id": "w032"
+    },
+    {
+      "origin": "memory",
+      "kind": "stuck",
+      "start": 200,
+      "duration": 100,
+      "parameter": 0,
+      "aux": 0,
+      "id": "w033"
+    },
+    {
+      "origin": "memory",
+      "kind": "stuck",
+      "start": 200,
+      "duration": 100,
+      "parameter": 0,
+      "aux": 1,
+      "id": "w034"
+    },
+    {
+      "origin": "memory",
+      "kind": "flip",
+      "start": 200,
+      "duration": 100,
+      "parameter": 2,
+      "aux": 0,
+      "id": "w035"
+    },
+    {
+      "origin": "memory",
+      "kind": "stuck",
+      "start": 200,
+      "duration": 100,
+      "parameter": 2,
+      "aux": 0,
+      "id": "w036"
+    },
+    {
+      "origin": "memory",
+      "kind": "stuck",
+      "start": 200,
+      "duration": 100,
+      "parameter": 2,
+      "aux": 1,
+      "id": "w037"
+    },
+    {
+      "origin": "timing",
+      "kind": "skip",
+      "start": 200,
+      "duration": 100,
+      "parameter": 0,
+      "aux": 0,
+      "id": "w038"
+    },
+    {
+      "origin": "timing",
+      "kind": "delay",
+      "start": 200,
+      "duration": 100,
+      "parameter": 100,
+      "aux": 0,
+      "id": "w039"
+    },
+    {
+      "origin": "timing",
+      "kind": "delay",
+      "start": 200,
+      "duration": 100,
+      "parameter": 200,
+      "aux": 0,
+      "id": "w040"
+    },
+    {
+      "origin": "communication",
+      "kind": "replay",
+      "start": 200,
+      "duration": 100,
+      "parameter": 100,
+      "aux": 0,
+      "id": "w041"
+    },
+    {
+      "origin": "communication",
+      "kind": "comm_delay",
+      "start": 200,
+      "duration": 100,
+      "parameter": 100,
+      "aux": 0,
+      "id": "w042"
+    },
+    {
+      "origin": "communication",
+      "kind": "drop",
+      "start": 200,
+      "duration": 100,
+      "parameter": 1,
+      "aux": 0,
+      "id": "w043"
+    },
+    {
+      "origin": "sensor",
+      "kind": "bias",
+      "start": 200,
+      "duration": 100,
+      "parameter": -4,
+      "aux": 0,
+      "id": "w044"
+    },
+    {
+      "origin": "sensor",
+      "kind": "bias",
+      "start": 200,
+      "duration": 100,
+      "parameter": 4,
+      "aux": 0,
+      "id": "w045"
+    },
+    {
+      "origin": "actuator",
+      "kind": "pump",
+      "start": 200,
+      "duration": 100,
+      "parameter": 0.0,
+      "aux": 0,
+      "id": "w046"
+    },
+    {
+      "origin": "actuator",
+      "kind": "pump",
+      "start": 200,
+      "duration": 100,
+      "parameter": 0.5,
+      "aux": 0,
+      "id": "w047"
+    },
+    {
+      "origin": "memory",
+      "kind": "flip",
+      "start": 200,
+      "duration": 200,
+      "parameter": 0,
+      "aux": 0,
+      "id": "w048"
+    },
+    {
+      "origin": "memory",
+      "kind": "stuck",
+      "start": 200,
+      "duration": 200,
+      "parameter": 0,
+      "aux": 0,
+      "id": "w049"
+    },
+    {
+      "origin": "memory",
+      "kind": "stuck",
+      "start": 200,
+      "duration": 200,
+      "parameter": 0,
+      "aux": 1,
+      "id": "w050"
+    },
+    {
+      "origin": "memory",
+      "kind": "flip",
+      "start": 200,
+      "duration": 200,
+      "parameter": 2,
+      "aux": 0,
+      "id": "w051"
+    },
+    {
+      "origin": "memory",
+      "kind": "stuck",
+      "start": 200,
+      "duration": 200,
+      "parameter": 2,
+      "aux": 0,
+      "id": "w052"
+    },
+    {
+      "origin": "memory",
+      "kind": "stuck",
+      "start": 200,
+      "duration": 200,
+      "parameter": 2,
+      "aux": 1,
+      "id": "w053"
+    },
+    {
+      "origin": "timing",
+      "kind": "delay",
+      "start": 200,
+      "duration": 200,
+      "parameter": 100,
+      "aux": 0,
+      "id": "w054"
+    },
+    {
+      "origin": "timing",
+      "kind": "delay",
+      "start": 200,
+      "duration": 200,
+      "parameter": 200,
+      "aux": 0,
+      "id": "w055"
+    },
+    {
+      "origin": "communication",
+      "kind": "replay",
+      "start": 200,
+      "duration": 200,
+      "parameter": 100,
+      "aux": 0,
+      "id": "w056"
+    },
+    {
+      "origin": "communication",
+      "kind": "comm_delay",
+      "start": 200,
+      "duration": 200,
+      "parameter": 100,
+      "aux": 0,
+      "id": "w057"
+    },
+    {
+      "origin": "communication",
+      "kind": "drop",
+      "start": 200,
+      "duration": 200,
+      "parameter": 1,
+      "aux": 0,
+      "id": "w058"
+    },
+    {
+      "origin": "sensor",
+      "kind": "bias",
+      "start": 200,
+      "duration": 200,
+      "parameter": -4,
+      "aux": 0,
+      "id": "w059"
+    },
+    {
+      "origin": "sensor",
+      "kind": "bias",
+      "start": 200,
+      "duration": 200,
+      "parameter": 4,
+      "aux": 0,
+      "id": "w060"
+    },
+    {
+      "origin": "actuator",
+      "kind": "pump",
+      "start": 200,
+      "duration": 200,
+      "parameter": 0.0,
+      "aux": 0,
+      "id": "w061"
+    },
+    {
+      "origin": "actuator",
+      "kind": "pump",
+      "start": 200,
+      "duration": 200,
+      "parameter": 0.5,
+      "aux": 0,
+      "id": "w062"
+    },
+    {
+      "origin": "sensor",
+      "kind": "bias",
+      "start": 100,
+      "duration": 25,
+      "parameter": -4,
+      "aux": 0,
+      "id": "w063"
+    },
+    {
+      "origin": "sensor",
+      "kind": "bias",
+      "start": 100,
+      "duration": 25,
+      "parameter": 4,
+      "aux": 0,
+      "id": "w064"
+    },
+    {
+      "origin": "sensor",
+      "kind": "bias",
+      "start": 150,
+      "duration": 25,
+      "parameter": -4,
+      "aux": 0,
+      "id": "w065"
+    },
+    {
+      "origin": "sensor",
+      "kind": "bias",
+      "start": 150,
+      "duration": 25,
+      "parameter": 4,
+      "aux": 0,
+      "id": "w066"
+    }
+  ],
+  "policies": {
+    "values_100": {
+      "fields": [
+        "coolant_measured_c",
+        "pump_command",
+        "pump_actual"
+      ],
+      "capture_period_ms": 100,
+      "assumptions": [
+        "M_CLOSED",
+        "M_CONTEXT",
+        "M_PHASE",
+        "M_NUMERIC",
+        "A_PROCESS",
+        "A_BUILD",
+        "A_FAULTSET",
+        "A_CLOCK",
+        "A_TAP",
+        "A_PUMP"
+      ]
+    },
+    "timestamp_100": {
+      "fields": [
+        "coolant_measured_c",
+        "pump_command",
+        "pump_actual",
+        "sample_timestamp_ms",
+        "sample_age_ms",
+        "sample_freshness_ok"
+      ],
+      "capture_period_ms": 100,
+      "assumptions": [
+        "M_CLOSED",
+        "M_CONTEXT",
+        "M_PHASE",
+        "M_NUMERIC",
+        "A_PROCESS",
+        "A_BUILD",
+        "A_FAULTSET",
+        "A_CLOCK",
+        "A_TAP",
+        "A_PUMP"
+      ]
+    },
+    "full_100": {
+      "fields": [
+        "coolant_measured_c",
+        "pump_command",
+        "pump_actual",
+        "sample_timestamp_ms",
+        "sample_age_ms",
+        "sample_freshness_ok",
+        "target_register_c",
+        "target_shadow_c",
+        "target_shadow_valid",
+        "control_target_c",
+        "control_execution_ms",
+        "source_c",
+        "source_ms",
+        "source_valid"
+      ],
+      "capture_period_ms": 100,
+      "assumptions": [
+        "M_CLOSED",
+        "M_CONTEXT",
+        "M_PHASE",
+        "M_NUMERIC",
+        "A_PROCESS",
+        "A_BUILD",
+        "A_FAULTSET",
+        "A_CLOCK",
+        "A_TAP",
+        "A_PUMP",
+        "A_SHADOW"
+      ]
+    },
+    "full_200": {
+      "fields": [
+        "coolant_measured_c",
+        "pump_command",
+        "pump_actual",
+        "sample_timestamp_ms",
+        "sample_age_ms",
+        "sample_freshness_ok",
+        "target_register_c",
+        "target_shadow_c",
+        "target_shadow_valid",
+        "control_target_c",
+        "control_execution_ms",
+        "source_c",
+        "source_ms",
+        "source_valid"
+      ],
+      "capture_period_ms": 200,
+      "assumptions": [
+        "M_CLOSED",
+        "M_CONTEXT",
+        "M_PHASE",
+        "M_NUMERIC",
+        "A_PROCESS",
+        "A_BUILD",
+        "A_FAULTSET",
+        "A_CLOCK",
+        "A_TAP",
+        "A_PUMP",
+        "A_SHADOW"
+      ]
+    }
+  },
+  "source_anchors": [
+    {
+      "id": "tick",
+      "status": "VERIFIED",
+      "path": "include/config.h",
+      "line": 4,
+      "token": "#define ECU_DT_MS 100U",
+      "function": "<file-scope>",
+      "meaning": "Base simulated integration tick.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "sensor_period",
+      "status": "VERIFIED",
+      "path": "include/config.h",
+      "line": 9,
+      "token": "#define ECU_SENSOR_PERIOD_MS 100U",
+      "function": "<file-scope>",
+      "meaning": "Primary acquisition cadence.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "control_period",
+      "status": "VERIFIED",
+      "path": "include/config.h",
+      "line": 11,
+      "token": "#define ECU_CONTROL_PERIOD_MS 100U",
+      "function": "<file-scope>",
+      "meaning": "Control release cadence.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "actuator_period",
+      "status": "VERIFIED",
+      "path": "include/config.h",
+      "line": 12,
+      "token": "#define ECU_ACTUATOR_PERIOD_MS 100U",
+      "function": "<file-scope>",
+      "meaning": "Actuator cadence.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "diag_period",
+      "status": "VERIFIED",
+      "path": "include/config.h",
+      "line": 16,
+      "token": "#define ECU_DIAGNOSTIC_PERIOD_MS 500U",
+      "function": "<file-scope>",
+      "meaning": "Diagnostic cadence; safety can call again at a due diagnostic boundary.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "due",
+      "status": "VERIFIED",
+      "path": "src/scheduler.c",
+      "line": 20,
+      "token": "return (time_ms % period_ms) == 0U;",
+      "function": "scheduler_task_due",
+      "meaning": "Periodic dispatch criterion.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "inject_first",
+      "status": "VERIFIED",
+      "path": "src/scheduler.c",
+      "line": 63,
+      "token": "cross_layer_fault_step(state);",
+      "function": "scheduler_inputs",
+      "meaning": "Fault handling precedes acquisition and control.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "acquire",
+      "status": "VERIFIED",
+      "path": "src/scheduler.c",
+      "line": 65,
+      "token": "sensors_step(state);",
+      "function": "scheduler_inputs",
+      "meaning": "Acquisition call before control.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "control_dispatch",
+      "status": "VERIFIED",
+      "path": "src/scheduler.c",
+      "line": 71,
+      "token": "cross_layer_control_execution(state))",
+      "function": "scheduler_inputs",
+      "meaning": "Execution admitted by timing fault gate.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "control_call",
+      "status": "VERIFIED",
+      "path": "src/scheduler.c",
+      "line": 73,
+      "token": "control_step(state);",
+      "function": "scheduler_inputs",
+      "meaning": "Actual C control call between same-time recorder start/complete calls.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "reaction",
+      "status": "VERIFIED",
+      "path": "src/scheduler.c",
+      "line": 98,
+      "token": "detection_algorithm_step(state);",
+      "function": "scheduler_reactions",
+      "meaning": "Detector runs after normal actuator/diagnostic/safety work; later safety actions may change commands.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "runtime_capture",
+      "status": "VERIFIED",
+      "path": "src/scheduler.c",
+      "line": 107,
+      "token": "runtime_observation_capture(state, &observation);",
+      "function": "scheduler_reactions",
+      "meaning": "Runtime policy captures after detector and its safety request.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "loop",
+      "status": "VERIFIED",
+      "path": "src/scheduler.c",
+      "line": 146,
+      "token": "state->time.time_ms += ECU_DT_MS",
+      "function": "scheduler_run",
+      "meaning": "Outer loop advances the simulation clock in 100 ms increments.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "log",
+      "status": "VERIFIED",
+      "path": "src/scheduler.c",
+      "line": 168,
+      "token": "logger_write(state);",
+      "function": "scheduler_run",
+      "meaning": "Logging follows reaction/scoring and precedes plant integration.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "plant_call",
+      "status": "VERIFIED",
+      "path": "src/scheduler.c",
+      "line": 170,
+      "token": "thermal_plant_step(state);",
+      "function": "scheduler_run",
+      "meaning": "Plant evolves after current tick observations.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "reference_copy",
+      "status": "VERIFIED",
+      "path": "src/scheduler.c",
+      "line": 135,
+      "token": "reference = *state;",
+      "function": "scheduler_run",
+      "meaning": "Counterfactual is a separate local copied state.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "reference_disable",
+      "status": "VERIFIED",
+      "path": "src/scheduler.c",
+      "line": 137,
+      "token": "reference.cross_layer_fault.enabled = false;",
+      "function": "scheduler_run",
+      "meaning": "Counterfactual new injector disabled.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "stress_inner",
+      "status": "VERIFIED",
+      "path": "src/scheduler.c",
+      "line": 59,
+      "token": "boundary-ECU_DT_MS+1",
+      "function": "scheduler_inputs",
+      "meaning": "Optional stress services 1 ms substeps before current outer input update.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "active_window",
+      "status": "VERIFIED",
+      "path": "src/cross_layer_fault.c",
+      "line": 65,
+      "token": "elapsed >= f->duration_ms",
+      "function": "cross_layer_fault_step",
+      "meaning": "Nonpermanent end is exclusive.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "intermittent",
+      "status": "VERIFIED",
+      "path": "src/cross_layer_fault.c",
+      "line": 69,
+      "token": "elapsed % (f->intermittent_on_ms + f->intermittent_off_ms)",
+      "function": "cross_layer_fault_step",
+      "meaning": "Intermittent phase tested at scheduler calls.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "memory_save",
+      "status": "VERIFIED",
+      "path": "src/cross_layer_fault.c",
+      "line": 82,
+      "token": "r->memory_original_value = state->control.target_register_c;",
+      "function": "cross_layer_fault_step",
+      "meaning": "Snapshot current register on each activation.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "flip",
+      "status": "VERIFIED",
+      "path": "src/cross_layer_fault.c",
+      "line": 85,
+      "token": "state->control.target_register_c ^= (uint16_t)(1U << f->bit_index);",
+      "function": "cross_layer_fault_step",
+      "meaning": "Flip occurs once on active transition.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "restore",
+      "status": "VERIFIED",
+      "path": "src/cross_layer_fault.c",
+      "line": 91,
+      "token": "if (r->memory_values_valid) state->control.target_register_c = r->memory_original_value;",
+      "function": "cross_layer_fault_step",
+      "meaning": "Restore snapshot on active-to-inactive transition.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "stuck",
+      "status": "VERIFIED",
+      "path": "src/cross_layer_fault.c",
+      "line": 96,
+      "token": "state->control.target_register_c = f->stuck_polarity ?",
+      "function": "cross_layer_fault_step",
+      "meaning": "Active stuck bit forces the chosen bit each call.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "commit",
+      "status": "VERIFIED",
+      "path": "src/control.c",
+      "line": 24,
+      "token": "state->control.target_shadow_c = target_c;",
+      "function": "control_commit_target",
+      "meaning": "Authorized commit writes target and shadow together.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "consume",
+      "status": "VERIFIED",
+      "path": "src/control.c",
+      "line": 43,
+      "token": "float effective_target_c = (float)state->control.target_register_c;",
+      "function": "control_step",
+      "meaning": "Register consumed only when control executes.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "legacy_offset",
+      "status": "VERIFIED",
+      "path": "src/control.c",
+      "line": 53,
+      "token": "effective_target_c += state->faults.control_target_offset_c;",
+      "function": "control_step",
+      "meaning": "Legacy calibration corruption modifies local effective target, not stored register.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "cal_trace",
+      "status": "VERIFIED",
+      "path": "src/control.c",
+      "line": 60,
+      "token": "(void)calibration_trace_get(",
+      "function": "control_step",
+      "meaning": "Optional RTL trace replaces local target, not target_register_c assignment.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "target_publish",
+      "status": "VERIFIED",
+      "path": "src/control.c",
+      "line": 68,
+      "token": "state->control.active_control_target_c = effective_target_c;",
+      "function": "control_step",
+      "meaning": "Executed target value is published.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "control_error",
+      "status": "VERIFIED",
+      "path": "src/control.c",
+      "line": 72,
+      "token": "temp_error = state->sensors.coolant_temp_meas_c - effective_target_c;",
+      "function": "control_step",
+      "meaning": "Delivered sensor and target share downstream control expression.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "pump_cmd",
+      "status": "VERIFIED",
+      "path": "src/control.c",
+      "line": 76,
+      "token": "state->control.pump_command = clamp_unit(0.30f + (0.025f * temp_error) + load_term);",
+      "function": "control_step",
+      "meaning": "Saturated command can mask distinct target/sensor changes.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "release",
+      "status": "VERIFIED",
+      "path": "src/cross_layer_fault.c",
+      "line": 111,
+      "token": "runtime_timing_release(&state->timing_recorder, state->time.time_ms);",
+      "function": "cross_layer_control_execution",
+      "meaning": "Release recorded before timing gate.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "delay_due",
+      "status": "VERIFIED",
+      "path": "src/cross_layer_fault.c",
+      "line": 134,
+      "token": "r->job_due_ms = now + (int)f->task_delay_ms;",
+      "function": "cross_layer_control_execution",
+      "meaning": "Delayed job retained for later scheduler call.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "delay_complete",
+      "status": "VERIFIED",
+      "path": "src/cross_layer_fault.c",
+      "line": 122,
+      "token": "execute = now >= r->job_due_ms;",
+      "function": "cross_layer_control_execution",
+      "meaning": "Pending job really executes at a later allowed call.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "discard",
+      "status": "VERIFIED",
+      "path": "src/cross_layer_fault.c",
+      "line": 121,
+      "token": "r->release_discarded = true;",
+      "function": "cross_layer_control_execution",
+      "meaning": "Releases discarded while one delayed job is pending, including completion boundary.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "skip",
+      "status": "VERIFIED",
+      "path": "src/cross_layer_fault.c",
+      "line": 144,
+      "token": "runtime_timing_cancel_release(&state->timing_recorder, true);",
+      "function": "cross_layer_control_execution",
+      "meaning": "Deadline-miss injection cancels rather than executes a late job.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "exec_missing",
+      "status": "VERIFIED",
+      "path": "src/cross_layer_fault.c",
+      "line": 46,
+      "token": "r->actual_execution_ms = -1;",
+      "function": "cross_layer_control_execution",
+      "meaning": "Skipped execution has no actual timestamp.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "timing_start",
+      "status": "VERIFIED",
+      "path": "src/runtime_timing_observation.c",
+      "line": 47,
+      "token": "r->observation.actual_start_ms = (int)now;",
+      "function": "runtime_timing_start",
+      "meaning": "Recorder uses simulated caller clock, not host WCET.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "timing_complete",
+      "status": "VERIFIED",
+      "path": "src/runtime_timing_observation.c",
+      "line": 54,
+      "token": "o->actual_completion_ms = o->last_successful_execution_ms = (int)now;",
+      "function": "runtime_timing_complete",
+      "meaning": "Normal start and completion have identical scheduler time.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "timing_deadline",
+      "status": "VERIFIED",
+      "path": "src/runtime_timing_observation.c",
+      "line": 70,
+      "token": "o->actual_completion_ms == (int)now && now > deadline",
+      "function": "runtime_timing_observe",
+      "meaning": "Completion exactly at deadline is allowed.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "stress_complete",
+      "status": "VERIFIED",
+      "path": "src/scheduler_stress.c",
+      "line": 30,
+      "token": "control_step(state);",
+      "function": "complete_job",
+      "meaning": "Stress computes real control at simulated job completion.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "stress_queue",
+      "status": "VERIFIED",
+      "path": "src/scheduler_stress.c",
+      "line": 74,
+      "token": ".execution=overload ? c->overload_execution_ms : c->execution_ms",
+      "function": "scheduler_stress_tick",
+      "meaning": "Configured occupancy and finite queue, not measured processor duration.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "stress_publish",
+      "status": "VERIFIED",
+      "path": "src/scheduler_stress.c",
+      "line": 101,
+      "token": "o->actual_completion_ms=s->count ? -1 : s->last_completion;",
+      "function": "scheduler_stress_sample",
+      "meaning": "Stress observation is sampled at outer tick; it can hide earlier completions while jobs remain.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "stress_exclusive",
+      "status": "VERIFIED",
+      "path": "src/main.c",
+      "line": 307,
+      "token": "state.scheduler_stress_config.enabled && state.cross_layer_fault.enabled",
+      "function": "main",
+      "meaning": "CLI rejects stress/new-cross-layer-fault composition.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "alignment",
+      "status": "VERIFIED",
+      "path": "src/cross_layer_config.c",
+      "line": 183,
+      "token": "if (f->start_ms % ECU_DT_MS",
+      "function": "cross_layer_validate",
+      "meaning": "New injector timestamps must align with tick.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "delay_alignment",
+      "status": "VERIFIED",
+      "path": "src/cross_layer_config.c",
+      "line": 193,
+      "token": "f->task_delay_ms % ECU_DT_MS",
+      "function": "cross_layer_validate",
+      "meaning": "Task delay is positive and tick aligned.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "replay_limit",
+      "status": "VERIFIED",
+      "path": "src/cross_layer_config.c",
+      "line": 195,
+      "token": "f->replay_age_ms > f->start_ms",
+      "function": "cross_layer_validate",
+      "meaning": "Replay history age is bounded and aligned.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "mixed_reject",
+      "status": "VERIFIED",
+      "path": "src/cross_layer_config.c",
+      "line": 181,
+      "token": "Use baseline with new faults; mixed legacy/new injections are unsupported.",
+      "function": "cross_layer_validate",
+      "meaning": "Not all fault combinations are executable.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "legacy_window",
+      "status": "VERIFIED",
+      "path": "src/fault_injection.c",
+      "line": 100,
+      "token": "return time_ms < end_ms;",
+      "function": "fault_event_active",
+      "meaning": "Legacy faults evaluated only on scheduler calls.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "legacy_priority",
+      "status": "VERIFIED",
+      "path": "src/fault_injection.c",
+      "line": 159,
+      "token": "apply_fault_event(state, &state->experiment.events[i], (int)i);",
+      "function": "fault_injection_step",
+      "meaning": "First active event wins, then break.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "legacy_config",
+      "status": "VERIFIED",
+      "path": "src/experiment.c",
+      "line": 287,
+      "token": "state->experiment.events[0].start_ms = start_ms;",
+      "function": "experiment_configure_custom_single_fault",
+      "meaning": "Custom legacy start retained; no tick alignment enforced here.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "sensor_base",
+      "status": "VERIFIED",
+      "path": "src/sensors.c",
+      "line": 63,
+      "token": "float coolant_meas = state->plant.coolant_temp_true_c;",
+      "function": "sensors_step",
+      "meaning": "Primary front-end model starts from plant temperature.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "sensor_bias",
+      "status": "VERIFIED",
+      "path": "src/sensors.c",
+      "line": 68,
+      "token": "coolant_meas += state->faults.sensor_bias_c;",
+      "function": "sensors_step",
+      "meaning": "Bias precedes source tap.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "sensor_intermittent",
+      "status": "VERIFIED",
+      "path": "src/sensors.c",
+      "line": 13,
+      "token": "unsigned int phase = (time_ms / ECU_SENSOR_PERIOD_MS) % 6U;",
+      "function": "intermittent_sensor_error",
+      "meaning": "Legacy intermittent signal is a six-sample pattern, not continuous sub-tick pulse acquisition.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "source_tap",
+      "status": "VERIFIED",
+      "path": "src/sensors.c",
+      "line": 84,
+      "token": "state->sensors.coolant_source_c = coolant_meas;",
+      "function": "sensors_step",
+      "meaning": "Tap includes primary front-end errors and precedes transport/trace replacement.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "source_time",
+      "status": "VERIFIED",
+      "path": "src/sensors.c",
+      "line": 85,
+      "token": "state->sensors.coolant_source_ms = state->time.time_ms;",
+      "function": "sensors_step",
+      "meaning": "Tap timestamp written from common scheduler clock.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "legacy_hold",
+      "status": "VERIFIED",
+      "path": "src/sensors.c",
+      "line": 103,
+      "token": "coolant_meas = state->faults.stale_coolant_temp_c;",
+      "function": "sensors_step",
+      "meaning": "Legacy stale transfer holds prior measurement.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "sensor_trace",
+      "status": "VERIFIED",
+      "path": "src/sensors.c",
+      "line": 109,
+      "token": "if (state->coolant_sensor_trace.enabled) {",
+      "function": "sensors_step",
+      "meaning": "External sample replacement follows tap and legacy hold.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "delivery_call",
+      "status": "VERIFIED",
+      "path": "src/sensors.c",
+      "line": 126,
+      "token": "cross_layer_sensor_delivery(state, coolant_meas, &coolant_meas, &coolant_refreshed, &source_ms);",
+      "function": "sensors_step",
+      "meaning": "Delivery input may already be transformed; generated is not necessarily pristine tap.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "delivered_publish",
+      "status": "VERIFIED",
+      "path": "src/sensors.c",
+      "line": 127,
+      "token": "state->sensors.coolant_temp_meas_c = coolant_meas;",
+      "function": "sensors_step",
+      "meaning": "Delivered value exposed to control.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "timestamp_publish",
+      "status": "VERIFIED",
+      "path": "src/sensors.c",
+      "line": 129,
+      "token": "state->sensors.coolant_sensor_last_update_ms = source_ms;",
+      "function": "sensors_step",
+      "meaning": "New communication branch preserves original source timestamp, not reception time.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "age",
+      "status": "VERIFIED",
+      "path": "src/sensors.c",
+      "line": 33,
+      "token": "state->time.time_ms - state->sensors.coolant_sensor_last_update_ms;",
+      "function": "update_coolant_sensor_freshness",
+      "meaning": "Runtime age is derived from common clock and published timestamp.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "history",
+      "status": "VERIFIED",
+      "path": "src/sensor_delivery.c",
+      "line": 13,
+      "token": "r->history[slot] = generated;",
+      "function": "cross_layer_sensor_delivery",
+      "meaning": "Communication history records supplied generated samples.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "comm_delay",
+      "status": "VERIFIED",
+      "path": "src/sensor_delivery.c",
+      "line": 27,
+      "token": "else sample_time = now-f->communication_delay_ms;",
+      "function": "cross_layer_sensor_delivery",
+      "meaning": "After initial delay interval, choose historical timestamp.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "comm_drop",
+      "status": "VERIFIED",
+      "path": "src/sensor_delivery.c",
+      "line": 35,
+      "token": "r->update_delivered = !drop;",
+      "function": "cross_layer_sensor_delivery",
+      "meaning": "Burst/pattern drop suppresses new delivery.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "comm_replay",
+      "status": "VERIFIED",
+      "path": "src/sensor_delivery.c",
+      "line": 38,
+      "token": "sample_time = now-f->replay_age_ms;",
+      "function": "cross_layer_sensor_delivery",
+      "meaning": "Replay selects older history.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "history_match",
+      "status": "VERIFIED",
+      "path": "src/sensor_delivery.c",
+      "line": 46,
+      "token": "r->history_timestamps[source_slot] == sample_time",
+      "function": "cross_layer_sensor_delivery",
+      "meaning": "Exact timestamp/history availability required for delivery.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "delivery_time",
+      "status": "VERIFIED",
+      "path": "src/sensor_delivery.c",
+      "line": 49,
+      "token": "r->delivered_ms = (int)now;",
+      "function": "cross_layer_sensor_delivery",
+      "meaning": "Reception timestamp is in injector/runtime state; not all fields exported to runtime allowlist.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "delivery_source",
+      "status": "VERIFIED",
+      "path": "src/sensor_delivery.c",
+      "line": 55,
+      "token": "*source_ms = r->delivered_source_ms;",
+      "function": "cross_layer_sensor_delivery",
+      "meaning": "Held or replayed provenance returned to sensor publisher.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "obs_age",
+      "status": "VERIFIED",
+      "path": "src/runtime_observation.c",
+      "line": 10,
+      "token": ".sample_age_ms = s->sensors.coolant_sensor_update_age_ms,",
+      "function": "runtime_observation_capture",
+      "meaning": "Runtime interface publishes age.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "obs_timestamp",
+      "status": "VERIFIED",
+      "path": "src/runtime_observation.c",
+      "line": 9,
+      "token": ".sample_timestamp_ms = s->sensors.coolant_sensor_last_update_ms,",
+      "function": "runtime_observation_capture",
+      "meaning": "Runtime interface publishes source timestamp.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "obs_memory",
+      "status": "VERIFIED",
+      "path": "src/runtime_observation.c",
+      "line": 21,
+      "token": ".target_register_c = s->control.target_register_c,",
+      "function": "runtime_observation_capture",
+      "meaning": "Live register available without consuming it in control.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "obs_source",
+      "status": "VERIFIED",
+      "path": "src/runtime_observation.c",
+      "line": 27,
+      "token": ".source_c = s->sensors.coolant_source_c,",
+      "function": "runtime_observation_capture",
+      "meaning": "Tap available in in-memory observation.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "obs_timing",
+      "status": "VERIFIED",
+      "path": "src/runtime_observation.c",
+      "line": 38,
+      "token": ".timing = s->timing_recorder.observation",
+      "function": "runtime_observation_capture",
+      "meaning": "Timing recorder published to runtime interface.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "obs_actuator",
+      "status": "VERIFIED",
+      "path": "src/runtime_observation.c",
+      "line": 13,
+      "token": ".pump_actual = s->actuators.pump_actual,",
+      "function": "runtime_observation_capture",
+      "meaning": "Model actuator realization exposed as feedback.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "obs_diag",
+      "status": "VERIFIED",
+      "path": "src/runtime_observation.c",
+      "line": 15,
+      "token": ".diagnostic_id = s->diagnostics.primary_dtc, .safety_state = s->safety.current_state,",
+      "function": "runtime_observation_capture",
+      "meaning": "Publication does not remove diagnostic/safety oracle dependencies.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "obs_reference",
+      "status": "VERIFIED",
+      "path": "src/runtime_observation.c",
+      "line": 33,
+      "token": ".reference_c = s->temperature_reference.value_c,",
+      "function": "runtime_observation_capture",
+      "meaning": "Optional reference model output exposed, validity must be checked.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "truth",
+      "status": "VERIFIED",
+      "path": "src/runtime_observation.c",
+      "line": 47,
+      "token": ".coolant_true_c = s->plant.coolant_temp_true_c,",
+      "function": "experiment_ground_truth_capture",
+      "meaning": "Plant truth in separate experiment capture.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "prop_truth",
+      "status": "VERIFIED",
+      "path": "src/propagation_monitor.c",
+      "line": 57,
+      "token": "p->coolant_deviation_c = state->plant.coolant_temp_true_c - p->reference_coolant_c;",
+      "function": "propagation_monitor_step",
+      "meaning": "Propagation derives from counterfactual truth.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "diag_truth",
+      "status": "VERIFIED",
+      "path": "src/diagnostics.c",
+      "line": 151,
+      "token": "float sensor_residual = state->sensors.coolant_temp_meas_c - state->plant.coolant_temp_true_c;",
+      "function": "diagnostics_step",
+      "meaning": "Legacy rationality diagnostic reads oracle temperature.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "diag_label",
+      "status": "VERIFIED",
+      "path": "src/diagnostics.c",
+      "line": 154,
+      "token": "bool permanent_injected_fault = state->faults.active_behavior == FAULT_BEHAVIOR_PERMANENT;",
+      "function": "diagnostics_step",
+      "meaning": "Diagnostic classification also consults injection metadata.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "hybrid_truth",
+      "status": "VERIFIED",
+      "path": "src/detection_algorithm.c",
+      "line": 324,
+      "token": "state->plant.coolant_temp_true_c",
+      "function": "hybrid_kalman_sensor_score",
+      "meaning": "Hybrid sensor score directly uses oracle truth.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "detector_truth",
+      "status": "VERIFIED",
+      "path": "src/detection_algorithm.c",
+      "line": 997,
+      "token": "state->sensors.coolant_temp_meas_c - state->plant.coolant_temp_true_c",
+      "function": "detection_algorithm_step",
+      "meaning": "Legacy detector residual is oracle-derived.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "detector_onset",
+      "status": "VERIFIED",
+      "path": "src/detection_algorithm.c",
+      "line": 1006,
+      "token": "state->time.time_ms < state->metrics.first_fault_start_ms;",
+      "function": "detection_algorithm_step",
+      "meaning": "before_fault uses campaign onset metadata.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "action_gate",
+      "status": "VERIFIED",
+      "path": "src/detection_algorithm.c",
+      "line": 1169,
+      "token": "if (detector->alarm_active && !detector->detected && !before_fault) {",
+      "function": "detection_algorithm_step",
+      "meaning": "Onset metadata gates first detection and subsequent action request block.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "safety_truth",
+      "status": "VERIFIED",
+      "path": "src/safety_monitor.c",
+      "line": 31,
+      "token": "state->plant.coolant_temp_true_c >= ECU_SHUTDOWN_COOLANT_TEMP_C",
+      "function": "requested_state_from_diagnostics",
+      "meaning": "Legacy shutdown path reads truth.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "pump_scale",
+      "status": "VERIFIED",
+      "path": "src/actuators.c",
+      "line": 90,
+      "token": "pump_actual *= state->faults.pump_scale;",
+      "function": "actuators_step",
+      "meaning": "Pump loss is multiplicative after command clamp.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "pump_publish",
+      "status": "VERIFIED",
+      "path": "src/actuators.c",
+      "line": 114,
+      "token": "state->actuators.pump_actual = pump_actual;",
+      "function": "actuators_step",
+      "meaning": "Actual is assigned by same software model, no physical transducer here.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "fan_stuck",
+      "status": "VERIFIED",
+      "path": "src/actuators.c",
+      "line": 22,
+      "token": "fan_actual = 0.0f;",
+      "function": "actuators_step",
+      "meaning": "Fan stuck-off suppresses realization.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "fan_oracle",
+      "status": "VERIFIED",
+      "path": "src/actuators.c",
+      "line": 48,
+      "token": "state->faults.active_mode == FAULT_FAN_STUCK_OFF;",
+      "function": "update_fan_actuator_feedback",
+      "meaning": "Self-test feedback is synthesized from fault mode, including at zero command.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "fan_trace",
+      "status": "VERIFIED",
+      "path": "src/actuators.c",
+      "line": 101,
+      "token": "fan_actual_trace_get(",
+      "function": "actuators_step",
+      "meaning": "Optional external RTL actuator value replaces model realization.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "pump_thermal",
+      "status": "VERIFIED",
+      "path": "src/thermal_plant.c",
+      "line": 187,
+      "token": "pump_cooling = 7.5f * state->actuators.pump_actual;",
+      "function": "thermal_plant_step",
+      "meaning": "Only realized pump affects this cooling term.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "plant_integrate",
+      "status": "VERIFIED",
+      "path": "src/thermal_plant.c",
+      "line": 198,
+      "token": "state->plant.coolant_temp_true_c += temp_delta * dt_s;",
+      "function": "thermal_plant_step",
+      "meaning": "Plant difference first observed after integration, at next outer observation.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "state_shared",
+      "status": "VERIFIED",
+      "path": "include/ecu_types.h",
+      "line": 276,
+      "token": "typedef struct ecu_state {",
+      "function": "<file-scope>",
+      "meaning": "Plant, sensor, control, faults and monitors coexist in one C aggregate.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "probe_read",
+      "status": "VERIFIED",
+      "path": "src/memory_diagnostic.c",
+      "line": 14,
+      "token": "uint16_t saved = read(ctx);",
+      "function": "memory_diagnostic_step",
+      "meaning": "Probe snapshots, writes test patterns and restores saved register.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "probe_schedule",
+      "status": "VERIFIED",
+      "path": "src/memory_diagnostic.c",
+      "line": 11,
+      "token": "unsigned int interval=s->checks%10U ? MEMORY_DIAGNOSTIC_MAX_INTERVAL_MS :",
+      "function": "memory_diagnostic_step",
+      "meaning": "Checks use phase-swept interval schedule.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "probe_backend",
+      "status": "VERIFIED",
+      "path": "src/memory_diagnostic_backend.c",
+      "line": 21,
+      "token": "value = state->cross_layer_fault.stuck_polarity ?",
+      "function": "cross_layer_memory_write",
+      "meaning": "Virtual stuck device behavior encoded in diagnostic write callback.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "probe_call",
+      "status": "VERIFIED",
+      "path": "src/v7_3/revised_runtime.c",
+      "line": 45,
+      "token": "memory_diagnostic_step(&state->control.memory_diagnostic,state->time.time_ms,",
+      "function": "__wrap_cross_layer_fault_step",
+      "meaning": "Optional revised wrapper probes after injector, before normal tasks.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "revised_capture",
+      "status": "VERIFIED",
+      "path": "src/v7_3/revised_runtime.c",
+      "line": 178,
+      "token": "runtime_observation_t o;runtime_observation_capture(state,&o);",
+      "function": "__wrap_detection_algorithm_step",
+      "meaning": "Revised detector gets captured interface, not whole state.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "reference_acquire",
+      "status": "VERIFIED",
+      "path": "src/v7_3/revised_runtime.c",
+      "line": 64,
+      "token": "redundant_temperature_sample(r,state->time.time_ms,state->plant.coolant_temp_true_c);",
+      "function": "reference_acquire",
+      "meaning": "Optional reference channel is another model fed by same plant truth.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "reference_model",
+      "status": "VERIFIED",
+      "path": "src/redundant_temperature.c",
+      "line": 18,
+      "token": "float measured=physical_c+s->offset_c+noise;",
+      "function": "redundant_temperature_sample",
+      "meaning": "Reference has its own state/noise, but independence is not hardware proven.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "revised_memory",
+      "status": "VERIFIED",
+      "path": "src/v7_3/clo_dsf_revised.c",
+      "line": 29,
+      "token": "o->target_register_c != o->target_shadow_c",
+      "function": "clo_revised_extract",
+      "meaning": "Register/shadow comparison can expose value-changing memory fault without command change.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "revised_target",
+      "status": "VERIFIED",
+      "path": "src/v7_3/clo_dsf_revised.c",
+      "line": 31,
+      "token": "o->control_target_c != (float)o->target_shadow_c",
+      "function": "clo_revised_extract",
+      "meaning": "Active target/shadow comparison shares software provenance.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "adc_sample",
+      "status": "VERIFIED",
+      "path": "src/v7_3/diagnostic_temperature.c",
+      "line": 12,
+      "token": "while(s->next_ms<=now){",
+      "function": "diagnostic_temperature_sample",
+      "meaning": "Optional phase-offset ADC model catches up scheduled sample timestamps.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "adc_interpolate",
+      "status": "VERIFIED",
+      "path": "src/v7_3/diagnostic_temperature.c",
+      "line": 17,
+      "token": "double at_sample=s->previous_physical+w*(physical-s->previous_physical);",
+      "function": "diagnostic_temperature_sample",
+      "meaning": "Interpolated physical values use invocation endpoint.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "adc_gain",
+      "status": "VERIFIED",
+      "path": "src/v7_3/diagnostic_temperature.c",
+      "line": 22,
+      "token": "double measured=((1+s->gain)*s->thermal_state+s->offset+noise)*(1+s->adc_reference_gain);",
+      "function": "diagnostic_temperature_sample",
+      "meaning": "Explicit simulated gain/offset/noise/ADC-reference path.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "adc_publish",
+      "status": "VERIFIED",
+      "path": "src/v7_3/diagnostic_temperature.c",
+      "line": 24,
+      "token": "s->output.value_c=(float)(round(measured/s->quantum)*s->quantum);",
+      "function": "diagnostic_temperature_sample",
+      "meaning": "Only latest output remains after catch-up loop.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "triplex_pulse",
+      "status": "VERIFIED",
+      "path": "scripts/run_clo_dsf_triplex.py",
+      "line": 124,
+      "token": "now>=injection_start+injection_duration",
+      "function": "embedded C: inject_value",
+      "meaning": "Generated adapter pulse gate only consulted at explicit sample calls.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "triplex_shared",
+      "status": "VERIFIED",
+      "path": "scripts/run_clo_dsf_triplex.py",
+      "line": 136,
+      "token": "inject_value(&state->sensors.coolant_source_c,0,now);state->sensors.coolant_temp_meas_c=state->sensors.coolant_source_c;",
+      "function": "embedded C: diagnostic_acquire",
+      "meaning": "Primary source and delivered channels can be modified together.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "triplex_preserve",
+      "status": "VERIFIED",
+      "path": "scripts/run_clo_dsf_triplex.py",
+      "line": 152,
+      "token": "adapter=adapter.replace(' inject_value(&state->sensors.coolant_source_c,0,now)",
+      "function": "build",
+      "meaning": "Generated build adds mask guard so non-sensor communication cases keep delivered data.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "triplex_link",
+      "status": "VERIFIED",
+      "path": "scripts/run_clo_dsf_triplex.py",
+      "line": 178,
+      "token": "'-Wl,--wrap=cross_layer_fault_step'",
+      "function": "build",
+      "meaning": "Script links sensor/memory/detector wrappers into temporary comparison binary.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "mr_loop",
+      "status": "VERIFIED",
+      "path": "scripts/run_clo_dsf_multirate.py",
+      "line": 46,
+      "token": "for(unsigned at=mr_last_ms+period;at<=now;at+=period){",
+      "function": "embedded C: mr_acquire",
+      "meaning": "25/50 ms sub-acquisitions computed in a batch at outer invocation.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "mr_interpolate",
+      "status": "VERIFIED",
+      "path": "scripts/run_clo_dsf_multirate.py",
+      "line": 49,
+      "token": "float at_physical=mr_last_physical+(physical-mr_last_physical)",
+      "function": "embedded C: mr_acquire",
+      "meaning": "Subsample plant input interpolated using current endpoint.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "mr_inject",
+      "status": "VERIFIED",
+      "path": "scripts/run_clo_dsf_multirate.py",
+      "line": 55,
+      "token": "inject_value(&sensor->output.value_c,member,sensor->output.sample_ms);",
+      "function": "embedded C: mr_acquire",
+      "meaning": "Pulse applied to returned acquisition at sample timestamp.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "mr_probe",
+      "status": "VERIFIED",
+      "path": "src/v7_3/multirate_memory.c",
+      "line": 5,
+      "token": "unsigned interval=nominal==500?(s->checks%2?600:400):(s->checks%2?300:200);",
+      "function": "mr_memory_step",
+      "meaning": "Nominal 500/250 probes actually alternate 600/400 or 300/200 ms.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "mailbox_publish",
+      "status": "VERIFIED",
+      "path": "src/v7_3/digital_sensor_integrity.c",
+      "line": 17,
+      "token": "w->protected_record=p;w->valid=true;*r=p;",
+      "function": "di_publish",
+      "meaning": "Witness and envelope are ordinary software record assignments.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "mailbox_verify",
+      "status": "VERIFIED",
+      "path": "src/v7_3/digital_sensor_integrity.c",
+      "line": 32,
+      "token": "if(ms!=p->ms||r->sequence!=p->sequence||r->ms!=p->ms)status|=2;",
+      "function": "di_verify",
+      "meaning": "Checks timestamp and sequence against stored witness, not an independent clock.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "mailbox_bank",
+      "status": "VERIFIED",
+      "path": "scripts/run_digital_integrity.py",
+      "line": 19,
+      "token": "static di_bank_t di_banks[2],*di_producer;",
+      "function": "embedded C: <file-scope>",
+      "meaning": "Optional protected-bank template is ordinary process storage, not hardware isolation.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "mailbox_wrap",
+      "status": "VERIFIED",
+      "path": "scripts/run_digital_integrity.py",
+      "line": 65,
+      "token": "s=s.replace(' __real_sensors_step(state);'",
+      "function": "build",
+      "meaning": "Optional build instruments producer boundaries; not default ECU behavior.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "serialized",
+      "status": "VERIFIED",
+      "path": "src/v7_2/final_observation_io.c",
+      "line": 12,
+      "token": "FIELD(time_ms,UINT_FIELD),FIELD(coolant_measured_c,FLOAT_FIELD),FIELD(sample_timestamp_ms,UINT_FIELD)",
+      "function": "<file-scope fields table>",
+      "meaning": "Replay allowlist includes timestamps but omits new shadow/tap/probe/reference additions.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "replay_zero",
+      "status": "VERIFIED",
+      "path": "src/v7_2/final_observation_io.c",
+      "line": 34,
+      "token": "memset(o,0,sizeof(*o));",
+      "function": "final_observation_read",
+      "meaning": "Omitted fields become zero/invalid when reading this replay format.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "build_default",
+      "status": "VERIFIED",
+      "path": "Makefile",
+      "line": 6,
+      "token": "SRC := $(wildcard src/*.c)",
+      "function": "<file-scope>",
+      "meaning": "Base build does not automatically compile v7_3 subdirectory.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "build_priority",
+      "status": "VERIFIED",
+      "path": "GNUmakefile",
+      "line": 2,
+      "token": "include Makefile",
+      "function": "<file-scope>",
+      "meaning": "Default GNU make entry adds historical v7 variants.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "build_revised",
+      "status": "VERIFIED",
+      "path": "clo_dsf_revised.mk",
+      "line": 6,
+      "token": "-Wl,--wrap=cross_layer_fault_step",
+      "function": "<file-scope>",
+      "meaning": "Separate revised build enables memory/sensor wrappers.",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "probe_max",
+      "path": "include/memory_diagnostic.h",
+      "line": 7,
+      "token": "#define MEMORY_DIAGNOSTIC_MAX_INTERVAL_MS 1100U",
+      "function": "<file-scope>",
+      "meaning": "Probe schedule maximum interval constant.",
+      "status": "VERIFIED",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "probe_phase",
+      "path": "include/memory_diagnostic.h",
+      "line": 6,
+      "token": "#define MEMORY_DIAGNOSTIC_PHASE_STEP_MS 100U",
+      "function": "<file-scope>",
+      "meaning": "Wrap-around phase step.",
+      "status": "VERIFIED",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "log_period",
+      "path": "include/config.h",
+      "line": 18,
+      "token": "#define ECU_LOG_PERIOD_MS 100U",
+      "function": "<file-scope>",
+      "meaning": "Logger outer cadence.",
+      "status": "VERIFIED",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "safety_period",
+      "path": "include/config.h",
+      "line": 17,
+      "token": "#define ECU_SAFETY_PERIOD_MS 100U",
+      "function": "<file-scope>",
+      "meaning": "Safety outer cadence.",
+      "status": "VERIFIED",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "crc",
+      "path": "src/v7_3/digital_sensor_integrity.c",
+      "line": 10,
+      "token": "crc^=(v[i]>>(8*b))&255U;",
+      "function": "di_tag",
+      "meaning": "Unkeyed deterministic CRC arithmetic.",
+      "status": "VERIFIED",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "source_period_variant",
+      "path": "scripts/run_clo_dsf_multirate.py",
+      "line": 45,
+      "token": "unsigned period=k?25:50;",
+      "function": "embedded C: mr_acquire",
+      "meaning": "Optional two acquisition rates.",
+      "status": "VERIFIED",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "base_init_probe",
+      "path": "src/control.c",
+      "line": 30,
+      "token": "state->control.memory_diagnostic = (memory_diagnostic_t){0};",
+      "function": "control_init",
+      "meaning": "Base diagnostic fields start invalid.",
+      "status": "VERIFIED",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "operating_load",
+      "path": "src/control.c",
+      "line": 45,
+      "token": "float load_term = 0.35f * state->plant.engine_load;",
+      "function": "control_step",
+      "meaning": "Control directly reads simulated operating load.",
+      "status": "VERIFIED",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "operating_speed",
+      "path": "src/control.c",
+      "line": 46,
+      "token": "float speed_term = state->plant.vehicle_speed_kph / 200.0f;",
+      "function": "control_step",
+      "meaning": "Control reads simulated vehicle speed, not a separately verified acquisition.",
+      "status": "VERIFIED",
+      "scope": "source text; not a deployed hardware guarantee"
+    },
+    {
+      "id": "operating_capture",
+      "path": "src/runtime_observation.c",
+      "line": 16,
+      "token": ".detector_alarm = s->detection.alarm_active, .engine_load = s->plant.engine_load,",
+      "function": "runtime_observation_capture",
+      "meaning": "Operating load is copied from plant state; adjacent fields copy modeled ambient and speed measurements.",
+      "status": "VERIFIED",
+      "scope": "source text; not a deployed hardware guarantee"
+    }
+  ],
+  "source_files": [
+    {
+      "path": "GNUmakefile",
+      "sha256": "d889389ab8aed71c84ba9a2e55e012966f266a309aa745d69b092c6afd6b7fae",
+      "git_tracking": "tracked"
+    },
+    {
+      "path": "Makefile",
+      "sha256": "febd61e4dd3e665fe5b533453ce931a1971ced79c11b3e60f4b1fe2b6a762a56",
+      "git_tracking": "tracked"
+    },
+    {
+      "path": "clo_dsf_revised.mk",
+      "sha256": "ee8a550d6953c31de3ecde1ee755c136fd42c6de03f418924b30356b14c3ff3d",
+      "git_tracking": "tracked"
+    },
+    {
+      "path": "include/config.h",
+      "sha256": "eb481dc6fe5bca46e1c4a4fef773be421933c33b43ca385c8c88f8e013e16aa7",
+      "git_tracking": "tracked"
+    },
+    {
+      "path": "include/ecu_types.h",
+      "sha256": "9db75d0b7e0c98ec54783eb8bf9491c6b154f5afd2f3a0ae16360ad713066ce4",
+      "git_tracking": "tracked"
+    },
+    {
+      "path": "include/memory_diagnostic.h",
+      "sha256": "7d66530fcbbcfaab612ad9f01a2fe57b3ad20da9cf9ce4216127fde6443e306c",
+      "git_tracking": "tracked"
+    },
+    {
+      "path": "scripts/run_clo_dsf_multirate.py",
+      "sha256": "a7a1cd13b5e45b4a49345a22a693be46cc6c27aa68bdb5b57d4a415d38e0d104",
+      "git_tracking": "pre-existing untracked"
+    },
+    {
+      "path": "scripts/run_clo_dsf_triplex.py",
+      "sha256": "b23677c9bd7b0e68df5781c0d678e10df5e58e057cbda7841147e641c429c566",
+      "git_tracking": "tracked"
+    },
+    {
+      "path": "scripts/run_digital_integrity.py",
+      "sha256": "63fa7f99fcd770e6e7be4666abaa4ab5a8a47d455a6b25d989929669c175a16f",
+      "git_tracking": "pre-existing untracked"
+    },
+    {
+      "path": "src/actuators.c",
+      "sha256": "5b1fcad84453fce451aa7d08cb23dc744fa2ff484c0fb22e0cfe72d234641ce3",
+      "git_tracking": "tracked"
+    },
+    {
+      "path": "src/control.c",
+      "sha256": "f2ccfbdde47db2ef483b1b64f4b83c9e6a48e9ae0b4f6450666686814dc839f7",
+      "git_tracking": "tracked"
+    },
+    {
+      "path": "src/cross_layer_config.c",
+      "sha256": "0ac07cf90296a041f82973ad754337c9c8ae9fc9f58dff6104e2a828dfe38457",
+      "git_tracking": "tracked"
+    },
+    {
+      "path": "src/cross_layer_fault.c",
+      "sha256": "5e3a807d89598615aa93cc9c3849eb6f8c4a44b1f25c4e56d6672ff5deb8e01f",
+      "git_tracking": "tracked"
+    },
+    {
+      "path": "src/detection_algorithm.c",
+      "sha256": "c4a024feb6eabc6d62bb6a4483d504cc39c3efa8fa64baf16c7c1fec13a7804d",
+      "git_tracking": "tracked"
+    },
+    {
+      "path": "src/diagnostics.c",
+      "sha256": "e20a16a34c8b2238a89d3363c40c15794fca5c37b5b7854524e1cbb383e448e6",
+      "git_tracking": "tracked"
+    },
+    {
+      "path": "src/experiment.c",
+      "sha256": "f6334c4fb6d71bd1fbfec067434722d9c38d4f6bb525fb10ea17cf1fffbaeadf",
+      "git_tracking": "tracked"
+    },
+    {
+      "path": "src/fault_injection.c",
+      "sha256": "52553d6d5b3e5f1d461dd52cf19be14941481581f1eb4613710dd0cee207d992",
+      "git_tracking": "tracked"
+    },
+    {
+      "path": "src/main.c",
+      "sha256": "ce81833c12f36aca454251121efc18b835b30fe99cf2e434afd7370ed977e032",
+      "git_tracking": "tracked"
+    },
+    {
+      "path": "src/memory_diagnostic.c",
+      "sha256": "439130d0db764db2a80076d1fafb194e6bdbf442e6b005a489b3d52a64c7531f",
+      "git_tracking": "tracked"
+    },
+    {
+      "path": "src/memory_diagnostic_backend.c",
+      "sha256": "a6d0ece226c89b8f9b5fa1d7809927ccad63eefbd2c50f02d5e608c565c8a5ed",
+      "git_tracking": "tracked"
+    },
+    {
+      "path": "src/propagation_monitor.c",
+      "sha256": "1bf34f5ea6fa748844d8c3353fc13ce07d679574178e3b1f051861c684a920e3",
+      "git_tracking": "tracked"
+    },
+    {
+      "path": "src/redundant_temperature.c",
+      "sha256": "176da3fafddaf219b0515492be7225c72e59498ef1d3c10a74e771669d42a6d1",
+      "git_tracking": "tracked"
+    },
+    {
+      "path": "src/runtime_observation.c",
+      "sha256": "cae3370319989b38c52832293215d678444eedcf20dba9b93dc04f2444c323ea",
+      "git_tracking": "tracked"
+    },
+    {
+      "path": "src/runtime_timing_observation.c",
+      "sha256": "5d6f4cbe3d097136ed7f5883057388e0ed4dc6b84aff28a051386c68c7d84ac0",
+      "git_tracking": "tracked"
+    },
+    {
+      "path": "src/safety_monitor.c",
+      "sha256": "27412e114cd0cd22132b1a5b24e7a14e5c937df4ade5ac3f1b6029c6aec2fe4d",
+      "git_tracking": "tracked"
+    },
+    {
+      "path": "src/scheduler.c",
+      "sha256": "80d924e069d55926f6f2485db853ce8de06744c55c0119b640510e7641ec30d9",
+      "git_tracking": "tracked"
+    },
+    {
+      "path": "src/scheduler_stress.c",
+      "sha256": "b9e4ca5013a90c6b639dcebaf1921beec07def11e443576bf36ba852534f66b0",
+      "git_tracking": "tracked"
+    },
+    {
+      "path": "src/sensor_delivery.c",
+      "sha256": "f3ea17440e15513808e77f3c8f41849da31f3504ea6441bca85b5c963e037d76",
+      "git_tracking": "tracked"
+    },
+    {
+      "path": "src/sensors.c",
+      "sha256": "f19e601d68976a563a5edb031d76ca259689b32bef04958a81f6bd4a8947a352",
+      "git_tracking": "tracked"
+    },
+    {
+      "path": "src/thermal_plant.c",
+      "sha256": "162cff8f8729f524716f96836f78f3ebd5ae6b61818a461c7ca152c5e53aa106",
+      "git_tracking": "tracked"
+    },
+    {
+      "path": "src/v7_2/final_observation_io.c",
+      "sha256": "19446a5c5726dd650da092c634e8c7ade7f4101401ad152e73fae41afb3d9145",
+      "git_tracking": "tracked"
+    },
+    {
+      "path": "src/v7_3/clo_dsf_revised.c",
+      "sha256": "349084500594ea62f9472ed3bac3a3b79aa09713960ba5aface5bee095820fb0",
+      "git_tracking": "tracked"
+    },
+    {
+      "path": "src/v7_3/diagnostic_temperature.c",
+      "sha256": "b4cd951328299da10fa5b4c0a504e79f9cf8a252b861304e38e77546be4e7be9",
+      "git_tracking": "tracked"
+    },
+    {
+      "path": "src/v7_3/digital_sensor_integrity.c",
+      "sha256": "10c0c9edf054003470e0b06ebfb0d2503341f71dfe1042efa1cad7774b2b7949",
+      "git_tracking": "pre-existing untracked"
+    },
+    {
+      "path": "src/v7_3/multirate_memory.c",
+      "sha256": "cae25c6bb4aea063af0a6930a4628532cb3eb943d2e4b723ca6daf74f0ca39d6",
+      "git_tracking": "pre-existing untracked"
+    },
+    {
+      "path": "src/v7_3/revised_runtime.c",
+      "sha256": "1febac2b4044a5ea67a16e53ab1acc71332b228f3add33365167761a25424d2f",
+      "git_tracking": "tracked"
+    }
+  ],
+  "modeled_origins": [
+    {
+      "origin": "memory",
+      "mutation_and_propagation": "cross_layer_fault_step mutates target_register_c; control_step consumes it into active target and commands; snapshot restored at inactive transition.",
+      "anchors": [
+        "active_window",
+        "memory_save",
+        "flip",
+        "stuck",
+        "restore",
+        "consume",
+        "pump_cmd",
+        "obs_memory"
+      ],
+      "assumptions": [
+        "M_CLOSED",
+        "M_CONTEXT",
+        "M_PHASE",
+        "M_NUMERIC",
+        "A_PROCESS",
+        "A_SHADOW",
+        "A_CLOCK",
+        "A_BUILD",
+        "A_FAULTSET"
+      ],
+      "status": "INFERRED finite restriction of VERIFIED component operations"
+    },
+    {
+      "origin": "timing",
+      "mutation_and_propagation": "cross_layer_control_execution skips or retains one pending job; current acquisition still happens; command and last execution hold until control runs.",
+      "anchors": [
+        "release",
+        "skip",
+        "delay_due",
+        "delay_complete",
+        "discard",
+        "control_call",
+        "obs_timing"
+      ],
+      "assumptions": [
+        "M_CLOSED",
+        "M_CONTEXT",
+        "M_PHASE",
+        "M_NUMERIC",
+        "A_PROCESS",
+        "A_CLOCK",
+        "A_BUILD",
+        "A_FAULTSET"
+      ],
+      "status": "INFERRED finite restriction of VERIFIED component operations"
+    },
+    {
+      "origin": "communication",
+      "mutation_and_propagation": "cross_layer_sensor_delivery mutates delivered value/source timestamp from history or holds it; sensors publishes source timestamp/age; control consumes delivered value.",
+      "anchors": [
+        "history",
+        "comm_delay",
+        "comm_drop",
+        "comm_replay",
+        "timestamp_publish",
+        "obs_timestamp",
+        "obs_age"
+      ],
+      "assumptions": [
+        "M_CLOSED",
+        "M_CONTEXT",
+        "M_PHASE",
+        "M_NUMERIC",
+        "A_PROCESS",
+        "A_TAP",
+        "A_CLOCK",
+        "A_BUILD",
+        "A_FAULTSET"
+      ],
+      "status": "INFERRED finite restriction of VERIFIED component operations"
+    },
+    {
+      "origin": "sensor",
+      "mutation_and_propagation": "legacy fault gate enables sensor bias only at visited instants; sensors applies bias before both source tap and delivered measurement.",
+      "anchors": [
+        "legacy_window",
+        "sensor_bias",
+        "source_tap",
+        "sensor_period",
+        "delivered_publish"
+      ],
+      "assumptions": [
+        "M_CLOSED",
+        "M_CONTEXT",
+        "M_PHASE",
+        "M_NUMERIC",
+        "A_PROCESS",
+        "A_TAP",
+        "A_CLOCK",
+        "A_BUILD",
+        "A_FAULTSET"
+      ],
+      "status": "INFERRED finite restriction of VERIFIED component operations"
+    },
+    {
+      "origin": "actuator",
+      "mutation_and_propagation": "actuators_step scales pump realization after control; zero command eliminates the scale response; plant feedback is outside this bounded component model.",
+      "anchors": [
+        "legacy_window",
+        "pump_scale",
+        "pump_publish",
+        "obs_actuator"
+      ],
+      "assumptions": [
+        "M_CLOSED",
+        "M_CONTEXT",
+        "M_PHASE",
+        "M_NUMERIC",
+        "A_PROCESS",
+        "A_PUMP",
+        "A_CLOCK",
+        "A_BUILD",
+        "A_FAULTSET"
+      ],
+      "status": "INFERRED finite restriction of VERIFIED component operations"
+    }
+  ],
+  "assumptions": [
+    {
+      "id": "M_CLOSED",
+      "status": "EXPLICIT_MODEL_RESTRICTION_NOT_PHYSICAL_GUARANTEE",
+      "statement": "Exactly the enumerated 67 realizations per context, at most one modeled fault, including healthy; no additional faults, writers, restamping or arbitrary evidence corruption. This is a finite experiment definition, not a verified physical closed-world contract."
+    },
+    {
+      "id": "M_CONTEXT",
+      "status": "EXPLICIT_MODEL_RESTRICTION_NOT_PHYSICAL_GUARANTEE",
+      "statement": "Constant input temperature 60 or 92 C, zero load/speed, identical initialization and no thermal integration, legal calibration writes or external traces. Baseline t=0 precedes all configured faults; the runtime checker sees only published fields, not true temperature."
+    },
+    {
+      "id": "M_PHASE",
+      "status": "EXPLICIT_MODEL_RESTRICTION_NOT_PHYSICAL_GUARANTEE",
+      "statement": "Component capture after actuator realization, with diagnostics, safety, detector actions and plant integration omitted. Existing scheduler order motivates the prefix, but this isolation is not the complete production capture path."
+    },
+    {
+      "id": "M_NUMERIC",
+      "status": "EXPLICIT_MODEL_RESTRICTION_NOT_PHYSICAL_GUARANTEE",
+      "statement": "IEEE binary32, round after each C float operation, no FMA/fast-math, finite selected inputs. Exact bit equality only; no deployment noise/tolerance guarantee."
+    },
+    {
+      "id": "A_PROCESS",
+      "status": "UNVERIFIED",
+      "statement": "Hardware isolation, memory protection and independent power/clock domains are not established by structs or comments.",
+      "resolution": "Independent protection mechanism and fault-containment evidence.",
+      "anchors": [
+        "state_shared",
+        "mailbox_bank"
+      ]
+    },
+    {
+      "id": "A_SHADOW",
+      "status": "UNVERIFIED",
+      "statement": "Target shadow, legal writes and probe code/callback results remain honest when target storage is faulty. Common corruption can defeat agreement.",
+      "resolution": "Concrete protected storage, writer authorization and common-cause fault coverage.",
+      "anchors": [
+        "commit",
+        "probe_backend",
+        "revised_memory"
+      ]
+    },
+    {
+      "id": "A_CLOCK",
+      "status": "UNVERIFIED",
+      "statement": "Common simulated timestamps correspond to a trustworthy deployed clock and bounded monitoring delay.",
+      "resolution": "Clock provenance, WCET, scheduling and dropped-record contracts.",
+      "anchors": [
+        "loop",
+        "timing_start",
+        "timing_complete"
+      ]
+    },
+    {
+      "id": "A_TAP",
+      "status": "UNVERIFIED",
+      "statement": "Acquisition tap and timestamp remain unmodified by faults affecting delivered/control values.",
+      "resolution": "Producer/consumer integrity boundary and explicitly scoped write-fault domains.",
+      "anchors": [
+        "source_tap",
+        "triplex_shared"
+      ]
+    },
+    {
+      "id": "A_PUMP",
+      "status": "UNVERIFIED",
+      "statement": "A physical pump-health or flow/current witness independent of the command/realization model exists.",
+      "resolution": "Actual separately acquired pump-feedback interface, validity, timing and failure model.",
+      "anchors": [
+        "pump_scale",
+        "pump_publish"
+      ]
+    },
+    {
+      "id": "A_SENSOR",
+      "status": "UNVERIFIED",
+      "statement": "Optional redundant ADC channels are physically independent and their common-cause behavior is bounded.",
+      "resolution": "Hardware acquisition design and common-cause measurements; shared simulated plant is not that evidence.",
+      "anchors": [
+        "reference_acquire",
+        "adc_gain"
+      ]
+    },
+    {
+      "id": "A_MAILBOX",
+      "status": "UNVERIFIED",
+      "statement": "Protected CRC witness storage is inaccessible to the corruption that affects values, metadata or verifier.",
+      "resolution": "Enforced storage/access protection; CRC by itself is not authenticated provenance.",
+      "anchors": [
+        "mailbox_publish",
+        "mailbox_verify",
+        "mailbox_bank"
+      ]
+    },
+    {
+      "id": "A_BUILD",
+      "status": "UNVERIFIED",
+      "statement": "A named binary or historical result is linked with the exact optional wrappers audited here.",
+      "resolution": "Binary/source/config/link provenance per evaluated run; no build or experiment run in this audit.",
+      "anchors": [
+        "build_default",
+        "build_revised",
+        "triplex_link",
+        "mailbox_wrap"
+      ]
+    },
+    {
+      "id": "A_FAULTSET",
+      "status": "UNVERIFIED",
+      "statement": "The competing-origin set is closed, single-fault and matches the allowed injector combinations.",
+      "resolution": "Explicit admissible adversary/fault specification and indistinguishability checks.",
+      "anchors": [
+        "mixed_reject",
+        "legacy_priority",
+        "stress_exclusive"
+      ]
+    },
+    {
+      "id": "A_ORACLE",
+      "status": "VERIFIED",
+      "statement": "Some currently published legacy outputs are oracle-derived and cannot serve as independent runtime evidence for a future sound checker.",
+      "resolution": "Require a taint-aware input contract before reusing these outputs.",
+      "anchors": [
+        "diag_truth",
+        "hybrid_truth",
+        "fan_oracle",
+        "safety_truth",
+        "action_gate"
+      ]
+    },
+    {
+      "id": "A_REPLAY",
+      "status": "VERIFIED",
+      "statement": "Existing final_observation serialization is narrower than the in-memory observation struct; omitted additions read as zero.",
+      "resolution": "Select an audited complete input view; do not infer absent tap/shadow/reference values.",
+      "anchors": [
+        "serialized",
+        "replay_zero",
+        "obs_memory",
+        "obs_source",
+        "obs_reference"
+      ]
+    },
+    {
+      "id": "A_SUBTICK",
+      "status": "UNVERIFIED",
+      "statement": "A 25/50 ms modeled acquisition timestamp proves data was available to a checker at that instant.",
+      "resolution": "Release/publication timestamps and an online scheduler; inspected template batches observations at the outer tick.",
+      "anchors": [
+        "mr_loop",
+        "mr_interpolate",
+        "adc_interpolate"
+      ]
+    },
+    {
+      "id": "A_POSTWRITE",
+      "status": "UNVERIFIED",
+      "statement": "Arbitrary post-control corruption of both downstream values and upstream witnesses is faithfully represented by an existing general injector.",
+      "resolution": "Define a testable write-fault model separately; this audit implements no new injection.",
+      "anchors": [
+        "legacy_offset",
+        "triplex_shared",
+        "state_shared"
+      ]
+    }
+  ],
+  "shared_domains": [
+    {
+      "id": "D_PROCESS",
+      "status": "VERIFIED",
+      "members": "All ECU state, fault descriptors, plant, clock, monitors and optional in-process banks",
+      "anchors": [
+        "state_shared"
+      ],
+      "isolation_status": "UNVERIFIED",
+      "shared_with": [],
+      "assumptions": [
+        "A_PROCESS"
+      ]
+    },
+    {
+      "id": "D_MEMORY",
+      "status": "VERIFIED",
+      "members": "Target register, legal shadow, active target and diagnostic transaction",
+      "anchors": [
+        "commit",
+        "consume",
+        "probe_backend"
+      ],
+      "isolation_status": "UNVERIFIED",
+      "shared_with": [
+        "D_PROCESS"
+      ],
+      "assumptions": [
+        "A_PROCESS",
+        "A_SHADOW"
+      ]
+    },
+    {
+      "id": "D_SENSOR",
+      "status": "VERIFIED",
+      "members": "Primary front-end, acquisition tap, delivered storage and their timestamps",
+      "anchors": [
+        "source_tap",
+        "delivered_publish",
+        "triplex_shared"
+      ],
+      "isolation_status": "UNVERIFIED",
+      "shared_with": [
+        "D_PROCESS"
+      ],
+      "assumptions": [
+        "A_PROCESS",
+        "A_TAP"
+      ]
+    },
+    {
+      "id": "D_CLOCK",
+      "status": "VERIFIED",
+      "members": "Scheduler and release/acquisition/probe/publication time fields",
+      "anchors": [
+        "loop",
+        "timing_start",
+        "source_time"
+      ],
+      "isolation_status": "UNVERIFIED",
+      "shared_with": [
+        "D_PROCESS"
+      ],
+      "assumptions": [
+        "A_PROCESS",
+        "A_CLOCK"
+      ]
+    },
+    {
+      "id": "D_ACTUATOR",
+      "status": "VERIFIED",
+      "members": "Control commands, modeled actual responses and model feedback",
+      "anchors": [
+        "pump_scale",
+        "pump_publish",
+        "fan_oracle"
+      ],
+      "isolation_status": "UNVERIFIED",
+      "shared_with": [
+        "D_PROCESS"
+      ],
+      "assumptions": [
+        "A_PROCESS",
+        "A_PUMP"
+      ]
+    },
+    {
+      "id": "D_OPTIONAL_SENSOR",
+      "status": "VERIFIED",
+      "members": "Optional separate sensor state/PRNG and shared physical input",
+      "anchors": [
+        "reference_acquire",
+        "adc_gain"
+      ],
+      "isolation_status": "UNVERIFIED",
+      "shared_with": [
+        "D_PROCESS"
+      ],
+      "assumptions": [
+        "A_PROCESS",
+        "A_SENSOR"
+      ]
+    },
+    {
+      "id": "D_MAILBOX",
+      "status": "VERIFIED",
+      "members": "Optional digital witness/envelope, producer and verifier in same address space",
+      "anchors": [
+        "mailbox_bank",
+        "mailbox_publish"
+      ],
+      "isolation_status": "UNVERIFIED",
+      "shared_with": [
+        "D_PROCESS"
+      ],
+      "assumptions": [
+        "A_PROCESS",
+        "A_MAILBOX"
+      ]
+    }
+  ],
+  "provenance_dependencies": [
+    {
+      "id": "EDGE_01",
+      "status": "VERIFIED",
+      "from": "E_TRUTH",
+      "to": "E_TAP",
+      "kind": "physical_input_to_measurement_model",
+      "meaning": "A modeled sensor is driven by physical state. This is not a direct truth field supplied to the checker and does not prove sensor independence.",
+      "anchors": [
+        "source_tap",
+        "source_time",
+        "obs_source",
+        "serialized"
+      ],
+      "assumptions": [
+        "A_TAP",
+        "A_CLOCK",
+        "A_REPLAY"
+      ]
+    },
+    {
+      "id": "EDGE_02",
+      "status": "VERIFIED",
+      "from": "E_TAP",
+      "to": "E_DELIVERED",
+      "kind": "runtime_or_model_dataflow",
+      "meaning": "Shared producer dependency; no independent-vote implication. Validity and variant conditions remain applicable.",
+      "anchors": [
+        "delivered_publish",
+        "control_error"
+      ],
+      "assumptions": [
+        "A_TAP"
+      ]
+    },
+    {
+      "id": "EDGE_03",
+      "status": "VERIFIED",
+      "from": "E_TRANSPORT_ORACLE",
+      "to": "E_DELIVERED",
+      "kind": "conditional_transport_publication",
+      "meaning": "New communication model selects/publishes value or source time from history; metadata integrity must be established. Other delivery routes differ.",
+      "anchors": [
+        "delivered_publish",
+        "control_error"
+      ],
+      "assumptions": [
+        "A_TAP"
+      ]
+    },
+    {
+      "id": "EDGE_04",
+      "status": "VERIFIED",
+      "from": "E_TRANSPORT_ORACLE",
+      "to": "E_AGE",
+      "kind": "conditional_transport_publication",
+      "meaning": "New communication model selects/publishes value or source time from history; metadata integrity must be established. Other delivery routes differ.",
+      "anchors": [
+        "timestamp_publish",
+        "age",
+        "obs_age",
+        "obs_timestamp",
+        "serialized",
+        "sensor_trace"
+      ],
+      "assumptions": [
+        "A_TAP",
+        "A_CLOCK"
+      ]
+    },
+    {
+      "id": "EDGE_05",
+      "status": "VERIFIED",
+      "from": "E_MEMORY",
+      "to": "E_PROBE",
+      "kind": "runtime_or_model_dataflow",
+      "meaning": "Shared producer dependency; no independent-vote implication. Validity and variant conditions remain applicable.",
+      "anchors": [
+        "probe_call",
+        "probe_read",
+        "probe_backend",
+        "base_init_probe"
+      ],
+      "assumptions": [
+        "A_SHADOW",
+        "A_BUILD",
+        "A_CLOCK"
+      ]
+    },
+    {
+      "id": "EDGE_06",
+      "status": "VERIFIED",
+      "from": "E_MEMORY",
+      "to": "E_COMMAND",
+      "kind": "runtime_or_model_dataflow",
+      "meaning": "Shared producer dependency; no independent-vote implication. Validity and variant conditions remain applicable.",
+      "anchors": [
+        "pump_cmd",
+        "control_error",
+        "reaction",
+        "runtime_capture",
+        "action_gate"
+      ],
+      "assumptions": [
+        "A_PROCESS",
+        "A_ORACLE"
+      ]
+    },
+    {
+      "id": "EDGE_07",
+      "status": "VERIFIED",
+      "from": "E_DELIVERED",
+      "to": "E_COMMAND",
+      "kind": "runtime_or_model_dataflow",
+      "meaning": "Shared producer dependency; no independent-vote implication. Validity and variant conditions remain applicable.",
+      "anchors": [
+        "pump_cmd",
+        "control_error",
+        "reaction",
+        "runtime_capture",
+        "action_gate"
+      ],
+      "assumptions": [
+        "A_PROCESS",
+        "A_ORACLE"
+      ]
+    },
+    {
+      "id": "EDGE_08",
+      "status": "VERIFIED",
+      "from": "E_COMMAND",
+      "to": "E_ACTUAL",
+      "kind": "runtime_or_model_dataflow",
+      "meaning": "Shared producer dependency; no independent-vote implication. Validity and variant conditions remain applicable.",
+      "anchors": [
+        "pump_scale",
+        "pump_publish",
+        "obs_actuator",
+        "fan_trace"
+      ],
+      "assumptions": [
+        "A_PUMP"
+      ]
+    },
+    {
+      "id": "EDGE_09",
+      "status": "VERIFIED",
+      "from": "E_FAULT",
+      "to": "E_FAN_HEALTH",
+      "kind": "oracle_input_to_published_legacy_output",
+      "meaning": "Truth or injector metadata enters the actual output-producing legacy logic; publication does not sanitize this dependency.",
+      "anchors": [
+        "fan_oracle",
+        "fan_stuck"
+      ],
+      "assumptions": [
+        "A_ORACLE",
+        "A_PROCESS"
+      ]
+    },
+    {
+      "id": "EDGE_10",
+      "status": "VERIFIED",
+      "from": "E_ACTUAL",
+      "to": "E_FAN_HEALTH",
+      "kind": "runtime_or_model_dataflow",
+      "meaning": "Shared producer dependency; no independent-vote implication. Validity and variant conditions remain applicable.",
+      "anchors": [
+        "fan_oracle",
+        "fan_stuck"
+      ],
+      "assumptions": [
+        "A_ORACLE",
+        "A_PROCESS"
+      ]
+    },
+    {
+      "id": "EDGE_11",
+      "status": "VERIFIED",
+      "from": "E_COMMAND",
+      "to": "E_FAN_HEALTH",
+      "kind": "runtime_or_model_dataflow",
+      "meaning": "Shared producer dependency; no independent-vote implication. Validity and variant conditions remain applicable.",
+      "anchors": [
+        "fan_oracle",
+        "fan_stuck"
+      ],
+      "assumptions": [
+        "A_ORACLE",
+        "A_PROCESS"
+      ]
+    },
+    {
+      "id": "EDGE_12",
+      "status": "VERIFIED",
+      "from": "E_TRUTH",
+      "to": "E_LEGACY_OUTPUT",
+      "kind": "oracle_input_to_published_legacy_output",
+      "meaning": "Truth or injector metadata enters the actual output-producing legacy logic; publication does not sanitize this dependency.",
+      "anchors": [
+        "obs_diag",
+        "diag_truth",
+        "diag_label",
+        "hybrid_truth",
+        "detector_truth",
+        "safety_truth",
+        "action_gate"
+      ],
+      "assumptions": [
+        "A_ORACLE",
+        "A_BUILD"
+      ]
+    },
+    {
+      "id": "EDGE_13",
+      "status": "VERIFIED",
+      "from": "E_FAULT",
+      "to": "E_LEGACY_OUTPUT",
+      "kind": "oracle_input_to_published_legacy_output",
+      "meaning": "Truth or injector metadata enters the actual output-producing legacy logic; publication does not sanitize this dependency.",
+      "anchors": [
+        "obs_diag",
+        "diag_truth",
+        "diag_label",
+        "hybrid_truth",
+        "detector_truth",
+        "safety_truth",
+        "action_gate"
+      ],
+      "assumptions": [
+        "A_ORACLE",
+        "A_BUILD"
+      ]
+    },
+    {
+      "id": "EDGE_14",
+      "status": "VERIFIED",
+      "from": "E_ACTUAL",
+      "to": "E_LEGACY_OUTPUT",
+      "kind": "runtime_or_model_dataflow",
+      "meaning": "Shared producer dependency; no independent-vote implication. Validity and variant conditions remain applicable.",
+      "anchors": [
+        "obs_diag",
+        "diag_truth",
+        "diag_label",
+        "hybrid_truth",
+        "detector_truth",
+        "safety_truth",
+        "action_gate"
+      ],
+      "assumptions": [
+        "A_ORACLE",
+        "A_BUILD"
+      ]
+    },
+    {
+      "id": "EDGE_15",
+      "status": "VERIFIED",
+      "from": "E_DELIVERED",
+      "to": "E_LEGACY_OUTPUT",
+      "kind": "runtime_or_model_dataflow",
+      "meaning": "Shared producer dependency; no independent-vote implication. Validity and variant conditions remain applicable.",
+      "anchors": [
+        "obs_diag",
+        "diag_truth",
+        "diag_label",
+        "hybrid_truth",
+        "detector_truth",
+        "safety_truth",
+        "action_gate"
+      ],
+      "assumptions": [
+        "A_ORACLE",
+        "A_BUILD"
+      ]
+    },
+    {
+      "id": "EDGE_16",
+      "status": "VERIFIED",
+      "from": "E_TRUTH",
+      "to": "E_REFERENCE",
+      "kind": "physical_input_to_measurement_model",
+      "meaning": "A modeled sensor is driven by physical state. This is not a direct truth field supplied to the checker and does not prove sensor independence.",
+      "anchors": [
+        "obs_reference",
+        "reference_acquire",
+        "reference_model",
+        "adc_gain",
+        "triplex_link"
+      ],
+      "assumptions": [
+        "A_SENSOR",
+        "A_BUILD",
+        "A_CLOCK"
+      ]
+    },
+    {
+      "id": "EDGE_17",
+      "status": "VERIFIED",
+      "from": "E_TAP",
+      "to": "E_DIGITAL",
+      "kind": "runtime_or_model_dataflow",
+      "meaning": "Shared producer dependency; no independent-vote implication. Validity and variant conditions remain applicable.",
+      "anchors": [
+        "mailbox_publish",
+        "mailbox_verify",
+        "mailbox_bank",
+        "mailbox_wrap",
+        "crc"
+      ],
+      "assumptions": [
+        "A_MAILBOX",
+        "A_BUILD",
+        "A_TAP"
+      ]
+    },
+    {
+      "id": "EDGE_18",
+      "status": "VERIFIED",
+      "from": "E_REFERENCE",
+      "to": "E_DIGITAL",
+      "kind": "runtime_or_model_dataflow",
+      "meaning": "Shared producer dependency; no independent-vote implication. Validity and variant conditions remain applicable.",
+      "anchors": [
+        "mailbox_publish",
+        "mailbox_verify",
+        "mailbox_bank",
+        "mailbox_wrap",
+        "crc"
+      ],
+      "assumptions": [
+        "A_MAILBOX",
+        "A_BUILD",
+        "A_TAP"
+      ]
+    },
+    {
+      "id": "EDGE_19",
+      "status": "VERIFIED",
+      "from": "E_TRUTH",
+      "to": "E_OPERATING",
+      "kind": "operating_context_model_input",
+      "meaning": "Plant/environment operating inputs are published model context, not independent deployed instrumentation.",
+      "anchors": [
+        "operating_capture"
+      ],
+      "assumptions": [
+        "A_PROCESS",
+        "A_TAP"
+      ]
+    },
+    {
+      "id": "EDGE_20",
+      "status": "VERIFIED",
+      "from": "E_OPERATING",
+      "to": "E_COMMAND",
+      "kind": "runtime_or_model_dataflow",
+      "meaning": "Control command depends on operating load/speed, as well as delivered temperature and target.",
+      "anchors": [
+        "operating_load",
+        "operating_speed"
+      ],
+      "assumptions": [
+        "A_PROCESS",
+        "A_TAP"
+      ]
+    }
+  ],
+  "temporal_provenance": [
+    {
+      "time_ms": 0,
+      "ordered_phases": [
+        "fault activation/restoration",
+        "acquisition into shared source/delivered path",
+        "delivery selection/hold",
+        "control gate and consumption",
+        "actuator realization",
+        "selected runtime capture"
+      ],
+      "memory_to_command": "only if control executes",
+      "source_to_delivered": "same producer, transport may select earlier time",
+      "command_to_actual": "same process model, scaled for actuator fault"
+    },
+    {
+      "time_ms": 100,
+      "ordered_phases": [
+        "fault activation/restoration",
+        "acquisition into shared source/delivered path",
+        "delivery selection/hold",
+        "control gate and consumption",
+        "actuator realization",
+        "selected runtime capture"
+      ],
+      "memory_to_command": "only if control executes",
+      "source_to_delivered": "same producer, transport may select earlier time",
+      "command_to_actual": "same process model, scaled for actuator fault"
+    },
+    {
+      "time_ms": 200,
+      "ordered_phases": [
+        "fault activation/restoration",
+        "acquisition into shared source/delivered path",
+        "delivery selection/hold",
+        "control gate and consumption",
+        "actuator realization",
+        "selected runtime capture"
+      ],
+      "memory_to_command": "only if control executes",
+      "source_to_delivered": "same producer, transport may select earlier time",
+      "command_to_actual": "same process model, scaled for actuator fault"
+    },
+    {
+      "time_ms": 300,
+      "ordered_phases": [
+        "fault activation/restoration",
+        "acquisition into shared source/delivered path",
+        "delivery selection/hold",
+        "control gate and consumption",
+        "actuator realization",
+        "selected runtime capture"
+      ],
+      "memory_to_command": "only if control executes",
+      "source_to_delivered": "same producer, transport may select earlier time",
+      "command_to_actual": "same process model, scaled for actuator fault"
+    },
+    {
+      "time_ms": 400,
+      "ordered_phases": [
+        "fault activation/restoration",
+        "acquisition into shared source/delivered path",
+        "delivery selection/hold",
+        "control gate and consumption",
+        "actuator realization",
+        "selected runtime capture"
+      ],
+      "memory_to_command": "only if control executes",
+      "source_to_delivered": "same producer, transport may select earlier time",
+      "command_to_actual": "same process model, scaled for actuator fault"
+    }
+  ],
+  "excluded_checker_fields": [
+    "fault labels and parameters",
+    "configured activation/duration",
+    "model events",
+    "plant truth",
+    "counterfactual clean trajectory",
+    "history buffers",
+    "replay/drop flags",
+    "diagnostic_id",
+    "safety_state",
+    "detector_alarm",
+    "fan health metadata"
+  ],
+  "preserved_unresolved_findings": [
+    {
+      "location": "A_PROCESS",
+      "message": "Hardware isolation, memory protection and independent power/clock domains are not established by structs or comments."
+    },
+    {
+      "location": "A_SHADOW",
+      "message": "Target shadow, legal writes and probe code/callback results remain honest when target storage is faulty. Common corruption can defeat agreement."
+    },
+    {
+      "location": "A_CLOCK",
+      "message": "Common simulated timestamps correspond to a trustworthy deployed clock and bounded monitoring delay."
+    },
+    {
+      "location": "A_TAP",
+      "message": "Acquisition tap and timestamp remain unmodified by faults affecting delivered/control values."
+    },
+    {
+      "location": "A_PUMP",
+      "message": "A physical pump-health or flow/current witness independent of the command/realization model exists."
+    },
+    {
+      "location": "A_SENSOR",
+      "message": "Optional redundant ADC channels are physically independent and their common-cause behavior is bounded."
+    },
+    {
+      "location": "A_MAILBOX",
+      "message": "Protected CRC witness storage is inaccessible to the corruption that affects values, metadata or verifier."
+    },
+    {
+      "location": "A_BUILD",
+      "message": "A named binary or historical result is linked with the exact optional wrappers audited here."
+    },
+    {
+      "location": "A_FAULTSET",
+      "message": "The competing-origin set is closed, single-fault and matches the allowed injector combinations."
+    },
+    {
+      "location": "A_SUBTICK",
+      "message": "A 25/50 ms modeled acquisition timestamp proves data was available to a checker at that instant."
+    },
+    {
+      "location": "A_POSTWRITE",
+      "message": "Arbitrary post-control corruption of both downstream values and upstream witnesses is faithfully represented by an existing general injector."
+    },
+    {
+      "location": "D_PROCESS",
+      "message": "Logical grouping does not establish protected independent fault domain"
+    },
+    {
+      "location": "D_MEMORY",
+      "message": "Logical grouping does not establish protected independent fault domain"
+    },
+    {
+      "location": "D_SENSOR",
+      "message": "Logical grouping does not establish protected independent fault domain"
+    },
+    {
+      "location": "D_CLOCK",
+      "message": "Logical grouping does not establish protected independent fault domain"
+    },
+    {
+      "location": "D_ACTUATOR",
+      "message": "Logical grouping does not establish protected independent fault domain"
+    },
+    {
+      "location": "D_OPTIONAL_SENSOR",
+      "message": "Logical grouping does not establish protected independent fault domain"
+    },
+    {
+      "location": "D_MAILBOX",
+      "message": "Logical grouping does not establish protected independent fault domain"
+    },
+    {
+      "location": "E_FAN_HEALTH",
+      "message": "Published in actuator state, used directly by full-state baseline detectors; not part of runtime_observation_t. self_test_gap reads fan fault label, including zero command."
+    },
+    {
+      "location": "E_LEGACY_OUTPUT",
+      "message": "Base/legacy variants may depend on plant truth and injected behavior. Alternate wrapper outputs require separate provenance, not blanket taint removal."
+    },
+    {
+      "location": "E_PUMP_HEALTH",
+      "message": "Not established by inspected pump path. Fan fault-label feedback cannot substitute for pump evidence."
+    },
+    {
+      "location": "T_DEPLOYMENT",
+      "message": "No measured embedded WCET, interrupt response, physical sample timestamp integrity or transport deadline established in this audit."
+    },
+    {
+      "location": "memory_bit_flip",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "memory_stuck_bit",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "legacy_calibration_offset",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "deadline_skip",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "task_delay",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "scheduler_overload",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "communication_delay",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "communication_drop",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "communication_replay",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "legacy_stale_hold",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "sensor_bias",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "sensor_interface_intermittent",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "triplex_sample_injection",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "diagnostic_adc_transfer",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "pump_degradation",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "fan_stuck_off",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "external_sensor_trace",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "external_calibration_trace",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "external_fan_trace",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    }
+  ],
+  "outcomes": [
+    "PROVEN_SEPARABLE_WITH_VERIFIED_CONTRACTS",
+    "CONDITIONALLY_SEPARABLE",
+    "INDISTINGUISHABLE",
+    "INSUFFICIENT_MODEL_EVIDENCE"
+  ],
+  "physical_certificates": 0
+}

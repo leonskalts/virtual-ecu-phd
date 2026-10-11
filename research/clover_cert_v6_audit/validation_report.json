@@ -1,0 +1,279 @@
+{
+  "status": "STRUCTURALLY_VALID_WITH_UNRESOLVED_FINDINGS",
+  "errors": [],
+  "unresolved_findings": [
+    {
+      "location": "A_PROCESS",
+      "message": "Hardware isolation, memory protection and independent power/clock domains are not established by structs or comments."
+    },
+    {
+      "location": "A_SHADOW",
+      "message": "Target shadow, legal writes and probe code/callback results remain honest when target storage is faulty. Common corruption can defeat agreement."
+    },
+    {
+      "location": "A_CLOCK",
+      "message": "Common simulated timestamps correspond to a trustworthy deployed clock and bounded monitoring delay."
+    },
+    {
+      "location": "A_TAP",
+      "message": "Acquisition tap and timestamp remain unmodified by faults affecting delivered/control values."
+    },
+    {
+      "location": "A_PUMP",
+      "message": "A physical pump-health or flow/current witness independent of the command/realization model exists."
+    },
+    {
+      "location": "A_SENSOR",
+      "message": "Optional redundant ADC channels are physically independent and their common-cause behavior is bounded."
+    },
+    {
+      "location": "A_MAILBOX",
+      "message": "Protected CRC witness storage is inaccessible to the corruption that affects values, metadata or verifier."
+    },
+    {
+      "location": "A_BUILD",
+      "message": "A named binary or historical result is linked with the exact optional wrappers audited here."
+    },
+    {
+      "location": "A_FAULTSET",
+      "message": "The competing-origin set is closed, single-fault and matches the allowed injector combinations."
+    },
+    {
+      "location": "A_SUBTICK",
+      "message": "A 25/50 ms modeled acquisition timestamp proves data was available to a checker at that instant."
+    },
+    {
+      "location": "A_POSTWRITE",
+      "message": "Arbitrary post-control corruption of both downstream values and upstream witnesses is faithfully represented by an existing general injector."
+    },
+    {
+      "location": "D_PROCESS",
+      "message": "Logical grouping does not establish protected independent fault domain"
+    },
+    {
+      "location": "D_MEMORY",
+      "message": "Logical grouping does not establish protected independent fault domain"
+    },
+    {
+      "location": "D_SENSOR",
+      "message": "Logical grouping does not establish protected independent fault domain"
+    },
+    {
+      "location": "D_CLOCK",
+      "message": "Logical grouping does not establish protected independent fault domain"
+    },
+    {
+      "location": "D_ACTUATOR",
+      "message": "Logical grouping does not establish protected independent fault domain"
+    },
+    {
+      "location": "D_OPTIONAL_SENSOR",
+      "message": "Logical grouping does not establish protected independent fault domain"
+    },
+    {
+      "location": "D_MAILBOX",
+      "message": "Logical grouping does not establish protected independent fault domain"
+    },
+    {
+      "location": "E_FAN_HEALTH",
+      "message": "Published in actuator state, used directly by full-state baseline detectors; not part of runtime_observation_t. self_test_gap reads fan fault label, including zero command."
+    },
+    {
+      "location": "E_LEGACY_OUTPUT",
+      "message": "Base/legacy variants may depend on plant truth and injected behavior. Alternate wrapper outputs require separate provenance, not blanket taint removal."
+    },
+    {
+      "location": "E_PUMP_HEALTH",
+      "message": "Not established by inspected pump path. Fan fault-label feedback cannot substitute for pump evidence."
+    },
+    {
+      "location": "T_DEPLOYMENT",
+      "message": "No measured embedded WCET, interrupt response, physical sample timestamp integrity or transport deadline established in this audit."
+    },
+    {
+      "location": "memory_bit_flip",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "memory_stuck_bit",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "legacy_calibration_offset",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "deadline_skip",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "task_delay",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "scheduler_overload",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "communication_delay",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "communication_drop",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "communication_replay",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "legacy_stale_hold",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "sensor_bias",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "sensor_interface_intermittent",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "triplex_sample_injection",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "diagnostic_adc_transfer",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "pump_degradation",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "fan_stuck_off",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "external_sensor_trace",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "external_calibration_trace",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "external_fan_trace",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    }
+  ],
+  "counts": {
+    "source_files": 36,
+    "anchors": 134,
+    "fault_origins": 19,
+    "evidence": 17,
+    "timing": 12,
+    "cases": 5,
+    "provenance_edges": 20
+  },
+  "scope": "Validates schema, references, exact source tokens/hashes and explicit qualifications; does not prove physical independence, semantic completeness or origin attribution.",
+  "validator_self_tests": {
+    "status": "PASS",
+    "checks": [
+      {
+        "name": "wrong schema version",
+        "passed": true
+      },
+      {
+        "name": "missing evidence collection",
+        "passed": true
+      },
+      {
+        "name": "duplicate anchor",
+        "passed": true
+      },
+      {
+        "name": "missing source file",
+        "passed": true
+      },
+      {
+        "name": "absolute source path",
+        "passed": true
+      },
+      {
+        "name": "line zero",
+        "passed": true
+      },
+      {
+        "name": "line past EOF",
+        "passed": true
+      },
+      {
+        "name": "boolean line number",
+        "passed": true
+      },
+      {
+        "name": "wrong exact token",
+        "passed": true
+      },
+      {
+        "name": "source hash mismatch",
+        "passed": true
+      },
+      {
+        "name": "missing visibility",
+        "passed": true
+      },
+      {
+        "name": "missing trust assumption",
+        "passed": true
+      },
+      {
+        "name": "unknown dependency",
+        "passed": true
+      },
+      {
+        "name": "unexplained unverified timing",
+        "passed": true
+      },
+      {
+        "name": "anchorless verified claim",
+        "passed": true
+      },
+      {
+        "name": "unsupported guaranteed bound",
+        "passed": true
+      },
+      {
+        "name": "oracle promoted to runtime",
+        "passed": true
+      },
+      {
+        "name": "unsupported origin claim",
+        "passed": true
+      },
+      {
+        "name": "missing typed provenance edge",
+        "passed": true
+      },
+      {
+        "name": "invalid dependency kind",
+        "passed": true
+      },
+      {
+        "name": "valid manifest retains unresolved findings",
+        "passed": true
+      }
+    ]
+  },
+  "workspace_preservation": {
+    "status": "PASS",
+    "files_checked": 43688,
+    "bytes_in_baseline": 13570258677,
+    "changed": [],
+    "added_outside_audit": [],
+    "missing": [],
+    "unreadable": [],
+    "git_commit_unchanged": true
+  }
+}

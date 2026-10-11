@@ -1,0 +1,24 @@
+{
+  "command": [
+    "/usr/bin/python3",
+    "research/clover_cert_v8/run_validation.py"
+  ],
+  "subprocess_commands": [
+    [
+      "/usr/bin/python3",
+      "/home/leonskal/code/virtual-ecu-phd/research/clover_cert_v8/compare_methods.py"
+    ],
+    [
+      "/usr/bin/python3",
+      "/home/leonskal/code/virtual-ecu-phd/research/clover_cert_v8/report_results.py"
+    ]
+  ],
+  "seed": null,
+  "tolerance": 0,
+  "write_boundary": "/home/leonskal/code/virtual-ecu-phd/research/clover_cert_v8",
+  "environment_overrides": {
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "TMPDIR": "/home/leonskal/code/virtual-ecu-phd/research/clover_cert_v8"
+  },
+  "research_import_sha256": "ecea0e4a037faeef8e965f03cc0f57a4582d4ed50ad9f2ef8293e0a20ffc014f"
+}

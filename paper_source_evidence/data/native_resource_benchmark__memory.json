@@ -1,0 +1,7 @@
+{
+  "clover_state_bytes": 4304,
+  "clover_G2_state_bytes": 12,
+  "rf_history_state_bytes": 4804,
+  "rf_constant_model_bytes": 2438432,
+  "note": "ABI-specific x86_64; excludes common upstream providers, replay I/O and Python buffers; stack compiler reports are per-function, not a measured high-water mark."
+}

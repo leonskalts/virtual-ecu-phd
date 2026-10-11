@@ -1,0 +1,19 @@
+# Independent analytical thermal reference
+
+The predictor is a single open-loop Euler state, updated at the existing 100 ms ECU cadence. Inputs are elapsed timestamp, runtime engine load, measured ambient temperature, measured vehicle speed, pump command and fan command. RPM is not consumed: the simulator derives it from profile speed bands. Target affects prediction only through subsequent controller commands. Neither actual actuator performance nor hidden coolant/radiator state is an input.
+
+Three preregistered first-order structures use a constant heating term, load, vehicle speed, temperature-minus-ambient coupling, and combined or separate command cooling. One alternative adds load-times-speed interaction. Coefficients are constrained to nonnegative basic heating/load terms and nonpositive cooling terms, with stable negative ambient coupling. Benign TRAIN acquisition differences supply identification targets; model selection uses benign TRAIN open-loop RMSE. Fault cases never fit the thermal model. The fixed initial state is the average first BENIGN TRAIN primary acquisition, held constant for every runtime run. It is not read from a sensor or plant state at startup or later.
+
+The state equation is `T[k] = T[k-1] + dt * dot(beta, [1,load,speed,T[k-1]-ambient,previous_pump+previous_fan,load*speed,previous_pump,previous_fan])`. Unused coefficients are zero. No coolant value occurs in this API. Runtime cooling commands may change later because the normal controller consumes sensor readings; that legitimate indirect path is not a direct sensor correction.
+
+BENIGN CALIBRATION sets an RMS-equivalent uncertainty and one conservative global bound: maximum absolute A/B/aligned-C residual across available calibration observations, multiplied by 1.05, plus 0.02 C. This is a finite-sample envelope, not a guaranteed physical error bound. No Gaussian coverage is assumed. Report empirical 1x/2x RMS and diagnostic-envelope coverage on untouched benign validation, including operating regimes. A wide bound deliberately weakens analytical evidence. There is no fitted thermal truth channel or unmodeled-airflow oracle.
+
+After 1 s startup and with all three valid readouts, normalize each residual by the same bound. At least one member must agree with the model; otherwise a coherent all-member directional residual may support anomaly with UNKNOWN origin. Mixed all-out disagreement is ignorance. Evidence is `min(1,max_j(max(0,abs(z_j)-1)))`, combined by MAX with the existing correlated sensor provider, never counted as three independent votes. The unchanged classical DS core decides whether to alarm. Existing temporal logic, causal precedence and global thresholds remain intact. A global ambiguous residual does not override an already-established direct non-sensor origin.
+
+The conservative envelope includes sensor noise, quantization and model discrepancy together. No residual amplitude, model structure or uncertainty bound is selected using fault-detection performance. This is an observational analytical model, not an independent physical thermometer; all-member physical disturbances and model errors may remain ambiguous.
+
+Memory is a separate ablation: existing save/write/readback/restore probes run on a deterministic 300/200 ms schedule (250 ms mean). There is no new address selection, fault metadata, continuous scan or actuator excitation.
+
+Cold-ambient startup is covered. True cold-soak initialization is not available under the unchanged plant API and is not claimed.
+
+Pre-validation causality correction: pump/fan commands are stored and applied only to the following update interval. New commands cannot retrospectively alter the predicted interval that just ended. Model parameters were reidentified using BENIGN TRAIN only; CAL uncertainty was recomputed. No validation had begun. See pre_validation_causality_fix.json.

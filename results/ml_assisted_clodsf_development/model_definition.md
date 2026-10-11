@@ -1,0 +1,13 @@
+# ML_SENSOR_WEAK
+
+One compact globally trained SVM, linearC1 or RBFC1/gamma=scale. TRAIN-only StandardScaler and balanced class weights. At most8 uniformly sampled frames per class per run; no subtype-specific models. A linear fit is collapsed to12weights. RBF provider budget is<=256support vectors, fixed before fitting; it is selected only with at least1percentage-point CAL detection improvement at the strict benign/localization gate. Standalone SVM has no provider-size restriction.
+
+CAL-only Platt scaling maps margin to q in[0,1], fitted on16uniform qualified frames per run without class weighting. Calibration reliability reported on fitting CAL is apparent reliability; validation reliability is separately reported. If an unconstrained Platt slope is negative, use the nondecreasing boundary solution: slope0 and intercept equal to CAL log-odds. No margin direction reversal is permitted.
+
+Global alpha in{.05,.10,.20}, selected on CAL only. Gates: G0=current qualified physical sensor residual>0; G1=G0 and q>=.8; G2=q>=.8 for3consecutive qualified observations. In C these are gate IDs1,2,3; ID0 is the ungated A2 ablation. Mandatory validity/history qualification applies to all hybrid variants. A2 and A3 use the same fitted model, calibrated confidence and alpha.
+
+Mass alpha*q supports ABNORMAL in the anomaly frame; remaining mass is ignorance. No direct normal mass and no ML mass in the origin frame. The tagged provider's feature/target scope is SENSOR_CONTROL. It cannot directly support a memory/timing/communication/actuator origin. Any binary detection credited to another injected origin must be investigated as an indirect or coincidental sensor alarm, not presented as improved non-sensor observability.
+
+An extra simple-support mass is combined before the retained temporal fusion by exactly the existing classical Dempster function. No final alarm is forced. Core thresholds, persistence and startup rules are unchanged. Origin masses are entirely physical; insufficient physical origin belief/margin leaves UNKNOWN. A unit test demonstrates that sustained ML-only evidence can produce a fused anomaly while origin remains UNKNOWN. Correlation between ML features and existing providers is acknowledged; discount calibration controls risk, not a claim of statistical independence.
+
+The retained core is never edited. Experimental hooks exist only in a temporary build, with alpha-zero parity checked on every CAL case. No250ms probing or analytical thermal reference is included. C inference implements the selected frozen linear/RBF model, scaling and Platt mapping; Python is used for offline fitting and experiment orchestration, not required by the exported provider.

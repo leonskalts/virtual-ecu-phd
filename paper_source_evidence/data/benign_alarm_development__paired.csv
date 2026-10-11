@@ -1,0 +1,19 @@
+partition,method_a,method_b,endpoint,both,only_a,only_b,neither,discordant,mcnemar_exact_p,mcnemar_scope,joint_detection_latency_a_faster,joint_detection_latency_b_faster,joint_detection_latency_equal
+TRAIN,G2,A2 original,fault,1128,0,0,72,0,,descriptive; no multiplicity adjustment,0,0,1128
+TRAIN,G2,A2 original,benign,0,0,45,1155,45,5.684341886080802e-14,descriptive; no multiplicity adjustment,0,0,0
+TRAIN,G2,SVM-INT default,fault,1128,0,0,72,0,,descriptive; no multiplicity adjustment,0,0,1128
+TRAIN,G2,SVM-INT default,benign,0,0,0,1200,0,,descriptive; no multiplicity adjustment,0,0,0
+TRAIN,G2,SVM-INT CAL1,fault,1128,0,0,72,0,,descriptive; no multiplicity adjustment,0,0,1128
+TRAIN,G2,SVM-INT CAL1,benign,0,0,8,1192,8,0.0078125,descriptive; no multiplicity adjustment,0,0,0
+CALIBRATION,G2,A2 original,fault,1126,0,0,74,0,,descriptive; no multiplicity adjustment,0,0,1126
+CALIBRATION,G2,A2 original,benign,0,0,44,1156,44,1.1368683772161603e-13,descriptive; no multiplicity adjustment,0,0,0
+CALIBRATION,G2,SVM-INT default,fault,1126,0,0,74,0,,descriptive; no multiplicity adjustment,0,0,1126
+CALIBRATION,G2,SVM-INT default,benign,0,0,0,1200,0,,descriptive; no multiplicity adjustment,0,0,0
+CALIBRATION,G2,SVM-INT CAL1,fault,1126,0,0,74,0,,descriptive; no multiplicity adjustment,0,0,1126
+CALIBRATION,G2,SVM-INT CAL1,benign,0,0,11,1189,11,0.0009765625,descriptive; no multiplicity adjustment,0,0,0
+VALIDATION,Refined,A2 original,fault,1124,0,0,76,0,,descriptive; no multiplicity adjustment,0,0,1124
+VALIDATION,Refined,A2 original,benign,0,0,49,2351,49,3.552713678800501e-15,descriptive; no multiplicity adjustment,0,0,0
+VALIDATION,Refined,SVM-INT default,fault,1124,0,0,76,0,,descriptive; no multiplicity adjustment,0,0,1124
+VALIDATION,Refined,SVM-INT default,benign,0,0,0,2400,0,,descriptive; no multiplicity adjustment,0,0,0
+VALIDATION,Refined,SVM-INT CAL1,fault,1124,0,0,76,0,,descriptive; no multiplicity adjustment,0,0,1124
+VALIDATION,Refined,SVM-INT CAL1,benign,0,0,0,2400,0,,descriptive; no multiplicity adjustment,0,0,0

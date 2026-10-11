@@ -1,0 +1,410 @@
+{
+  "git_commit": "a340ca5cf0473d7dc572f7cd63e44fbc25b175a7",
+  "files_read": [
+    {
+      "path": "research/clover_cert_v6_audit/README.md",
+      "bytes_read": 2958,
+      "sha256": "09f766fed00894e30819228fd70a24b8735622c7d3d009fd06f2ca40fa4a7369"
+    },
+    {
+      "path": "research/clover_cert_v6_audit/audit_verdict.md",
+      "bytes_read": 9119,
+      "sha256": "8242b94ac78d345cba5fbe78f50250f2c6a3a638eee8ec2c63a933b8e9d52153"
+    },
+    {
+      "path": "research/clover_cert_v6_audit/fault_provenance_manifest.json",
+      "bytes_read": 142619,
+      "sha256": "9a772d35341ccfef15facb0682546d177fd1f0fe6ef4e3c6ee28668e27ced8a4",
+      "json_root_type": "dict"
+    },
+    {
+      "path": "research/clover_cert_v6_audit/git_status_after.txt",
+      "bytes_read": 36998,
+      "sha256": "76b945fea4b764a7f38f78a112ed6e5955061945eb06696b486a8f33467aac1d"
+    },
+    {
+      "path": "research/clover_cert_v6_audit/git_status_before.txt",
+      "bytes_read": 36342,
+      "sha256": "a9d54ebd1a572a37ebf875f62bf380d24ad36a2a23f50d6493bed071f59076b3"
+    },
+    {
+      "path": "research/clover_cert_v6_audit/runtime_oracle_boundary.md",
+      "bytes_read": 16681,
+      "sha256": "216c42dd8eef228ad99d3f69ec474ab985e51de075cef881e5fbdb777c3bcef6"
+    },
+    {
+      "path": "research/clover_cert_v6_audit/source_inventory.md",
+      "bytes_read": 31363,
+      "sha256": "1c491e8f4c298bf088048c5bd3735181e254226d1ead9c26302164f4226b9951"
+    },
+    {
+      "path": "research/clover_cert_v6_audit/temporal_paths.md",
+      "bytes_read": 56049,
+      "sha256": "489658b78c9bf0280d8fa1ce847c76c829300af911f1509879640d994adf7c38"
+    },
+    {
+      "path": "research/clover_cert_v6_audit/unresolved_assumptions.md",
+      "bytes_read": 10972,
+      "sha256": "f391fad2bc4fd826b91e83b2142d139816d85469ac72222ea5c733c204fb261d"
+    },
+    {
+      "path": "research/clover_cert_v6_audit/validate_manifest.py",
+      "bytes_read": 19548,
+      "sha256": "59364dfb834135f09d632f8467f0ccf71c81b69d67758ea9c2acf3929c74193c"
+    },
+    {
+      "path": "research/clover_cert_v6_audit/validation_report.json",
+      "bytes_read": 9285,
+      "sha256": "ff0ac7f2b136791023ce36fba92b813199b509d2fa3a1e4e3bed713f28ceb441",
+      "json_root_type": "dict"
+    },
+    {
+      "path": "research/clover_cert_v6_audit/workspace_baseline.json",
+      "bytes_read": 8594076,
+      "sha256": "596fe5d5e7aaa7b5d128203aa25acfb128e70b704abde173dce996a479633aa4",
+      "json_root_type": "dict"
+    },
+    {
+      "path": "research/clover_cert_v7/README.md",
+      "bytes_read": 4035,
+      "sha256": "a329032acd3fc9a686be48d21df3bb54531a11992b1a631a9684134d96c81529"
+    },
+    {
+      "path": "research/clover_cert_v7/actual_component_observations.json",
+      "bytes_read": 385475,
+      "sha256": "9fcb202740ee50a6ed5fcf1236ca41509c8b63499f97650f3047d58d702f7032",
+      "json_root_type": "list"
+    },
+    {
+      "path": "research/clover_cert_v7/build.log",
+      "bytes_read": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "research/clover_cert_v7/build_reports.py",
+      "bytes_read": 11465,
+      "sha256": "8b08c870b6e9857cccf06d98822da6b2bb22de7c74cf88dc20dfb19a9ba45ab9"
+    },
+    {
+      "path": "research/clover_cert_v7/case_examples.json",
+      "bytes_read": 10221,
+      "sha256": "3fbc3b01b11726f9037f809f753059b2a784a114d64e000e5379fdb60534cc41",
+      "json_root_type": "list"
+    },
+    {
+      "path": "research/clover_cert_v7/compare_ecu.py",
+      "bytes_read": 3338,
+      "sha256": "b9b5fa58d85ea935798d643cf343c58b07b770f1944d57549952deb385530be4"
+    },
+    {
+      "path": "research/clover_cert_v7/competing_fault_worlds.json",
+      "bytes_read": 509919,
+      "sha256": "fbdc96c184783759beaa3ed8df76b1d36fa4a3dfc900052eb9392cee61faac60",
+      "json_root_type": "dict"
+    },
+    {
+      "path": "research/clover_cert_v7/component_probe",
+      "bytes_read": 30440,
+      "sha256": "c1b1f3bdd520dd53a973b9a7a99ec0547f7dc3a7aa58902ec6b2eeae5ec94156"
+    },
+    {
+      "path": "research/clover_cert_v7/component_probe.c",
+      "bytes_read": 3654,
+      "sha256": "10b9f171ca6dda1ee69d733ad79032b286ae29c04a4bb8afbfc31e178aea46fc"
+    },
+    {
+      "path": "research/clover_cert_v7/conditional_positive_histories.json",
+      "bytes_read": 321055,
+      "sha256": "c1abaf5168299ec108de09c144aee6b755f03e883a28839e1b7f5249ddff3596",
+      "json_root_type": "list"
+    },
+    {
+      "path": "research/clover_cert_v7/conditional_separability.md",
+      "bytes_read": 6087,
+      "sha256": "be3ce1750f04056c1623e6b5f8f08b3f1ba7908f043ee51ad1a3848641761191"
+    },
+    {
+      "path": "research/clover_cert_v7/diagnosability_frontier.csv",
+      "bytes_read": 3865,
+      "sha256": "65265b04f5115da04aaeaad1cf9f2b896a0a7b8d1da4634c46d86a7f4c442a8d"
+    },
+    {
+      "path": "research/clover_cert_v7/ecu_comparison.json",
+      "bytes_read": 2400,
+      "sha256": "769ca264bdbe0eb9f450a91685af43b60612c5de76f886c8a4ab3da5a7351a70",
+      "json_root_type": "dict"
+    },
+    {
+      "path": "research/clover_cert_v7/finite_model_spec.md",
+      "bytes_read": 7428,
+      "sha256": "63b479fdfefb9dd92c083652a707539e00c6e54e3272bc299314e8c46e8c17e4"
+    },
+    {
+      "path": "research/clover_cert_v7/git_status_after.txt",
+      "bytes_read": 38475,
+      "sha256": "7a95da97bc1562030708424bb57e5045c6b2a2716f7af07fe7e0cfaeb83cde74"
+    },
+    {
+      "path": "research/clover_cert_v7/git_status_before.txt",
+      "bytes_read": 37049,
+      "sha256": "ce9642fc7bd581f798d0121e499f0897afcd3077fb7806e341a813576e439795"
+    },
+    {
+      "path": "research/clover_cert_v7/modeled_executions.json",
+      "bytes_read": 754563,
+      "sha256": "018075118d8afc4cd3b050723837e43babc7898eace4b8799ef2791b141af59e",
+      "json_root_type": "dict"
+    },
+    {
+      "path": "research/clover_cert_v7/novelty_gate_v7.md",
+      "bytes_read": 8120,
+      "sha256": "9ea06f2f6096e07cb870c8d79e357fd0b16b0a36a35263d160574e0ca7d815cb"
+    },
+    {
+      "path": "research/clover_cert_v7/oracle_summary.json",
+      "bytes_read": 304,
+      "sha256": "526a0b166bff0495d285bafbe745aa7e480c5c5037e3151b21259b85cc4bd614",
+      "json_root_type": "dict"
+    },
+    {
+      "path": "research/clover_cert_v7/preservation_report.json",
+      "bytes_read": 201,
+      "sha256": "bade1163665227e477b6f2f4c042a155b190ff78a5df1241135a28d411fe5647",
+      "json_root_type": "dict"
+    },
+    {
+      "path": "research/clover_cert_v7/reference_oracle.py",
+      "bytes_read": 13372,
+      "sha256": "18a5374f0acab272c0871de61f1be97ae90e353887047b2c643944d10e5f4e39"
+    },
+    {
+      "path": "research/clover_cert_v7/results.md",
+      "bytes_read": 4733,
+      "sha256": "ecb41f7e9a26f1f03fcb14043eadbe9f9008deab8dd0c3e463ccbccd270ca4e7"
+    },
+    {
+      "path": "research/clover_cert_v7/run.log",
+      "bytes_read": 2391,
+      "sha256": "50f98f61eff991dcb599a57ce8c276cd9a2213ff56a16b54738e4431766f38c4"
+    },
+    {
+      "path": "research/clover_cert_v7/run_experiment.py",
+      "bytes_read": 3723,
+      "sha256": "f550e363b4bdb4e3d98c820d0ce9deb523fe03f368f72def0e5f0e79e1c5c774"
+    },
+    {
+      "path": "research/clover_cert_v7/run_metadata.json",
+      "bytes_read": 828,
+      "sha256": "953da0a42aa6cc9f311b1278478841279693e22fd4295a7ceb059e14106742f2",
+      "json_root_type": "dict"
+    },
+    {
+      "path": "research/clover_cert_v7/test_reference_oracle.py",
+      "bytes_read": 9274,
+      "sha256": "fc4709e9eb689fc3d94ec42ea8659680c0ba752328f727bf7daa11d695745f1d"
+    },
+    {
+      "path": "research/clover_cert_v7/test_results.json",
+      "bytes_read": 194,
+      "sha256": "2c34f8e81abbbcbfb943cd14f5b3ff61fbfb70753a727b2862dd0eb5fb107f6f",
+      "json_root_type": "dict"
+    },
+    {
+      "path": "research/clover_cert_v7/tests.log",
+      "bytes_read": 1637,
+      "sha256": "50df136e9bb32f0d891fd00326da6aa6568638967907eb9e538febd2a5ff297c"
+    },
+    {
+      "path": "research/clover_cert_v7/two_world_model.json",
+      "bytes_read": 103832,
+      "sha256": "f50704c043a4b44e18ba38229d8a894283ef950255653fb6481e992746ae24da",
+      "json_root_type": "dict"
+    },
+    {
+      "path": "research/clover_cert_v7/v6_import_verification.json",
+      "bytes_read": 20771,
+      "sha256": "25d05bf57109f664e4139e0dcbaafe143891fcdec4222a1e751c5df8f0a68bd2",
+      "json_root_type": "dict"
+    },
+    {
+      "path": "research/clover_cert_v7/validity_and_assumptions.md",
+      "bytes_read": 6112,
+      "sha256": "94e47475529ccc0767760c95b71dc21c33d49c01b0cfc9aaf6ca065ce007b17a"
+    },
+    {
+      "path": "research/clover_cert_v7/workspace_baseline.json",
+      "bytes_read": 8246337,
+      "sha256": "3391be5a1a120b048aea8b8b1b5224710f99f64843bd7e6e562366b0c4f76dea",
+      "json_root_type": "dict"
+    }
+  ],
+  "anchor_count": 134,
+  "anchor_errors": [],
+  "unresolved_findings": [
+    {
+      "location": "A_PROCESS",
+      "message": "Hardware isolation, memory protection and independent power/clock domains are not established by structs or comments."
+    },
+    {
+      "location": "A_SHADOW",
+      "message": "Target shadow, legal writes and probe code/callback results remain honest when target storage is faulty. Common corruption can defeat agreement."
+    },
+    {
+      "location": "A_CLOCK",
+      "message": "Common simulated timestamps correspond to a trustworthy deployed clock and bounded monitoring delay."
+    },
+    {
+      "location": "A_TAP",
+      "message": "Acquisition tap and timestamp remain unmodified by faults affecting delivered/control values."
+    },
+    {
+      "location": "A_PUMP",
+      "message": "A physical pump-health or flow/current witness independent of the command/realization model exists."
+    },
+    {
+      "location": "A_SENSOR",
+      "message": "Optional redundant ADC channels are physically independent and their common-cause behavior is bounded."
+    },
+    {
+      "location": "A_MAILBOX",
+      "message": "Protected CRC witness storage is inaccessible to the corruption that affects values, metadata or verifier."
+    },
+    {
+      "location": "A_BUILD",
+      "message": "A named binary or historical result is linked with the exact optional wrappers audited here."
+    },
+    {
+      "location": "A_FAULTSET",
+      "message": "The competing-origin set is closed, single-fault and matches the allowed injector combinations."
+    },
+    {
+      "location": "A_SUBTICK",
+      "message": "A 25/50 ms modeled acquisition timestamp proves data was available to a checker at that instant."
+    },
+    {
+      "location": "A_POSTWRITE",
+      "message": "Arbitrary post-control corruption of both downstream values and upstream witnesses is faithfully represented by an existing general injector."
+    },
+    {
+      "location": "D_PROCESS",
+      "message": "Logical grouping does not establish protected independent fault domain"
+    },
+    {
+      "location": "D_MEMORY",
+      "message": "Logical grouping does not establish protected independent fault domain"
+    },
+    {
+      "location": "D_SENSOR",
+      "message": "Logical grouping does not establish protected independent fault domain"
+    },
+    {
+      "location": "D_CLOCK",
+      "message": "Logical grouping does not establish protected independent fault domain"
+    },
+    {
+      "location": "D_ACTUATOR",
+      "message": "Logical grouping does not establish protected independent fault domain"
+    },
+    {
+      "location": "D_OPTIONAL_SENSOR",
+      "message": "Logical grouping does not establish protected independent fault domain"
+    },
+    {
+      "location": "D_MAILBOX",
+      "message": "Logical grouping does not establish protected independent fault domain"
+    },
+    {
+      "location": "E_FAN_HEALTH",
+      "message": "Published in actuator state, used directly by full-state baseline detectors; not part of runtime_observation_t. self_test_gap reads fan fault label, including zero command."
+    },
+    {
+      "location": "E_LEGACY_OUTPUT",
+      "message": "Base/legacy variants may depend on plant truth and injected behavior. Alternate wrapper outputs require separate provenance, not blanket taint removal."
+    },
+    {
+      "location": "E_PUMP_HEALTH",
+      "message": "Not established by inspected pump path. Fan fault-label feedback cannot substitute for pump evidence."
+    },
+    {
+      "location": "T_DEPLOYMENT",
+      "message": "No measured embedded WCET, interrupt response, physical sample timestamp integrity or transport deadline established in this audit."
+    },
+    {
+      "location": "memory_bit_flip",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "memory_stuck_bit",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "legacy_calibration_offset",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "deadline_skip",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "task_delay",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "scheduler_overload",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "communication_delay",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "communication_drop",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "communication_replay",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "legacy_stale_hold",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "sensor_bias",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "sensor_interface_intermittent",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "triplex_sample_injection",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "diagnostic_adc_transfer",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "pump_degradation",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "fan_stuck_off",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "external_sensor_trace",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "external_calibration_trace",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    },
+    {
+      "location": "external_fan_trace",
+      "message": "No unconditional guaranteed fault-to-observation bound; see conditional earliest_observable"
+    }
+  ],
+  "baseline_files": 43732
+}

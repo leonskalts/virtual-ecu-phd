@@ -1,0 +1,13 @@
+# Fixed dynamic hypotheses
+
+H0 healthy A/B/C; HA estimates latent T/slope from B/C; HB from A/C; HC from A/B; HAB from C. Every hypothesis scores the complete same three-measurement vector. Declared unreliable channels have25 times benign variance and do not update latent state; this is a broad uncertainty model, not a step/pulse/drift template. Offsets/noise are common across hypotheses and fitted benign TRAIN only.
+
+No HG. Identical ABC corruption is not identifiable. HC versus HAB can be dynamically distinguishable under a locally-linear prior but is not generally physically identifiable; report the bank's preferred explanation without claiming a proven faulty member. A global best-versus-second margin supports only SENSOR_CONTROL, never A/B/C-specific public origin. Insufficient margin contributes anomaly evidence with UNKNOWN origin support. Retained causal precedence and Triplex ambiguity rules still apply.
+
+All likelihoods, D, consistency, margins and context are available to SVM-DYN. Ground truth is restricted to offline endpoint labels and post-hoc subgroup accounting.
+
+For each hypothesis, predict `mu_h = [1,0] F x_h` and use `S_h = P00_h 11^T + diag(R_h)` on the full offset-corrected vector. The score is `log L_h = -0.5*(3 log(2*pi) + log det S_h + r_h^T S_h^-1 r_h)`. Scalar sufficient statistics implement the rank-one solve exactly. Only designated healthy channels update that hypothesis's state. Robust mode bounds their update weights by `min(1,3*sqrt(P00+R_i)/abs(r_i))`; likelihood scoring remains the declared Gaussian quasi-likelihood. The bank uses no subtype-specific motion model.
+
+Relative noise uses the three-cornered variance estimate `R_A=(Var(A-B)+Var(A-C)-Var(B-C))/2` and cyclic permutations, projected onto the fixed positive uncertainty floor. This assumes independent errors for the decomposition; real correlated acquisition/calibration effects are not separately identifiable. The fitted values describe this benign simulator population, not verified individual sensor metrology. The latent acceleration variance proxy includes measurement noise and is deliberately permissive.
+
+The coherence factor `q_healthy=max(0,1-exp(D))` is enabled only beyond the calibrated healthy-odds margin and within calibrated common/differential innovation bounds. It is a conservative confidence transform, not a calibrated posterior probability. The implementation additionally refuses discount whenever an existing independent sensor provider has nonzero evidence, making the safety qualification stricter than a strong-evidence-only guard. This restriction is retained even if it prevents benign-alarm reduction.

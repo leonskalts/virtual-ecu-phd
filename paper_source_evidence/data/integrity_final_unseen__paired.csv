@@ -1,0 +1,7 @@
+method_a,method_b,endpoint,both,only_a,only_b,neither,discordant,mcnemar_exact_p,mcnemar_scope,joint_detection_latency_a_faster,joint_detection_latency_b_faster,joint_detection_latency_equal
+A2,A0,fault,1019,105,0,76,105,4.930380657631324e-32,descriptive; no multiplicity adjustment,189,0,830
+A2,A0,benign,0,0,5,595,5,0.0625,descriptive; no multiplicity adjustment,0,0,0
+A2,SVM-INT default,fault,1124,0,0,76,0,1.0,"No discordant pairs; exact p=1, no evidence of difference",0,0,1124
+A2,SVM-INT default,benign,0,0,0,600,0,1.0,"No discordant pairs; exact p=1, no evidence of difference",0,0,0
+A2,SVM-INT CAL1,fault,1124,0,0,76,0,1.0,"No discordant pairs; exact p=1, no evidence of difference",0,0,1124
+A2,SVM-INT CAL1,benign,0,0,0,600,0,1.0,"No discordant pairs; exact p=1, no evidence of difference",0,0,0

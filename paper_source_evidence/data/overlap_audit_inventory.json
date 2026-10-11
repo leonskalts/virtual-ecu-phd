@@ -1,0 +1,44 @@
+[
+  {
+    "cohort": "digital_integrity_development",
+    "source": "results/digital_integrity_development/overlap_audit.csv",
+    "sha256": "e06d1ec12b1f95b40efe7ed6041be0b2e4699ef585f437f5ca5ecbf4d13af3f8",
+    "historical_source_rows": 981,
+    "positive_overlap_entries": []
+  },
+  {
+    "cohort": "benign_alarm_development",
+    "source": "results/benign_alarm_development/overlap_audit.csv",
+    "sha256": "7315b90ded535886dfbba468c71bc44ee694524e4ac9a7ca42169823d421ecd7",
+    "historical_source_rows": 983,
+    "positive_overlap_entries": []
+  },
+  {
+    "cohort": "integrity_final_unseen",
+    "source": "results/integrity_final_unseen/overlap_audit.csv",
+    "sha256": "d419b796ac15d12c13d9f54f29e474c0553edc3e861ae89ff8bff8821385edd4",
+    "historical_source_rows": 985,
+    "positive_overlap_entries": []
+  },
+  {
+    "cohort": "frozen_robustness",
+    "source": "results/frozen_robustness/overlap_audit.csv",
+    "sha256": "8f6e653103783652c76de7818e56d4ac7af25b02a9e3682b7eb7f3c3e99369c5",
+    "historical_source_rows": 987,
+    "positive_overlap_entries": []
+  },
+  {
+    "cohort": "ieee_multibaseline",
+    "source": "results/ieee_multibaseline/overlap_audit.csv",
+    "sha256": "1388891ff4cc5e6df13409316e6ec81bab4e3a7867e0e4acba6d09a3e744c0fa",
+    "historical_source_rows": 989,
+    "positive_overlap_entries": []
+  },
+  {
+    "cohort": "ieee_origin_rf",
+    "source": "results/ieee_origin_rf/overlap_audit.csv",
+    "sha256": "02f49acd580ceeb4cd0884d565444b3f2be4af36f244d6e4e8993e68dbdea38c",
+    "historical_source_rows": 991,
+    "positive_overlap_entries": []
+  }
+]

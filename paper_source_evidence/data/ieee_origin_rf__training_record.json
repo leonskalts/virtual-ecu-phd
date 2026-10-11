@@ -1,0 +1,22 @@
+{
+  "utc": "2026-10-08T14:34:45.236944+00:00",
+  "runs": 2400,
+  "frames": 54635,
+  "features": 174,
+  "classes": {
+    "0": 38400,
+    "1": 2438,
+    "2": 2963,
+    "3": 3526,
+    "4": 3600,
+    "5": 3708
+  },
+  "models": [
+    "RF_12_4",
+    "RF_12_16",
+    "RF_None_4",
+    "RF_None_16"
+  ],
+  "feature_matrix_hash": "39e4e96d1736713bfa2d6bfc74d263f2e5ad773ddfc1c8289eabb014d65e00b9",
+  "label_hash": "c7d3d729163914de7f124712cc92d0f2a2706b82cf6f7ad2457b7ff3d4283674"
+}

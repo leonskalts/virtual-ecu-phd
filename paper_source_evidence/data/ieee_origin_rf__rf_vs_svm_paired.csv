@@ -1,0 +1,3 @@
+method_a,method_b,endpoint,both,only_a,only_b,neither,discordant,mcnemar_exact_p,mcnemar_scope,joint_detection_latency_a_faster,joint_detection_latency_b_faster,joint_detection_latency_equal
+Origin RF,Frozen SVM-INT,fault,1124,0,0,76,0,1.0,descriptive; no multiplicity adjustment,70,0,1054
+Origin RF,Frozen SVM-INT,benign,0,0,0,600,0,1.0,descriptive; no multiplicity adjustment,0,0,0

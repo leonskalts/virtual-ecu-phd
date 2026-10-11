@@ -1,0 +1,10 @@
+{
+  "direction": "RF B / CLOVER B",
+  "scope": "Matched replayable providers included once in each. Conditional on current struct/export layout, dynamic libraries excluded symmetrically; not full ECU or MCU ratio.",
+  "ratios": {
+    "ROM_payload_text_rodata_data_span": 188.88365095285857,
+    "ROM_including_method_unwind_bytes": 181.99992566713743,
+    "RAM_static_payload_span": 2.111913357400722,
+    "static_plus_observed_stack_bytes": 1.6980942828485457
+  }
+}

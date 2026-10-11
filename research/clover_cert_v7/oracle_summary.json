@@ -1,0 +1,12 @@
+{
+  "origin_pairs": 10,
+  "context_policy_deadline_pair_checks": 240,
+  "executions_per_context": 67,
+  "total_executions": 134,
+  "ambiguity_certificates": 24,
+  "conditionally_separable_pair_checks": 62,
+  "physical_certificates": 0,
+  "frontier_rows": 24,
+  "seed": null,
+  "numerical_tolerance": 0
+}

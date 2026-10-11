@@ -1,0 +1,7 @@
+{
+  "status": "PASS",
+  "tests_run": 19,
+  "failures": 0,
+  "errors": 0,
+  "method": "exhaustive prefix/Cartesian-product checks, separate scan reference, exact actual C component comparison"
+}

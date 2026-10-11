@@ -1,0 +1,54 @@
+{
+  "frames": 2161800,
+  "pinned_cpu": 0,
+  "clock": "CLOCK_MONOTONIC_RAW",
+  "unit": "ns",
+  "order": "CLOVER then RF, one sequential pass; no cache flush or real-time isolation; inter-frame Python/archive processing excluded",
+  "instrumentation": "Each interval includes clock-call overhead; CLOVER complete interval includes an extra internal boundary clock. RF summed intervals include two intervals. No subtraction. Interrupt/preemption included.",
+  "scope": "Replayable observation/provider-output boundary only. Complete producer-to-consumer pipeline NOT measured: records lack raw integrity envelopes, probe transactions and Triplex producer transitions. Shared-upstream figure excludes those stages; do not call it full shared cost.",
+  "statistics": {
+    "clover_replayable_upstream": {
+      "median": 95.0,
+      "p95": 145.0,
+      "p99": 295.0,
+      "maximum": 145504.0
+    },
+    "clover_decision_and_G2": {
+      "median": 4747.0,
+      "p95": 5227.0,
+      "p99": 7113.0,
+      "maximum": 1468846.0
+    },
+    "rf_features": {
+      "median": 296.0,
+      "p95": 327.0,
+      "p99": 372.0,
+      "maximum": 133688.0
+    },
+    "rf_tree_inference_and_gates": {
+      "median": 4442.0,
+      "p95": 5320.0,
+      "p99": 10513.019999999553,
+      "maximum": 5019979.0
+    },
+    "clover_replayable_pipeline": {
+      "median": 4846.0,
+      "p95": 5339.0,
+      "p99": 7826.0,
+      "maximum": 1468943.0
+    },
+    "rf_features_plus_inference": {
+      "median": 4743.0,
+      "p95": 5647.0,
+      "p99": 10974.0,
+      "maximum": 5020841.0
+    },
+    "rf_plus_clover_prefusion_arithmetic_sum": {
+      "median": 4844.0,
+      "p95": 5767.0,
+      "p99": 11208.0,
+      "maximum": 5023266.0
+    }
+  },
+  "fairness_limit": "Pre-fusion region includes CLOVER provenance preparation; it is not a clean isolated common-provider cost. RF arithmetic sum is not an executed complete pipeline. Full common upstream and complete producer-to-decision pipelines are unmeasured."
+}

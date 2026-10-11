@@ -1,0 +1,12 @@
+{
+  "python": "3.10.12 (main, Aug 31 2026, 10:18:17) [GCC 11.4.0]",
+  "platform": "Linux-6.6.87.1-microsoft-standard-WSL2-x86_64-with-glibc2.35",
+  "seed": null,
+  "repeats": 3,
+  "memory": "separate tracemalloc run; Python allocations excluding preloaded input, not RSS or deployed checker memory",
+  "runtime": "perf_counter_ns; includes target requirements, method preprocessing and feasible checker generation; excludes disk import",
+  "SMT_available": false,
+  "symbolic_backend": "explicit finite propositional bit-mask evaluation, not SMT or BDD performance",
+  "D": "NOT_IMPLEMENTED_NO_DISTINCT_RULE",
+  "data_sha256": "018075118d8afc4cd3b050723837e43babc7898eace4b8799ef2791b141af59e"
+}

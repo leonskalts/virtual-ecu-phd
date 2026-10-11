@@ -1,0 +1,33 @@
+partition,method_a,method_b,endpoint,both,only_a,only_b,neither,discordant,mcnemar_exact_p,mcnemar_scope,joint_detection_latency_a_faster,joint_detection_latency_b_faster,joint_detection_latency_equal
+TRAIN,A1,A0,fault,2035,182,0,183,182,3.2626522339992623e-55,descriptive; no multiplicity adjustment,282,0,1753
+TRAIN,A1,A0,benign,42,0,0,1158,0,,descriptive; no multiplicity adjustment,0,0,0
+TRAIN,A2,A0,fault,2035,215,0,150,215,3.7982270983039195e-65,descriptive; no multiplicity adjustment,369,0,1666
+TRAIN,A2,A0,benign,42,0,0,1158,0,,descriptive; no multiplicity adjustment,0,0,0
+TRAIN,A2,SVM-INT default,fault,2250,0,0,150,0,,descriptive; no multiplicity adjustment,0,0,2250
+TRAIN,A2,SVM-INT default,benign,0,42,0,1158,42,4.547473508864641e-13,descriptive; no multiplicity adjustment,0,0,0
+TRAIN,A2,SVM-INT CAL1,fault,2250,0,0,150,0,,descriptive; no multiplicity adjustment,0,0,2250
+TRAIN,A2,SVM-INT CAL1,benign,0,42,8,1150,50,1.163555804595262e-06,descriptive; no multiplicity adjustment,0,0,0
+CALIBRATION,A1,A0,fault,1018,85,0,97,85,5.169878828456423e-26,descriptive; no multiplicity adjustment,149,0,869
+CALIBRATION,A1,A0,benign,42,0,0,1158,0,,descriptive; no multiplicity adjustment,0,0,0
+CALIBRATION,A2,A0,fault,1018,105,0,77,105,4.930380657631324e-32,descriptive; no multiplicity adjustment,191,0,827
+CALIBRATION,A2,A0,benign,42,0,0,1158,0,,descriptive; no multiplicity adjustment,0,0,0
+CALIBRATION,A2,SVM-INT default,fault,1123,0,0,77,0,,descriptive; no multiplicity adjustment,0,0,1123
+CALIBRATION,A2,SVM-INT default,benign,0,42,0,1158,42,4.547473508864641e-13,descriptive; no multiplicity adjustment,0,0,0
+CALIBRATION,A2,SVM-INT CAL1,fault,1123,0,0,77,0,,descriptive; no multiplicity adjustment,0,0,1123
+CALIBRATION,A2,SVM-INT CAL1,benign,0,42,11,1147,53,2.2475594023241285e-05,descriptive; no multiplicity adjustment,0,0,0
+VALIDATION,A1,A0,fault,1014,89,0,97,89,3.2311742677852644e-27,descriptive; no multiplicity adjustment,143,0,871
+VALIDATION,A1,A0,benign,55,0,0,1145,0,,descriptive; no multiplicity adjustment,0,0,0
+VALIDATION,A2,A0,fault,1014,111,0,75,111,7.703719777548943e-34,descriptive; no multiplicity adjustment,191,0,823
+VALIDATION,A2,A0,benign,55,0,0,1145,0,,descriptive; no multiplicity adjustment,0,0,0
+VALIDATION,A2,SVM-INT default,fault,1125,0,0,75,0,,descriptive; no multiplicity adjustment,0,0,1125
+VALIDATION,A2,SVM-INT default,benign,0,55,0,1145,55,5.551115123125783e-17,descriptive; no multiplicity adjustment,0,0,0
+VALIDATION,A2,SVM-INT CAL1,fault,1125,0,0,75,0,,descriptive; no multiplicity adjustment,0,0,1125
+VALIDATION,A2,SVM-INT CAL1,benign,0,55,0,1145,55,5.551115123125783e-17,descriptive; no multiplicity adjustment,0,0,0
+SEEN90,A1,A0,fault,0,82,0,8,82,4.1359030627651384e-25,descriptive; no multiplicity adjustment,0,0,0
+SEEN90,A1,A0,benign,0,0,0,0,0,,descriptive; no multiplicity adjustment,0,0,0
+SEEN90,A2,A0,fault,0,82,0,8,82,4.1359030627651384e-25,descriptive; no multiplicity adjustment,0,0,0
+SEEN90,A2,A0,benign,0,0,0,0,0,,descriptive; no multiplicity adjustment,0,0,0
+SEEN90,A2,SVM-INT default,fault,82,0,0,8,0,,descriptive; no multiplicity adjustment,0,0,82
+SEEN90,A2,SVM-INT default,benign,0,0,0,0,0,,descriptive; no multiplicity adjustment,0,0,0
+SEEN90,A2,SVM-INT CAL1,fault,82,0,0,8,0,,descriptive; no multiplicity adjustment,0,0,82
+SEEN90,A2,SVM-INT CAL1,benign,0,0,0,0,0,,descriptive; no multiplicity adjustment,0,0,0

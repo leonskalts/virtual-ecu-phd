@@ -1,0 +1,67 @@
+{
+  "checks_passed": [
+    "primary A2 1124/1200;0/600;645/645",
+    "76 misses:63 actuator8sensor5memory;all nonpropagating",
+    "authentic first confusion totals",
+    "copied summaries authentic",
+    "source paths exist and extraction hashes unchanged",
+    "seven requested documents",
+    "digital_integrity_development manifest partition total",
+    "benign_alarm_development manifest partition total",
+    "integrity_final_unseen manifest partition total",
+    "frozen_robustness manifest partition total",
+    "ieee_multibaseline manifest partition total",
+    "ieee_origin_rf manifest partition total",
+    "digital_integrity_development recorded overlap audit has no positive numeric overlaps",
+    "benign_alarm_development recorded overlap audit has no positive numeric overlaps",
+    "integrity_final_unseen recorded overlap audit has no positive numeric overlaps",
+    "frozen_robustness recorded overlap audit has no positive numeric overlaps",
+    "ieee_multibaseline recorded overlap audit has no positive numeric overlaps",
+    "ieee_origin_rf recorded overlap audit has no positive numeric overlaps",
+    "all formal source citations exist with valid line ranges"
+  ],
+  "source_files_indexed": 83,
+  "authentic_files_copied": 58,
+  "unmatched_source_paths": [
+    "docs/cross_layer_observability_model.md",
+    "docs/paper_blueprint.md",
+    "results/rtl_integrity_poc/record.json",
+    "results/rtl_integrity_poc/simulation.log",
+    "results/rtl_integrity_poc/statistics.json",
+    "results/rtl_integrity_poc/synthesis.ys",
+    "results/rtl_integrity_poc/timing.log",
+    "results/rtl_integrity_poc/timing.tcl"
+  ],
+  "recorded_lock_mismatches": [],
+  "no_experiments_builds_training": true,
+  "head": "a340ca5cf0473d7dc572f7cd63e44fbc25b175a7",
+  "gui_matches_prior_preservation_snapshot": true,
+  "git_diff_check_passed": true,
+  "primary_generated_build_availability": [
+    {
+      "path": "/tmp/clo-integrity-final-unseen/work/compare",
+      "exists": true,
+      "matches_recorded_hash": true
+    },
+    {
+      "path": "/tmp/clo-integrity-final-unseen/work/adapter.c",
+      "exists": true,
+      "matches_recorded_hash": true
+    },
+    {
+      "path": "/tmp/clo-integrity-final-unseen/work/frozen.c",
+      "exists": true,
+      "matches_recorded_hash": true
+    },
+    {
+      "path": "/tmp/clo-integrity-final-unseen/work/extended.c",
+      "exists": true,
+      "matches_recorded_hash": true
+    },
+    {
+      "path": "/tmp/clo-integrity-final-unseen/work/bridge.c",
+      "exists": true,
+      "matches_recorded_hash": true
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+# Candidate mechanism and collision
+
+Candidate: **deadline-restricted provenance support pruning**. Given two admissible worlds that a diagnostic requirement must distinguish, propagate their possible mutations through a time-unrolled dependency graph, including shared writers, held values, acquisition/publication and consumption order. Compute a sound upper bound U on observation coordinates that could differ before the deadline. Reject a proposed observation contract S when S misses U. A surviving contract is not thereby feasible: exact two-world equality still must be checked.
+
+This is a precise, falsifiable rule: one pruned contract that satisfies the declared diagnosis requirements refutes its soundness. It is suitable for a small reduction-checking prototype. It is **not a mathematically distinct algorithm**. The rule is ordinary cone-of-influence/noninterference reasoning followed by a necessary hitting-set clause. Using exact difference sets instead of support bounds yields the conventional critical-trace observation clause. Renaming observation coordinates as `(field, publication time, provenance domain)` does not change that Boolean selection problem.
+
+A resource bound adds only standard branch-and-bound: selected acquisition cost plus any independently proved lower bound on completion/checker cost cannot exceed the incumbent. Checker size must not be assumed monotone in the selected observations. A cheaper measurement set is not necessarily cheaper under the joint objective.
+
+The strongest defensible result here is a reduction, not a new pruning theorem: for a fixed finite set of corruption-realized executions and noninterfering passive contracts, all exact observation restrictions are Boolean disjunctions over coordinates separating required world pairs. Conditional trust is a guard on this relation; it does not create a new algorithm. Expanding origin-dependent correlated corruption into admissible executions must retain correlations, not replace a shared domain by independent errors. No arbitrary shared-corruption implementation is inferred for CLOVER-ECU.
+
+Closest collision: Bittner et al. (AAAI 2012), Figure 3 / Equation (1); see `prior_art_algorithm_matrix.md`. No reproduction of their NuSMV implementation is claimed.
+
+The executable comparison will therefore label A (direct exhaustive pairs), B (generic propositional formulation), C (conventional observation clauses/diagnoser generation), and C+COI (the support prefilter). **D is NOT IMPLEMENTED: no genuinely distinct rule was identified.** C+COI is an ablation of an existing transformation, not D under another name.

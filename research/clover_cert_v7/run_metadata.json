@@ -1,0 +1,28 @@
+{
+  "command": [
+    "/usr/bin/python3",
+    "research/clover_cert_v7/run_experiment.py"
+  ],
+  "subprocess_commands": [
+    [
+      "/usr/bin/python3",
+      "/home/leonskal/code/virtual-ecu-phd/research/clover_cert_v7/reference_oracle.py"
+    ],
+    [
+      "/usr/bin/python3",
+      "/home/leonskal/code/virtual-ecu-phd/research/clover_cert_v7/compare_ecu.py"
+    ],
+    [
+      "/usr/bin/python3",
+      "/home/leonskal/code/virtual-ecu-phd/research/clover_cert_v7/build_reports.py"
+    ]
+  ],
+  "python": "3.10.12 (main, Aug 31 2026, 10:18:17) [GCC 11.4.0]",
+  "seed": null,
+  "tolerance": 0,
+  "write_boundary": "/home/leonskal/code/virtual-ecu-phd/research/clover_cert_v7",
+  "environment_overrides": {
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "TMPDIR": "/home/leonskal/code/virtual-ecu-phd/research/clover_cert_v7"
+  }
+}

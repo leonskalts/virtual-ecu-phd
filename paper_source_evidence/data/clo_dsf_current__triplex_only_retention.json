@@ -1,0 +1,11 @@
+{
+  "original_at_least91": false,
+  "benign_at_most01": true,
+  "zero_wrong": true,
+  "plant_at_least95": true,
+  "AB_at_least90": true,
+  "TIMING_no_paired_loss": true,
+  "COMMUNICATION_no_paired_loss": true,
+  "MEMORY_no_paired_loss": true,
+  "retained": false
+}

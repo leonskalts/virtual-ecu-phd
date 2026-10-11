@@ -1,0 +1,18 @@
+{
+  "cases": [
+    "di_0000",
+    "di_0020",
+    "di_0040",
+    "di_0060",
+    "di_0063",
+    "di_0064",
+    "di_0080",
+    "di_0120",
+    "di_0123",
+    "di_0126",
+    "di_0138"
+  ],
+  "A0_runtime_parity": true,
+  "physical_raw_trace_byte_identical": true,
+  "comparison": "A0 alarm/origin samples and execute() raw_sha256 from original physical simulation CSV"
+}

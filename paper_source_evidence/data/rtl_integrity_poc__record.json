@@ -1,0 +1,21 @@
+{
+  "source_hashes": {
+    "rtl/integrity/digital_integrity_monitor.v": "93b6c2f47e02f0447cda354964d8ea558a957ece0329910e5adceb78483f3a6c",
+    "sim/integrity/digital_integrity_tb.c": "260b9b888d534de0962f731014a982c43fb2f7bed0755b677facc417d71ea75d",
+    "scripts/run_rtl_integrity_poc.py": "1cf782d998dd6542da79604bbc0536461bacace7938c593c24efb8fab7c354be"
+  },
+  "library": "/usr/local/share/qflow/tech/nangate45nm/nangate45nm_copy.lib",
+  "library_sha256": "2efd0b32eb580e4e60e72fc0575bb3bc69aac907c91d908442e4ae6d7fe55895",
+  "protected_files_unchanged": 66,
+  "gui_sha256": "3fdf2d807ea8661def7e447ff32be0ccf46d70e160e28390bff81aeffbab957a",
+  "rtl_lines": 62,
+  "rtl_modules": 1,
+  "protected_storage_bits": 161,
+  "verification_latency": "combinational; zero additional clock cycles after inputs/witness settle",
+  "producer_latency": "one rising edge; synchronous reset; publish takes precedence over transform",
+  "tools": {
+    "yosys": "Yosys 0.58+76 (git sha1 1598771a3, g++ 11.4.0-1ubuntu1~22.04.2 -fPIC -O3)",
+    "verilator": "Verilator 4.038 2020-07-11 rev v4.036-114-g0cd4a57ad",
+    "sta": "2.7.0"
+  }
+}

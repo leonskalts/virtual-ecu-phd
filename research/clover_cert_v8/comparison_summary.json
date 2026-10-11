@@ -1,0 +1,13 @@
+{
+  "cases": 12,
+  "real_cases": 6,
+  "synthetic_cases": 6,
+  "methods": 4,
+  "method_case_comparisons": 48,
+  "real_contracts_per_case": 64,
+  "real_contract_assignments": 384,
+  "all_feasible_sets_and_joint_optima_agree": true,
+  "source_prefilter_slower_cases": 6,
+  "D": "NOT_IMPLEMENTED_NO_DISTINCT_RULE",
+  "novelty_verdict": "NO-GO"
+}

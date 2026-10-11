@@ -1,0 +1,2509 @@
+{
+  "digital_integrity_development": {
+    "manifest": "results/digital_integrity_development/campaign_manifest.csv",
+    "sha256": "58f0f601d82a684916fd77ed0122ef396178f5bb236ca9ccaa1b3b27c544daa4",
+    "partitions": {
+      "CALIBRATION": {
+        "cases": 2400,
+        "origins": {
+          "MEMORY": 240,
+          "TIMING": 240,
+          "COMMUNICATION": 240,
+          "SENSOR_CONTROL": 240,
+          "ACTUATOR": 240,
+          "NORMAL": 1200
+        },
+        "first_run": "di_3600",
+        "last_run": "di_5999"
+      },
+      "TRAIN": {
+        "cases": 3600,
+        "origins": {
+          "MEMORY": 480,
+          "TIMING": 480,
+          "COMMUNICATION": 480,
+          "SENSOR_CONTROL": 480,
+          "ACTUATOR": 480,
+          "NORMAL": 1200
+        },
+        "first_run": "di_0000",
+        "last_run": "di_3599"
+      },
+      "VALIDATION": {
+        "cases": 2400,
+        "origins": {
+          "MEMORY": 240,
+          "TIMING": 240,
+          "COMMUNICATION": 240,
+          "SENSOR_CONTROL": 240,
+          "ACTUATOR": 240,
+          "NORMAL": 1200
+        },
+        "first_run": "di_6000",
+        "last_run": "di_8399"
+      }
+    },
+    "parameters": {
+      "origin": {
+        "count_unique": 6,
+        "values": [
+          "ACTUATOR",
+          "COMMUNICATION",
+          "MEMORY",
+          "NORMAL",
+          "SENSOR_CONTROL",
+          "TIMING"
+        ]
+      },
+      "model": {
+        "count_unique": 13,
+        "values": [
+          "baseline",
+          "bit_flip",
+          "deadline_miss",
+          "delayed_update",
+          "dropped_update",
+          "fan_stuck_off",
+          "pump_degraded",
+          "replayed_sample",
+          "sensor_bias",
+          "sensor_bias_ramp",
+          "sensor_interface_intermittent",
+          "stuck_bit",
+          "task_delay"
+        ]
+      },
+      "behavior": {
+        "count_unique": 4,
+        "values": [
+          "intermittent",
+          "none",
+          "permanent",
+          "transient"
+        ]
+      },
+      "magnitude": {
+        "count_unique": 83,
+        "min": -3.658149,
+        "max": 1700.0,
+        "values": "See original manifest for exhaustive values"
+      },
+      "stuck_polarity": {
+        "count_unique": 2,
+        "min": 0.0,
+        "max": 1.0,
+        "values": [
+          "0",
+          "1"
+        ]
+      },
+      "start_ms": {
+        "count_unique": 315,
+        "min": 23900.0,
+        "max": 120100.0,
+        "values": "See original manifest for exhaustive values"
+      },
+      "duration_ms": {
+        "count_unique": 18,
+        "min": 0.0,
+        "max": 14900.0,
+        "values": [
+          "0",
+          "100",
+          "1100",
+          "1300",
+          "13700",
+          "14900",
+          "150",
+          "1700",
+          "200",
+          "2300",
+          "250",
+          "3100",
+          "400",
+          "50",
+          "6700",
+          "700",
+          "7900",
+          "900"
+        ]
+      },
+      "partition": {
+        "count_unique": 3,
+        "values": [
+          "CALIBRATION",
+          "TRAIN",
+          "VALIDATION"
+        ]
+      },
+      "target_updates_json": {
+        "count_unique": 2,
+        "values": [
+          "[[35700, 103], [72700, 92]]",
+          "[]"
+        ]
+      },
+      "workload": {
+        "count_unique": 8,
+        "values": [
+          "authorized_updates",
+          "benign_cold",
+          "dc_sensor",
+          "legal_offset_100",
+          "legal_offset_1100",
+          "legal_offset_2300",
+          "legal_offset_5100",
+          "static_target"
+        ]
+      },
+      "seed": {
+        "count_unique": 8400,
+        "min": 120100003.0,
+        "max": 122359334.0,
+        "values": "See original manifest for exhaustive values"
+      },
+      "simulation_duration_ms": {
+        "count_unique": 1,
+        "min": 120000.0,
+        "max": 120000.0,
+        "values": [
+          "120000"
+        ]
+      },
+      "sensor_variation": {
+        "count_unique": 7,
+        "values": [
+          ".025:0:12700",
+          ".035:2.1:22900",
+          ".045:.75:15700",
+          ".065:1.35:18100",
+          ".085:0:16900",
+          ".095:0:13700",
+          "0.018:0:12700"
+        ]
+      },
+      "initially_latent_stuck": {
+        "count_unique": 2,
+        "min": 0.0,
+        "max": 1.0,
+        "values": [
+          "0",
+          "1"
+        ]
+      },
+      "reference_seed": {
+        "count_unique": 8400,
+        "min": 220300007.0,
+        "max": 222576136.0,
+        "values": "See original manifest for exhaustive values"
+      },
+      "reference_offset": {
+        "count_unique": 7,
+        "min": -0.093,
+        "max": 0.093,
+        "values": [
+          "-0.031",
+          "-0.062",
+          "-0.093",
+          "0.0",
+          "0.031",
+          "0.062",
+          "0.093"
+        ]
+      },
+      "reference_noise": {
+        "count_unique": 3,
+        "min": 0.028,
+        "max": 0.086,
+        "values": [
+          "0.028",
+          "0.057",
+          "0.086"
+        ]
+      },
+      "sensor_chain": {
+        "count_unique": 6,
+        "values": [
+          "A",
+          "AB",
+          "ABC",
+          "B",
+          "C",
+          "none"
+        ]
+      },
+      "sensor_ramp_rise_ms": {
+        "count_unique": 5,
+        "min": 0.0,
+        "max": 97011.0,
+        "values": [
+          "0",
+          "27211",
+          "49011",
+          "74211",
+          "97011"
+        ]
+      },
+      "benign_reference_magnitude": {
+        "count_unique": 9,
+        "min": -0.83,
+        "max": 0.83,
+        "values": [
+          "-0.2",
+          "-0.32",
+          "-0.5",
+          "-0.83",
+          "0",
+          "0.2",
+          "0.32",
+          "0.5",
+          "0.83"
+        ]
+      },
+      "benign_reference_duration": {
+        "count_unique": 6,
+        "min": 0.0,
+        "max": 5100.0,
+        "values": [
+          "0",
+          "100",
+          "1100",
+          "2300",
+          "400",
+          "5100"
+        ]
+      },
+      "on_ms": {
+        "count_unique": 3,
+        "min": 600.0,
+        "max": 1200.0,
+        "values": [
+          "1200",
+          "600",
+          "900"
+        ]
+      },
+      "off_ms": {
+        "count_unique": 3,
+        "min": 1400.0,
+        "max": 1800.0,
+        "values": [
+          "1400",
+          "1600",
+          "1800"
+        ]
+      },
+      "c_offset": {
+        "count_unique": 16,
+        "min": -0.1015,
+        "max": 0.0984,
+        "values": [
+          "-0.0581",
+          "-0.0643",
+          "-0.07050000000000001",
+          "-0.0767",
+          "-0.0829",
+          "-0.0891",
+          "-0.0953",
+          "-0.1015",
+          "0.055",
+          "0.0612",
+          "0.0674",
+          "0.0736",
+          "0.0798",
+          "0.086",
+          "0.0922",
+          "0.0984"
+        ]
+      },
+      "c_gain": {
+        "count_unique": 16,
+        "min": -0.0006039999999999999,
+        "max": 0.0006249999999999999,
+        "values": [
+          "-0.000331",
+          "-0.000352",
+          "-0.000394",
+          "-0.000415",
+          "-0.000457",
+          "-0.000478",
+          "-0.00052",
+          "-0.000541",
+          "-0.000583",
+          "-0.0006039999999999999",
+          "0.00031",
+          "0.000373",
+          "0.00043599999999999997",
+          "0.000499",
+          "0.000562",
+          "0.0006249999999999999"
+        ]
+      },
+      "c_noise": {
+        "count_unique": 16,
+        "min": 0.012,
+        "max": 0.0225,
+        "values": [
+          "0.012",
+          "0.0127",
+          "0.0134",
+          "0.0141",
+          "0.0148",
+          "0.0155",
+          "0.0162",
+          "0.0169",
+          "0.0176",
+          "0.0183",
+          "0.019",
+          "0.019700000000000002",
+          "0.0204",
+          "0.0211",
+          "0.0218",
+          "0.0225"
+        ]
+      },
+      "c_quantum": {
+        "count_unique": 3,
+        "min": 0.016,
+        "max": 0.028,
+        "values": [
+          "0.016",
+          "0.024",
+          "0.028"
+        ]
+      },
+      "c_adc_gain": {
+        "count_unique": 16,
+        "min": -0.000335,
+        "max": 0.000324,
+        "values": [
+          "-0.000181",
+          "-0.000203",
+          "-0.000225",
+          "-0.00024700000000000004",
+          "-0.00026900000000000003",
+          "-0.000291",
+          "-0.000313",
+          "-0.000335",
+          "0.00017",
+          "0.000192",
+          "0.000214",
+          "0.00023600000000000002",
+          "0.000258",
+          "0.00028",
+          "0.000302",
+          "0.000324"
+        ]
+      },
+      "c_phase_ms": {
+        "count_unique": 4,
+        "min": 1.0,
+        "max": 77.0,
+        "values": [
+          "1",
+          "15",
+          "41",
+          "77"
+        ]
+      },
+      "c_lag_ms": {
+        "count_unique": 1,
+        "min": 0.0,
+        "max": 0.0,
+        "values": [
+          "0"
+        ]
+      },
+      "c_seed": {
+        "count_unique": 8400,
+        "min": 320700011.0,
+        "max": 323026534.0,
+        "values": "See original manifest for exhaustive values"
+      },
+      "domain": {
+        "count_unique": 6,
+        "values": [
+          "A",
+          "AB",
+          "ABC",
+          "B",
+          "C",
+          "NONE"
+        ]
+      },
+      "kind": {
+        "count_unique": 4,
+        "values": [
+          "none",
+          "pulse",
+          "ramp",
+          "step"
+        ]
+      }
+    }
+  },
+  "benign_alarm_development": {
+    "manifest": "results/benign_alarm_development/campaign_manifest.csv",
+    "sha256": "b1c1a2764020a29f29136de137e72c3c641377d67d7364bd891038dd375051ef",
+    "partitions": {
+      "CALIBRATION": {
+        "cases": 2400,
+        "origins": {
+          "MEMORY": 240,
+          "TIMING": 240,
+          "COMMUNICATION": 240,
+          "SENSOR_CONTROL": 240,
+          "ACTUATOR": 240,
+          "NORMAL": 1200
+        },
+        "first_run": "ba_2400",
+        "last_run": "ba_4799"
+      },
+      "TRAIN": {
+        "cases": 2400,
+        "origins": {
+          "MEMORY": 240,
+          "TIMING": 240,
+          "COMMUNICATION": 240,
+          "SENSOR_CONTROL": 240,
+          "ACTUATOR": 240,
+          "NORMAL": 1200
+        },
+        "first_run": "ba_0000",
+        "last_run": "ba_2399"
+      },
+      "VALIDATION": {
+        "cases": 3600,
+        "origins": {
+          "MEMORY": 240,
+          "TIMING": 240,
+          "COMMUNICATION": 240,
+          "SENSOR_CONTROL": 240,
+          "ACTUATOR": 240,
+          "NORMAL": 2400
+        },
+        "first_run": "ba_4800",
+        "last_run": "ba_8399"
+      }
+    },
+    "parameters": {
+      "origin": {
+        "count_unique": 6,
+        "values": [
+          "ACTUATOR",
+          "COMMUNICATION",
+          "MEMORY",
+          "NORMAL",
+          "SENSOR_CONTROL",
+          "TIMING"
+        ]
+      },
+      "model": {
+        "count_unique": 13,
+        "values": [
+          "baseline",
+          "bit_flip",
+          "deadline_miss",
+          "delayed_update",
+          "dropped_update",
+          "fan_stuck_off",
+          "pump_degraded",
+          "replayed_sample",
+          "sensor_bias",
+          "sensor_bias_ramp",
+          "sensor_interface_intermittent",
+          "stuck_bit",
+          "task_delay"
+        ]
+      },
+      "behavior": {
+        "count_unique": 4,
+        "values": [
+          "intermittent",
+          "none",
+          "permanent",
+          "transient"
+        ]
+      },
+      "magnitude": {
+        "count_unique": 71,
+        "min": -3.625225659,
+        "max": 1700.0,
+        "values": "See original manifest for exhaustive values"
+      },
+      "stuck_polarity": {
+        "count_unique": 2,
+        "min": 0.0,
+        "max": 1.0,
+        "values": [
+          "0",
+          "1"
+        ]
+      },
+      "start_ms": {
+        "count_unique": 267,
+        "min": 24100.0,
+        "max": 120100.0,
+        "values": "See original manifest for exhaustive values"
+      },
+      "duration_ms": {
+        "count_unique": 18,
+        "min": 0.0,
+        "max": 14900.0,
+        "values": [
+          "0",
+          "100",
+          "1100",
+          "1300",
+          "13700",
+          "14900",
+          "150",
+          "1700",
+          "200",
+          "2300",
+          "250",
+          "3100",
+          "400",
+          "50",
+          "6700",
+          "700",
+          "7900",
+          "900"
+        ]
+      },
+      "partition": {
+        "count_unique": 3,
+        "values": [
+          "CALIBRATION",
+          "TRAIN",
+          "VALIDATION"
+        ]
+      },
+      "target_updates_json": {
+        "count_unique": 2,
+        "values": [
+          "[[35700, 103], [72700, 92]]",
+          "[]"
+        ]
+      },
+      "workload": {
+        "count_unique": 8,
+        "values": [
+          "authorized_updates",
+          "benign_cold",
+          "dc_sensor",
+          "legal_offset_100",
+          "legal_offset_1100",
+          "legal_offset_2300",
+          "legal_offset_5100",
+          "static_target"
+        ]
+      },
+      "seed": {
+        "count_unique": 8400,
+        "min": 510100001.0,
+        "max": 512476918.0,
+        "values": "See original manifest for exhaustive values"
+      },
+      "simulation_duration_ms": {
+        "count_unique": 1,
+        "min": 120000.0,
+        "max": 120000.0,
+        "values": [
+          "120000"
+        ]
+      },
+      "sensor_variation": {
+        "count_unique": 10,
+        "values": [
+          ".025:0:12700",
+          ".035:2.1:22900",
+          ".045:.75:15700",
+          ".065:1.35:18100",
+          ".085:0:16900",
+          ".095:0:13700",
+          "0.018:0:12700",
+          "0.018:0:13700",
+          "0.029:0.013:19100",
+          "0.037:0.021:23300"
+        ]
+      },
+      "initially_latent_stuck": {
+        "count_unique": 2,
+        "min": 0.0,
+        "max": 1.0,
+        "values": [
+          "0",
+          "1"
+        ]
+      },
+      "reference_seed": {
+        "count_unique": 8400,
+        "min": 610300003.0,
+        "max": 612760910.0,
+        "values": "See original manifest for exhaustive values"
+      },
+      "reference_offset": {
+        "count_unique": 7,
+        "min": -0.093,
+        "max": 0.093,
+        "values": [
+          "-0.031",
+          "-0.062",
+          "-0.093",
+          "0.0",
+          "0.031",
+          "0.062",
+          "0.093"
+        ]
+      },
+      "reference_noise": {
+        "count_unique": 7,
+        "min": 0.019,
+        "max": 0.086,
+        "values": [
+          "0.019",
+          "0.028",
+          "0.031",
+          "0.047",
+          "0.057",
+          "0.063",
+          "0.086"
+        ]
+      },
+      "sensor_chain": {
+        "count_unique": 6,
+        "values": [
+          "A",
+          "AB",
+          "ABC",
+          "B",
+          "C",
+          "none"
+        ]
+      },
+      "sensor_ramp_rise_ms": {
+        "count_unique": 5,
+        "min": 0.0,
+        "max": 97444.0,
+        "values": [
+          "0",
+          "27644",
+          "49444",
+          "74644",
+          "97444"
+        ]
+      },
+      "benign_reference_magnitude": {
+        "count_unique": 10,
+        "min": -0.83,
+        "max": 0.83,
+        "values": [
+          "-0.0",
+          "-0.2",
+          "-0.32",
+          "-0.5",
+          "-0.83",
+          "0",
+          "0.2",
+          "0.32",
+          "0.5",
+          "0.83"
+        ]
+      },
+      "benign_reference_duration": {
+        "count_unique": 6,
+        "min": 0.0,
+        "max": 5100.0,
+        "values": [
+          "0",
+          "100",
+          "1100",
+          "2300",
+          "400",
+          "5100"
+        ]
+      },
+      "on_ms": {
+        "count_unique": 3,
+        "min": 600.0,
+        "max": 1200.0,
+        "values": [
+          "1200",
+          "600",
+          "900"
+        ]
+      },
+      "off_ms": {
+        "count_unique": 3,
+        "min": 1400.0,
+        "max": 1800.0,
+        "values": [
+          "1400",
+          "1600",
+          "1800"
+        ]
+      },
+      "c_offset": {
+        "count_unique": 16,
+        "min": -0.1015,
+        "max": 0.0984,
+        "values": [
+          "-0.0581",
+          "-0.0643",
+          "-0.07050000000000001",
+          "-0.0767",
+          "-0.0829",
+          "-0.0891",
+          "-0.0953",
+          "-0.1015",
+          "0.055",
+          "0.0612",
+          "0.0674",
+          "0.0736",
+          "0.0798",
+          "0.086",
+          "0.0922",
+          "0.0984"
+        ]
+      },
+      "c_gain": {
+        "count_unique": 16,
+        "min": -0.0006039999999999999,
+        "max": 0.0006249999999999999,
+        "values": [
+          "-0.000331",
+          "-0.000352",
+          "-0.000394",
+          "-0.000415",
+          "-0.000457",
+          "-0.000478",
+          "-0.00052",
+          "-0.000541",
+          "-0.000583",
+          "-0.0006039999999999999",
+          "0.00031",
+          "0.000373",
+          "0.00043599999999999997",
+          "0.000499",
+          "0.000562",
+          "0.0006249999999999999"
+        ]
+      },
+      "c_noise": {
+        "count_unique": 20,
+        "min": 0.009,
+        "max": 0.041,
+        "values": [
+          "0.009",
+          "0.012",
+          "0.0127",
+          "0.0134",
+          "0.0141",
+          "0.0148",
+          "0.0155",
+          "0.0162",
+          "0.0169",
+          "0.017",
+          "0.0176",
+          "0.0183",
+          "0.019",
+          "0.019700000000000002",
+          "0.0204",
+          "0.0211",
+          "0.0218",
+          "0.0225",
+          "0.029",
+          "0.041"
+        ]
+      },
+      "c_quantum": {
+        "count_unique": 6,
+        "min": 0.012,
+        "max": 0.036,
+        "values": [
+          "0.012",
+          "0.016",
+          "0.02",
+          "0.024",
+          "0.028",
+          "0.036"
+        ]
+      },
+      "c_adc_gain": {
+        "count_unique": 16,
+        "min": -0.000335,
+        "max": 0.000324,
+        "values": [
+          "-0.000181",
+          "-0.000203",
+          "-0.000225",
+          "-0.00024700000000000004",
+          "-0.00026900000000000003",
+          "-0.000291",
+          "-0.000313",
+          "-0.000335",
+          "0.00017",
+          "0.000192",
+          "0.000214",
+          "0.00023600000000000002",
+          "0.000258",
+          "0.00028",
+          "0.000302",
+          "0.000324"
+        ]
+      },
+      "c_phase_ms": {
+        "count_unique": 4,
+        "min": 7.0,
+        "max": 83.0,
+        "values": [
+          "21",
+          "47",
+          "7",
+          "83"
+        ]
+      },
+      "c_lag_ms": {
+        "count_unique": 1,
+        "min": 0.0,
+        "max": 0.0,
+        "values": [
+          "0"
+        ]
+      },
+      "c_seed": {
+        "count_unique": 8400,
+        "min": 710700007.0,
+        "max": 713278500.0,
+        "values": "See original manifest for exhaustive values"
+      },
+      "domain": {
+        "count_unique": 6,
+        "values": [
+          "A",
+          "AB",
+          "ABC",
+          "B",
+          "C",
+          "NONE"
+        ]
+      },
+      "kind": {
+        "count_unique": 4,
+        "values": [
+          "none",
+          "pulse",
+          "ramp",
+          "step"
+        ]
+      }
+    }
+  },
+  "integrity_final_unseen": {
+    "manifest": "results/integrity_final_unseen/campaign_manifest.csv",
+    "sha256": "8834a10032d9e5acefa69bc0a08cb0e78c473043741417fc181bbd8f47127a0c",
+    "partitions": {
+      "UNSEEN": {
+        "cases": 1800,
+        "origins": {
+          "MEMORY": 240,
+          "TIMING": 240,
+          "COMMUNICATION": 240,
+          "SENSOR_CONTROL": 240,
+          "ACTUATOR": 240,
+          "NORMAL": 600
+        },
+        "first_run": "ifu_0000",
+        "last_run": "ifu_1799"
+      }
+    },
+    "parameters": {
+      "origin": {
+        "count_unique": 6,
+        "values": [
+          "ACTUATOR",
+          "COMMUNICATION",
+          "MEMORY",
+          "NORMAL",
+          "SENSOR_CONTROL",
+          "TIMING"
+        ]
+      },
+      "model": {
+        "count_unique": 13,
+        "values": [
+          "baseline",
+          "bit_flip",
+          "deadline_miss",
+          "delayed_update",
+          "dropped_update",
+          "fan_stuck_off",
+          "pump_degraded",
+          "replayed_sample",
+          "sensor_bias",
+          "sensor_bias_ramp",
+          "sensor_interface_intermittent",
+          "stuck_bit",
+          "task_delay"
+        ]
+      },
+      "behavior": {
+        "count_unique": 4,
+        "values": [
+          "intermittent",
+          "none",
+          "permanent",
+          "transient"
+        ]
+      },
+      "magnitude": {
+        "count_unique": 47,
+        "min": -3.7057049369999997,
+        "max": 1700.0,
+        "values": "See original manifest for exhaustive values"
+      },
+      "stuck_polarity": {
+        "count_unique": 2,
+        "min": 0.0,
+        "max": 1.0,
+        "values": [
+          "0",
+          "1"
+        ]
+      },
+      "start_ms": {
+        "count_unique": 142,
+        "min": 26233.0,
+        "max": 120100.0,
+        "values": "See original manifest for exhaustive values"
+      },
+      "duration_ms": {
+        "count_unique": 18,
+        "min": 0.0,
+        "max": 14900.0,
+        "values": [
+          "0",
+          "100",
+          "1100",
+          "1300",
+          "13700",
+          "14900",
+          "150",
+          "1700",
+          "200",
+          "2300",
+          "250",
+          "3100",
+          "400",
+          "50",
+          "6700",
+          "700",
+          "7900",
+          "900"
+        ]
+      },
+      "partition": {
+        "count_unique": 1,
+        "values": [
+          "UNSEEN"
+        ]
+      },
+      "target_updates_json": {
+        "count_unique": 2,
+        "values": [
+          "[[35700, 103], [72700, 92]]",
+          "[]"
+        ]
+      },
+      "workload": {
+        "count_unique": 8,
+        "values": [
+          "authorized_updates",
+          "benign_cold",
+          "dc_sensor",
+          "legal_offset_100",
+          "legal_offset_1100",
+          "legal_offset_2300",
+          "legal_offset_5100",
+          "static_target"
+        ]
+      },
+      "seed": {
+        "count_unique": 1800,
+        "min": 1801100003.0,
+        "max": 1801663090.0,
+        "values": "See original manifest for exhaustive values"
+      },
+      "simulation_duration_ms": {
+        "count_unique": 1,
+        "min": 120000.0,
+        "max": 120000.0,
+        "values": [
+          "120000"
+        ]
+      },
+      "sensor_variation": {
+        "count_unique": 4,
+        "values": [
+          "0.018:0:12700",
+          "0.019:0:13900",
+          "0.027:.012:19300",
+          "0.035:.019:23900"
+        ]
+      },
+      "initially_latent_stuck": {
+        "count_unique": 2,
+        "min": 0.0,
+        "max": 1.0,
+        "values": [
+          "0",
+          "1"
+        ]
+      },
+      "reference_seed": {
+        "count_unique": 1800,
+        "min": 1903300007.0,
+        "max": 1903870290.0,
+        "values": "See original manifest for exhaustive values"
+      },
+      "reference_offset": {
+        "count_unique": 7,
+        "min": -0.093,
+        "max": 0.093,
+        "values": [
+          "-0.031",
+          "-0.062",
+          "-0.093",
+          "0.0",
+          "0.031",
+          "0.062",
+          "0.093"
+        ]
+      },
+      "reference_noise": {
+        "count_unique": 7,
+        "min": 0.021,
+        "max": 0.086,
+        "values": [
+          "0.021",
+          "0.028",
+          "0.033",
+          "0.049",
+          "0.057",
+          "0.061",
+          "0.086"
+        ]
+      },
+      "sensor_chain": {
+        "count_unique": 6,
+        "values": [
+          "A",
+          "AB",
+          "ABC",
+          "B",
+          "C",
+          "none"
+        ]
+      },
+      "sensor_ramp_rise_ms": {
+        "count_unique": 5,
+        "min": 0.0,
+        "max": 97532.0,
+        "values": [
+          "0",
+          "27732",
+          "49532",
+          "74732",
+          "97532"
+        ]
+      },
+      "benign_reference_magnitude": {
+        "count_unique": 9,
+        "min": -0.83,
+        "max": 0.83,
+        "values": [
+          "-0.2",
+          "-0.32",
+          "-0.5",
+          "-0.83",
+          "0",
+          "0.2",
+          "0.32",
+          "0.5",
+          "0.83"
+        ]
+      },
+      "benign_reference_duration": {
+        "count_unique": 6,
+        "min": 0.0,
+        "max": 5100.0,
+        "values": [
+          "0",
+          "100",
+          "1100",
+          "2300",
+          "400",
+          "5100"
+        ]
+      },
+      "on_ms": {
+        "count_unique": 3,
+        "min": 600.0,
+        "max": 1200.0,
+        "values": [
+          "1200",
+          "600",
+          "900"
+        ]
+      },
+      "off_ms": {
+        "count_unique": 3,
+        "min": 1400.0,
+        "max": 1800.0,
+        "values": [
+          "1400",
+          "1600",
+          "1800"
+        ]
+      },
+      "c_offset": {
+        "count_unique": 10,
+        "min": -0.1015,
+        "max": 0.0984,
+        "values": [
+          "-0.0767",
+          "-0.0829",
+          "-0.0891",
+          "-0.0953",
+          "-0.1015",
+          "0.0736",
+          "0.0798",
+          "0.086",
+          "0.0922",
+          "0.0984"
+        ]
+      },
+      "c_gain": {
+        "count_unique": 10,
+        "min": -0.0006039999999999999,
+        "max": 0.0006249999999999999,
+        "values": [
+          "-0.000457",
+          "-0.000478",
+          "-0.00052",
+          "-0.000541",
+          "-0.000583",
+          "-0.0006039999999999999",
+          "0.00043599999999999997",
+          "0.000499",
+          "0.000562",
+          "0.0006249999999999999"
+        ]
+      },
+      "c_noise": {
+        "count_unique": 13,
+        "min": 0.011,
+        "max": 0.039,
+        "values": [
+          "0.011",
+          "0.0162",
+          "0.0169",
+          "0.0176",
+          "0.0183",
+          "0.019",
+          "0.019700000000000002",
+          "0.0204",
+          "0.0211",
+          "0.0218",
+          "0.0225",
+          "0.027",
+          "0.039"
+        ]
+      },
+      "c_quantum": {
+        "count_unique": 3,
+        "min": 0.016,
+        "max": 0.028,
+        "values": [
+          "0.016",
+          "0.024",
+          "0.028"
+        ]
+      },
+      "c_adc_gain": {
+        "count_unique": 10,
+        "min": -0.000335,
+        "max": 0.000324,
+        "values": [
+          "-0.00024700000000000004",
+          "-0.00026900000000000003",
+          "-0.000291",
+          "-0.000313",
+          "-0.000335",
+          "0.00023600000000000002",
+          "0.000258",
+          "0.00028",
+          "0.000302",
+          "0.000324"
+        ]
+      },
+      "c_phase_ms": {
+        "count_unique": 4,
+        "min": 9.0,
+        "max": 85.0,
+        "values": [
+          "23",
+          "49",
+          "85",
+          "9"
+        ]
+      },
+      "c_lag_ms": {
+        "count_unique": 1,
+        "min": 0.0,
+        "max": 0.0,
+        "values": [
+          "0"
+        ]
+      },
+      "c_seed": {
+        "count_unique": 1800,
+        "min": 2007700011.0,
+        "max": 2008295480.0,
+        "values": "See original manifest for exhaustive values"
+      },
+      "domain": {
+        "count_unique": 6,
+        "values": [
+          "A",
+          "AB",
+          "ABC",
+          "B",
+          "C",
+          "NONE"
+        ]
+      },
+      "kind": {
+        "count_unique": 4,
+        "values": [
+          "none",
+          "pulse",
+          "ramp",
+          "step"
+        ]
+      }
+    }
+  },
+  "frozen_robustness": {
+    "manifest": "results/frozen_robustness/campaign_manifest.csv",
+    "sha256": "af8f440448074116913071f4198380aa3d242d8dcb8863f5c0c62607956130d6",
+    "partitions": {
+      "ROBUSTNESS": {
+        "cases": 2400,
+        "origins": {
+          "MEMORY": 360,
+          "TIMING": 360,
+          "COMMUNICATION": 360,
+          "SENSOR_CONTROL": 360,
+          "ACTUATOR": 360,
+          "NORMAL": 600
+        },
+        "first_run": "rob_0000",
+        "last_run": "rob_2399"
+      }
+    },
+    "parameters": {
+      "origin": {
+        "count_unique": 6,
+        "values": [
+          "ACTUATOR",
+          "COMMUNICATION",
+          "MEMORY",
+          "NORMAL",
+          "SENSOR_CONTROL",
+          "TIMING"
+        ]
+      },
+      "model": {
+        "count_unique": 13,
+        "values": [
+          "baseline",
+          "bit_flip",
+          "deadline_miss",
+          "delayed_update",
+          "dropped_update",
+          "fan_stuck_off",
+          "pump_degraded",
+          "replayed_sample",
+          "sensor_bias",
+          "sensor_bias_ramp",
+          "sensor_interface_intermittent",
+          "stuck_bit",
+          "task_delay"
+        ]
+      },
+      "behavior": {
+        "count_unique": 4,
+        "values": [
+          "intermittent",
+          "none",
+          "permanent",
+          "transient"
+        ]
+      },
+      "magnitude": {
+        "count_unique": 43,
+        "min": -3.7057049369999997,
+        "max": 1700.0,
+        "values": "See original manifest for exhaustive values"
+      },
+      "stuck_polarity": {
+        "count_unique": 2,
+        "min": 0.0,
+        "max": 1.0,
+        "values": [
+          "0",
+          "1"
+        ]
+      },
+      "start_ms": {
+        "count_unique": 113,
+        "min": 26233.0,
+        "max": 120100.0,
+        "values": "See original manifest for exhaustive values"
+      },
+      "duration_ms": {
+        "count_unique": 18,
+        "min": 0.0,
+        "max": 14900.0,
+        "values": [
+          "0",
+          "100",
+          "1100",
+          "1300",
+          "13700",
+          "14900",
+          "150",
+          "1700",
+          "200",
+          "2300",
+          "250",
+          "3100",
+          "400",
+          "50",
+          "6700",
+          "700",
+          "7900",
+          "900"
+        ]
+      },
+      "partition": {
+        "count_unique": 1,
+        "values": [
+          "ROBUSTNESS"
+        ]
+      },
+      "target_updates_json": {
+        "count_unique": 3,
+        "values": [
+          "[[35700, 103], [72700, 92]]",
+          "[[35700,103],[72700,92]]",
+          "[]"
+        ]
+      },
+      "workload": {
+        "count_unique": 8,
+        "values": [
+          "authorized_updates",
+          "benign_cold",
+          "dc_sensor",
+          "legal_offset_100",
+          "legal_offset_1100",
+          "legal_offset_2300",
+          "legal_offset_5100",
+          "static_target"
+        ]
+      },
+      "seed": {
+        "count_unique": 2400,
+        "min": 2410100003.0,
+        "max": 2410908466.0,
+        "values": "See original manifest for exhaustive values"
+      },
+      "simulation_duration_ms": {
+        "count_unique": 1,
+        "min": 120000.0,
+        "max": 120000.0,
+        "values": [
+          "120000"
+        ]
+      },
+      "sensor_variation": {
+        "count_unique": 5,
+        "values": [
+          "0.018:0:12700",
+          "0.019:0:13900",
+          "0.027:.012:19300",
+          "0.035:.019:23900",
+          "0.08:0.04:19300"
+        ]
+      },
+      "initially_latent_stuck": {
+        "count_unique": 2,
+        "min": 0.0,
+        "max": 1.0,
+        "values": [
+          "0",
+          "1"
+        ]
+      },
+      "reference_seed": {
+        "count_unique": 2400,
+        "min": 2510300007.0,
+        "max": 2511132460.0,
+        "values": "See original manifest for exhaustive values"
+      },
+      "reference_offset": {
+        "count_unique": 7,
+        "min": -0.093,
+        "max": 0.093,
+        "values": [
+          "-0.031",
+          "-0.062",
+          "-0.093",
+          "0.0",
+          "0.031",
+          "0.062",
+          "0.093"
+        ]
+      },
+      "reference_noise": {
+        "count_unique": 8,
+        "min": 0.021,
+        "max": 0.086,
+        "values": [
+          "0.021",
+          "0.028",
+          "0.033",
+          "0.049",
+          "0.057",
+          "0.061",
+          "0.08",
+          "0.086"
+        ]
+      },
+      "sensor_chain": {
+        "count_unique": 6,
+        "values": [
+          "A",
+          "AB",
+          "ABC",
+          "B",
+          "C",
+          "none"
+        ]
+      },
+      "sensor_ramp_rise_ms": {
+        "count_unique": 5,
+        "min": 0.0,
+        "max": 97532.0,
+        "values": [
+          "0",
+          "27732",
+          "49532",
+          "74732",
+          "97532"
+        ]
+      },
+      "benign_reference_magnitude": {
+        "count_unique": 9,
+        "min": -0.83,
+        "max": 0.83,
+        "values": [
+          "-0.2",
+          "-0.32",
+          "-0.5",
+          "-0.83",
+          "0",
+          "0.2",
+          "0.32",
+          "0.5",
+          "0.83"
+        ]
+      },
+      "benign_reference_duration": {
+        "count_unique": 6,
+        "min": 0.0,
+        "max": 5100.0,
+        "values": [
+          "0",
+          "100",
+          "1100",
+          "2300",
+          "400",
+          "5100"
+        ]
+      },
+      "on_ms": {
+        "count_unique": 3,
+        "min": 600.0,
+        "max": 1200.0,
+        "values": [
+          "1200",
+          "600",
+          "900"
+        ]
+      },
+      "off_ms": {
+        "count_unique": 3,
+        "min": 1400.0,
+        "max": 1800.0,
+        "values": [
+          "1400",
+          "1600",
+          "1800"
+        ]
+      },
+      "c_offset": {
+        "count_unique": 10,
+        "min": -0.1015,
+        "max": 0.0984,
+        "values": [
+          "-0.0767",
+          "-0.0829",
+          "-0.0891",
+          "-0.0953",
+          "-0.1015",
+          "0.0736",
+          "0.0798",
+          "0.086",
+          "0.0922",
+          "0.0984"
+        ]
+      },
+      "c_gain": {
+        "count_unique": 10,
+        "min": -0.0006039999999999999,
+        "max": 0.0006249999999999999,
+        "values": [
+          "-0.000457",
+          "-0.000478",
+          "-0.00052",
+          "-0.000541",
+          "-0.000583",
+          "-0.0006039999999999999",
+          "0.00043599999999999997",
+          "0.000499",
+          "0.000562",
+          "0.0006249999999999999"
+        ]
+      },
+      "c_noise": {
+        "count_unique": 14,
+        "min": 0.011,
+        "max": 0.04,
+        "values": [
+          "0.011",
+          "0.0162",
+          "0.0169",
+          "0.0176",
+          "0.0183",
+          "0.019",
+          "0.019700000000000002",
+          "0.0204",
+          "0.0211",
+          "0.0218",
+          "0.0225",
+          "0.027",
+          "0.039",
+          "0.04"
+        ]
+      },
+      "c_quantum": {
+        "count_unique": 4,
+        "min": 0.016,
+        "max": 0.05,
+        "values": [
+          "0.016",
+          "0.024",
+          "0.028",
+          "0.05"
+        ]
+      },
+      "c_adc_gain": {
+        "count_unique": 10,
+        "min": -0.000335,
+        "max": 0.000324,
+        "values": [
+          "-0.00024700000000000004",
+          "-0.00026900000000000003",
+          "-0.000291",
+          "-0.000313",
+          "-0.000335",
+          "0.00023600000000000002",
+          "0.000258",
+          "0.00028",
+          "0.000302",
+          "0.000324"
+        ]
+      },
+      "c_phase_ms": {
+        "count_unique": 10,
+        "min": 1.0,
+        "max": 99.0,
+        "values": [
+          "1",
+          "21",
+          "23",
+          "41",
+          "49",
+          "61",
+          "81",
+          "85",
+          "9",
+          "99"
+        ]
+      },
+      "c_lag_ms": {
+        "count_unique": 1,
+        "min": 0.0,
+        "max": 0.0,
+        "values": [
+          "0"
+        ]
+      },
+      "c_seed": {
+        "count_unique": 2400,
+        "min": 2610700011.0,
+        "max": 2611537262.0,
+        "values": "See original manifest for exhaustive values"
+      },
+      "domain": {
+        "count_unique": 6,
+        "values": [
+          "A",
+          "AB",
+          "ABC",
+          "B",
+          "C",
+          "NONE"
+        ]
+      },
+      "kind": {
+        "count_unique": 4,
+        "values": [
+          "none",
+          "pulse",
+          "ramp",
+          "step"
+        ]
+      },
+      "condition": {
+        "count_unique": 6,
+        "values": [
+          "P0",
+          "P1",
+          "P2",
+          "P3",
+          "P4",
+          "P5"
+        ]
+      },
+      "template_id": {
+        "count_unique": 400,
+        "values": "See original manifest"
+      }
+    }
+  },
+  "ieee_multibaseline": {
+    "manifest": "results/ieee_multibaseline/campaign_manifest.csv",
+    "sha256": "598339d1a0237563e7c9535da6c91b355da7c782e84279ee8853dea062c408f2",
+    "partitions": {
+      "SECONDARY": {
+        "cases": 1800,
+        "origins": {
+          "MEMORY": 240,
+          "TIMING": 240,
+          "COMMUNICATION": 240,
+          "SENSOR_CONTROL": 240,
+          "ACTUATOR": 240,
+          "NORMAL": 600
+        },
+        "first_run": "ieee_0000",
+        "last_run": "ieee_1799"
+      }
+    },
+    "parameters": {
+      "origin": {
+        "count_unique": 6,
+        "values": [
+          "ACTUATOR",
+          "COMMUNICATION",
+          "MEMORY",
+          "NORMAL",
+          "SENSOR_CONTROL",
+          "TIMING"
+        ]
+      },
+      "model": {
+        "count_unique": 13,
+        "values": [
+          "baseline",
+          "bit_flip",
+          "deadline_miss",
+          "delayed_update",
+          "dropped_update",
+          "fan_stuck_off",
+          "pump_degraded",
+          "replayed_sample",
+          "sensor_bias",
+          "sensor_bias_ramp",
+          "sensor_interface_intermittent",
+          "stuck_bit",
+          "task_delay"
+        ]
+      },
+      "behavior": {
+        "count_unique": 4,
+        "values": [
+          "intermittent",
+          "none",
+          "permanent",
+          "transient"
+        ]
+      },
+      "magnitude": {
+        "count_unique": 47,
+        "min": -3.7057049369999997,
+        "max": 1700.0,
+        "values": "See original manifest for exhaustive values"
+      },
+      "stuck_polarity": {
+        "count_unique": 2,
+        "min": 0.0,
+        "max": 1.0,
+        "values": [
+          "0",
+          "1"
+        ]
+      },
+      "start_ms": {
+        "count_unique": 142,
+        "min": 26233.0,
+        "max": 120100.0,
+        "values": "See original manifest for exhaustive values"
+      },
+      "duration_ms": {
+        "count_unique": 18,
+        "min": 0.0,
+        "max": 14900.0,
+        "values": [
+          "0",
+          "100",
+          "1100",
+          "1300",
+          "13700",
+          "14900",
+          "150",
+          "1700",
+          "200",
+          "2300",
+          "250",
+          "3100",
+          "400",
+          "50",
+          "6700",
+          "700",
+          "7900",
+          "900"
+        ]
+      },
+      "partition": {
+        "count_unique": 1,
+        "values": [
+          "SECONDARY"
+        ]
+      },
+      "target_updates_json": {
+        "count_unique": 2,
+        "values": [
+          "[[35700, 103], [72700, 92]]",
+          "[]"
+        ]
+      },
+      "workload": {
+        "count_unique": 8,
+        "values": [
+          "authorized_updates",
+          "benign_cold",
+          "dc_sensor",
+          "legal_offset_100",
+          "legal_offset_1100",
+          "legal_offset_2300",
+          "legal_offset_5100",
+          "static_target"
+        ]
+      },
+      "seed": {
+        "count_unique": 1800,
+        "min": 3010100003.0,
+        "max": 3010821402.0,
+        "values": "See original manifest for exhaustive values"
+      },
+      "simulation_duration_ms": {
+        "count_unique": 1,
+        "min": 120000.0,
+        "max": 120000.0,
+        "values": [
+          "120000"
+        ]
+      },
+      "sensor_variation": {
+        "count_unique": 4,
+        "values": [
+          "0.018:0:12700",
+          "0.019:0:13900",
+          "0.027:.012:19300",
+          "0.035:.019:23900"
+        ]
+      },
+      "initially_latent_stuck": {
+        "count_unique": 2,
+        "min": 0.0,
+        "max": 1.0,
+        "values": [
+          "0",
+          "1"
+        ]
+      },
+      "reference_seed": {
+        "count_unique": 1800,
+        "min": 3110300007.0,
+        "max": 3111035798.0,
+        "values": "See original manifest for exhaustive values"
+      },
+      "reference_offset": {
+        "count_unique": 7,
+        "min": -0.093,
+        "max": 0.093,
+        "values": [
+          "-0.031",
+          "-0.062",
+          "-0.093",
+          "0.0",
+          "0.031",
+          "0.062",
+          "0.093"
+        ]
+      },
+      "reference_noise": {
+        "count_unique": 7,
+        "min": 0.021,
+        "max": 0.086,
+        "values": [
+          "0.021",
+          "0.028",
+          "0.033",
+          "0.049",
+          "0.057",
+          "0.061",
+          "0.086"
+        ]
+      },
+      "sensor_chain": {
+        "count_unique": 6,
+        "values": [
+          "A",
+          "AB",
+          "ABC",
+          "B",
+          "C",
+          "none"
+        ]
+      },
+      "sensor_ramp_rise_ms": {
+        "count_unique": 5,
+        "min": 0.0,
+        "max": 97532.0,
+        "values": [
+          "0",
+          "27732",
+          "49532",
+          "74732",
+          "97532"
+        ]
+      },
+      "benign_reference_magnitude": {
+        "count_unique": 9,
+        "min": -0.83,
+        "max": 0.83,
+        "values": [
+          "-0.2",
+          "-0.32",
+          "-0.5",
+          "-0.83",
+          "0",
+          "0.2",
+          "0.32",
+          "0.5",
+          "0.83"
+        ]
+      },
+      "benign_reference_duration": {
+        "count_unique": 6,
+        "min": 0.0,
+        "max": 5100.0,
+        "values": [
+          "0",
+          "100",
+          "1100",
+          "2300",
+          "400",
+          "5100"
+        ]
+      },
+      "on_ms": {
+        "count_unique": 3,
+        "min": 600.0,
+        "max": 1200.0,
+        "values": [
+          "1200",
+          "600",
+          "900"
+        ]
+      },
+      "off_ms": {
+        "count_unique": 3,
+        "min": 1400.0,
+        "max": 1800.0,
+        "values": [
+          "1400",
+          "1600",
+          "1800"
+        ]
+      },
+      "c_offset": {
+        "count_unique": 10,
+        "min": -0.1015,
+        "max": 0.0984,
+        "values": [
+          "-0.0767",
+          "-0.0829",
+          "-0.0891",
+          "-0.0953",
+          "-0.1015",
+          "0.0736",
+          "0.0798",
+          "0.086",
+          "0.0922",
+          "0.0984"
+        ]
+      },
+      "c_gain": {
+        "count_unique": 10,
+        "min": -0.0006039999999999999,
+        "max": 0.0006249999999999999,
+        "values": [
+          "-0.000457",
+          "-0.000478",
+          "-0.00052",
+          "-0.000541",
+          "-0.000583",
+          "-0.0006039999999999999",
+          "0.00043599999999999997",
+          "0.000499",
+          "0.000562",
+          "0.0006249999999999999"
+        ]
+      },
+      "c_noise": {
+        "count_unique": 13,
+        "min": 0.011,
+        "max": 0.039,
+        "values": [
+          "0.011",
+          "0.0162",
+          "0.0169",
+          "0.0176",
+          "0.0183",
+          "0.019",
+          "0.019700000000000002",
+          "0.0204",
+          "0.0211",
+          "0.0218",
+          "0.0225",
+          "0.027",
+          "0.039"
+        ]
+      },
+      "c_quantum": {
+        "count_unique": 3,
+        "min": 0.016,
+        "max": 0.028,
+        "values": [
+          "0.016",
+          "0.024",
+          "0.028"
+        ]
+      },
+      "c_adc_gain": {
+        "count_unique": 10,
+        "min": -0.000335,
+        "max": 0.000324,
+        "values": [
+          "-0.00024700000000000004",
+          "-0.00026900000000000003",
+          "-0.000291",
+          "-0.000313",
+          "-0.000335",
+          "0.00023600000000000002",
+          "0.000258",
+          "0.00028",
+          "0.000302",
+          "0.000324"
+        ]
+      },
+      "c_phase_ms": {
+        "count_unique": 4,
+        "min": 9.0,
+        "max": 85.0,
+        "values": [
+          "23",
+          "49",
+          "85",
+          "9"
+        ]
+      },
+      "c_lag_ms": {
+        "count_unique": 1,
+        "min": 0.0,
+        "max": 0.0,
+        "values": [
+          "0"
+        ]
+      },
+      "c_seed": {
+        "count_unique": 1800,
+        "min": 3210700011.0,
+        "max": 3211453792.0,
+        "values": "See original manifest for exhaustive values"
+      },
+      "domain": {
+        "count_unique": 6,
+        "values": [
+          "A",
+          "AB",
+          "ABC",
+          "B",
+          "C",
+          "NONE"
+        ]
+      },
+      "kind": {
+        "count_unique": 4,
+        "values": [
+          "none",
+          "pulse",
+          "ramp",
+          "step"
+        ]
+      }
+    }
+  },
+  "ieee_origin_rf": {
+    "manifest": "results/ieee_origin_rf/campaign_manifest.csv",
+    "sha256": "af9e0a47a9a85c9e7f04ec137080126e264b0c803b439310c148dec105555672",
+    "partitions": {
+      "SECONDARY": {
+        "cases": 1800,
+        "origins": {
+          "MEMORY": 240,
+          "TIMING": 240,
+          "COMMUNICATION": 240,
+          "SENSOR_CONTROL": 240,
+          "ACTUATOR": 240,
+          "NORMAL": 600
+        },
+        "first_run": "orf_0000",
+        "last_run": "orf_1799"
+      }
+    },
+    "parameters": {
+      "origin": {
+        "count_unique": 6,
+        "values": [
+          "ACTUATOR",
+          "COMMUNICATION",
+          "MEMORY",
+          "NORMAL",
+          "SENSOR_CONTROL",
+          "TIMING"
+        ]
+      },
+      "model": {
+        "count_unique": 13,
+        "values": [
+          "baseline",
+          "bit_flip",
+          "deadline_miss",
+          "delayed_update",
+          "dropped_update",
+          "fan_stuck_off",
+          "pump_degraded",
+          "replayed_sample",
+          "sensor_bias",
+          "sensor_bias_ramp",
+          "sensor_interface_intermittent",
+          "stuck_bit",
+          "task_delay"
+        ]
+      },
+      "behavior": {
+        "count_unique": 4,
+        "values": [
+          "intermittent",
+          "none",
+          "permanent",
+          "transient"
+        ]
+      },
+      "magnitude": {
+        "count_unique": 47,
+        "min": -3.7057049369999997,
+        "max": 1700.0,
+        "values": "See original manifest for exhaustive values"
+      },
+      "stuck_polarity": {
+        "count_unique": 2,
+        "min": 0.0,
+        "max": 1.0,
+        "values": [
+          "0",
+          "1"
+        ]
+      },
+      "start_ms": {
+        "count_unique": 142,
+        "min": 26233.0,
+        "max": 120100.0,
+        "values": "See original manifest for exhaustive values"
+      },
+      "duration_ms": {
+        "count_unique": 18,
+        "min": 0.0,
+        "max": 14900.0,
+        "values": [
+          "0",
+          "100",
+          "1100",
+          "1300",
+          "13700",
+          "14900",
+          "150",
+          "1700",
+          "200",
+          "2300",
+          "250",
+          "3100",
+          "400",
+          "50",
+          "6700",
+          "700",
+          "7900",
+          "900"
+        ]
+      },
+      "partition": {
+        "count_unique": 1,
+        "values": [
+          "SECONDARY"
+        ]
+      },
+      "target_updates_json": {
+        "count_unique": 2,
+        "values": [
+          "[[35700, 103], [72700, 92]]",
+          "[]"
+        ]
+      },
+      "workload": {
+        "count_unique": 8,
+        "values": [
+          "authorized_updates",
+          "benign_cold",
+          "dc_sensor",
+          "legal_offset_100",
+          "legal_offset_1100",
+          "legal_offset_2300",
+          "legal_offset_5100",
+          "static_target"
+        ]
+      },
+      "seed": {
+        "count_unique": 1800,
+        "min": 3310100003.0,
+        "max": 3310857382.0,
+        "values": "See original manifest for exhaustive values"
+      },
+      "simulation_duration_ms": {
+        "count_unique": 1,
+        "min": 120000.0,
+        "max": 120000.0,
+        "values": [
+          "120000"
+        ]
+      },
+      "sensor_variation": {
+        "count_unique": 4,
+        "values": [
+          "0.018:0:12700",
+          "0.019:0:13900",
+          "0.027:.012:19300",
+          "0.035:.019:23900"
+        ]
+      },
+      "initially_latent_stuck": {
+        "count_unique": 2,
+        "min": 0.0,
+        "max": 1.0,
+        "values": [
+          "0",
+          "1"
+        ]
+      },
+      "reference_seed": {
+        "count_unique": 1800,
+        "min": 3410300007.0,
+        "max": 3411075376.0,
+        "values": "See original manifest for exhaustive values"
+      },
+      "reference_offset": {
+        "count_unique": 7,
+        "min": -0.093,
+        "max": 0.093,
+        "values": [
+          "-0.031",
+          "-0.062",
+          "-0.093",
+          "0.0",
+          "0.031",
+          "0.062",
+          "0.093"
+        ]
+      },
+      "reference_noise": {
+        "count_unique": 7,
+        "min": 0.021,
+        "max": 0.086,
+        "values": [
+          "0.021",
+          "0.028",
+          "0.033",
+          "0.049",
+          "0.057",
+          "0.061",
+          "0.086"
+        ]
+      },
+      "sensor_chain": {
+        "count_unique": 6,
+        "values": [
+          "A",
+          "AB",
+          "ABC",
+          "B",
+          "C",
+          "none"
+        ]
+      },
+      "sensor_ramp_rise_ms": {
+        "count_unique": 5,
+        "min": 0.0,
+        "max": 97532.0,
+        "values": [
+          "0",
+          "27732",
+          "49532",
+          "74732",
+          "97532"
+        ]
+      },
+      "benign_reference_magnitude": {
+        "count_unique": 9,
+        "min": -0.83,
+        "max": 0.83,
+        "values": [
+          "-0.2",
+          "-0.32",
+          "-0.5",
+          "-0.83",
+          "0",
+          "0.2",
+          "0.32",
+          "0.5",
+          "0.83"
+        ]
+      },
+      "benign_reference_duration": {
+        "count_unique": 6,
+        "min": 0.0,
+        "max": 5100.0,
+        "values": [
+          "0",
+          "100",
+          "1100",
+          "2300",
+          "400",
+          "5100"
+        ]
+      },
+      "on_ms": {
+        "count_unique": 3,
+        "min": 600.0,
+        "max": 1200.0,
+        "values": [
+          "1200",
+          "600",
+          "900"
+        ]
+      },
+      "off_ms": {
+        "count_unique": 3,
+        "min": 1400.0,
+        "max": 1800.0,
+        "values": [
+          "1400",
+          "1600",
+          "1800"
+        ]
+      },
+      "c_offset": {
+        "count_unique": 10,
+        "min": -0.1015,
+        "max": 0.0984,
+        "values": [
+          "-0.0767",
+          "-0.0829",
+          "-0.0891",
+          "-0.0953",
+          "-0.1015",
+          "0.0736",
+          "0.0798",
+          "0.086",
+          "0.0922",
+          "0.0984"
+        ]
+      },
+      "c_gain": {
+        "count_unique": 10,
+        "min": -0.0006039999999999999,
+        "max": 0.0006249999999999999,
+        "values": [
+          "-0.000457",
+          "-0.000478",
+          "-0.00052",
+          "-0.000541",
+          "-0.000583",
+          "-0.0006039999999999999",
+          "0.00043599999999999997",
+          "0.000499",
+          "0.000562",
+          "0.0006249999999999999"
+        ]
+      },
+      "c_noise": {
+        "count_unique": 13,
+        "min": 0.011,
+        "max": 0.039,
+        "values": [
+          "0.011",
+          "0.0162",
+          "0.0169",
+          "0.0176",
+          "0.0183",
+          "0.019",
+          "0.019700000000000002",
+          "0.0204",
+          "0.0211",
+          "0.0218",
+          "0.0225",
+          "0.027",
+          "0.039"
+        ]
+      },
+      "c_quantum": {
+        "count_unique": 3,
+        "min": 0.016,
+        "max": 0.028,
+        "values": [
+          "0.016",
+          "0.024",
+          "0.028"
+        ]
+      },
+      "c_adc_gain": {
+        "count_unique": 10,
+        "min": -0.000335,
+        "max": 0.000324,
+        "values": [
+          "-0.00024700000000000004",
+          "-0.00026900000000000003",
+          "-0.000291",
+          "-0.000313",
+          "-0.000335",
+          "0.00023600000000000002",
+          "0.000258",
+          "0.00028",
+          "0.000302",
+          "0.000324"
+        ]
+      },
+      "c_phase_ms": {
+        "count_unique": 4,
+        "min": 9.0,
+        "max": 85.0,
+        "values": [
+          "23",
+          "49",
+          "85",
+          "9"
+        ]
+      },
+      "c_lag_ms": {
+        "count_unique": 1,
+        "min": 0.0,
+        "max": 0.0,
+        "values": [
+          "0"
+        ]
+      },
+      "c_seed": {
+        "count_unique": 1800,
+        "min": 3510700011.0,
+        "max": 3511478978.0,
+        "values": "See original manifest for exhaustive values"
+      },
+      "domain": {
+        "count_unique": 6,
+        "values": [
+          "A",
+          "AB",
+          "ABC",
+          "B",
+          "C",
+          "NONE"
+        ]
+      },
+      "kind": {
+        "count_unique": 4,
+        "values": [
+          "none",
+          "pulse",
+          "ramp",
+          "step"
+        ]
+      }
+    }
+  }
+}

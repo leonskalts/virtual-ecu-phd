@@ -1,0 +1,5 @@
+method_a,method_b,endpoint,both,only_a,only_b,neither,discordant,mcnemar_exact_p,mcnemar_scope,joint_detection_latency_a_faster,joint_detection_latency_b_faster,joint_detection_latency_equal
+CLOVER-ECU,Origin RF,fault,1124,0,0,76,0,1.0,descriptive; no multiplicity adjustment,0,70,1054
+CLOVER-ECU,Origin RF,benign,0,0,0,600,0,1.0,descriptive; no multiplicity adjustment,0,0,0
+CLOVER-ECU,Frozen SVM-INT,fault,1124,0,0,76,0,1.0,descriptive; no multiplicity adjustment,0,0,1124
+CLOVER-ECU,Frozen SVM-INT,benign,0,0,0,600,0,1.0,descriptive; no multiplicity adjustment,0,0,0

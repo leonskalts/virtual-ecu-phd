@@ -1,0 +1,6 @@
+{
+  "frames": 2161800,
+  "combined_observed_stack_high_water_bytes": 9416,
+  "empty_pthread_high_water_bytes": 4608,
+  "scope": "Complete common replay wrapper plus both sequential methods and pthread/TLS/runtime overhead; NOT separable per-method peaks. No subtraction claimed. Uninstrumented algorithm, external A5 stack watermark, 1 MiB dedicated pthread stack. Observed, not a proven bound."
+}

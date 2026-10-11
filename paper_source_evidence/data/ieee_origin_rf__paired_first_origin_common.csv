@@ -1,0 +1,2 @@
+cases,both_correct,only_CLOVER_correct,only_RF_correct,neither_correct,mcnemar_exact_p,scope
+1124,1124,0,0,0,1.0,First-alarm origin; UNKNOWN counts not-correct; common detected faults only; descriptive grouped cohort

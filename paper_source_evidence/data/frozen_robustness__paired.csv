@@ -1,0 +1,15 @@
+condition,method_a,method_b,endpoint,both,only_a,only_b,neither,discordant,mcnemar_exact_p,mcnemar_scope,joint_detection_latency_a_faster,joint_detection_latency_b_faster,joint_detection_latency_equal
+P0,A2,SVM-INT,fault,281,0,0,19,0,,descriptive; no multiplicity adjustment,0,0,281
+P0,A2,SVM-INT,benign,0,0,0,100,0,,descriptive; no multiplicity adjustment,0,0,0
+P1,A2,SVM-INT,fault,255,0,0,45,0,,descriptive; no multiplicity adjustment,0,0,255
+P1,A2,SVM-INT,benign,0,0,0,100,0,,descriptive; no multiplicity adjustment,0,0,0
+P2,A2,SVM-INT,fault,288,0,0,12,0,,descriptive; no multiplicity adjustment,0,0,288
+P2,A2,SVM-INT,benign,0,0,0,100,0,,descriptive; no multiplicity adjustment,0,0,0
+P3,A2,SVM-INT,fault,281,0,0,19,0,,descriptive; no multiplicity adjustment,0,0,281
+P3,A2,SVM-INT,benign,0,0,0,100,0,,descriptive; no multiplicity adjustment,0,0,0
+P4,A2,SVM-INT,fault,281,0,0,19,0,,descriptive; no multiplicity adjustment,0,0,281
+P4,A2,SVM-INT,benign,0,0,0,100,0,,descriptive; no multiplicity adjustment,0,0,0
+P5,A2,SVM-INT,fault,288,0,0,12,0,,descriptive; no multiplicity adjustment,0,0,288
+P5,A2,SVM-INT,benign,0,0,0,100,0,,descriptive; no multiplicity adjustment,0,0,0
+POOLED,A2,SVM-INT,fault,1674,0,0,126,0,,descriptive; no multiplicity adjustment,0,0,1674
+POOLED,A2,SVM-INT,benign,0,0,0,600,0,,descriptive; no multiplicity adjustment,0,0,0
